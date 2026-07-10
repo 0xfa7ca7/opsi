@@ -90,6 +90,7 @@ export async function stageTabularInput(options: {
   readonly databasePath: string;
   readonly xlsxRowsPath: string;
   readonly xlsxSharedStringsByteLimit: number;
+  readonly preserveDatabaseOnClose?: boolean;
 }): Promise<TabularStage> {
   const detection = await detectFormat(options.input);
   if (!supported(detection.format))
@@ -156,7 +157,7 @@ export async function stageTabularInput(options: {
         connection.closeSync();
         instance.closeSync();
         await Promise.all([
-          rm(options.databasePath, { force: true }),
+          ...(options.preserveDatabaseOnClose ? [] : [rm(options.databasePath, { force: true })]),
           rm(`${options.databasePath}.wal`, { force: true }),
           rm(options.xlsxRowsPath, { force: true }),
         ]);

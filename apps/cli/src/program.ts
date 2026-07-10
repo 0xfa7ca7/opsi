@@ -11,6 +11,7 @@ import { registerCacheCommand } from "./commands/cache.js";
 import { registerProvenanceCommand } from "./commands/provenance.js";
 import { registerValidateCommand } from "./commands/validate.js";
 import { registerConvertCommand } from "./commands/convert.js";
+import { registerQueryCommand } from "./commands/query.js";
 import type { CliContext } from "./context.js";
 import { addGlobalOptions } from "./options.js";
 
@@ -52,6 +53,7 @@ function createClient(context: CliContext): OpsiClient {
       cache,
       offline: configuration?.offline ?? false,
     },
+    queryWorkerPath: new URL("./query-worker.js", import.meta.url),
   });
 }
 
@@ -79,5 +81,6 @@ export function createProgram(context: CliContext): Command {
   registerProvenanceCommand(program, context);
   registerValidateCommand(program, context, client);
   registerConvertCommand(program, context, client);
+  registerQueryCommand(program, context, client);
   return program;
 }

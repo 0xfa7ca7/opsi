@@ -1,5 +1,8 @@
 export { detectFormat } from "./detect.js";
 export { DataEngine, inferredType } from "./inspect.js";
+export { QueryPolicy } from "./query-policy.js";
+export { DuckDbQueryRunner } from "./query.js";
+export { executeQueryWorker, startQueryWorker } from "./query-worker.js";
 export type {
   DataEngineOptions,
   DataInput,
@@ -22,3 +25,10 @@ export type {
   ValidationIssue,
   ValidationSeverity,
 } from "./types.js";
+export type { QueryExecutionOptions, DuckDbQueryRunnerOptions } from "./query.js";
+export type {
+  QueryLimits,
+  QueryResult,
+  QueryWorkerMessage,
+  QueryWorkerRequest,
+} from "./query-protocol.js";

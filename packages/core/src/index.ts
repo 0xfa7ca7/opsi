@@ -9,4 +9,6 @@ export { DataService } from "./data.js";
 export type { DataConversionOptions, DataOperationOptions, DataResolutionOptions } from "./data.js";
 export { ConversionService } from "./conversions.js";
 export type { ConversionServiceOptions } from "./conversions.js";
+export { QueryService } from "./queries.js";
+export type { QueryServiceOptions, QueryServiceResult } from "./queries.js";
 export { validateDatasetMetadata, validateResourceMetadata } from "./metadata-validation.js";

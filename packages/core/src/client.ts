@@ -7,6 +7,8 @@ import type { ContentCache } from "@opsi/storage";
 import { DataEngine } from "@opsi/data-engine";
 import { DataService } from "./data.js";
 import { ConversionService } from "./conversions.js";
+import { QueryService } from "./queries.js";
+import { DuckDbQueryRunner } from "@opsi/data-engine";
 
 export interface OpsiClientOptions {
   readonly registry: ProviderRegistry;
@@ -14,6 +16,7 @@ export interface OpsiClientOptions {
   readonly downloads?: Omit<DownloadServiceOptions, "registry" | "providerId">;
   readonly cache?: ContentCache;
   readonly cwd?: string;
+  readonly queryWorkerPath?: string | URL;
 }
 
 export class OpsiClient {
@@ -24,6 +27,7 @@ export class OpsiClient {
   readonly cache?: CacheService;
   readonly data: DataService;
   readonly conversions: ConversionService;
+  readonly query: QueryService;
   private readonly registry: ProviderRegistry;
   private readonly providerId: string;
 
@@ -35,6 +39,13 @@ export class OpsiClient {
     this.providers = new ProviderCatalog(this.registry);
     this.data = new DataService(this, new DataEngine(), { cwd: options.cwd ?? process.cwd() });
     this.conversions = new ConversionService(this.data);
+    const queryWorkerPath =
+      options.queryWorkerPath ??
+      new URL("./query-worker.js", import.meta.resolve("@opsi/data-engine"));
+    this.query = new QueryService(
+      this.data,
+      new DuckDbQueryRunner({ workerPath: queryWorkerPath }),
+    );
     if (options.downloads !== undefined)
       this.downloads = new DownloadService({
         ...options.downloads,

@@ -44,7 +44,7 @@ export class DataService {
     this.local = new LocalProvider(options);
   }
 
-  private async withInput<T>(
+  async withResolvedInput<T>(
     input: string,
     options: DataResolutionOptions,
     operation: (source: DataInput) => Promise<T>,
@@ -98,23 +98,27 @@ export class DataService {
   }
 
   inspect(input: string, options: DataResolutionOptions = {}) {
-    return this.withInput(input, options, (source) => this.engine.inspect(source));
+    return this.withResolvedInput(input, options, (source) => this.engine.inspect(source));
   }
 
   preview(input: string, options: DataOperationOptions = {}) {
-    return this.withInput(input, options, (source) => this.engine.preview(source, options));
+    return this.withResolvedInput(input, options, (source) => this.engine.preview(source, options));
   }
 
   inferSchema(input: string, options: DataOperationOptions = {}) {
-    return this.withInput(input, options, (source) => this.engine.inferSchema(source, options));
+    return this.withResolvedInput(input, options, (source) =>
+      this.engine.inferSchema(source, options),
+    );
   }
 
   validate(input: string, options: DataOperationOptions = {}) {
-    return this.withInput(input, options, (source) => this.engine.validate(source, options));
+    return this.withResolvedInput(input, options, (source) =>
+      this.engine.validate(source, options),
+    );
   }
 
   convert(input: string, options: DataConversionOptions): Promise<ConversionResult> {
-    return this.withInput(input, options, (source) =>
+    return this.withResolvedInput(input, options, (source) =>
       this.engine.convert({
         input: source,
         output: options.output,

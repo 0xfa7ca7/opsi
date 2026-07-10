@@ -1,0 +1,176 @@
+import { createHash, randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { open, rename, rm } from "node:fs/promises";
+import { extname, resolve } from "node:path";
+import {
+  DuckDbQueryRunner,
+  type DataInput,
+  type DataRow,
+  type QueryResult,
+} from "@opsi/data-engine";
+import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import type { DataResolutionOptions, DataService } from "./data.js";
+
+export interface QueryServiceOptions extends DataResolutionOptions {
+  readonly sql: string;
+  readonly limit?: number;
+  readonly timeoutMs?: number;
+  readonly memoryLimit?: string;
+  readonly threads?: number;
+  readonly sheet?: string;
+  readonly output?: string;
+  readonly force?: boolean;
+  readonly signal?: AbortSignal;
+}
+
+export interface QueryServiceResult extends QueryResult {
+  readonly source: string;
+  readonly durationMs: number;
+  readonly output?: string;
+  readonly provenancePath?: string;
+}
+
+async function digest(path: string): Promise<{ readonly sha256: string; readonly bytes: number }> {
+  const hash = createHash("sha256");
+  let bytes = 0;
+  for await (const raw of createReadStream(path)) {
+    const chunk = Buffer.from(raw as Uint8Array);
+    hash.update(chunk);
+    bytes += chunk.length;
+  }
+  return { sha256: hash.digest("hex"), bytes };
+}
+
+function cell(value: unknown, delimiter: string): string {
+  if (value === null || value === undefined) return "";
+  const text = typeof value === "object" ? JSON.stringify(value) : String(value);
+  return text.includes(delimiter) || /["\r\n]/u.test(text)
+    ? `"${text.replaceAll('"', '""')}"`
+    : text;
+}
+
+function serialize(rows: readonly DataRow[], output: string): string {
+  const format = extname(output).toLowerCase();
+  if (format === ".json") return `${JSON.stringify(rows)}\n`;
+  if (format === ".ndjson")
+    return rows.map((row) => JSON.stringify(row)).join("\n") + (rows.length ? "\n" : "");
+  if (format !== ".csv" && format !== ".tsv")
+    throw new OpsiError({
+      code: "QUERY_OUTPUT_FORMAT",
+      message: "Query output must end in .csv, .tsv, .json, or .ndjson.",
+      exitCode: EXIT_CODES.QUERY_FAILURE,
+    });
+  if (rows.length === 0) return "";
+  const delimiter = format === ".csv" ? "," : "\t";
+  const columns = Object.keys(rows[0] ?? {});
+  return `${[columns.join(delimiter), ...rows.map((row) => columns.map((column) => cell(row[column], delimiter)).join(delimiter))].join("\n")}\n`;
+}
+
+async function publishQueryOutput(
+  input: string,
+  output: string,
+  sql: string,
+  rows: readonly DataRow[],
+  force: boolean,
+) {
+  const destination = resolve(output);
+  const temp = `${destination}.tmp-${process.pid}-${randomUUID()}`;
+  const provenancePath = `${destination}.provenance.json`;
+  const provenanceTemp = `${provenancePath}.tmp-${process.pid}-${randomUUID()}`;
+  const handle = await open(temp, "wx", 0o600);
+  try {
+    await handle.writeFile(serialize(rows, destination));
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  try {
+    if (!force) {
+      try {
+        await open(destination, "wx").then((placeholder) => placeholder.close());
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "EEXIST")
+          throw new OpsiError({
+            code: "QUERY_DESTINATION_EXISTS",
+            message: "The query output already exists.",
+            exitCode: EXIT_CODES.QUERY_FAILURE,
+            suggestion: "Use --force to replace it.",
+          });
+        throw error;
+      }
+      await rm(destination, { force: true });
+    }
+    await rename(temp, destination);
+    const [sourceDigest, outputDigest] = await Promise.all([digest(input), digest(destination)]);
+    const provenance = {
+      schemaVersion: "1",
+      retrievedAt: new Date().toISOString(),
+      ...outputDigest,
+      localPath: destination,
+      transformations: [
+        {
+          operation: "query",
+          timestamp: new Date().toISOString(),
+          inputSha256: sourceDigest.sha256,
+          details: { sql },
+        },
+      ],
+    };
+    const sidecar = await open(provenanceTemp, "wx", 0o600);
+    try {
+      await sidecar.writeFile(`${JSON.stringify(provenance, null, 2)}\n`);
+      await sidecar.sync();
+    } finally {
+      await sidecar.close();
+    }
+    await rename(provenanceTemp, provenancePath);
+    return { output: destination, provenancePath };
+  } catch (error) {
+    await Promise.all([rm(temp, { force: true }), rm(provenanceTemp, { force: true })]);
+    throw error;
+  }
+}
+
+function sourcePath(input: DataInput): string {
+  return typeof input === "string" ? input : input.path;
+}
+
+export class QueryService {
+  constructor(
+    private readonly data: DataService,
+    private readonly runner: DuckDbQueryRunner,
+  ) {}
+
+  execute(input: string, options: QueryServiceOptions): Promise<QueryServiceResult> {
+    return this.data.withResolvedInput(input, options, async (source) => {
+      const started = performance.now();
+      const result = await this.runner.execute({
+        input: source,
+        sql: options.sql,
+        ...(options.limit === undefined ? {} : { rowLimit: options.limit }),
+        ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+        ...(options.memoryLimit === undefined ? {} : { memoryLimit: options.memoryLimit }),
+        ...(options.threads === undefined ? {} : { threads: options.threads }),
+        ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      });
+      const sourceName = resolve(sourcePath(source));
+      const publication =
+        options.output === undefined
+          ? {}
+          : await publishQueryOutput(
+              sourceName,
+              options.output,
+              options.sql,
+              result.rows,
+              options.force ?? false,
+            );
+      return {
+        ...result,
+        source: sourceName,
+        durationMs: performance.now() - started,
+        ...publication,
+      };
+    });
+  }
+}
