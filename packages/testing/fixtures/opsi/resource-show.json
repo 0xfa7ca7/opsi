@@ -1,0 +1,15 @@
+{
+  "help": "https://podatki.gov.si/api/3/action/help_show?name=resource_show",
+  "success": true,
+  "result": {
+    "id": "resource-1",
+    "package_id": "dataset-abc",
+    "name": "Meritve",
+    "description": "CSV meritve",
+    "url": "https://example.invalid/promet.csv",
+    "format": "CSV",
+    "datastore_active": false,
+    "qa": "{'status': 'unknown'}",
+    "unknown_resource_field": { "keep": true }
+  }
+}

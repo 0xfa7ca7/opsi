@@ -1,0 +1,9 @@
+{
+  "help": "https://podatki.gov.si/api/3/action/help_show?name=resource_show",
+  "success": false,
+  "error": {
+    "__type": "Not Found Error",
+    "message": "Not found",
+    "unknown_error_field": null
+  }
+}

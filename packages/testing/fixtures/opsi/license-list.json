@@ -1,0 +1,15 @@
+{
+  "help": "https://podatki.gov.si/api/3/action/help_show?name=license_list",
+  "success": true,
+  "result": [
+    {
+      "id": "cc-by",
+      "title": "Creative Commons Attribution",
+      "url": "https://creativecommons.org/licenses/by/4.0/",
+      "status": "active",
+      "domain_data": true,
+      "is_okd_compliant": true,
+      "unknown_license_field": null
+    }
+  ]
+}

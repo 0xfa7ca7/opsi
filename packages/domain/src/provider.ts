@@ -5,6 +5,7 @@ export interface SearchFilters {
   readonly organization?: string;
   readonly tags?: readonly string[];
   readonly formats?: readonly string[];
+  readonly license?: string;
   readonly modifiedAfter?: string;
   readonly modifiedBefore?: string;
 }

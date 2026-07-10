@@ -17,8 +17,10 @@
   },
   "dependencies": {
     "@opsi/config": "workspace:*",
+    "@opsi/core": "workspace:*",
     "@opsi/domain": "workspace:*",
     "@opsi/output": "workspace:*",
+    "@opsi/provider-opsi": "workspace:*",
     "commander": "15.0.0"
   }
 }

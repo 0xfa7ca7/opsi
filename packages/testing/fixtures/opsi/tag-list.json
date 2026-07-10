@@ -1,0 +1,5 @@
+{
+  "help": "https://podatki.gov.si/api/3/action/help_show?name=tag_list",
+  "success": true,
+  "result": ["promet", "mobilnost"]
+}

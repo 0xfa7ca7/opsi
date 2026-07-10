@@ -1,0 +1,15 @@
+{
+  "help": "https://podatki.gov.si/api/3/action/help_show?name=organization_list",
+  "success": true,
+  "result": [
+    {
+      "id": "org-1",
+      "name": "ministrstvo",
+      "title": "Ministrstvo",
+      "description": "",
+      "approval_status": "approved",
+      "packages": 12,
+      "unknown_org_field": null
+    }
+  ]
+}

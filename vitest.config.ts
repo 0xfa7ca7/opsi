@@ -5,8 +5,10 @@ const workspacePackage = (path: string): string => fileURLToPath(new URL(path, i
 const workspaceResolve = {
   alias: {
     "@opsi/config": workspacePackage("./packages/config/src/index.ts"),
+    "@opsi/core": workspacePackage("./packages/core/src/index.ts"),
     "@opsi/domain": workspacePackage("./packages/domain/src/index.ts"),
     "@opsi/output": workspacePackage("./packages/output/src/index.ts"),
+    "@opsi/provider-opsi": workspacePackage("./packages/providers/opsi/src/index.ts"),
   },
 };
 

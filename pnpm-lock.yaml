@@ -44,12 +44,18 @@ importers:
       '@opsi/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@opsi/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@opsi/domain':
         specifier: workspace:*
         version: link:../../packages/domain
       '@opsi/output':
         specifier: workspace:*
         version: link:../../packages/output
+      '@opsi/provider-opsi':
+        specifier: workspace:*
+        version: link:../../packages/providers/opsi
       commander:
         specifier: 15.0.0
         version: 15.0.0
@@ -66,6 +72,12 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
 
+  packages/core:
+    dependencies:
+      '@opsi/domain':
+        specifier: workspace:*
+        version: link:../domain
+
   packages/domain: {}
 
   packages/output:
@@ -73,6 +85,15 @@ importers:
       string-width:
         specifier: 8.2.2
         version: 8.2.2
+
+  packages/providers/opsi:
+    dependencies:
+      '@opsi/domain':
+        specifier: workspace:*
+        version: link:../../domain
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
 
   packages/testing: {}
 

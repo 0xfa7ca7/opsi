@@ -1,0 +1,29 @@
+{
+  "help": "https://podatki.gov.si/api/3/action/help_show?name=package_show",
+  "success": true,
+  "result": {
+    "id": "dataset-abc",
+    "name": "prometni-podatki",
+    "title": "Prometni podatki",
+    "notes": "Sanitized fixture",
+    "metadata_modified": "2026-06-01T12:00:00.000000",
+    "license_id": "cc-by",
+    "license_title": "Creative Commons Attribution",
+    "organization": { "id": "org-1", "name": "ministrstvo", "title": "Ministrstvo" },
+    "tags": [{ "id": "tag-1", "name": "promet", "vocabulary_id": null }],
+    "resources": [
+      {
+        "id": "resource-1",
+        "name": "Meritve",
+        "description": null,
+        "url": "https://example.invalid/promet.csv",
+        "format": "CSV",
+        "size": "not-a-number",
+        "archiver": "{'is_broken': False}",
+        "unknown_resource_field": ["preserved"]
+      }
+    ],
+    "bulk_download": "true",
+    "unknown_dataset_field": { "nested": true }
+  }
+}
