@@ -1,12 +1,12 @@
 import type { CliConfigurationOptions, OutputFormat } from "@opsi/config";
 import { InvalidArgumentError, Option, type Command } from "commander";
 
-const FORMATS = ["human", "json", "ndjson", "csv", "tsv"] as const;
-const STRUCTURED_FORMATS = FORMATS.slice(1);
+const OUTPUT_FORMATS = ["table", "json", "ndjson", "csv", "tsv"] as const;
+const STRUCTURED_FORMATS = ["json", "ndjson", "csv", "tsv"] as const;
 
 export interface GlobalOptions {
   readonly provider?: string;
-  readonly output?: OutputFormat;
+  readonly outputFormat?: (typeof OUTPUT_FORMATS)[number];
   readonly offline?: boolean;
   readonly cacheDir?: string;
   readonly downloadDir?: string;
@@ -36,18 +36,26 @@ function integer(value: string): number {
 
 export function addGlobalOptions(program: Command): Command {
   program
-    .addOption(new Option("--json", "render JSON").conflicts(["ndjson", "csv", "tsv", "output"]))
+    .addOption(
+      new Option("--json", "render JSON").conflicts(["ndjson", "csv", "tsv", "outputFormat"]),
+    )
     .addOption(
       new Option("--ndjson", "render newline-delimited JSON").conflicts([
         "json",
         "csv",
         "tsv",
-        "output",
+        "outputFormat",
       ]),
     )
-    .addOption(new Option("--csv", "render CSV").conflicts(["json", "ndjson", "tsv", "output"]))
-    .addOption(new Option("--tsv", "render TSV").conflicts(["json", "ndjson", "csv", "output"]))
-    .addOption(new Option("--output <format>", "select output format").choices([...FORMATS]))
+    .addOption(
+      new Option("--csv", "render CSV").conflicts(["json", "ndjson", "tsv", "outputFormat"]),
+    )
+    .addOption(
+      new Option("--tsv", "render TSV").conflicts(["json", "ndjson", "csv", "outputFormat"]),
+    )
+    .addOption(
+      new Option("--output-format <format>", "select output format").choices([...OUTPUT_FORMATS]),
+    )
     .option("--provider <id>", "select provider")
     .option("--offline", "disable network access")
     .option("--cache-dir <path>", "override cache directory")
@@ -88,8 +96,9 @@ export function requestedOutputFormat(argv: readonly string[]): OutputFormat | u
   for (const format of STRUCTURED_FORMATS) {
     if (argv.includes(`--${format}`)) return format;
   }
-  const output = optionValue(argv, "--output");
-  return FORMATS.includes(output as (typeof FORMATS)[number])
+  const output = optionValue(argv, "--output-format");
+  if (output === "table") return "human";
+  return STRUCTURED_FORMATS.includes(output as (typeof STRUCTURED_FORMATS)[number])
     ? (output as OutputFormat)
     : undefined;
 }

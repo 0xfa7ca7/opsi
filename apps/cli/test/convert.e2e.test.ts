@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import ExcelJS from "exceljs";
@@ -19,6 +19,7 @@ let input: string;
 
 beforeEach(async () => {
   home = await mkdtemp(join(tmpdir(), "opsi-convert-e2e-"));
+  home = await realpath(home);
   input = join(home, "input.xlsx");
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Data");
@@ -33,7 +34,13 @@ afterEach(async () => rm(home, { recursive: true, force: true }));
 async function cli(argv: readonly string[]): Promise<CliResult> {
   const child = spawn(process.execPath, [resolve("apps/cli/dist/main.js"), ...argv], {
     cwd: home,
-    env: { ...process.env, HOME: home, NO_COLOR: "1" },
+    env: {
+      ...process.env,
+      HOME: home,
+      OPSI_CACHE_DIR: join(home, "cache"),
+      OPSI_DOWNLOAD_DIR: join(home, "downloads"),
+      NO_COLOR: "1",
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let stdout = "";
@@ -115,4 +122,26 @@ describe("convert CLI", () => {
       columns: ["občina", "vrednost", "opomba"],
     });
   });
+
+  it.each(["json", "csv"])(
+    "treats literal destination %s as a path without changing the renderer",
+    async (destination) => {
+      const result = await cli([
+        "convert",
+        input,
+        "--sheet",
+        "Data",
+        "--to",
+        "parquet",
+        "--output",
+        destination,
+      ]);
+      expect(result).toMatchObject({ exitCode: 0, stderr: "" });
+      expect(result.json).toBeUndefined();
+      expect(result.stdout.split("\n", 1)[0]).toMatch(/^input\s{2,}output\s{2,}targetFormat/u);
+      await expect(new DataEngine().preview(join(home, destination))).resolves.toMatchObject({
+        format: "parquet",
+      });
+    },
+  );
 });

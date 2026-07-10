@@ -81,37 +81,3 @@ export function createProgram(context: CliContext): Command {
   registerConvertCommand(program, context, client);
   return program;
 }
-
-export function normalizeProgramArgv(argv: readonly string[]): readonly string[] {
-  const optionsWithValues = new Set([
-    "--output",
-    "--provider",
-    "--cache-dir",
-    "--download-dir",
-    "--http-timeout-ms",
-    "--max-download-bytes",
-    "--preview-row-limit",
-    "--query-row-limit",
-    "--query-timeout-ms",
-    "--duckdb-memory-limit",
-    "--duckdb-threads",
-  ]);
-  let command = -1;
-  for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index] as string;
-    if (optionsWithValues.has(token)) {
-      index += 1;
-      continue;
-    }
-    if (token.startsWith("-")) continue;
-    command = index;
-    break;
-  }
-  if (command === -1 || argv[command] !== "convert") return argv;
-  return argv.map((token, index) => {
-    if (index <= command) return token;
-    if (token === "--output") return "--destination";
-    if (token.startsWith("--output=")) return `--destination=${token.slice("--output=".length)}`;
-    return token;
-  });
-}

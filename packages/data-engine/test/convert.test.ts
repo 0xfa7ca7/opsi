@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, open, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DuckDBInstance } from "@duckdb/node-api";
@@ -241,7 +241,8 @@ describe("tabular conversion", () => {
     await writeFile(replacement, JSON.stringify([{ changed: true }]));
     const failingEngine = new DataEngine({
       onAdapter: (name) => {
-        if (name === "convert-output-published") throw new Error("injected publication failure");
+        if (name === "convert-provenance-published")
+          throw new Error("injected publication failure");
       },
     });
 
@@ -258,6 +259,112 @@ describe("tabular conversion", () => {
     expect((await readdir(root)).filter((name) => name.startsWith("rollback.json."))).toEqual([
       "rollback.json.provenance.json",
     ]);
+  });
+
+  it.each([
+    ["first", 1],
+    ["second", 2],
+  ] as const)(
+    "retains actionable backups when the %s forced restore fails",
+    async (_position, failingRestore) => {
+      const inputs = await createInputs();
+      const output = path(`restore-${failingRestore}.json`);
+      await new DataEngine().convert({
+        input: inputs.json,
+        output,
+        targetFormat: "json",
+        force: false,
+      });
+      const originalOutput = await readFile(output);
+      const originalProvenance = await readFile(`${output}.provenance.json`);
+      const replacement = path(`replacement-${failingRestore}.json`);
+      await writeFile(replacement, JSON.stringify([{ changed: failingRestore }]));
+      let restore = 0;
+      const engine = new DataEngine({
+        onAdapter: (name) => {
+          if (name === "convert-provenance-published") throw new Error("trigger rollback");
+        },
+        conversionFileSystem: {
+          rename: async (source, destination) => {
+            if (source.includes(".restore-")) {
+              restore += 1;
+              if (restore === failingRestore)
+                throw Object.assign(new Error(`restore ${failingRestore} failed`), {
+                  code: "EIO",
+                });
+            }
+            await rename(source, destination);
+          },
+        },
+      });
+
+      const error = await engine
+        .convert({ input: replacement, output, targetFormat: "json", force: true })
+        .then(
+          () => undefined,
+          (candidate: unknown) => candidate,
+        );
+      expect(error).toMatchObject({
+        code: "CONVERSION_ROLLBACK_FAILED",
+        exitCode: 6,
+        context: {
+          output: {
+            original: output,
+            backup: expect.stringContaining(".backup-"),
+            restored: failingRestore !== 1,
+          },
+          provenance: {
+            original: `${output}.provenance.json`,
+            backup: expect.stringContaining(".backup-"),
+            restored: failingRestore !== 2,
+          },
+          failures: [
+            expect.objectContaining({
+              code: "EIO",
+              backup: expect.stringContaining(".backup-"),
+            }),
+          ],
+        },
+      });
+      const context = (error as { context: Record<string, { backup: string }> }).context;
+      const outputBackup = context.output?.backup as string;
+      const provenanceBackup = context.provenance?.backup as string;
+      await expect(readFile(outputBackup)).resolves.toEqual(originalOutput);
+      await expect(readFile(provenanceBackup)).resolves.toEqual(originalProvenance);
+      if (failingRestore === 1) {
+        await expect(readFile(output)).resolves.not.toEqual(originalOutput);
+        await expect(readFile(`${output}.provenance.json`)).resolves.toEqual(originalProvenance);
+      } else {
+        await expect(readFile(output)).resolves.toEqual(originalOutput);
+        await expect(readFile(`${output}.provenance.json`)).resolves.not.toEqual(
+          originalProvenance,
+        );
+      }
+    },
+  );
+
+  it("propagates supported directory sync failures and rolls back publication", async () => {
+    const inputs = await createInputs();
+    const output = path("sync-failure.json");
+    let directoryOpens = 0;
+    const engine = new DataEngine({
+      conversionFileSystem: {
+        open: async (candidate, flags, mode) => {
+          if (candidate === root && flags === "r") {
+            directoryOpens += 1;
+            if (directoryOpens === 1)
+              throw Object.assign(new Error("directory sync failed"), { code: "EIO" });
+          }
+          return open(candidate, flags, mode);
+        },
+      },
+    });
+
+    await expect(
+      engine.convert({ input: inputs.json, output, targetFormat: "json", force: false }),
+    ).rejects.toMatchObject({ code: "EIO" });
+    await expect(readFile(output)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(`${output}.provenance.json`)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("hashes both sides of the derivation before publishing provenance", async () => {

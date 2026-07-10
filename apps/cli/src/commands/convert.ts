@@ -19,11 +19,7 @@ export function registerConvertCommand(
         .choices([...TARGET_FORMATS])
         .makeOptionMandatory(),
     )
-    // Commander cannot disambiguate this command-local flag from the global
-    // renderer --output flag. program.ts rewrites it to the hidden destination
-    // spelling after the `convert` token, while help remains user-facing.
-    .option("--output <path>", "destination file path")
-    .addOption(new Option("--destination <path>").makeOptionMandatory().hideHelp())
+    .requiredOption("--output <path>", "destination file path")
     .option("--sheet <name>", "XLSX sheet name")
     .option("--force", "replace an existing regular destination")
     .option("--spreadsheet-safe", "prefix formula-like string values")
@@ -34,7 +30,7 @@ export function registerConvertCommand(
         input: string,
         options: {
           readonly to: SupportedDataFormat;
-          readonly destination: string;
+          readonly output: string;
           readonly sheet?: string;
           readonly force?: boolean;
           readonly spreadsheetSafe?: boolean;
@@ -43,7 +39,7 @@ export function registerConvertCommand(
         },
       ) => {
         const result = await client.conversions.convert(input, {
-          output: options.destination,
+          output: options.output,
           targetFormat: options.to,
           ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
           force: options.force ?? false,

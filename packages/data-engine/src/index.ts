@@ -10,6 +10,7 @@ export type {
   DataValidationResult,
   ConversionOptions,
   ConversionResult,
+  ConversionFileSystem,
   DetectedInputFormat,
   DetectionConfidence,
   FormatDetection,

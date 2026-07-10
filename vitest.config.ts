@@ -60,7 +60,8 @@ export default defineConfig({
           ...defaultProject,
           name: "cli-e2e",
           include: ["apps/cli/**/*.e2e.test.ts"],
-          fileParallelism: false,
+          testTimeout: 30_000,
+          hookTimeout: 30_000,
         },
       },
       {

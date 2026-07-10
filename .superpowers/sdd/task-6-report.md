@@ -96,19 +96,118 @@ pnpm check
 ```
 
 The first parallel full-suite attempt exposed four CLI timeout failures under
-native/E2E contention (238/242 tests passed). Vitest 4 documentation confirms
-`fileParallelism: false` scopes execution to one worker; applying it only to the
-CLI E2E project made the complete gate deterministic.
+native/E2E contention (238/242 tests passed). The initial response temporarily
+used `fileParallelism: false`; formal review rejected serialization. The formal
+fix evidence below supersedes that mitigation with isolated E2E roots, normal
+parallel execution, and wider scheduler-independent test margins.
 
 ## Review
 
-Independent review reported no Critical findings. All Important findings were
-addressed: force rollback, relative provenance paths, scoped argv normalization,
-per-cell spreadsheet counts, output fsync, and single-object JSON. Its NDJSON
-target gap and quoted-empty/null observation were also covered with regressions.
+An initial independent review reported no Critical findings. The controller's
+formal review subsequently found a Critical restore-failure path plus important
+CLI, directory-durability, and E2E-parallelism findings. The section below
+records the test-first fixes and supersedes the earlier assessment.
 
 No format edge is omitted and there are no known blockers. Publication of two
 filesystem names cannot be one filesystem transaction; forced conversion uses
 atomic per-file rename plus retained hard-link backups and tested rollback so a
 reported failure does not leave the replacement output paired with stale
 provenance.
+
+## Formal reviewer fixes
+
+### RED
+
+Rollback and directory durability:
+
+```text
+pnpm vitest run --project integration packages/data-engine/test/convert.test.ts \
+  -t "restores a forced|retains actionable|directory sync"
+# 4 failed, 9 skipped
+```
+
+- The after-provenance failure hook resolved instead of rejecting.
+- First- and second-restore injected failures returned no typed error.
+- An injected directory `EIO` was suppressed and conversion returned success.
+
+CLI ownership and renderer semantics:
+
+```text
+pnpm vitest run --project unit apps/cli/test/runtime.test.ts
+# 6 failed, 6 passed
+```
+
+Failures showed that `--output-format` was absent, direct `createProgram()` still
+used the hidden destination workaround, bootstrap output selection was missing,
+and `table` was not mapped to human rendering.
+
+The first full parallel gate after removing E2E serialization reached 257/259;
+two cache-lock tests used 30/50 ms “fresh owner” thresholds and falsely crossed
+into stale recovery during parallel child-process/native load. Their cache paths
+were unique, so this was scheduler-sensitive timing rather than shared state.
+
+### GREEN
+
+Critical rollback behavior now tracks each publication, retained backup, restore
+link, and restore result. Forced rollback restores through separate hard links so
+both original backups remain until both restores succeed. First- or
+second-restore failure returns `CONVERSION_ROLLBACK_FAILED` with exit 6, original,
+backup, restore-link, error code/message, and an `AggregateError` cause. Finally
+cleanup never removes recovery backups.
+
+```text
+pnpm vitest run --project integration packages/data-engine/test/convert.test.ts \
+  -t "restores a forced|retains actionable|directory sync"
+# 4 passed, 9 skipped
+
+pnpm vitest run --project integration packages/data-engine/test/convert.test.ts
+# 13 passed
+```
+
+Directory durability uses injected filesystem operations. Output and provenance
+files plus their parent directory are synced after each publication and rollback.
+Only explicit unsupported-directory codes are tolerated; injected `EIO` is
+propagated and the unpublished pair is removed.
+
+The global renderer selector is now exactly
+`--output-format <table|json|ndjson|csv|tsv>`; structured flags and environment
+configuration remain. Convert directly owns required `--output <path>`, with no
+argv normalization or hidden option. Direct program help and parsing are tested,
+and literal destinations `json` and `csv` remain paths under human rendering.
+
+```text
+pnpm vitest run --project unit apps/cli/test/runtime.test.ts
+# 13 passed
+
+pnpm vitest run --project cli-e2e apps/cli/test/convert.e2e.test.ts
+# 4 passed
+```
+
+CLI E2E serialization was removed. Every suite uses a unique home, cache, and
+download directory; HTTP fixtures use ephemeral ports and close their servers.
+The normal-parallel CLI project passed three consecutive runs:
+
+```text
+for run in 1 2 3; do pnpm vitest run --project cli-e2e || exit 1; done
+# run 1: 4 files passed, 15 tests passed
+# run 2: 4 files passed, 15 tests passed
+# run 3: 4 files passed, 15 tests passed
+```
+
+Fresh-owner cache-lock test margins were raised to 5 seconds while explicit stale
+recovery remains at `heartbeatAt = 0` with `staleMs = 1/30`; the two focused tests
+pass without changing production locking behavior.
+
+Final verification:
+
+```text
+pnpm check
+# format: passed
+# lint: passed
+# typecheck: passed
+# tests: 28 files passed, 259 tests passed
+# build: passed
+```
+
+The independent formal-fix re-review returned `APPROVED`. No formal Task 6
+finding remains open.

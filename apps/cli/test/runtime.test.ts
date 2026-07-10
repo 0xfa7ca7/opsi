@@ -5,7 +5,7 @@ import { loadConfiguration, resolveConfigPaths } from "@opsi/config";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCli, type CliIo } from "../src/main.js";
 import { cliConfigurationFromArgv, requestedOutputFormat } from "../src/options.js";
-import { normalizeProgramArgv } from "../src/program.js";
+import { createProgram } from "../src/program.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -99,7 +99,7 @@ describe("CLI runtime", () => {
   it("writes structured configuration errors for equals-form output selection", async () => {
     const fixture = await fixtureIo({ invalidConfig: true });
 
-    await expect(runCli(["--output=json"], fixture.io)).resolves.toBe(2);
+    await expect(runCli(["--output-format=json"], fixture.io)).resolves.toBe(2);
     expect(JSON.parse(fixture.stdout.join(""))).toMatchObject({
       schemaVersion: "1",
       data: null,
@@ -110,23 +110,24 @@ describe("CLI runtime", () => {
 });
 
 describe("CLI bootstrap options", () => {
-  it("rewrites conversion output only when convert is the actual command", () => {
-    expect(
-      normalizeProgramArgv(["--provider", "convert", "providers", "--output", "json"]),
-    ).toEqual(["--provider", "convert", "providers", "--output", "json"]);
-    expect(normalizeProgramArgv(["convert", "input.csv", "--output", "out.parquet"])).toEqual([
-      "convert",
-      "input.csv",
-      "--destination",
-      "out.parquet",
-    ]);
+  it("gives convert direct ownership of --output and documents no hidden destination", async () => {
+    const fixture = await fixtureIo();
+    const program = createProgram({ io: fixture.io, version: "1.0.0" });
+    const convert = program.commands.find((candidate) => candidate.name() === "convert");
+    expect(convert).toBeDefined();
+    expect(program.options.map((option) => option.flags)).toContain("--output-format <format>");
+    expect(program.options.map((option) => option.flags)).not.toContain("--output <format>");
+    expect(convert?.helpInformation()).toContain("--output <path>");
+    expect(convert?.helpInformation()).not.toContain("--destination");
+    convert?.parseOptions(["input.csv", "--to", "csv", "--output", "json"]);
+    expect(convert?.opts()).toMatchObject({ output: "json", to: "csv" });
   });
 
   it("applies equals-form values for every bootstrap configuration option", () => {
     expect(
       cliConfigurationFromArgv([
         "--provider=custom",
-        "--output=json",
+        "--output-format=json",
         "--cache-dir=/tmp/cache",
         "--download-dir=/tmp/downloads",
         "--http-timeout-ms=100",
@@ -150,7 +151,7 @@ describe("CLI bootstrap options", () => {
       duckdbMemoryLimit: "2GB",
       duckdbThreads: 3,
     });
-    expect(requestedOutputFormat(["--output=json"])).toBe("json");
+    expect(requestedOutputFormat(["--output-format=json"])).toBe("json");
   });
 
   it("retains separate-token bootstrap option parsing", () => {
@@ -158,13 +159,13 @@ describe("CLI bootstrap options", () => {
       cliConfigurationFromArgv([
         "--provider",
         "custom",
-        "--output",
+        "--output-format",
         "json",
         "--query-row-limit",
         "30",
       ]),
     ).toMatchObject({ provider: "custom", output: "json", queryRowLimit: 30 });
-    expect(requestedOutputFormat(["--output", "json"])).toBe("json");
+    expect(requestedOutputFormat(["--output-format", "json"])).toBe("json");
   });
 
   it("gives equals-form output CLI precedence over the environment", async () => {
@@ -178,9 +179,22 @@ describe("CLI bootstrap options", () => {
       home,
       paths,
       env: { OPSI_OUTPUT: "csv" },
-      cli: cliConfigurationFromArgv(["--output=json"]),
+      cli: cliConfigurationFromArgv(["--output-format=json"]),
     });
 
     expect(configuration.output).toBe("json");
+  });
+
+  it("maps the table output-format spelling to human rendering", () => {
+    expect(cliConfigurationFromArgv(["--output-format", "table"])).toMatchObject({
+      output: "human",
+    });
+    expect(requestedOutputFormat(["--output-format=table"])).toBe("human");
+  });
+
+  it("never treats convert destination names as renderer options", () => {
+    const argv = ["convert", "input.csv", "--to", "parquet", "--output", "json"];
+    expect(requestedOutputFormat(argv)).toBeUndefined();
+    expect(cliConfigurationFromArgv(argv)).not.toHaveProperty("output");
   });
 });

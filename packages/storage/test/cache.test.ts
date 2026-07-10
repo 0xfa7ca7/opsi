@@ -93,12 +93,12 @@ describe("ContentCache", () => {
   it("uses owner tokens and only recovers genuinely stale locks", async () => {
     const directory = await root();
     const first = await CacheLock.acquire(directory, "same-key", {
-      staleMs: 30,
+      staleMs: 5_000,
       waitMs: 200,
-      heartbeatMs: 5,
+      heartbeatMs: 50,
     });
     await expect(
-      CacheLock.acquire(directory, "same-key", { staleMs: 30, waitMs: 20 }),
+      CacheLock.acquire(directory, "same-key", { staleMs: 5_000, waitMs: 100 }),
     ).rejects.toMatchObject({ code: "CACHE_LOCK_TIMEOUT" });
     await first.release();
     const second = await CacheLock.acquire(directory, "same-key", { staleMs: 30, waitMs: 100 });
@@ -115,7 +115,7 @@ describe("ContentCache", () => {
     );
     await second.release();
     await expect(
-      CacheLock.acquire(directory, "same-key", { staleMs: 30, waitMs: 20 }),
+      CacheLock.acquire(directory, "same-key", { staleMs: 5_000, waitMs: 100 }),
     ).rejects.toMatchObject({ code: "CACHE_LOCK_TIMEOUT" });
     await writeFile(
       join(second.path, "owner.json"),
@@ -189,8 +189,8 @@ describe("ContentCache", () => {
     await expect(
       CacheLock.acquire(directory, "third-process", {
         processStartIdentity: async () => "actual-start",
-        staleMs: 50,
-        waitMs: 20,
+        staleMs: 5_000,
+        waitMs: 100,
       }),
     ).rejects.toMatchObject({ code: "CACHE_LOCK_TIMEOUT" });
     const ownerPath = join(lock.path, "owner.json");

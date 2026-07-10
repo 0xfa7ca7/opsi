@@ -1,4 +1,6 @@
 import type { ConversionResult as DomainConversionResult } from "@opsi/domain";
+import type { Stats } from "node:fs";
+import type { FileHandle } from "node:fs/promises";
 
 export type SupportedDataFormat = "csv" | "tsv" | "json" | "ndjson" | "xlsx" | "parquet";
 export type DetectedInputFormat = SupportedDataFormat | "zip" | "unknown";
@@ -93,6 +95,22 @@ export interface DataEngineOptions {
   readonly validationMaxColumns?: number;
   readonly validationMaxStateBytes?: number;
   readonly validationMaxIssueGroups?: number;
+  readonly conversionFileSystem?: Partial<ConversionFileSystem>;
+}
+
+export interface ConversionFileSystem {
+  mkdir(
+    path: string,
+    options: { readonly recursive: true; readonly mode: number },
+  ): Promise<string | undefined>;
+  lstat(path: string): Promise<Stats>;
+  open(path: string, flags: string, mode?: number): Promise<FileHandle>;
+  link(existingPath: string, newPath: string): Promise<void>;
+  rename(oldPath: string, newPath: string): Promise<void>;
+  rm(
+    path: string,
+    options: { readonly force: boolean; readonly recursive?: boolean },
+  ): Promise<void>;
 }
 
 export interface ConversionOptions {

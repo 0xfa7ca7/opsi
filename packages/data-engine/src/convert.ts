@@ -1,6 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { link, lstat, mkdir, open, rename, rm } from "node:fs/promises";
+import {
+  link as fsLink,
+  lstat as fsLstat,
+  mkdir as fsMkdir,
+  open as fsOpen,
+  rename as fsRename,
+  rm as fsRm,
+} from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { EXIT_CODES, OpsiError, type Provenance } from "@opsi/domain";
 import { exportStage } from "./export.js";
@@ -9,10 +16,24 @@ import { isStringColumn, stageTabularInput, type TabularStage } from "./tabular-
 import type {
   ConversionOptions,
   ConversionResult,
+  ConversionFileSystem,
   DataEngineOptions,
   SupportedDataFormat,
   ValidationIssue,
 } from "./types.js";
+
+const nodeFileSystem: ConversionFileSystem = {
+  mkdir: (path, options) => fsMkdir(path, options),
+  lstat: (path) => fsLstat(path),
+  open: (path, flags, mode) => fsOpen(path, flags, mode),
+  link: (existingPath, newPath) => fsLink(existingPath, newPath),
+  rename: (oldPath, newPath) => fsRename(oldPath, newPath),
+  rm: (path, options) => fsRm(path, options),
+};
+
+function conversionFileSystem(options: DataEngineOptions): ConversionFileSystem {
+  return { ...nodeFileSystem, ...options.conversionFileSystem };
+}
 
 async function digest(path: string): Promise<{ readonly sha256: string; readonly bytes: number }> {
   const hash = createHash("sha256");
@@ -25,21 +46,27 @@ async function digest(path: string): Promise<{ readonly sha256: string; readonly
   return { sha256: hash.digest("hex"), bytes };
 }
 
-async function syncDirectory(path: string): Promise<void> {
+function unsupportedDirectorySync(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException).code;
+  if (code === "EINVAL" || code === "ENOTSUP" || code === "ENOSYS") return true;
+  return process.platform === "win32" && (code === "EISDIR" || code === "EPERM");
+}
+
+async function syncDirectory(fileSystem: ConversionFileSystem, path: string): Promise<void> {
   try {
-    const handle = await open(path, "r");
+    const handle = await fileSystem.open(path, "r");
     try {
       await handle.sync();
     } finally {
       await handle.close();
     }
-  } catch {
-    // Opening directories is not supported on every Node platform.
+  } catch (error) {
+    if (!unsupportedDirectorySync(error)) throw error;
   }
 }
 
-async function syncFile(path: string): Promise<void> {
-  const handle = await open(path, "r");
+async function syncFile(fileSystem: ConversionFileSystem, path: string): Promise<void> {
+  const handle = await fileSystem.open(path, "r");
   try {
     await handle.sync();
   } finally {
@@ -47,9 +74,13 @@ async function syncFile(path: string): Promise<void> {
   }
 }
 
-async function assertPublishable(path: string, force: boolean): Promise<boolean> {
+async function assertPublishable(
+  fileSystem: ConversionFileSystem,
+  path: string,
+  force: boolean,
+): Promise<boolean> {
   try {
-    const details = await lstat(path);
+    const details = await fileSystem.lstat(path);
     if (!details.isFile() || details.isSymbolicLink())
       throw new OpsiError({
         code: "UNSAFE_CONVERSION_DESTINATION",
@@ -95,10 +126,11 @@ async function spreadsheetRisks(stage: TabularStage): Promise<number> {
 }
 
 async function writeProvenanceTemp(
+  fileSystem: ConversionFileSystem,
   path: string,
   value: Provenance & { readonly bytes: number },
 ): Promise<void> {
-  const handle = await open(path, "wx", 0o600);
+  const handle = await fileSystem.open(path, "wx", 0o600);
   try {
     await handle.writeFile(`${JSON.stringify(value, null, 2)}\n`);
     await handle.sync();
@@ -107,13 +139,18 @@ async function writeProvenanceTemp(
   }
 }
 
-async function publish(temp: string, destination: string, force: boolean): Promise<void> {
+async function publish(
+  fileSystem: ConversionFileSystem,
+  temp: string,
+  destination: string,
+  force: boolean,
+): Promise<void> {
   if (force) {
-    await rename(temp, destination);
+    await fileSystem.rename(temp, destination);
     return;
   }
   try {
-    await link(temp, destination);
+    await fileSystem.link(temp, destination);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "EEXIST")
       throw new OpsiError({
@@ -127,17 +164,138 @@ async function publish(temp: string, destination: string, force: boolean): Promi
   }
 }
 
+interface PublicationState {
+  readonly label: "output" | "provenance";
+  readonly original: string;
+  readonly backup: string;
+  readonly restoreLink: string;
+  readonly existed: boolean;
+  backedUp: boolean;
+  published: boolean;
+  restored: boolean;
+}
+
+interface RollbackFailure {
+  readonly label: string;
+  readonly original: string;
+  readonly backup: string;
+  readonly restoreLink: string;
+  readonly code?: string;
+  readonly message: string;
+  readonly cause: unknown;
+}
+
+function rollbackFailure(
+  state: PublicationState,
+  cause: unknown,
+  label: string = state.label,
+): RollbackFailure {
+  const code = (cause as NodeJS.ErrnoException).code;
+  return {
+    label,
+    original: state.original,
+    backup: state.backup,
+    restoreLink: state.restoreLink,
+    ...(code === undefined ? {} : { code }),
+    message: cause instanceof Error ? cause.message : String(cause),
+    cause,
+  };
+}
+
+function publicationContext(state: PublicationState): Readonly<Record<string, unknown>> {
+  return {
+    original: state.original,
+    backup: state.backup,
+    restoreLink: state.restoreLink,
+    existed: state.existed,
+    published: state.published,
+    restored: state.restored,
+  };
+}
+
+async function restorePublication(
+  fileSystem: ConversionFileSystem,
+  directory: string,
+  state: PublicationState,
+): Promise<void> {
+  if (!state.published) {
+    state.restored = true;
+    return;
+  }
+  if (state.existed) {
+    await fileSystem.link(state.backup, state.restoreLink);
+    await fileSystem.rename(state.restoreLink, state.original);
+    await syncFile(fileSystem, state.original);
+  } else {
+    await fileSystem.rm(state.original, { force: true });
+  }
+  await syncDirectory(fileSystem, directory);
+  state.restored = true;
+}
+
+async function rollbackPublications(
+  fileSystem: ConversionFileSystem,
+  directory: string,
+  output: PublicationState,
+  provenance: PublicationState,
+  operationError: unknown,
+): Promise<void> {
+  const failures: RollbackFailure[] = [];
+  for (const state of [output, provenance]) {
+    try {
+      await restorePublication(fileSystem, directory, state);
+    } catch (error) {
+      failures.push(rollbackFailure(state, error));
+    }
+  }
+
+  if (failures.length === 0) {
+    try {
+      if (output.backedUp) await fileSystem.rm(output.backup, { force: true });
+      if (provenance.backedUp) await fileSystem.rm(provenance.backup, { force: true });
+      if (output.backedUp || provenance.backedUp) await syncDirectory(fileSystem, directory);
+    } catch (error) {
+      failures.push(rollbackFailure(output, error, "backup-cleanup"));
+    }
+  }
+
+  if (failures.length > 0)
+    throw new OpsiError({
+      code: "CONVERSION_ROLLBACK_FAILED",
+      message: "Conversion failed and the previous output pair could not be fully restored.",
+      exitCode: EXIT_CODES.INTEGRITY_FAILURE,
+      suggestion: "Recover the original artifact and provenance from the retained backup paths.",
+      context: {
+        output: publicationContext(output),
+        provenance: publicationContext(provenance),
+        failures: failures.map((failure) => ({
+          label: failure.label,
+          original: failure.original,
+          backup: failure.backup,
+          restoreLink: failure.restoreLink,
+          ...(failure.code === undefined ? {} : { code: failure.code }),
+          message: failure.message,
+        })),
+      },
+      cause: new AggregateError(
+        [operationError, ...failures.map((failure) => failure.cause)],
+        "Conversion operation and rollback failures",
+      ),
+    });
+}
+
 export async function convertData(
   options: ConversionOptions,
   engineOptions: DataEngineOptions,
   xlsxSharedStringsByteLimit: number,
 ): Promise<ConversionResult> {
+  const fileSystem = conversionFileSystem(engineOptions);
   const output = resolve(options.output);
   const directory = dirname(output);
-  await mkdir(directory, { recursive: true, mode: 0o700 });
+  await fileSystem.mkdir(directory, { recursive: true, mode: 0o700 });
   const provenancePath = `${output}.provenance.json`;
-  const outputExisted = await assertPublishable(output, options.force);
-  const provenanceExisted = await assertPublishable(provenancePath, options.force);
+  const outputExisted = await assertPublishable(fileSystem, output, options.force);
+  const provenanceExisted = await assertPublishable(fileSystem, provenancePath, options.force);
 
   const token = `${process.pid}-${randomUUID()}`;
   const outputTemp = `${output}.part-${token}`;
@@ -146,9 +304,28 @@ export async function convertData(
   const xlsxRowsPath = `${output}.stage-${token}.ndjson`;
   const outputBackup = `${output}.backup-${token}`;
   const provenanceBackup = `${provenancePath}.backup-${token}`;
+  const outputPublication: PublicationState = {
+    label: "output",
+    original: output,
+    backup: outputBackup,
+    restoreLink: `${output}.restore-${token}`,
+    existed: outputExisted,
+    backedUp: false,
+    published: false,
+    restored: false,
+  };
+  const provenancePublication: PublicationState = {
+    label: "provenance",
+    original: provenancePath,
+    backup: provenanceBackup,
+    restoreLink: `${provenancePath}.restore-${token}`,
+    existed: provenanceExisted,
+    backedUp: false,
+    published: false,
+    restored: false,
+  };
   let stage: TabularStage | undefined;
-  let publishedOutput = false;
-  let publishedProvenance = false;
+  let committed = false;
   try {
     stage = await stageTabularInput({
       input: options.input,
@@ -176,7 +353,7 @@ export async function convertData(
       });
 
     await exportStage(stage, outputTemp, options.targetFormat, selectSql(stage, spreadsheetSafe));
-    await syncFile(outputTemp);
+    await syncFile(fileSystem, outputTemp);
     engineOptions.onAdapter?.(`convert-${options.targetFormat}`);
     const [inputDigest, outputDigest] = await Promise.all([
       digest(stage.inputPath),
@@ -205,17 +382,36 @@ export async function convertData(
         },
       ],
     };
-    await writeProvenanceTemp(provenanceTemp, provenance);
+    await writeProvenanceTemp(fileSystem, provenanceTemp, provenance);
     if (options.force) {
-      if (outputExisted) await link(output, outputBackup);
-      if (provenanceExisted) await link(provenancePath, provenanceBackup);
+      if (outputExisted) {
+        await fileSystem.link(output, outputBackup);
+        outputPublication.backedUp = true;
+        await syncFile(fileSystem, outputBackup);
+      }
+      if (provenanceExisted) {
+        await fileSystem.link(provenancePath, provenanceBackup);
+        provenancePublication.backedUp = true;
+        await syncFile(fileSystem, provenanceBackup);
+      }
+      if (outputExisted || provenanceExisted) await syncDirectory(fileSystem, directory);
     }
-    await publish(outputTemp, output, options.force);
-    publishedOutput = true;
+    await publish(fileSystem, outputTemp, output, options.force);
+    outputPublication.published = true;
+    await syncFile(fileSystem, output);
+    await syncDirectory(fileSystem, directory);
     engineOptions.onAdapter?.("convert-output-published");
-    await publish(provenanceTemp, provenancePath, options.force);
-    publishedProvenance = true;
-    await syncDirectory(directory);
+    await publish(fileSystem, provenanceTemp, provenancePath, options.force);
+    provenancePublication.published = true;
+    await syncFile(fileSystem, provenancePath);
+    await syncDirectory(fileSystem, directory);
+    engineOptions.onAdapter?.("convert-provenance-published");
+    committed = true;
+    if (outputPublication.backedUp) await fileSystem.rm(outputPublication.backup, { force: true });
+    if (provenancePublication.backedUp)
+      await fileSystem.rm(provenancePublication.backup, { force: true });
+    if (outputPublication.backedUp || provenancePublication.backedUp)
+      await syncDirectory(fileSystem, directory);
     return {
       input: stage.inputPath,
       output,
@@ -226,31 +422,29 @@ export async function convertData(
       warnings,
     };
   } catch (error) {
-    if (publishedProvenance) {
-      if (provenanceExisted) {
-        await rename(provenanceBackup, provenancePath).catch(() => undefined);
-      } else {
-        await rm(provenancePath, { force: true }).catch(() => undefined);
-      }
-    }
-    if (publishedOutput) {
-      if (outputExisted) {
-        await rename(outputBackup, output).catch(() => undefined);
-      } else {
-        await rm(output, { force: true }).catch(() => undefined);
-      }
-    }
+    if (committed) throw error;
+    if (
+      outputPublication.published ||
+      provenancePublication.published ||
+      outputPublication.backedUp ||
+      provenancePublication.backedUp
+    )
+      await rollbackPublications(
+        fileSystem,
+        directory,
+        outputPublication,
+        provenancePublication,
+        error,
+      );
     throw error;
   } finally {
     await stage?.close().catch(() => undefined);
-    await Promise.all([
-      rm(outputTemp, { force: true }),
-      rm(provenanceTemp, { force: true }),
-      rm(databasePath, { force: true }),
-      rm(`${databasePath}.wal`, { force: true }),
-      rm(xlsxRowsPath, { force: true }),
-      rm(outputBackup, { force: true }),
-      rm(provenanceBackup, { force: true }),
+    await Promise.allSettled([
+      fileSystem.rm(outputTemp, { force: true }),
+      fileSystem.rm(provenanceTemp, { force: true }),
+      fileSystem.rm(databasePath, { force: true }),
+      fileSystem.rm(`${databasePath}.wal`, { force: true }),
+      fileSystem.rm(xlsxRowsPath, { force: true }),
     ]);
   }
 }

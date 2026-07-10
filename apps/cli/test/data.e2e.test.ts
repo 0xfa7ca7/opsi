@@ -111,6 +111,8 @@ async function cli(argv: readonly string[]): Promise<CliResult> {
     env: {
       ...process.env,
       HOME: home,
+      OPSI_CACHE_DIR: join(home, "cache"),
+      OPSI_DOWNLOAD_DIR: join(home, "downloads"),
       OPSI_BASE_URL: baseUrl,
       OPSI_REQUEST_INTERVAL_MS: "0",
       NO_COLOR: "1",

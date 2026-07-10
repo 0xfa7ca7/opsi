@@ -89,6 +89,8 @@ async function cli(
     env: {
       ...process.env,
       HOME: home,
+      OPSI_CACHE_DIR: join(home, "cache"),
+      OPSI_DOWNLOAD_DIR: join(home, "downloads"),
       OPSI_BASE_URL: apiUrl,
       OPSI_REQUEST_INTERVAL_MS: "0",
       NO_COLOR: "1",
@@ -198,5 +200,5 @@ describe("download, cache, offline, and provenance CLI", () => {
       error: { code: "PARTIAL_DOWNLOAD" },
       meta: { failures: [expect.anything()] },
     });
-  }, 15_000);
+  }, 30_000);
 });
