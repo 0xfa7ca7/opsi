@@ -225,6 +225,134 @@ describe("tabular conversion", () => {
     await expect(readFile(output)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
+  it("returns a typed cleanup failure when stage close rejects after publication", async () => {
+    const inputs = await createInputs();
+    const output = path("close-failure.json");
+    const engine = new DataEngine({
+      conversionStageClose: async (close) => {
+        await close();
+        throw Object.assign(new Error("stage close failed"), { code: "EIO" });
+      },
+    });
+
+    const error = await engine
+      .convert({ input: inputs.json, output, targetFormat: "json", force: false })
+      .then(
+        () => undefined,
+        (candidate: unknown) => candidate,
+      );
+
+    expect(error).toMatchObject({
+      code: "CONVERSION_CLEANUP_FAILED",
+      exitCode: 6,
+      context: {
+        cleanupFailures: [
+          expect.objectContaining({
+            phase: "stage-close",
+            code: "EIO",
+            paths: expect.arrayContaining([
+              expect.stringContaining(".duckdb"),
+              expect.stringContaining(".ndjson"),
+            ]),
+          }),
+        ],
+      },
+    });
+    expect((error as { cause?: unknown }).cause).toBeInstanceOf(AggregateError);
+    await expect(engine.preview(output)).resolves.toMatchObject({ rows });
+    await expect(readFile(`${output}.provenance.json`)).resolves.toBeInstanceOf(Buffer);
+  });
+
+  it.each([
+    ["one", 1],
+    ["multiple", 2],
+  ] as const)(
+    "reports %s temporary removal cleanup failure without false success",
+    async (_name, failureCount) => {
+      const inputs = await createInputs();
+      const output = path(`rm-${failureCount}.json`);
+      const engine = new DataEngine({
+        conversionFileSystem: {
+          rm: async (candidate, options) => {
+            const isOutputTemp = candidate.startsWith(`${output}.part-`);
+            const isProvenanceTemp = candidate.startsWith(`${output}.provenance.json.part-`);
+            if (isOutputTemp || (failureCount === 2 && isProvenanceTemp))
+              throw Object.assign(new Error(`remove failed: ${candidate}`), { code: "ENOSPC" });
+            await rm(candidate, options);
+          },
+        },
+      });
+
+      const error = await engine
+        .convert({ input: inputs.json, output, targetFormat: "json", force: false })
+        .then(
+          () => undefined,
+          (candidate: unknown) => candidate,
+        );
+
+      expect(error).toMatchObject({
+        code: "CONVERSION_CLEANUP_FAILED",
+        exitCode: 6,
+        context: {
+          cleanupFailures: expect.arrayContaining([
+            expect.objectContaining({ phase: "remove", code: "ENOSPC" }),
+          ]),
+        },
+      });
+      expect(
+        (error as { context: { cleanupFailures: readonly unknown[] } }).context.cleanupFailures,
+      ).toHaveLength(failureCount);
+      expect((error as { cause?: unknown }).cause).toBeInstanceOf(AggregateError);
+      await expect(engine.preview(output)).resolves.toMatchObject({ rows });
+      await expect(readFile(`${output}.provenance.json`)).resolves.toBeInstanceOf(Buffer);
+    },
+  );
+
+  it("preserves a primary typed error while attaching cleanup failures and paths", async () => {
+    const inputs = await createInputs();
+    const original = await readFile(inputs.json);
+    const engine = new DataEngine({
+      conversionFileSystem: {
+        rm: async (candidate, options) => {
+          if (candidate.includes(".stage-") && candidate.endsWith(".duckdb"))
+            throw Object.assign(new Error("database cleanup failed"), { code: "EIO" });
+          await rm(candidate, options);
+        },
+      },
+    });
+
+    const error = await engine
+      .convert({
+        input: inputs.json,
+        output: inputs.json,
+        targetFormat: "json",
+        force: true,
+      })
+      .then(
+        () => undefined,
+        (candidate: unknown) => candidate,
+      );
+
+    expect(error).toMatchObject({
+      code: "CONVERSION_INPUT_OUTPUT_CONFLICT",
+      exitCode: 2,
+      context: {
+        cleanupFailures: [
+          expect.objectContaining({
+            phase: "remove",
+            code: "EIO",
+            path: expect.stringContaining(".duckdb"),
+          }),
+        ],
+      },
+    });
+    expect((error as { cause?: unknown }).cause).toBeInstanceOf(AggregateError);
+    await expect(readFile(inputs.json)).resolves.toEqual(original);
+    await expect(readFile(`${inputs.json}.provenance.json`)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
   it("restores a forced destination if failure occurs between output and provenance", async () => {
     const inputs = await createInputs();
     const output = path("rollback.json");

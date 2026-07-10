@@ -284,6 +284,122 @@ async function rollbackPublications(
     });
 }
 
+interface CleanupFailure {
+  readonly phase: "stage-close" | "remove";
+  readonly path?: string;
+  readonly paths?: readonly string[];
+  readonly code?: string;
+  readonly message: string;
+  readonly cause: unknown;
+}
+
+function cleanupFailure(
+  phase: CleanupFailure["phase"],
+  cause: unknown,
+  location: { readonly path: string } | { readonly paths: readonly string[] },
+): CleanupFailure {
+  const code = (cause as NodeJS.ErrnoException).code;
+  return {
+    phase,
+    ...location,
+    ...(code === undefined ? {} : { code }),
+    message: cause instanceof Error ? cause.message : String(cause),
+    cause,
+  };
+}
+
+function cleanupFailureContext(failure: CleanupFailure): Readonly<Record<string, unknown>> {
+  return {
+    phase: failure.phase,
+    ...(failure.path === undefined ? {} : { path: failure.path }),
+    ...(failure.paths === undefined ? {} : { paths: failure.paths }),
+    ...(failure.code === undefined ? {} : { code: failure.code }),
+    message: failure.message,
+  };
+}
+
+function primaryFailureContext(error: unknown): Readonly<Record<string, unknown>> {
+  return {
+    name: error instanceof Error ? error.name : typeof error,
+    message: error instanceof Error ? error.message : String(error),
+    ...((error as NodeJS.ErrnoException).code === undefined
+      ? {}
+      : { code: (error as NodeJS.ErrnoException).code }),
+  };
+}
+
+function withCleanupFailures(primary: unknown, failures: readonly CleanupFailure[]): OpsiError {
+  const cleanupFailures = failures.map(cleanupFailureContext);
+  const cause = new AggregateError(
+    [...(primary === undefined ? [] : [primary]), ...failures.map((failure) => failure.cause)],
+    "Conversion operation and cleanup failures",
+  );
+  if (primary instanceof OpsiError)
+    return new OpsiError({
+      code: primary.code,
+      message: primary.message,
+      exitCode: primary.exitCode,
+      ...(primary.suggestion === undefined ? {} : { suggestion: primary.suggestion }),
+      context: { ...(primary.context ?? {}), cleanupFailures },
+      cause,
+    });
+  return new OpsiError({
+    code: "CONVERSION_CLEANUP_FAILED",
+    message:
+      primary === undefined
+        ? "Conversion output was published, but temporary resources could not be cleaned up."
+        : "Conversion failed and its temporary resources could not be cleaned up.",
+    exitCode: EXIT_CODES.INTEGRITY_FAILURE,
+    suggestion: "Remove the listed temporary paths after confirming they are not recovery backups.",
+    context: {
+      ...(primary === undefined ? {} : { primary: primaryFailureContext(primary) }),
+      cleanupFailures,
+    },
+    cause,
+  });
+}
+
+async function cleanupConversion(
+  fileSystem: ConversionFileSystem,
+  engineOptions: DataEngineOptions,
+  stage: TabularStage | undefined,
+  paths: {
+    readonly outputTemp: string;
+    readonly provenanceTemp: string;
+    readonly databasePath: string;
+    readonly xlsxRowsPath: string;
+  },
+): Promise<readonly CleanupFailure[]> {
+  const failures: CleanupFailure[] = [];
+  const stagePaths = [paths.databasePath, `${paths.databasePath}.wal`, paths.xlsxRowsPath];
+  if (stage !== undefined)
+    try {
+      const close = () => stage.close();
+      if (engineOptions.conversionStageClose === undefined) await close();
+      else await engineOptions.conversionStageClose(close);
+    } catch (error) {
+      failures.push(cleanupFailure("stage-close", error, { paths: stagePaths }));
+    }
+
+  const removalPaths = [
+    paths.outputTemp,
+    paths.provenanceTemp,
+    paths.databasePath,
+    `${paths.databasePath}.wal`,
+    paths.xlsxRowsPath,
+  ];
+  await Promise.all(
+    removalPaths.map(async (path) => {
+      try {
+        await fileSystem.rm(path, { force: true });
+      } catch (error) {
+        failures.push(cleanupFailure("remove", error, { path }));
+      }
+    }),
+  );
+  return failures;
+}
+
 export async function convertData(
   options: ConversionOptions,
   engineOptions: DataEngineOptions,
@@ -326,6 +442,8 @@ export async function convertData(
   };
   let stage: TabularStage | undefined;
   let committed = false;
+  let result: ConversionResult | undefined;
+  let primaryError: unknown;
   try {
     stage = await stageTabularInput({
       input: options.input,
@@ -412,7 +530,7 @@ export async function convertData(
       await fileSystem.rm(provenancePublication.backup, { force: true });
     if (outputPublication.backedUp || provenancePublication.backedUp)
       await syncDirectory(fileSystem, directory);
-    return {
+    result = {
       input: stage.inputPath,
       output,
       targetFormat: options.targetFormat,
@@ -422,31 +540,42 @@ export async function convertData(
       warnings,
     };
   } catch (error) {
-    if (committed) throw error;
+    primaryError = error;
     if (
-      outputPublication.published ||
-      provenancePublication.published ||
-      outputPublication.backedUp ||
-      provenancePublication.backedUp
+      !committed &&
+      (outputPublication.published ||
+        provenancePublication.published ||
+        outputPublication.backedUp ||
+        provenancePublication.backedUp)
     )
-      await rollbackPublications(
-        fileSystem,
-        directory,
-        outputPublication,
-        provenancePublication,
-        error,
-      );
-    throw error;
-  } finally {
-    await stage?.close().catch(() => undefined);
-    await Promise.allSettled([
-      fileSystem.rm(outputTemp, { force: true }),
-      fileSystem.rm(provenanceTemp, { force: true }),
-      fileSystem.rm(databasePath, { force: true }),
-      fileSystem.rm(`${databasePath}.wal`, { force: true }),
-      fileSystem.rm(xlsxRowsPath, { force: true }),
-    ]);
+      try {
+        await rollbackPublications(
+          fileSystem,
+          directory,
+          outputPublication,
+          provenancePublication,
+          error,
+        );
+      } catch (rollbackError) {
+        primaryError = rollbackError;
+      }
   }
+
+  const cleanupFailures = await cleanupConversion(fileSystem, engineOptions, stage, {
+    outputTemp,
+    provenanceTemp,
+    databasePath,
+    xlsxRowsPath,
+  });
+  if (cleanupFailures.length > 0) throw withCleanupFailures(primaryError, cleanupFailures);
+  if (primaryError !== undefined) throw primaryError;
+  if (result === undefined)
+    throw new OpsiError({
+      code: "CONVERSION_RESULT_MISSING",
+      message: "Conversion completed without a result.",
+      exitCode: EXIT_CODES.INTERNAL,
+    });
+  return result;
 }
 
 function mediaType(format: SupportedDataFormat): string {

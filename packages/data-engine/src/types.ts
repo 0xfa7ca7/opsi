@@ -96,6 +96,7 @@ export interface DataEngineOptions {
   readonly validationMaxStateBytes?: number;
   readonly validationMaxIssueGroups?: number;
   readonly conversionFileSystem?: Partial<ConversionFileSystem>;
+  readonly conversionStageClose?: (close: () => Promise<void>) => Promise<void>;
 }
 
 export interface ConversionFileSystem {

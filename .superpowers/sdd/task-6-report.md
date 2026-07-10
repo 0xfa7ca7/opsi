@@ -211,3 +211,64 @@ pnpm check
 
 The independent formal-fix re-review returned `APPROVED`. No formal Task 6
 finding remains open.
+
+## Cleanup failure fix
+
+### RED
+
+```text
+pnpm vitest run --project integration packages/data-engine/test/convert.test.ts \
+  -t "cleanup failure|temporary removal|attaching cleanup"
+# 4 failed, 13 skipped
+```
+
+Observed failures:
+
+- A rejecting stage-close injection was swallowed and conversion resolved.
+- One and two injected temporary-removal failures were ignored because
+  `Promise.allSettled` results were never inspected.
+- `CONVERSION_INPUT_OUTPUT_CONFLICT` was returned without cleanup paths or the
+  cleanup cause when database removal also failed.
+
+### GREEN
+
+Conversion now records the main operation result/error separately from
+finalization. Stage close runs before path removal, and every close/removal
+rejection is collected with phase, affected path(s), error code, and message.
+
+- If publication would otherwise succeed, any cleanup failure returns
+  `CONVERSION_CLEANUP_FAILED` with exit 6 and an `AggregateError`; output and
+  provenance remain a valid published pair rather than being reported as a
+  false success.
+- If the main operation already has an `OpsiError`, its stable code, exit code,
+  message, suggestion, and context are preserved while `cleanupFailures` and an
+  aggregate cause are attached.
+- Final cleanup targets only output/provenance temps and stage database/WAL/XLSX
+  paths. It never removes forced-rollback backup or restore paths.
+
+```text
+pnpm vitest run --project integration packages/data-engine/test/convert.test.ts \
+  -t "cleanup failure|temporary removal|attaching cleanup"
+# 4 passed, 13 skipped
+
+pnpm vitest run --project integration packages/data-engine/test/convert.test.ts
+# 17 passed
+
+pnpm build
+pnpm vitest run --project cli-e2e apps/cli/test/convert.e2e.test.ts
+# build passed; 4 passed
+```
+
+Final verification:
+
+```text
+pnpm check
+# format: passed
+# lint: passed
+# typecheck: passed
+# tests: 28 files passed, 267 tests passed
+# build: passed
+```
+
+No cleanup failure is swallowed, every injected affected path/cause is reported,
+and recovery backups remain outside normal finalization.
