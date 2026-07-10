@@ -1,7 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { datasetId, resourceId } from "@opsi/domain";
 import { describe, expect, it, vi } from "vitest";
-import { OpsiProvider, OpsiTransport, RequestScheduler } from "../src/index.js";
+import {
+  OpsiProvider,
+  OpsiTransport,
+  RequestScheduler,
+  type OpsiOperationInputs,
+} from "../src/index.js";
 
 type FixtureName =
   | "package-search"
@@ -107,6 +112,62 @@ describe("OPSI provider contract", () => {
         query: { id: "dataset-abc", use_default_schema: "false" },
       },
     ]);
+  });
+
+  it.each([
+    [
+      "missing q",
+      {
+        fq: "",
+        rows: 2,
+        start: 0,
+        facet: "true",
+        "facet.field": [],
+        "facet.mincount": 0,
+        "facet.limit": 50,
+        sort: "relevance asc",
+      },
+    ],
+    [
+      "missing sort",
+      {
+        q: "promet",
+        fq: "",
+        rows: 2,
+        start: 0,
+        facet: "true",
+        "facet.field": [],
+        "facet.mincount": 0,
+        "facet.limit": 50,
+      },
+    ],
+  ])("rejects package_search with %s before fetch", async (_case, input) => {
+    const { transport, requests } = fixtureTransport({
+      "/package_search": await fixture("package-search"),
+    });
+
+    await expect(
+      Promise.resolve().then(() =>
+        transport.call("package_search", input as OpsiOperationInputs["package_search"]),
+      ),
+    ).rejects.toMatchObject({ code: "INVALID_PROVIDER_REQUEST", exitCode: 2 });
+    expect(requests).toEqual([]);
+  });
+
+  it("rejects package_show use_default_schema=true before fetch", async () => {
+    const { transport, requests } = fixtureTransport({
+      "/package_show": await fixture("package-show"),
+    });
+
+    await expect(
+      Promise.resolve().then(() =>
+        transport.call("package_show", {
+          id: "dataset-abc",
+          use_default_schema: true,
+        } as unknown as OpsiOperationInputs["package_show"]),
+      ),
+    ).rejects.toMatchObject({ code: "INVALID_PROVIDER_REQUEST", exitCode: 2 });
+    expect(requests).toEqual([]);
   });
 
   it("routes list and search operations with their published parameter locations", async () => {

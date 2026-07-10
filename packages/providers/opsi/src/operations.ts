@@ -23,7 +23,7 @@ const paginationInput = z.strictObject({
 });
 
 export interface PackageSearchInput {
-  readonly q?: string;
+  readonly q: string;
   readonly fq: string;
   readonly rows: number;
   readonly start: number;
@@ -31,12 +31,12 @@ export interface PackageSearchInput {
   readonly "facet.field": readonly string[];
   readonly "facet.mincount": number;
   readonly "facet.limit": number;
-  readonly sort?: string;
+  readonly sort: string;
 }
 
 export interface OpsiOperationInputs {
   readonly package_search: PackageSearchInput;
-  readonly package_show: { readonly id: string; readonly use_default_schema: boolean };
+  readonly package_show: { readonly id: string; readonly use_default_schema: false };
   readonly package_list: { readonly limit?: number; readonly offset?: number };
   readonly current_package_list_with_resources: {
     readonly limit?: number;
@@ -120,7 +120,7 @@ export const OPSI_OPERATIONS = {
     parameters: "json",
     retryable: true,
     inputSchema: z.strictObject({
-      q: z.string().optional(),
+      q: z.string(),
       fq: z.string(),
       rows: z.number().int().nonnegative(),
       start: z.number().int().nonnegative(),
@@ -128,7 +128,7 @@ export const OPSI_OPERATIONS = {
       "facet.field": z.array(z.string()),
       "facet.mincount": z.number().int(),
       "facet.limit": z.number().int(),
-      sort: z.string().optional(),
+      sort: z.string(),
     }),
     resultSchema: packageSearchResultSchema,
   },
@@ -137,7 +137,7 @@ export const OPSI_OPERATIONS = {
     path: "/package_show",
     parameters: "query",
     retryable: true,
-    inputSchema: z.strictObject({ id: z.string().min(1), use_default_schema: z.boolean() }),
+    inputSchema: z.strictObject({ id: z.string().min(1), use_default_schema: z.literal(false) }),
     resultSchema: opsiDatasetSchema,
   },
   package_list: {
