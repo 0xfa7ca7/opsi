@@ -36,21 +36,46 @@ function valueName(flags: string): string | undefined {
   return flags.match(/[<[]([^>\]]+)[>\]]/u)?.[1];
 }
 
+function zshSpecificationText(value: string): string {
+  return value
+    .replaceAll("\\", "\\\\")
+    .replaceAll(":", "\\:")
+    .replaceAll("[", "\\[")
+    .replaceAll("]", "\\]");
+}
+
+function zshQuote(value: string): string {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
 function zshValueAction(name: string, choices?: readonly string[]): string {
-  if (choices !== undefined) return `:${name}:(${choices.join(" ")})`;
-  if (/^(?:path|input|output|destination)$/u.test(name)) return `:${name}:_files`;
-  return `:${name}:`;
+  const message = zshSpecificationText(name.replaceAll(":", " "));
+  if (choices !== undefined) return `:${message}:(${choices.map(zshSpecificationText).join(" ")})`;
+  if (/^(?:path|input|output|destination)$/u.test(name)) return `:${message}:_files`;
+  return `:${message}:`;
 }
 
 function zshOption(item: CommandOptionManifest): string {
   const name = valueName(item.flags);
-  const description = item.description.replaceAll("'", "");
-  return `'${longFlag(item)}[${description}]${name === undefined ? "" : zshValueAction(name, item.choices)}'`;
+  const description = zshSpecificationText(item.description);
+  return zshQuote(
+    `${longFlag(item)}[${description}]${name === undefined ? "" : zshValueAction(name, item.choices)}`,
+  );
 }
 
 function zshArgument(item: CommandManifestEntry["arguments"][number], position: number): string {
   const raw = item.name.replace(/[<>[\]]/gu, "").replace(/\.\.\.$/u, "");
-  return `'${position}:${item.description.replaceAll("'", "")}${zshValueAction(raw, item.choices)}'`;
+  const action =
+    item.choices !== undefined
+      ? `:(${item.choices.map(zshSpecificationText).join(" ")})`
+      : /^(?:path|input|output|destination)$/u.test(raw)
+        ? ":_files"
+        : ":";
+  return zshQuote(`${position}:${zshSpecificationText(item.description)}${action}`);
+}
+
+function zshValue(name: string, description: string): string {
+  return zshQuote(`${zshSpecificationText(name)}[${zshSpecificationText(description)}]`);
 }
 
 function bashCompletion(): string {
@@ -91,7 +116,14 @@ complete -o default -o bashdefault -F _opsi_complete opsi
 
 function zshCompletion(): string {
   const globalOptions = GLOBAL_OPTION_MANIFEST.map(zshOption).join(" ");
-  const cases = topLevelCommands()
+  const commandValues = topLevelCommands()
+    .map((parent) => {
+      const direct = COMMAND_MANIFEST.find((entry) => entry.path === parent);
+      const description = direct?.description ?? `${parent} commands`;
+      return zshValue(parent, description);
+    })
+    .join(" ");
+  const commandCases = topLevelCommands()
     .map((parent) => {
       const nested = children(parent);
       if (nested.length === 0) {
@@ -100,36 +132,66 @@ function zshCompletion(): string {
         const specifications = [
           globalOptions,
           ...entry.options.map(zshOption),
-          ...entry.arguments.map((item, index) => zshArgument(item, index + 2)),
+          ...entry.arguments.map((item, index) => zshArgument(item, index + 1)),
         ].filter((value) => value.length > 0);
-        return `    ${parent}) _arguments ${specifications.join(" ")} ;;`;
+        return `        ${parent}) _arguments ${specifications.join(" ")} ;;`;
       }
-      const subcommands = nested.map((entry) => entry.path.split(" ")[1]).join(" ");
+      const subcommands = nested
+        .map((entry) => zshValue(entry.path.split(" ")[1] as string, entry.description))
+        .join(" ");
       const leafCases = nested
         .map((entry) => {
           const child = entry.path.split(" ")[1];
           const specifications = [
             globalOptions,
             ...entry.options.map(zshOption),
-            ...entry.arguments.map((item, index) => zshArgument(item, index + 3)),
+            ...entry.arguments.map((item, index) => zshArgument(item, index + 1)),
           ].filter((value) => value.length > 0);
-          return `        ${child}) _arguments ${specifications.join(" ")} ;;`;
+          return `                ${child}) _arguments ${specifications.join(" ")} ;;`;
         })
         .join("\n");
-      return `    ${parent})
-      _arguments ${globalOptions} '2:${parent} command:(${subcommands})' '*::argument:->${parent}_arguments'
-      case $words[3] in
+      return `        ${parent})
+          local -a ${parent}_words=("\${words[@]}")
+          local -i ${parent}_current=$CURRENT ${parent}_index
+          _arguments -n -C -A '-*' ${globalOptions} ':${parent} command:->${parent}_command' '*::: := ->${parent}_arguments'
+          case $state in
+            ${parent}_command)
+              _values '${parent} command' ${subcommands}
+              ;;
+            ${parent}_arguments)
+              curcontext="\${curcontext%:*}-${parent}-$line[1]:"
+              ${parent}_index=$NORMARG
+              (( ${parent}_index <= $#${parent}_words )) || return 1
+              words=("\${(@)${parent}_words[$${parent}_index,-1]}")
+              CURRENT=$(( ${parent}_current - ${parent}_index + 1 ))
+              case $line[1] in
 ${leafCases}
-      esac
-      ;;`;
+              esac
+              ;;
+          esac
+          ;;`;
     })
     .join("\n");
   return `#compdef opsi
-local context state state_descr line
+local curcontext="$curcontext" context state state_descr line
+local -a opsi_words=("\${words[@]}")
+local -i opsi_current=$CURRENT opsi_command_index NORMARG
 typeset -A opt_args
-_arguments -C ${globalOptions} '1:command:(${topLevelCommands().join(" ")})' '*::argument:->command_arguments'
-case $words[2] in
-${cases}
+_arguments -n -C -A '-*' ${globalOptions} ':command:->command' '*::: := ->command_arguments'
+case $state in
+  command)
+    _values 'command' ${commandValues}
+    ;;
+  command_arguments)
+    curcontext="\${curcontext%:*}-$line[1]:"
+    opsi_command_index=$NORMARG
+    (( opsi_command_index <= $#opsi_words )) || return 1
+    words=("\${(@)opsi_words[$opsi_command_index,-1]}")
+    CURRENT=$(( opsi_current - opsi_command_index + 1 ))
+    case $line[1] in
+${commandCases}
+    esac
+    ;;
 esac
 `;
 }

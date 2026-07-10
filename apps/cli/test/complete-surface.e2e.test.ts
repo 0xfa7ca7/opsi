@@ -1,6 +1,8 @@
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCli, type CliIo } from "../src/main.js";
 import { createProgram } from "../src/program.js";
@@ -11,8 +13,67 @@ import { Command } from "commander";
 import type { OpsiClient } from "@opsi/core";
 import { COMMAND_MANIFEST, registerCommandManifest } from "../src/command-manifest.js";
 import { Renderer } from "@opsi/output";
+import { completionScript } from "../src/commands/completion.js";
 
 const temporaryDirectories: string[] = [];
+const execute = promisify(execFile);
+
+async function completeWithZsh(input: string, cwd: string): Promise<string> {
+  const completionDirectory = join(cwd, "zsh-functions");
+  const candidateLog = join(cwd, "zsh-candidates.log");
+  await mkdir(completionDirectory, { recursive: true });
+  await writeFile(join(completionDirectory, "_opsi"), completionScript("zsh"));
+  const harness = `
+zmodload zsh/zpty
+zpty -b completion 'PS1="BOOT> " zsh -f'
+integer attempts=0
+typeset ready chunk output
+until zpty -r -m completion ready '*BOOT> *'; do
+  (( attempts += 1 ))
+  (( attempts > 200 )) && exit 2
+  sleep 0.01
+done
+zpty -w completion 'stty -echo'
+attempts=0
+until zpty -r -m completion ready '*BOOT> *'; do
+  (( attempts += 1 ))
+  (( attempts > 200 )) && exit 2
+  sleep 0.01
+done
+zpty -w completion "PS1='READY> '; fpath=(\${(q)1} $fpath); autoload -Uz compinit; compinit -D; setopt AUTO_LIST LIST_AMBIGUOUS; cd -- \${(q)2}; print -r -- INITIALIZED"
+attempts=0
+until zpty -r -m completion ready '*INITIALIZED*READY> *'; do
+  (( attempts += 1 ))
+  (( attempts > 200 )) && exit 2
+  sleep 0.01
+done
+zpty -w completion 'function compadd { print -r -- "$@" >> '"\${(q)4}"'; builtin compadd "$@" }'
+attempts=0
+until zpty -r -m completion ready '*READY> *'; do
+  (( attempts += 1 ))
+  (( attempts > 200 )) && exit 2
+  sleep 0.01
+done
+zpty -w -n completion "$3"$'\t\t'
+sleep 0.75
+while zpty -r -t completion chunk; do
+  output+=$chunk
+done
+zpty -d completion
+print -r -- "$output"
+`;
+  const terminal = (
+    await execute(
+      "zsh",
+      ["-f", "-c", harness, "--", completionDirectory, cwd, input, candidateLog],
+      {
+        timeout: 5_000,
+      },
+    )
+  ).stdout;
+  const candidates = await readFile(candidateLog, "utf8").catch(() => "");
+  return `${terminal}\n${candidates}`;
+}
 
 async function fixture(): Promise<{
   readonly io: CliIo;
@@ -347,6 +408,28 @@ describe("complete command surface", () => {
     expect(output).toContain("parquet");
     expect(output).toContain("local");
     expect(value.stderr).toEqual([]);
+  });
+
+  it.each([
+    ["top-level command", "opsi val", "validate"],
+    ["nested command", "opsi dataset sch", "schema"],
+    ["enum option", "opsi convert input.csv --to par", "parquet"],
+    ["path argument", "opsi convert zsh-unique", "zsh-unique.csv"],
+    ["global option before command", "opsi --offline convert input.csv --to par", "parquet"],
+    ["command option", "opsi search --lim", "--limit"],
+    ["colon-bearing option", "opsi search --sort field:direction --lim", "--limit"],
+    [
+      "top-level option-value collision",
+      "opsi --cache-dir convert convert input.csv --to par",
+      "parquet",
+    ],
+    ["nested option-value collision", "opsi dataset --cache-dir schema schema --res", "--resource"],
+  ])("functionally completes %s in zsh", async (_name, input, expected) => {
+    const value = await fixture();
+    await writeFile(join(value.cwd, "zsh-unique.csv"), "answer\n42\n");
+    const output = await completeWithZsh(input, value.cwd);
+    expect(output).not.toMatch(/(?:comparguments|_arguments):.*(?:error|only be called)/iu);
+    expect(output).toContain(expected);
   });
 
   it("keeps help/version output stack-free and non-interactive", async () => {
