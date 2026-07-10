@@ -92,7 +92,16 @@ export class OpsiTransport {
     this.scheduler = options.scheduler ?? new RequestScheduler();
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.apiKey = options.apiKey;
-    this.origin = new URL(this.baseUrl).origin;
+    const configuredUrl = new URL(this.baseUrl);
+    this.origin = configuredUrl.origin;
+    if (this.apiKey !== undefined && configuredUrl.protocol !== "https:")
+      throw new OpsiError({
+        code: "INSECURE_API_KEY_ORIGIN",
+        message: "OPSI_API_KEY requires an HTTPS OPSI base URL.",
+        exitCode: EXIT_CODES.INVALID_INPUT,
+        suggestion: "Use an HTTPS OPSI_BASE_URL or remove OPSI_API_KEY.",
+        context: { origin: configuredUrl.origin },
+      });
     this.maxRedirects = options.maxRedirects ?? 5;
   }
 

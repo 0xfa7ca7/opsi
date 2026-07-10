@@ -164,6 +164,26 @@ function fixtureTransport(responses: Readonly<Record<string, unknown>>): {
 }
 
 describe("OPSI provider contract", () => {
+  it("rejects an API key with a non-HTTPS base before fetch without exposing the secret", () => {
+    const fetch = vi.fn();
+    let received: unknown;
+    try {
+      new OpsiTransport({
+        baseUrl: "http://127.0.0.1/fixture",
+        apiKey: "must-never-leak",
+        fetch,
+      });
+    } catch (error) {
+      received = error;
+    }
+    expect(received).toMatchObject({ code: "INSECURE_API_KEY_ORIGIN", exitCode: 2 });
+    expect(JSON.stringify(received)).not.toContain("must-never-leak");
+    expect(received instanceof Error ? received.message : String(received)).not.toContain(
+      "must-never-leak",
+    );
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("sends package_search as the required JSON POST", async () => {
     const { transport, requests } = fixtureTransport({
       "/package_search": await fixture("package-search"),

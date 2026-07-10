@@ -42,6 +42,16 @@ function paginationError(message: string): OpsiError {
   });
 }
 
+function resultLimitError(maximum: number): OpsiError {
+  return new OpsiError({
+    code: "SEARCH_RESULT_LIMIT_EXCEEDED",
+    message: `Search --all is limited to ${maximum} results.`,
+    exitCode: EXIT_CODES.INVALID_INPUT,
+    suggestion: "Narrow the search or use --limit and --offset.",
+    context: { maximum },
+  });
+}
+
 export function registerSearchCommand(
   program: Command,
   context: CliContext,
@@ -71,16 +81,15 @@ export function registerSearchCommand(
         let nextOffset = page.nextOffset;
         let pages = 1;
         const maximum = 10_000;
-        if (page.total - page.offset > maximum)
-          throw paginationError(`Search --all is bounded to ${maximum} results.`);
+        if (page.total - page.offset > maximum) throw resultLimitError(maximum);
         while (nextOffset !== undefined) {
-          if (items.length >= maximum || nextOffset <= (query.offset ?? 0))
+          if (items.length >= maximum) throw resultLimitError(maximum);
+          if (nextOffset <= (query.offset ?? 0))
             throw paginationError("The provider returned a non-advancing search page.");
           const next = await client.search({ ...query, offset: nextOffset });
           items.push(...next.items);
           pages += 1;
-          if (items.length > maximum)
-            throw paginationError(`Search --all is bounded to ${maximum} results.`);
+          if (items.length > maximum) throw resultLimitError(maximum);
           if (next.nextOffset !== undefined && next.nextOffset <= nextOffset)
             throw paginationError("The provider returned a non-advancing search page.");
           nextOffset = next.nextOffset;

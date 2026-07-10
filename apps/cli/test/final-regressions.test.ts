@@ -63,10 +63,8 @@ describe("final command contracts", () => {
     });
   });
 
-  it.each([
-    ["non-advancing", { items: [], total: 2, limit: 1, offset: 0, nextOffset: 0 }],
-    ["over-cap", { items: [], total: 10_001, limit: 10, offset: 0, nextOffset: 10 }],
-  ])("returns a typed actionable error for %s --all pagination", async (_name, page) => {
+  it("returns a typed provider error for non-advancing --all pagination", async () => {
+    const page = { items: [], total: 2, limit: 1, offset: 0, nextOffset: 0 };
     const program = new Command();
     registerCommandManifest(program);
     registerSearchCommand(program, context(), {
@@ -78,6 +76,23 @@ describe("final command contracts", () => {
       code: "SEARCH_PAGINATION_INVALID",
       exitCode: 4,
       suggestion: expect.any(String),
+    });
+  });
+
+  it("returns an exact local usage error when --all exceeds its result cap", async () => {
+    const page = { items: [], total: 10_001, limit: 10, offset: 0, nextOffset: 10 };
+    const program = new Command();
+    registerCommandManifest(program);
+    registerSearchCommand(program, context(), {
+      search: vi.fn(async () => page),
+    } as unknown as OpsiClient);
+    await expect(
+      program.parseAsync(["search", "x", "--all"], { from: "user" }),
+    ).rejects.toMatchObject({
+      code: "SEARCH_RESULT_LIMIT_EXCEEDED",
+      exitCode: 2,
+      message: "Search --all is limited to 10000 results.",
+      suggestion: "Narrow the search or use --limit and --offset.",
     });
   });
 
