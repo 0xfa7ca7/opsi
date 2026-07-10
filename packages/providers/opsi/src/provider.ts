@@ -7,6 +7,7 @@ import {
   type DatasetId,
   type ProviderDescriptor,
   type ResolvedResource,
+  type MetadataCache,
   type Resource,
   type ResourceId,
   type SearchFilters,
@@ -90,12 +91,42 @@ export class OpsiProvider implements DataProvider {
     capabilities: ["search", "dataset", "resource", "dataset-resources", "resolve-resource"],
   };
 
-  constructor(private readonly transport: OpsiTransport = new OpsiTransport()) {}
+  private readonly metadataCache: MetadataCache | undefined;
+  private readonly offline: boolean;
+  private readonly metadataTtlMs: number;
+  constructor(
+    private readonly transport: OpsiTransport = new OpsiTransport(),
+    options: {
+      readonly metadataCache?: MetadataCache;
+      readonly offline?: boolean;
+      readonly metadataTtlMs?: number;
+    } = {},
+  ) {
+    this.metadataCache = options.metadataCache;
+    this.offline = options.offline ?? false;
+    this.metadataTtlMs = options.metadataTtlMs ?? 24 * 60 * 60 * 1_000;
+  }
+
+  private async cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+    const version = "opsi-metadata-v1";
+    const cached = await this.metadataCache?.get<T>(key, version);
+    if (cached !== undefined) return cached;
+    if (this.offline)
+      throw new OpsiError({
+        code: "OFFLINE_CACHE_MISS",
+        message: "Offline mode has no cached metadata for this request.",
+        exitCode: EXIT_CODES.NOT_FOUND,
+        context: { provider: "opsi", key },
+      });
+    const value = await load();
+    await this.metadataCache?.set(key, version, value, this.metadataTtlMs);
+    return value;
+  }
 
   async search(query: SearchQuery): Promise<SearchPage> {
     const limit = query.limit ?? 10;
     const offset = query.offset ?? 0;
-    const result = await this.transport.call("package_search", {
+    const input = {
       q: query.text ?? "*:*",
       fq: filterQuery(query.filters),
       rows: limit,
@@ -105,7 +136,10 @@ export class OpsiProvider implements DataProvider {
       "facet.mincount": 0,
       "facet.limit": 50,
       sort: sortQuery(query.sort),
-    });
+    } as const;
+    const result = await this.cached(`search:${JSON.stringify(input)}`, () =>
+      this.transport.call("package_search", input),
+    );
     const nextOffset = offset + result.results.length;
     return {
       items: result.results.map(mapOpsiDatasetSummary),
@@ -117,13 +151,15 @@ export class OpsiProvider implements DataProvider {
   }
 
   async getDataset(id: DatasetId): Promise<Dataset> {
-    return mapOpsiDataset(
-      await this.transport.call("package_show", { id, use_default_schema: false }),
+    return this.cached(`dataset:${id}`, async () =>
+      mapOpsiDataset(await this.transport.call("package_show", { id, use_default_schema: false })),
     );
   }
 
   async getResource(id: ResourceId): Promise<Resource> {
-    return mapOpsiResource(await this.transport.call("resource_show", { id }));
+    return this.cached(`resource:${id}`, async () =>
+      mapOpsiResource(await this.transport.call("resource_show", { id })),
+    );
   }
 
   async listDatasetResources(id: DatasetId): Promise<readonly Resource[]> {

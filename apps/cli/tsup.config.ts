@@ -9,4 +9,5 @@ export default defineConfig({
   clean: true,
   splitting: false,
   noExternal: [/^@opsi\//],
+  external: ["undici"],
 });

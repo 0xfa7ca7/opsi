@@ -16,4 +16,24 @@ export function registerResourceCommand(
     .action(async (id: string) => {
       context.renderer?.write(await client.resources.get(resourceId(id)));
     });
+  resource
+    .command("headers")
+    .description("Probe resource headers securely")
+    .argument("<id>", "resource identifier")
+    .option("--allow-insecure-http", "allow HTTP for this invocation")
+    .option("--allow-private-network", "allow private network addresses for this invocation")
+    .action(
+      async (
+        id: string,
+        options: { allowInsecureHttp?: boolean; allowPrivateNetwork?: boolean },
+      ) => {
+        if (client.downloads === undefined) throw new Error("Download service unavailable");
+        context.renderer?.write(
+          await client.downloads.headers(resourceId(id), {
+            allowInsecureHttp: options.allowInsecureHttp ?? false,
+            allowPrivateNetwork: options.allowPrivateNetwork ?? false,
+          }),
+        );
+      },
+    );
 }

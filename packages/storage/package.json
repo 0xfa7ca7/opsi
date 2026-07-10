@@ -1,5 +1,5 @@
 {
-  "name": "@opsi/core",
+  "name": "@opsi/storage",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -18,6 +18,8 @@
   },
   "dependencies": {
     "@opsi/domain": "workspace:*",
-    "@opsi/storage": "workspace:*"
+    "ipaddr.js": "2.4.0",
+    "undici": "8.7.0",
+    "zod": "4.4.3"
   }
 }

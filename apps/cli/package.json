@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "build": "tsup --config tsup.config.ts",
-    "typecheck": "pnpm --filter @opsi/domain --filter @opsi/config --filter @opsi/output build && tsc -p tsconfig.json --noEmit"
+    "typecheck": "pnpm --filter @opsi/domain --filter @opsi/config --filter @opsi/output --filter @opsi/storage --filter @opsi/core --filter @opsi/provider-opsi build && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@opsi/config": "workspace:*",
@@ -21,6 +21,8 @@
     "@opsi/domain": "workspace:*",
     "@opsi/output": "workspace:*",
     "@opsi/provider-opsi": "workspace:*",
-    "commander": "15.0.0"
+    "@opsi/storage": "workspace:*",
+    "commander": "15.0.0",
+    "undici": "8.7.0"
   }
 }

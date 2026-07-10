@@ -9,12 +9,13 @@ const workspaceResolve = {
     "@opsi/domain": workspacePackage("./packages/domain/src/index.ts"),
     "@opsi/output": workspacePackage("./packages/output/src/index.ts"),
     "@opsi/provider-opsi": workspacePackage("./packages/providers/opsi/src/index.ts"),
+    "@opsi/storage": workspacePackage("./packages/storage/src/index.ts"),
   },
 };
 
 const defaultProject = {
   environment: "node" as const,
-  exclude: ["**/*.live.test.ts"],
+  exclude: ["**/*.live.test.ts", "**/node_modules/**"],
 };
 
 export default defineConfig({
@@ -29,7 +30,12 @@ export default defineConfig({
           ...defaultProject,
           name: "unit",
           include: ["packages/**/test/**/*.test.ts", "apps/**/test/**/*.test.ts"],
-          exclude: [...defaultProject.exclude, "**/*.integration.test.ts", "**/*.e2e.test.ts"],
+          exclude: [
+            ...defaultProject.exclude,
+            "**/*.integration.test.ts",
+            "**/*.e2e.test.ts",
+            "packages/storage/test/**",
+          ],
         },
       },
       {
@@ -37,7 +43,7 @@ export default defineConfig({
         test: {
           ...defaultProject,
           name: "integration",
-          include: ["packages/**/*.integration.test.ts"],
+          include: ["packages/**/*.integration.test.ts", "packages/storage/test/**/*.test.ts"],
         },
       },
       {
