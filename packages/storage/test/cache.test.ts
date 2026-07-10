@@ -254,4 +254,24 @@ describe("ContentCache", () => {
     expect(await readFile(victim, "utf8")).toBe("victim");
     expect((await lstat(`${destination}.fixed`)).isSymbolicLink()).toBe(true);
   });
+
+  it("enforces the object byte limit before publication and preserves an existing winner", async () => {
+    const directory = await root();
+    const limited = new ContentCache(directory, { maxObjectBytes: 5 });
+    await expect(limited.putObject(Readable.from(["123", "456"]))).rejects.toMatchObject({
+      code: "CACHE_OBJECT_TOO_LARGE",
+    });
+    const layout = await limited.layout();
+    expect(await readdir(layout.objects)).toEqual([]);
+    expect(await readdir(layout.metadata)).toEqual([]);
+    expect(await readdir(layout.locks)).toEqual([]);
+    const exact = await limited.putObject(Readable.from(["12", "345"]));
+    expect(exact).toMatchObject({ bytes: 5, sha256: sha256("12345") });
+    const stricter = new ContentCache(directory, { maxObjectBytes: 4 });
+    await expect(stricter.putObject(Readable.from(["12345"]))).rejects.toMatchObject({
+      code: "CACHE_OBJECT_TOO_LARGE",
+    });
+    expect(await readFile(exact.path, "utf8")).toBe("12345");
+    expect((await readdir(layout.objects)).filter((name) => name.includes(".tmp-"))).toEqual([]);
+  });
 });

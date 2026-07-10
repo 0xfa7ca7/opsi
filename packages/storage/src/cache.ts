@@ -26,6 +26,7 @@ export interface ContentCacheOptions {
     point: "after-partial-write" | "after-object-rename" | "before-metadata-rename",
   ) => void;
   readonly materializeTempPath?: (destination: string) => string;
+  readonly maxObjectBytes?: number;
 }
 async function fileDigest(path: string): Promise<{ sha256: string; bytes: number }> {
   const hash = createHash("sha256");
@@ -120,6 +121,12 @@ export class ContentCache implements MetadataCache {
       for await (const raw of input) {
         const chunk = typeof raw === "string" ? Buffer.from(raw) : Buffer.from(raw);
         bytes += chunk.length;
+        if (bytes > (this.options.maxObjectBytes ?? MAX_CACHE_OBJECT_BYTES))
+          throw new OpsiError({
+            code: "CACHE_OBJECT_TOO_LARGE",
+            message: "Cache object exceeds the configured byte limit.",
+            exitCode: EXIT_CODES.INVALID_INPUT,
+          });
         hash.update(chunk);
         await handle.write(chunk);
         this.options.fault?.("after-partial-write");
@@ -132,9 +139,21 @@ export class ContentCache implements MetadataCache {
     }
     await handle.close();
     const sha256 = hash.digest("hex");
+    const completed = await lstat(temp);
+    if (
+      !completed.isFile() ||
+      completed.isSymbolicLink() ||
+      completed.size !== bytes ||
+      (await fileDigest(temp)).sha256 !== sha256
+    ) {
+      await rm(temp, { force: true });
+      throw corrupt("Completed cache temporary object failed validation.");
+    }
     const target = layout.objectPath(sha256);
+    let createdTarget = false;
     try {
       await link(temp, target);
+      createdTarget = true;
       await syncDirectory(layout.objects);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
@@ -147,13 +166,15 @@ export class ContentCache implements MetadataCache {
       !winner.isFile() ||
       winner.isSymbolicLink() ||
       winner.size !== bytes ||
-      winner.size > MAX_CACHE_OBJECT_BYTES
+      winner.size > (this.options.maxObjectBytes ?? MAX_CACHE_OBJECT_BYTES)
     ) {
       await rm(temp, { force: true });
+      if (createdTarget) await rm(target, { force: true });
       throw corrupt("An existing cache object is not a regular file.");
     }
     if ((await fileDigest(target)).sha256 !== sha256) {
       await rm(temp, { force: true });
+      if (createdTarget) await rm(target, { force: true });
       throw corrupt("An existing cache object failed checksum verification.");
     }
     await unlink(temp).catch(() => undefined);

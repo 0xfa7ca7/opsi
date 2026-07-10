@@ -305,17 +305,24 @@ describe("Downloader", () => {
     expect(received["x-safe"]).toBe("keep");
   });
 
-  it("does not allow callers to override Accept-Encoding identity", async () => {
+  it.each([
+    { "Accept-Encoding": "gzip" },
+    { "ACCEPT-ENCODING": "br" },
+    { "Accept-Encoding": "gzip", "ACCEPT-ENCODING": "br" },
+  ])("removes all caller Accept-Encoding case variants %#", async (headers) => {
     let encoding: string | undefined;
+    let raw: string[] = [];
     const base = await listen((request, response) => {
       encoding = request.headers["accept-encoding"];
+      raw = request.rawHeaders;
       response.end("hello");
     });
     await new Downloader().download({
       ...localOptions(base, await destination("encoding")),
-      headers: { "accept-encoding": "gzip" },
+      headers,
     });
     expect(encoding).toBe("identity");
+    expect(raw.filter((value) => value.toLowerCase() === "accept-encoding")).toHaveLength(1);
   });
 
   it("denies redirects to private addresses, HTTPS downgrade, and forbidden schemes", async () => {
