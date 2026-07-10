@@ -1,4 +1,4 @@
-import { access, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -56,11 +56,13 @@ export async function checkDuckDb(): Promise<Readonly<Record<string, unknown>>> 
 
 async function writable(directory: string): Promise<Readonly<Record<string, unknown>>> {
   const probe = join(directory, `.doctor-${randomUUID()}`);
+  const expected = Buffer.from("opsi-doctor-probe", "utf8");
   await mkdir(directory, { recursive: true });
   try {
-    await writeFile(probe, "ok", { flag: "wx", mode: 0o600 });
-    await access(probe);
-    return { path: directory };
+    await writeFile(probe, expected, { flag: "wx", mode: 0o600 });
+    const actual = await readFile(probe);
+    if (!actual.equals(expected)) throw new Error("Filesystem probe contents did not round-trip.");
+    return { path: directory, bytes: actual.length };
   } finally {
     await rm(probe, { force: true });
   }
@@ -78,7 +80,7 @@ async function createBasicFormatFixtures(
   } as const;
   await Promise.all([
     writeFile(paths.csv, "answer\n42\n"),
-    writeFile(paths.tsv, "answer\n42\n".replace("answer\n", "answer\n")),
+    writeFile(paths.tsv, "answer\tlabel\n42\tok\n"),
     writeFile(paths.json, '[{"answer":42}]\n'),
     writeFile(paths.ndjson, '{"answer":42}\n'),
   ]);
@@ -173,7 +175,7 @@ export async function runDoctorChecks(
           ...(format === "xlsx" ? { sheet: "Data" } : {}),
         });
         if (preview.rows.length !== 1) throw new Error(`${format} handler returned no rows.`);
-        return { format, rows: preview.rows.length };
+        return { format, rows: preview.rows.length, columns: preview.columns.length };
       });
     await capture(checks, "format:parquet", async () => {
       const path = join(directory, "data.parquet");
@@ -196,26 +198,31 @@ export function registerDoctorCommand(
   manifestCommand(program, "doctor").action(async (options: { offline?: boolean }) => {
     const offline = options.offline === true || context.configuration?.offline === true;
     const report = await runDoctorChecks(context, client, offline);
-    if (report.status === "pass") {
-      context.renderer?.write(report);
-      return;
-    }
-    const nativeFailed = report.checks.some(
-      (check) => check.status === "fail" && check.detail?.code === "DUCKDB_UNAVAILABLE",
-    );
-    const connectivityFailed = report.checks.some(
-      (check) => check.name === "connectivity" && check.status === "fail",
-    );
-    throw new OpsiError({
-      code: nativeFailed ? "DUCKDB_UNAVAILABLE" : "DOCTOR_FAILED",
-      message: "One or more diagnostic checks failed.",
-      exitCode: nativeFailed
-        ? EXIT_CODES.UNSUPPORTED
-        : connectivityFailed
-          ? EXIT_CODES.PROVIDER_FAILURE
-          : EXIT_CODES.INTEGRITY_FAILURE,
-      suggestion: "Review every failed check, correct the environment, and run doctor again.",
-      context: { data: report },
-    });
+    handleDoctorReport(context, report);
+  });
+}
+
+export function handleDoctorReport(context: CliContext, report: DoctorReport): void {
+  if (report.status === "pass") {
+    context.renderer?.write(report);
+    return;
+  }
+  if (context.configuration?.output === "human") context.renderer?.write(report);
+  const nativeFailed = report.checks.some(
+    (check) => check.status === "fail" && check.detail?.code === "DUCKDB_UNAVAILABLE",
+  );
+  const connectivityFailed = report.checks.some(
+    (check) => check.name === "connectivity" && check.status === "fail",
+  );
+  throw new OpsiError({
+    code: nativeFailed ? "DUCKDB_UNAVAILABLE" : "DOCTOR_FAILED",
+    message: "One or more diagnostic checks failed.",
+    exitCode: nativeFailed
+      ? EXIT_CODES.UNSUPPORTED
+      : connectivityFailed
+        ? EXIT_CODES.PROVIDER_FAILURE
+        : EXIT_CODES.INTEGRITY_FAILURE,
+    suggestion: "Review every failed check, correct the environment, and run doctor again.",
+    context: { data: report },
   });
 }

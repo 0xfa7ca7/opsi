@@ -6,10 +6,11 @@ import { runCli, type CliIo } from "../src/main.js";
 import { createProgram } from "../src/program.js";
 import { registerDatasetOpenCommand } from "../src/commands/open.js";
 import { normalizeError } from "../src/errors.js";
-import { runDoctorChecks } from "../src/commands/doctor.js";
+import { handleDoctorReport, runDoctorChecks, type DoctorReport } from "../src/commands/doctor.js";
 import { Command } from "commander";
 import type { OpsiClient } from "@opsi/core";
 import { COMMAND_MANIFEST, registerCommandManifest } from "../src/command-manifest.js";
+import { Renderer } from "@opsi/output";
 
 const temporaryDirectories: string[] = [];
 
@@ -199,6 +200,11 @@ describe("complete command surface", () => {
         expect.objectContaining({ name: "temp", status: "pass" }),
         expect.objectContaining({ name: "connectivity", status: "skip" }),
         expect.objectContaining({ name: "duckdb", status: "pass" }),
+        expect.objectContaining({
+          name: "format:tsv",
+          status: "pass",
+          detail: expect.objectContaining({ columns: 2 }),
+        }),
         ...["csv", "tsv", "json", "ndjson", "xlsx", "parquet"].map((format) =>
           expect.objectContaining({ name: `format:${format}`, status: "pass" }),
         ),
@@ -238,6 +244,40 @@ describe("complete command surface", () => {
         expect.objectContaining({ name: "format:parquet", status: "pass" }),
       ]),
     );
+  });
+
+  it("renders every failed doctor check for humans before returning a typed failure", async () => {
+    const value = await fixture();
+    const report: DoctorReport = {
+      status: "fail",
+      checks: [
+        { name: "connectivity", status: "fail", message: "network unavailable" },
+        { name: "format:parquet", status: "fail", message: "native adapter unavailable" },
+        { name: "format:csv", status: "pass" },
+      ],
+    };
+    const context = {
+      io: value.io,
+      version: "1.0.0",
+      configuration: { output: "human" },
+      renderer: new Renderer({ format: "human", stdout: value.io.stdout }),
+    } as Parameters<typeof handleDoctorReport>[0];
+
+    expect(() => handleDoctorReport(context, report)).toThrowError(
+      expect.objectContaining({ code: "DOCTOR_FAILED", exitCode: 4 }),
+    );
+    const output = value.stdout.join("");
+    expect(output).toContain("connectivity");
+    expect(output).toContain("network unavailable");
+    expect(output).toContain("format:parquet");
+    expect(output).toContain("native adapter unavailable");
+  });
+
+  it("reads back doctor filesystem probes and uses a real multi-column TSV fixture", async () => {
+    const source = await readFile(join(process.cwd(), "apps/cli/src/commands/doctor.ts"), "utf8");
+    expect(source).toContain("readFile(probe");
+    expect(source).not.toContain("access(probe)");
+    expect(source).toContain('"answer\\tlabel\\n42\\tok\\n"');
   });
 
   it("opens only the derived public provider page through the injected adapter", async () => {
@@ -289,8 +329,19 @@ describe("complete command surface", () => {
     expect(output).toContain("opsi");
     if (shell === "bash") expect(output).toContain('case "$COMP_LINE"');
     if (shell === "zsh") {
-      expect(output).toContain("dataset) _values");
-      expect(output).toContain("resources:");
+      expect(output).not.toContain("# enum choices:");
+      expect(output).toContain("convert)");
+      expect(output).toContain(
+        "--to[destination data format]:format:(csv tsv json ndjson xlsx parquet)",
+      );
+      expect(output).toContain("--output[destination file path]:path:_files");
+      expect(output).toContain("dataset)");
+      expect(output).toContain("schema)");
+      expect(output).toContain(
+        "--resource[resource identifier or canonical resource reference]:id:",
+      );
+      expect(output).toContain("search)");
+      expect(output).toContain("--limit[maximum results]:number:");
     }
     if (shell === "fish") expect(output).toContain("__fish_seen_subcommand_from dataset");
     expect(output).toContain("parquet");

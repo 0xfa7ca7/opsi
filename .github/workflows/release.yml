@@ -30,6 +30,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          test "$GITHUB_REF_PROTECTED" = "true"
           test "$GITHUB_REF_TYPE" = "tag"
           test "$GITHUB_REF" = "refs/tags/$GITHUB_REF_NAME"
           test "$(git rev-list -n 1 "$GITHUB_REF_NAME")" = "$GITHUB_SHA"

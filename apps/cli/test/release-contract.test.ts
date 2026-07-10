@@ -41,6 +41,7 @@ describe("clean CI and release contract", () => {
   it("binds release bytes to the protected tag and creates GitHub Release assets", async () => {
     const release = await text(".github/workflows/release.yml");
     expect(release).toContain("environment: npm");
+    expect(release).toContain('test "$GITHUB_REF_PROTECTED" = "true"');
     expect(release).toContain("head_sha=$GITHUB_SHA");
     expect(release).toContain("event=push");
     expect(release).toContain("branch=$GITHUB_REF_NAME");

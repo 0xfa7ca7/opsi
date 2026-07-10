@@ -38,15 +38,134 @@ async function tarText(path: string): Promise<string> {
 async function compileSdkConsumer(directory: string): Promise<void> {
   await writeFile(
     join(directory, "consumer.ts"),
-    "import { OpsiClient, ProviderRegistry, type Dataset, type SearchQuery } from 'opsi/sdk';\nconst registry = new ProviderRegistry([]);\nconst client: OpsiClient = new OpsiClient({ registry, providerId: 'opsi' });\nconst query: SearchQuery = { text: 'promet' };\nconst dataset: Dataset | undefined = undefined;\nvoid [client, query, dataset];\n",
+    `import {
+  OpsiClient,
+  ProviderRegistry,
+  type CanonicalReference,
+  type Dataset,
+  type DatasetId,
+  type DownloadRecord,
+  type Field,
+  type ParsedCanonicalReference,
+  type ProviderId,
+  type Provenance,
+  type QueryResult,
+  type ResourceId,
+  type SearchQuery,
+  type ValidationIssue,
+  type ValidationResult,
+} from 'opsi/sdk';
+
+const providerId = 'opsi' as ProviderId;
+const datasetId = 'traffic' as DatasetId;
+const resourceId = 'traffic-csv' as ResourceId;
+const reference = 'opsi:resource:traffic-csv' as CanonicalReference;
+const field: Field = { name: 'count', type: 'integer', nullable: false, description: 'Vehicles' };
+const issue: ValidationIssue = {
+  code: 'MISSING_VALUE',
+  message: 'A value is missing.',
+  severity: 'warning',
+  row: 2,
+  field: field.name,
+  context: { expected: field.type },
+};
+const validation: ValidationResult = {
+  valid: true,
+  errors: [],
+  warnings: [issue],
+  recommendations: [],
+  schema: { fields: [field], rowCount: 1 },
+};
+const provenance: Provenance = {
+  schemaVersion: '1',
+  providerId,
+  datasetId,
+  resourceId,
+  retrievedAt: '2026-01-01T00:00:00.000Z',
+  sha256: 'a'.repeat(64),
+  localPath: '/tmp/traffic.csv',
+  transformations: [{ operation: 'download', timestamp: '2026-01-01T00:00:00.000Z' }],
+};
+const download: DownloadRecord = {
+  file: { path: provenance.localPath, sha256: provenance.sha256, sizeBytes: 42, source: reference },
+  source: reference,
+  downloadedAt: provenance.retrievedAt,
+  provenance,
+};
+const queryResult: QueryResult = {
+  sql: 'select count from data',
+  columns: [field.name],
+  rows: [{ count: 42 }],
+  returnedCount: 1,
+  durationMs: 2,
+  truncated: false,
+  source: reference,
+  provenance,
+};
+const dataset: Dataset = {
+  id: datasetId,
+  providerId,
+  title: 'Traffic',
+  providerMetadata: { raw: { source: 'catalog' } },
+  resources: [{
+    id: resourceId,
+    datasetId,
+    providerId,
+    title: 'CSV',
+    url: 'https://example.invalid/traffic.csv',
+    providerMetadata: { raw: { table: 'traffic' } },
+  }],
+};
+const parsed: ParsedCanonicalReference = { providerId, kind: 'resource', id: resourceId };
+if (parsed.kind === 'resource') parsed.id.toUpperCase();
+
+const registry = new ProviderRegistry([]);
+const client: OpsiClient = new OpsiClient({
+  registry,
+  providerId,
+  downloads: { downloadDir: '/tmp', limits: { maxBytes: 1_000, timeoutMs: 1_000 } },
+});
+const search: SearchQuery = { text: 'promet', filters: { formats: ['csv'] } };
+const operations = [
+  client.search(search).then((page) => page.items[0]?.providerMetadata?.raw),
+  client.datasets.get(datasetId).then((item) => item.resources[0]?.providerMetadata?.raw),
+  client.datasets.resources(datasetId).then((items) => items[0]?.mediaType),
+  client.resources.get(resourceId).then((item) => item.providerMetadata?.raw),
+  client.providers.list(),
+  client.downloads?.resource(resourceId, { destination: '/tmp/traffic.csv' }).then((item) => item.provenancePath),
+  client.downloads?.headers(resourceId, { allowPrivateNetwork: false }).then((probe) => probe.headers),
+  client.cache?.info().then((info) => info.root),
+  client.cache?.list().then((items) => items[0]?.bytes),
+  client.cache?.clear(),
+  client.cache?.prune().then((result) => result.removed),
+  client.cache?.verify().then((result) => result.errors[0]),
+  client.data.withResolvedInput('/tmp/traffic.csv', {}, async (source) => typeof source === 'string' ? source : source.path),
+  client.data.inspect('/tmp/traffic.csv').then((inspection) => inspection.confidence),
+  client.data.preview('/tmp/traffic.csv', { limit: 5 }).then((preview) => preview.warnings[0]?.recommendation),
+  client.data.inferSchema('/tmp/traffic.csv', { limit: 5 }).then((schema) => schema.fields[0]?.evidence),
+  client.data.validate('/tmp/traffic.csv').then((result) => result.schema?.fields[0]?.nullable),
+  client.data.convert('/tmp/traffic.csv', { output: '/tmp/traffic.json', targetFormat: 'json' }).then((result) => result.warnings),
+  client.conversions.convert('/tmp/traffic.csv', { output: '/tmp/traffic.tsv', targetFormat: 'tsv' }).then((result) => result.provenancePath),
+  client.query.execute('/tmp/traffic.csv', { sql: 'select * from data', limit: 5 }).then((result) => [result.source, result.durationMs]),
+];
+void [dataset.providerMetadata?.raw.source, validation.schema?.fields[0]?.nullable,
+  download.provenance.transformations[0]?.operation, queryResult.rows[0]?.count, operations];
+`,
   );
   await writeFile(
     join(directory, "tsconfig.json"),
     `${JSON.stringify({ compilerOptions: { strict: true, noEmit: true, module: "NodeNext", moduleResolution: "NodeNext", target: "ES2024", skipLibCheck: false }, include: ["consumer.ts"] }, null, 2)}\n`,
   );
-  await execute(join(directory, "node_modules", ".bin", "tsc"), ["-p", "tsconfig.json"], {
-    cwd: directory,
-  });
+  try {
+    await execute(join(directory, "node_modules", ".bin", "tsc"), ["-p", "tsconfig.json"], {
+      cwd: directory,
+    });
+  } catch (error) {
+    const failure = error as Error & { readonly stdout?: string; readonly stderr?: string };
+    throw new Error([failure.message, failure.stdout, failure.stderr].filter(Boolean).join("\n"), {
+      cause: error,
+    });
+  }
 }
 
 beforeAll(async () => {
@@ -99,6 +218,12 @@ describe("canonical npm tarball", () => {
         expect(unpacked).not.toMatch(/(?:@opsi\/|@duckdb\/node-api|from\s+["']zod["'])/u);
       expect(unpacked).not.toMatch(/(?:api[_-]?key|token|secret)\s*[=:]\s*['"][^'"]+/iu);
     }
+    const sdkDeclaration = await tarText("dist/sdk.d.ts");
+    expect(sdkDeclaration).not.toMatch(
+      /readonly (?:data|conversions|query): unknown|type (?:DownloadRecord|Provenance|QueryResult|ValidationIssue|ValidationResult|ParsedCanonicalReference) = Readonly<Record<string, unknown>>/u,
+    );
+    expect(sdkDeclaration).toContain("readonly downloads?: DownloadService");
+    expect(sdkDeclaration).toContain("readonly cache?: CacheService");
   });
 
   it("installs the exact tarball cleanly and smokes CLI, native formats, and SDK", async () => {
