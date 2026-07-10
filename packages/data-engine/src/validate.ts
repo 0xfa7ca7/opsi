@@ -176,6 +176,131 @@ function analyzeRows(
   return issues;
 }
 
+class StreamingDiagnostics {
+  readonly issues: ValidationIssue[] = [];
+  private readonly seen = new Map<string, number>();
+  private readonly fields = new Map<string, { nonNull: number; types: Set<string> }>();
+  private rows = 0;
+  private totalBytes = 0;
+  constructor(
+    private readonly limits: {
+      readonly maxRecords: number;
+      readonly maxRecordBytes: number;
+      readonly maxTotalBytes: number;
+      readonly maxColumns: number;
+    },
+  ) {}
+  add(row: Readonly<Record<string, unknown>>, warnings: readonly ValidationIssue[] = []): void {
+    const columns = Object.keys(row);
+    if (columns.length > this.limits.maxColumns)
+      throw new OpsiError({
+        code: "VALIDATION_COLUMN_LIMIT",
+        message: "Validation column limit exceeded.",
+        exitCode: 5,
+        suggestion: "Reduce the number of columns.",
+        context: { limit: this.limits.maxColumns },
+      });
+    if (this.rows >= this.limits.maxRecords)
+      throw new OpsiError({
+        code: "VALIDATION_RECORD_LIMIT",
+        message: "Validation record limit exceeded.",
+        exitCode: 5,
+        suggestion: "Split the input into smaller files.",
+        context: { limit: this.limits.maxRecords },
+      });
+    const fingerprint = JSON.stringify(row);
+    const bytes = Buffer.byteLength(fingerprint);
+    if (bytes > this.limits.maxRecordBytes)
+      throw new OpsiError({
+        code: "VALIDATION_RECORD_TOO_LARGE",
+        message: "A validation record exceeds the byte limit.",
+        exitCode: 5,
+        suggestion: "Reduce the record size.",
+        context: { limit: this.limits.maxRecordBytes },
+      });
+    this.totalBytes += bytes;
+    if (this.totalBytes > this.limits.maxTotalBytes)
+      throw new OpsiError({
+        code: "VALIDATION_TOTAL_BYTES_LIMIT",
+        message: "Validation total byte limit exceeded.",
+        exitCode: 5,
+        suggestion: "Split the input into smaller files.",
+        context: { limit: this.limits.maxTotalBytes },
+      });
+    this.rows += 1;
+    const prior = this.seen.get(fingerprint);
+    if (prior === undefined) this.seen.set(fingerprint, this.rows);
+    else
+      this.issues.push(
+        issue(
+          "DUPLICATE_ROW",
+          "warning",
+          `Row ${this.rows + 1} duplicates row ${prior + 1}.`,
+          "Confirm the duplicate is intentional or remove it.",
+          { row: this.rows + 1 },
+        ),
+      );
+    this.issues.push(...warnings);
+    for (const [field, value] of Object.entries(row)) {
+      const state = this.fields.get(field) ?? { nonNull: 0, types: new Set<string>() };
+      const type = inferredType(value);
+      if (type !== "null") {
+        state.nonNull += 1;
+        state.types.add(type);
+      }
+      this.fields.set(field, state);
+      if (typeof value === "string" && /^[=+\-@]/u.test(value))
+        this.issues.push(
+          issue(
+            "FORMULA_LIKE_VALUE",
+            "warning",
+            "A value begins with a spreadsheet formula trigger.",
+            "Treat the value as untrusted text.",
+            { row: this.rows + 1, field },
+          ),
+        );
+      if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(value) && type === "string")
+        this.issues.push(
+          issue(
+            "INVALID_DATE",
+            "warning",
+            `Value '${value}' looks like an invalid calendar date.`,
+            "Use a real YYYY-MM-DD date.",
+            { row: this.rows + 1, field },
+          ),
+        );
+    }
+  }
+  finish(): readonly ValidationIssue[] {
+    for (const [field, state] of this.fields) {
+      if (
+        state.types.size > 1 &&
+        !(state.types.size === 2 && state.types.has("integer") && state.types.has("double"))
+      )
+        this.issues.push(
+          issue(
+            "MIXED_TYPES",
+            "warning",
+            `Column '${field}' contains mixed value types.`,
+            "Normalize the column to one type.",
+            { field },
+          ),
+        );
+      if (this.rows > 0 && state.nonNull / this.rows <= 0.5)
+        this.issues.push(
+          issue(
+            "NULL_HEAVY_COLUMN",
+            "warning",
+            `Column '${field}' is at least 50% empty.`,
+            "Document missing values.",
+            { field },
+          ),
+        );
+    }
+    return this.issues;
+  }
+}
+
 export async function validateData(
   engine: DataEngine,
   source: DataSource,
@@ -184,6 +309,8 @@ export async function validateData(
     readonly maxRecords: number;
     readonly maxRecordBytes: number;
     readonly xlsxSharedStringsByteLimit: number;
+    readonly maxTotalBytes: number;
+    readonly maxColumns: number;
   },
 ): Promise<DataValidationResult> {
   const detection = await detectFormat(source);
@@ -259,41 +386,28 @@ export async function validateData(
     !issues.some((candidate) => candidate.severity === "error")
   ) {
     try {
-      const scanned =
-        detection.format === "ndjson"
-          ? {
-              rows: await scanNdjson(detection.path, {
-                maxRecords: limits.maxRecords,
-                maxRecordBytes: limits.maxRecordBytes,
-              }),
-              warnings: [] as readonly ValidationIssue[],
-            }
-          : detection.format === "xlsx"
-            ? await scanXlsx(detection.path, options.sheet, {
-                maxRecords: limits.maxRecords,
-                sharedStringsByteLimit: limits.xlsxSharedStringsByteLimit,
-              })
-            : {
-                rows: await scanWithDuckDb(
-                  detection.path,
-                  detection.format as "json" | "parquet",
-                  limits.maxRecords,
-                ),
-                warnings: [] as readonly ValidationIssue[],
-              };
-      const columns =
-        "columns" in scanned
-          ? scanned.columns
-          : [...new Set(scanned.rows.flatMap((row) => Object.keys(row)))];
-      const records = scanned.rows.map((row) => columns.map((column) => row[column]));
-      issues.push(
-        ...analyzeRows(
-          columns,
-          records,
-          records.map((record) => record.length),
-        ),
-        ...scanned.warnings,
-      );
+      const diagnostics = new StreamingDiagnostics(limits);
+      if (detection.format === "ndjson")
+        await scanNdjson(
+          detection.path,
+          { maxRecords: limits.maxRecords, maxRecordBytes: limits.maxRecordBytes },
+          (row) => diagnostics.add(row),
+        );
+      else if (detection.format === "xlsx")
+        await scanXlsx(
+          detection.path,
+          options.sheet,
+          {
+            maxRecords: limits.maxRecords,
+            sharedStringsByteLimit: limits.xlsxSharedStringsByteLimit,
+          },
+          (row, warnings) => diagnostics.add(row, warnings),
+        );
+      else
+        await scanWithDuckDb(detection.path, detection.format as "json" | "parquet", (row) =>
+          diagnostics.add(row),
+        );
+      issues.push(...diagnostics.finish());
     } catch (error) {
       if (
         error instanceof OpsiError &&
@@ -305,6 +419,8 @@ export async function validateData(
           "UNSUPPORTED_FORMAT",
           "VALIDATION_RECORD_LIMIT",
           "VALIDATION_RECORD_TOO_LARGE",
+          "VALIDATION_TOTAL_BYTES_LIMIT",
+          "VALIDATION_COLUMN_LIMIT",
         ].includes(error.code)
       )
         throw error;

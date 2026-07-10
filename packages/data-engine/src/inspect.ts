@@ -193,8 +193,10 @@ export class DataEngine {
 
   validate(input: DataInput, options: PreviewOptions = {}) {
     return validateData(this, normalizeInput(input), options, {
-      maxRecords: 100_000,
-      maxRecordBytes: 16 * 1024 * 1024,
+      maxRecords: this.options.validationMaxRecords ?? 100_000,
+      maxRecordBytes: this.options.validationMaxRecordBytes ?? 16 * 1024 * 1024,
+      maxTotalBytes: this.options.validationMaxTotalBytes ?? 256 * 1024 * 1024,
+      maxColumns: this.options.validationMaxColumns ?? 1_024,
       xlsxSharedStringsByteLimit: this.xlsxSharedStringsByteLimit,
     });
   }

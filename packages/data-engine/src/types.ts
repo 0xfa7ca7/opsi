@@ -85,4 +85,8 @@ export interface DataEngineOptions {
   readonly jsonNativeByteLimit?: number;
   readonly xlsxSharedStringsByteLimit?: number;
   readonly onAdapter?: (name: string) => void;
+  readonly validationMaxRecords?: number;
+  readonly validationMaxRecordBytes?: number;
+  readonly validationMaxTotalBytes?: number;
+  readonly validationMaxColumns?: number;
 }

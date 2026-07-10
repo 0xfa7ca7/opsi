@@ -67,31 +67,27 @@ export async function previewNdjson(
 export async function scanNdjson(
   path: string,
   options: { readonly maxRecords: number; readonly maxRecordBytes: number },
-): Promise<readonly DataRow[]> {
-  const rows: DataRow[] = [];
+  onRow: (row: DataRow) => void,
+): Promise<void> {
+  let rowCount = 0;
   let pending = Buffer.alloc(0);
   const consume = (lineBuffer: Buffer): void => {
     const line = lineBuffer.toString("utf8").replace(/\r$/u, "");
     if (line.trim().length === 0) return;
-    if (rows.length >= options.maxRecords)
-      throw new OpsiError({
-        code: "VALIDATION_RECORD_LIMIT",
-        message: "Validation record limit exceeded.",
-        exitCode: EXIT_CODES.UNSUPPORTED,
-        suggestion: "Split the input into smaller files and validate each part.",
-        context: { limit: options.maxRecords },
-      });
+    let parsed: unknown;
     try {
-      rows.push(asRow(JSON.parse(line) as unknown));
+      parsed = JSON.parse(line) as unknown;
     } catch (error) {
       throw new OpsiError({
         code: "INVALID_NDJSON",
         message: "An NDJSON record cannot be parsed.",
         exitCode: EXIT_CODES.INVALID_INPUT,
-        context: { path, row: rows.length + 1 },
+        context: { path, row: rowCount + 1 },
         cause: error,
       });
     }
+    onRow(asRow(parsed));
+    rowCount += 1;
   };
   for await (const raw of createReadStream(path)) {
     const chunk = Buffer.from(raw as Uint8Array);
@@ -106,7 +102,7 @@ export async function scanNdjson(
           message: "An NDJSON record exceeds the validation byte limit.",
           exitCode: EXIT_CODES.UNSUPPORTED,
           suggestion: "Reduce the record size or convert the file to Parquet.",
-          context: { limit: options.maxRecordBytes, row: rows.length + 1 },
+          context: { limit: options.maxRecordBytes, row: rowCount + 1 },
         });
       pending = pending.length === 0 ? Buffer.from(segment) : Buffer.concat([pending, segment]);
       if (newline === -1) break;
@@ -116,5 +112,4 @@ export async function scanNdjson(
     }
   }
   if (pending.length > 0) consume(pending);
-  return rows;
 }

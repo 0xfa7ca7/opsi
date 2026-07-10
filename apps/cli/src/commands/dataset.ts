@@ -77,6 +77,13 @@ export function registerDatasetCommand(
             message: "--resource must identify a resource.",
             exitCode: EXIT_CODES.INVALID_INPUT,
           });
+        if (selectedId?.kind === "resource" && selectedId.providerId !== value.providerId)
+          throw new OpsiError({
+            code: "RESOURCE_PROVIDER_MISMATCH",
+            message: "Selected resource provider does not match the dataset provider.",
+            exitCode: EXIT_CODES.INVALID_INPUT,
+            context: { datasetProvider: value.providerId, resourceProvider: selectedId.providerId },
+          });
         const matchId = selectedId?.kind === "resource" ? `${selectedId.id}` : selected;
         const resource = value.resources.find((candidate) => `${candidate.id}` === matchId);
         if (resource === undefined)

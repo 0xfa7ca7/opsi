@@ -245,4 +245,50 @@ describe("data validation", () => {
       ]),
     );
   }, 20_000);
+
+  it("preserves JSON-looking Parquet VARCHAR values exactly", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "opsi-parquet-strings-"));
+    temporary.push(directory);
+    const path = join(directory, "strings.parquet");
+    const instance = await DuckDBInstance.create(":memory:");
+    const connection = await instance.connect();
+    try {
+      await connection.run(
+        `COPY (SELECT * FROM (VALUES ('null'), ('true'), ('[1]'), ('{"a":1}')) t(value)) TO '${path.replaceAll("'", "''")}' (FORMAT PARQUET)`,
+      );
+    } finally {
+      connection.closeSync();
+      instance.closeSync();
+    }
+    await expect(engine.preview(path)).resolves.toMatchObject({
+      rows: [{ value: "null" }, { value: "true" }, { value: "[1]" }, { value: '{"a":1}' }],
+    });
+    await expect(engine.validate(path)).resolves.toMatchObject({ valid: true });
+  });
+
+  it("enforces validation row, record, total-byte, and column bounds", async () => {
+    const exact = await fixture('{"a":"1"}\n{"a":"2"}\n', "exact.ndjson");
+    await expect(
+      new DataEngine({
+        validationMaxRecords: 2,
+        validationMaxRecordBytes: 9,
+        validationMaxTotalBytes: 18,
+        validationMaxColumns: 1,
+      }).validate(exact),
+    ).resolves.toMatchObject({ valid: true });
+    await expect(new DataEngine({ validationMaxRecords: 1 }).validate(exact)).rejects.toMatchObject(
+      { code: "VALIDATION_RECORD_LIMIT", exitCode: 5 },
+    );
+    await expect(
+      new DataEngine({ validationMaxRecordBytes: 4 }).validate(exact),
+    ).rejects.toMatchObject({ code: "VALIDATION_RECORD_TOO_LARGE", exitCode: 5 });
+    await expect(
+      new DataEngine({ validationMaxTotalBytes: 17 }).validate(exact),
+    ).rejects.toMatchObject({ code: "VALIDATION_TOTAL_BYTES_LIMIT", exitCode: 5 });
+    const wide = await fixture('{"a":1,"b":2}\n', "wide.ndjson");
+    await expect(new DataEngine({ validationMaxColumns: 1 }).validate(wide)).rejects.toMatchObject({
+      code: "VALIDATION_COLUMN_LIMIT",
+      exitCode: 5,
+    });
+  });
 });

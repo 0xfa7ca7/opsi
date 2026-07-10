@@ -250,4 +250,20 @@ describe("data CLI", () => {
       json: { data: { format: "csv", fields: expect.any(Array) } },
     });
   });
+
+  it("rejects a canonical --resource from another provider", async () => {
+    await expect(
+      cli([
+        "dataset",
+        "schema",
+        "dataset-data",
+        "--resource",
+        "other:resource:resource-data",
+        "--json",
+      ]),
+    ).resolves.toMatchObject({
+      exitCode: 2,
+      json: { error: { code: "RESOURCE_PROVIDER_MISMATCH" } },
+    });
+  });
 });
