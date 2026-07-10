@@ -1,4 +1,14 @@
 import { defineConfig } from "vitest/config";
+import { fileURLToPath } from "node:url";
+
+const workspacePackage = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
+const workspaceResolve = {
+  alias: {
+    "@opsi/config": workspacePackage("./packages/config/src/index.ts"),
+    "@opsi/domain": workspacePackage("./packages/domain/src/index.ts"),
+    "@opsi/output": workspacePackage("./packages/output/src/index.ts"),
+  },
+};
 
 const defaultProject = {
   environment: "node" as const,
@@ -6,9 +16,13 @@ const defaultProject = {
 };
 
 export default defineConfig({
+  resolve: {
+    ...workspaceResolve,
+  },
   test: {
     projects: [
       {
+        resolve: workspaceResolve,
         test: {
           ...defaultProject,
           name: "unit",
@@ -17,6 +31,7 @@ export default defineConfig({
         },
       },
       {
+        resolve: workspaceResolve,
         test: {
           ...defaultProject,
           name: "integration",
@@ -24,6 +39,7 @@ export default defineConfig({
         },
       },
       {
+        resolve: workspaceResolve,
         test: {
           ...defaultProject,
           name: "cli-e2e",
@@ -31,6 +47,7 @@ export default defineConfig({
         },
       },
       {
+        resolve: workspaceResolve,
         test: {
           name: "live",
           environment: "node",
