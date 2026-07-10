@@ -1,5 +1,5 @@
 import type { OpsiClient } from "@opsi/core";
-import { datasetId } from "@opsi/domain";
+import { datasetId, EXIT_CODES, OpsiError, parseCanonicalReference } from "@opsi/domain";
 import type { Command } from "commander";
 import type { CliContext } from "../context.js";
 
@@ -23,4 +23,66 @@ export function registerDatasetCommand(
     .action(async (id: string) => {
       context.renderer?.write(await client.datasets.resources(datasetId(id)));
     });
+  dataset
+    .command("schema")
+    .description("Infer the schema of a dataset's tabular resource")
+    .argument("<id>", "dataset identifier")
+    .option("--resource <id>", "resource identifier or canonical resource reference")
+    .option("--sheet <name>", "XLSX sheet name")
+    .option("--allow-insecure-http", "allow HTTP for this invocation")
+    .option("--allow-private-network", "allow private network addresses for this invocation")
+    .action(
+      async (
+        id: string,
+        options: {
+          readonly resource?: string;
+          readonly sheet?: string;
+          readonly allowInsecureHttp?: boolean;
+          readonly allowPrivateNetwork?: boolean;
+        },
+      ) => {
+        const value = await client.datasets.get(datasetId(id));
+        const tabular = value.resources.filter((resource) =>
+          ["csv", "tsv", "json", "jsonl", "ndjson", "xlsx", "parquet"].includes(
+            resource.format?.toLowerCase() ?? "",
+          ),
+        );
+        let selected = options.resource;
+        if (selected === undefined) {
+          if (tabular.length !== 1)
+            throw new OpsiError({
+              code: "AMBIGUOUS_RESOURCE",
+              message: "Dataset schema requires an explicit resource selection.",
+              exitCode: EXIT_CODES.INVALID_INPUT,
+              suggestion: "Use --resource with one of the listed resource IDs.",
+              context: { choices: tabular.map((resource) => `${resource.id}`) },
+            });
+          selected = `${tabular[0]?.id}`;
+        }
+        const selectedId = selected.includes(":") ? parseCanonicalReference(selected) : undefined;
+        if (selectedId !== undefined && selectedId.kind !== "resource")
+          throw new OpsiError({
+            code: "RESOURCE_REFERENCE_REQUIRED",
+            message: "--resource must identify a resource.",
+            exitCode: EXIT_CODES.INVALID_INPUT,
+          });
+        const matchId = selectedId?.kind === "resource" ? `${selectedId.id}` : selected;
+        const resource = value.resources.find((candidate) => `${candidate.id}` === matchId);
+        if (resource === undefined)
+          throw new OpsiError({
+            code: "RESOURCE_NOT_IN_DATASET",
+            message: `Resource '${matchId}' is not part of dataset '${id}'.`,
+            exitCode: EXIT_CODES.INVALID_INPUT,
+            context: { choices: value.resources.map((candidate) => `${candidate.id}`) },
+          });
+        const reference = resource.reference ?? `${resource.providerId}:resource:${resource.id}`;
+        context.renderer?.write(
+          await client.data.inferSchema(reference, {
+            ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+            allowInsecureHttp: options.allowInsecureHttp ?? false,
+            allowPrivateNetwork: options.allowPrivateNetwork ?? false,
+          }),
+        );
+      },
+    );
 }

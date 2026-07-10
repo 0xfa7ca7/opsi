@@ -9,5 +9,5 @@ export default defineConfig({
   clean: true,
   splitting: false,
   noExternal: [/^@opsi\//],
-  external: ["undici"],
+  external: ["undici", "@duckdb/node-api", "csv-parse", "exceljs"],
 });

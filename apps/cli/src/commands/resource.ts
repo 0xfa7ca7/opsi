@@ -2,6 +2,7 @@ import type { OpsiClient } from "@opsi/core";
 import { resourceId } from "@opsi/domain";
 import type { Command } from "commander";
 import type { CliContext } from "../context.js";
+import { registerResourcePreviewCommand } from "./preview.js";
 
 export function registerResourceCommand(
   program: Command,
@@ -9,6 +10,7 @@ export function registerResourceCommand(
   client: OpsiClient,
 ): void {
   const resource = program.command("resource").description("Inspect resources");
+  registerResourcePreviewCommand(resource, context, client);
   resource
     .command("show")
     .description("Show resource details")

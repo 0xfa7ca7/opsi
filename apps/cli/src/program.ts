@@ -9,6 +9,7 @@ import { registerSearchCommand } from "./commands/search.js";
 import { registerDownloadCommand } from "./commands/download.js";
 import { registerCacheCommand } from "./commands/cache.js";
 import { registerProvenanceCommand } from "./commands/provenance.js";
+import { registerValidateCommand } from "./commands/validate.js";
 import type { CliContext } from "./context.js";
 import { addGlobalOptions } from "./options.js";
 
@@ -39,6 +40,7 @@ function createClient(context: CliContext): OpsiClient {
     registry,
     providerId: context.configuration?.provider ?? provider.descriptor.id,
     cache,
+    cwd: context.io.cwd ?? process.cwd(),
     downloads: {
       downloadDir: configuration?.paths.downloadDir ?? context.io.cwd ?? process.cwd(),
       limits: {
@@ -74,5 +76,6 @@ export function createProgram(context: CliContext): Command {
   registerDownloadCommand(program, context, client);
   registerCacheCommand(program, context, client);
   registerProvenanceCommand(program, context);
+  registerValidateCommand(program, context, client);
   return program;
 }

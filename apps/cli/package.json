@@ -16,12 +16,17 @@
     "typecheck": "pnpm --filter @opsi/domain --filter @opsi/config --filter @opsi/output --filter @opsi/storage --filter @opsi/core --filter @opsi/provider-opsi build && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@duckdb/node-api": "1.5.4-r.1",
     "@opsi/config": "workspace:*",
     "@opsi/core": "workspace:*",
+    "@opsi/data-engine": "workspace:*",
     "@opsi/domain": "workspace:*",
     "@opsi/output": "workspace:*",
     "@opsi/provider-opsi": "workspace:*",
+    "@opsi/provider-local": "workspace:*",
     "@opsi/storage": "workspace:*",
+    "csv-parse": "7.0.1",
+    "exceljs": "4.4.0",
     "commander": "15.0.0",
     "undici": "8.7.0"
   }

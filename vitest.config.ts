@@ -7,7 +7,9 @@ const workspaceResolve = {
     "@opsi/config": workspacePackage("./packages/config/src/index.ts"),
     "@opsi/core": workspacePackage("./packages/core/src/index.ts"),
     "@opsi/domain": workspacePackage("./packages/domain/src/index.ts"),
+    "@opsi/data-engine": workspacePackage("./packages/data-engine/src/index.ts"),
     "@opsi/output": workspacePackage("./packages/output/src/index.ts"),
+    "@opsi/provider-local": workspacePackage("./packages/providers/local/src/index.ts"),
     "@opsi/provider-opsi": workspacePackage("./packages/providers/opsi/src/index.ts"),
     "@opsi/storage": workspacePackage("./packages/storage/src/index.ts"),
   },
@@ -43,7 +45,13 @@ export default defineConfig({
         test: {
           ...defaultProject,
           name: "integration",
-          include: ["packages/**/*.integration.test.ts", "packages/storage/test/**/*.test.ts"],
+          include: [
+            "packages/**/*.integration.test.ts",
+            "packages/storage/test/**/*.test.ts",
+            "packages/data-engine/test/**/*.test.ts",
+            "packages/providers/local/test/**/*.test.ts",
+            "packages/core/test/metadata-validation.test.ts",
+          ],
         },
       },
       {

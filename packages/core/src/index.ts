@@ -5,3 +5,6 @@ export { ProviderRegistry } from "./registry.js";
 export { DownloadService } from "./downloads.js";
 export type { DownloadServiceOptions, ResourceDownloadOptions } from "./downloads.js";
 export { CacheService } from "./cache.js";
+export { DataService } from "./data.js";
+export type { DataOperationOptions, DataResolutionOptions } from "./data.js";
+export { validateDatasetMetadata, validateResourceMetadata } from "./metadata-validation.js";

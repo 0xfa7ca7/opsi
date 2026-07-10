@@ -33,11 +33,12 @@ export function writeReadableError(error: OpsiError, io: CliIo, debug = false): 
 
 export function writeStructuredError(error: OpsiError, io: CliIo, format: OutputFormat): void {
   const record = error.toJSON();
+  const data = error.context?.data ?? null;
   switch (format) {
     case "json":
       io.stdout.write(
         renderJson({
-          data: error.code === "PARTIAL_DOWNLOAD" ? (error.context?.data ?? []) : null,
+          data: error.code === "PARTIAL_DOWNLOAD" ? (error.context?.data ?? []) : data,
           meta:
             error.code === "PARTIAL_DOWNLOAD" ? { failures: error.context?.failures ?? [] } : {},
           error: record,

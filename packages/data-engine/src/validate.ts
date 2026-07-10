@@ -1,0 +1,332 @@
+import { createReadStream } from "node:fs";
+import { extname } from "node:path";
+import { OpsiError } from "@opsi/domain";
+import { readDelimited } from "./csv.js";
+import { detectFormat } from "./detect.js";
+import { validateWithDuckDb } from "./duckdb-import.js";
+import { inferredType, type DataEngine } from "./inspect.js";
+import type {
+  DataSource,
+  DataValidationResult,
+  PreviewOptions,
+  ValidationIssue,
+  ValidationSeverity,
+} from "./types.js";
+
+function issue(
+  code: string,
+  severity: ValidationSeverity,
+  message: string,
+  recommendation: string,
+  location: Partial<Pick<ValidationIssue, "row" | "column" | "field" | "context">> = {},
+): ValidationIssue {
+  return { code, severity, message, recommendation, ...location };
+}
+
+async function validUtf8(path: string): Promise<boolean> {
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  try {
+    for await (const chunk of createReadStream(path))
+      decoder.decode(chunk as Uint8Array, { stream: true });
+    decoder.decode();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function grouped(
+  issues: readonly ValidationIssue[],
+  severity: ValidationSeverity,
+): readonly ValidationIssue[] {
+  return issues.filter((candidate) => candidate.severity === severity);
+}
+
+function complete(
+  issues: readonly ValidationIssue[],
+  format?: DataValidationResult["format"],
+  schema?: DataValidationResult["schema"],
+): DataValidationResult {
+  const errors = grouped(issues, "error");
+  return {
+    valid: errors.length === 0,
+    issues,
+    errors,
+    warnings: grouped(issues, "warning"),
+    recommendations: grouped(issues, "recommendation"),
+    ...(format === undefined ? {} : { format }),
+    ...(schema === undefined ? {} : { schema }),
+  };
+}
+
+function analyzeRows(
+  headers: readonly string[],
+  records: readonly (readonly unknown[])[],
+  widths: readonly number[],
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const firstHeader = new Map<string, number>();
+  headers.forEach((header, index) => {
+    const prior = firstHeader.get(header);
+    if (prior === undefined) firstHeader.set(header, index);
+    else
+      issues.push(
+        issue(
+          "DUPLICATE_HEADER",
+          "error",
+          `Header '${header}' is duplicated.`,
+          "Rename columns so every header is unique.",
+          { row: 1, column: index + 1, field: header, context: { firstColumn: prior + 1 } },
+        ),
+      );
+  });
+  widths.forEach((width, index) => {
+    if (width !== headers.length)
+      issues.push(
+        issue(
+          "INCONSISTENT_COLUMN_COUNT",
+          "error",
+          `Row ${index + 2} has ${width} columns; expected ${headers.length}.`,
+          "Add or remove fields so the row matches the header width.",
+          { row: index + 2, context: { expected: headers.length, actual: width } },
+        ),
+      );
+  });
+  const seen = new Map<string, number>();
+  records.forEach((record, index) => {
+    const key = JSON.stringify(record);
+    const prior = seen.get(key);
+    if (prior === undefined) seen.set(key, index + 2);
+    else
+      issues.push(
+        issue(
+          "DUPLICATE_ROW",
+          "warning",
+          `Row ${index + 2} duplicates row ${prior}.`,
+          "Confirm the duplicate is intentional or remove it.",
+          { row: index + 2, context: { duplicateOf: prior } },
+        ),
+      );
+    record.forEach((value, column) => {
+      if (typeof value === "string" && /^[=+\-@]/u.test(value))
+        issues.push(
+          issue(
+            "FORMULA_LIKE_VALUE",
+            "warning",
+            "A value begins with a spreadsheet formula trigger.",
+            "Treat the value as untrusted text when exporting to spreadsheet formats.",
+            {
+              row: index + 2,
+              column: column + 1,
+              ...(headers[column] === undefined ? {} : { field: headers[column] }),
+            },
+          ),
+        );
+      if (
+        typeof value === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/u.test(value) &&
+        inferredType(value) === "string"
+      )
+        issues.push(
+          issue(
+            "INVALID_DATE",
+            "warning",
+            `Value '${value}' looks like an invalid calendar date.`,
+            "Use a real date in YYYY-MM-DD form or store it as explicitly documented text.",
+            {
+              row: index + 2,
+              column: column + 1,
+              ...(headers[column] === undefined ? {} : { field: headers[column] }),
+            },
+          ),
+        );
+    });
+  });
+  headers.forEach((header, column) => {
+    const values = records.map((record) => record[column] ?? "");
+    const nonNull = values.filter((value) => inferredType(value) !== "null");
+    const types = new Set(nonNull.map(inferredType));
+    if (types.size > 1 && !(types.size === 2 && types.has("integer") && types.has("double")))
+      issues.push(
+        issue(
+          "MIXED_TYPES",
+          "warning",
+          `Column '${header}' contains mixed value types.`,
+          "Normalize the column to one documented type.",
+          { field: header, column: column + 1, context: { types: [...types] } },
+        ),
+      );
+    if (values.length > 0 && nonNull.length / values.length <= 0.5)
+      issues.push(
+        issue(
+          "NULL_HEAVY_COLUMN",
+          "warning",
+          `Column '${header}' is at least 50% empty.`,
+          "Confirm the field is useful and document why values are missing.",
+          {
+            field: header,
+            column: column + 1,
+            context: { nullCount: values.length - nonNull.length, rowCount: values.length },
+          },
+        ),
+      );
+  });
+  return issues;
+}
+
+export async function validateData(
+  engine: DataEngine,
+  source: DataSource,
+  options: PreviewOptions,
+): Promise<DataValidationResult> {
+  const detection = await detectFormat(source);
+  const issues: ValidationIssue[] = [];
+  if (detection.format === "zip" || detection.format === "unknown") {
+    await engine.preview(source, { limit: 1 });
+  }
+  if (
+    ["csv", "tsv", "json", "ndjson"].includes(detection.format) &&
+    !(await validUtf8(detection.path))
+  )
+    return complete(
+      [
+        issue(
+          "INVALID_ENCODING",
+          "error",
+          "The file is not valid UTF-8.",
+          "Convert the source to UTF-8 without replacing invalid bytes.",
+        ),
+      ],
+      detection.format,
+    );
+
+  const extension = extname(detection.path).toLowerCase();
+  if (
+    (extension === ".csv" && detection.format === "tsv") ||
+    (extension === ".tsv" && detection.format === "csv")
+  )
+    issues.push(
+      issue(
+        "DELIMITER_MISMATCH",
+        "warning",
+        `The file extension disagrees with the detected ${detection.format.toUpperCase()} delimiter.`,
+        "Rename the file or correct its delimiter.",
+      ),
+    );
+
+  if (detection.format === "csv" || detection.format === "tsv") {
+    const delimiter = detection.format === "csv" ? "," : "\t";
+    try {
+      const parsed = await readDelimited(detection.path, delimiter);
+      issues.push(...analyzeRows(parsed.headers, parsed.records, parsed.widths));
+    } catch (strictError) {
+      try {
+        const diagnostic = await readDelimited(detection.path, delimiter, { relaxed: true });
+        const diagnostics = analyzeRows(diagnostic.headers, diagnostic.records, diagnostic.widths);
+        issues.push(...diagnostics);
+        if (!diagnostics.some((candidate) => candidate.code === "INCONSISTENT_COLUMN_COUNT"))
+          throw strictError;
+      } catch (diagnosticError) {
+        issues.push(
+          issue(
+            "MALFORMED_DELIMITED_DATA",
+            "error",
+            "The delimited file cannot be parsed strictly.",
+            "Repair quoting, escaping, and record boundaries.",
+            {
+              context: {
+                detail:
+                  diagnosticError instanceof Error
+                    ? diagnosticError.message
+                    : String(diagnosticError),
+              },
+            },
+          ),
+        );
+      }
+    }
+  }
+
+  if (["json", "ndjson", "parquet"].includes(detection.format)) {
+    try {
+      await validateWithDuckDb(detection.path, detection.format as "json" | "ndjson" | "parquet");
+    } catch (error) {
+      issues.push(
+        issue(
+          "PARSE_ERROR",
+          "error",
+          "The structured data cannot be parsed completely.",
+          "Repair the malformed record or replace the file.",
+          { context: { detail: error instanceof Error ? error.message : String(error) } },
+        ),
+      );
+    }
+  }
+
+  if (
+    ["json", "ndjson", "xlsx", "parquet"].includes(detection.format) &&
+    !issues.some((candidate) => candidate.severity === "error")
+  ) {
+    try {
+      const preview = await engine.preview(source, { ...options, limit: 500 });
+      const records = preview.rows.map((row) => preview.columns.map((column) => row[column]));
+      issues.push(
+        ...analyzeRows(
+          preview.columns,
+          records,
+          records.map((record) => record.length),
+        ),
+        ...preview.warnings,
+      );
+    } catch (error) {
+      if (
+        error instanceof OpsiError &&
+        [
+          "SHEET_REQUIRED",
+          "SHEET_NOT_FOUND",
+          "XLSX_SHARED_STRINGS_TOO_LARGE",
+          "DOWNLOAD_ONLY_FORMAT",
+          "UNSUPPORTED_FORMAT",
+        ].includes(error.code)
+      )
+        throw error;
+      issues.push(
+        issue(
+          "PARSE_ERROR",
+          "error",
+          "The structured data cannot be parsed.",
+          "Repair the malformed record or replace the file.",
+          { context: { detail: error instanceof Error ? error.message : String(error) } },
+        ),
+      );
+    }
+  }
+  let schema;
+  try {
+    schema = await engine.inferSchema(source, options);
+  } catch (error) {
+    if (
+      error instanceof OpsiError &&
+      [
+        "SHEET_REQUIRED",
+        "SHEET_NOT_FOUND",
+        "XLSX_SHARED_STRINGS_TOO_LARGE",
+        "DOWNLOAD_ONLY_FORMAT",
+        "UNSUPPORTED_FORMAT",
+      ].includes(error.code)
+    )
+      throw error;
+    if (issues.some((candidate) => candidate.severity === "error"))
+      return complete(issues, detection.format);
+    issues.push(
+      issue(
+        "PARSE_ERROR",
+        "error",
+        "The data could not be parsed.",
+        "Repair the file and retry validation.",
+        { context: { detail: error instanceof Error ? error.message : String(error) } },
+      ),
+    );
+  }
+  return complete(issues, detection.format, schema);
+}

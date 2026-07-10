@@ -1,5 +1,5 @@
 {
-  "name": "@opsi/core",
+  "name": "@opsi/provider-local",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,9 +17,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@opsi/data-engine": "workspace:*",
-    "@opsi/domain": "workspace:*",
-    "@opsi/provider-local": "workspace:*",
-    "@opsi/storage": "workspace:*"
+    "@opsi/domain": "workspace:*"
   }
 }
