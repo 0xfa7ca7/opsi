@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: corepack enable && corepack prepare pnpm@11.11.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+        env:
+          OPSI_OFFLINE: "1"
+      - run: pnpm build
+      - name: Create canonical tarball
+        run: |
+          mkdir -p artifacts
+          npm pack ./apps/cli --json > artifacts/pack.json
+          TARBALL="$(node -e "const p=require('./artifacts/pack.json'); process.stdout.write(p[0].filename)")"
+          mv "$TARBALL" artifacts/
+          cd artifacts && sha256sum "$TARBALL" > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: canonical-npm-package
+          path: |
+            artifacts/*.tgz
+            artifacts/SHA256SUMS
+            artifacts/pack.json
+          if-no-files-found: error
+
+  exact-install:
+    needs: quality
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: canonical-npm-package
+          path: artifacts
+      - name: Record runtime facts
+        shell: bash
+        run: |
+          node -p "JSON.stringify({platform:process.platform,arch:process.arch,node:process.version,glibc:process.report?.getReport().header.glibcVersionRuntime??null})"
+          npm --version
+      - name: Install and smoke exact bytes
+        shell: bash
+        run: |
+          mkdir install && cd install
+          npm init -y
+          npm install "$(find ../artifacts -name '*.tgz' -print -quit)"
+          ./node_modules/.bin/opsi --version
+          ./node_modules/.bin/opsi doctor --json --offline
+          node -e "import('@duckdb/node-api').then(x=>console.log({binding:!!x.DuckDBInstance}))"
+          ./node_modules/.bin/opsi query ../packages/testing/fixtures/data/valid.csv --sql "select 42 as answer" --json
+          node -e "import('opsi/sdk').then(x=>console.log({sdk:!!x.OpsiClient}))"
+
+  current-node-advisory:
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: current
+      - run: corepack enable && corepack prepare pnpm@11.11.0 --activate
+      - run: pnpm install --frozen-lockfile && pnpm test && pnpm build

@@ -1,6 +1,6 @@
 import { closeSync, openSync, writeSync } from "node:fs";
 import { rm } from "node:fs/promises";
-import { DuckDBInstance, DuckDBTypeId, type DuckDBConnection } from "@duckdb/node-api";
+import type { DuckDBInstance, DuckDBTypeId, DuckDBConnection } from "@duckdb/node-api";
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import { detectFormat } from "./detect.js";
 import { sqlString } from "./sql-path.js";
@@ -166,6 +166,7 @@ export async function stageTabularInput(options: {
       throw new AggregateError(failures, "Failed to close tabular staging resources.");
   };
   try {
+    const { DuckDBInstance } = await import("@duckdb/node-api");
     instance = await DuckDBInstance.create(options.databasePath, {
       autoinstall_known_extensions: "false",
       autoload_known_extensions: "false",
@@ -215,9 +216,6 @@ export async function stageTabularInput(options: {
 }
 
 export function isStringColumn(typeId: DuckDBTypeId): boolean {
-  return (
-    typeId === DuckDBTypeId.VARCHAR ||
-    typeId === DuckDBTypeId.STRING_LITERAL ||
-    typeId === DuckDBTypeId.ENUM
-  );
+  // Stable DuckDB logical type identifiers: VARCHAR, STRING_LITERAL, ENUM.
+  return [17, 37, 23].includes(typeId as number);
 }

@@ -9,6 +9,8 @@ import { DataService } from "./data.js";
 import { ConversionService } from "./conversions.js";
 import { QueryService } from "./queries.js";
 import { DuckDbQueryRunner } from "@opsi/data-engine";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 export interface OpsiClientOptions {
   readonly registry: ProviderRegistry;
@@ -17,6 +19,13 @@ export interface OpsiClientOptions {
   readonly cache?: ContentCache;
   readonly cwd?: string;
   readonly queryWorkerPath?: string | URL;
+}
+
+function defaultQueryWorkerPath(): URL {
+  const bundled = new URL("./query-worker.js", import.meta.url);
+  return existsSync(fileURLToPath(bundled))
+    ? bundled
+    : new URL("./query-worker.js", import.meta.resolve("@opsi/data-engine"));
 }
 
 export class OpsiClient {
@@ -39,9 +48,7 @@ export class OpsiClient {
     this.providers = new ProviderCatalog(this.registry);
     this.data = new DataService(this, new DataEngine(), { cwd: options.cwd ?? process.cwd() });
     this.conversions = new ConversionService(this.data);
-    const queryWorkerPath =
-      options.queryWorkerPath ??
-      new URL("./query-worker.js", import.meta.resolve("@opsi/data-engine"));
+    const queryWorkerPath = options.queryWorkerPath ?? defaultQueryWorkerPath();
     this.query = new QueryService(
       this.data,
       new DuckDbQueryRunner({ workerPath: queryWorkerPath }),

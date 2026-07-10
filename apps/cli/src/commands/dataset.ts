@@ -2,6 +2,7 @@ import type { OpsiClient } from "@opsi/core";
 import { datasetId, EXIT_CODES, OpsiError, parseCanonicalReference } from "@opsi/domain";
 import type { Command } from "commander";
 import type { CliContext } from "../context.js";
+import { registerDatasetOpenCommand } from "./open.js";
 
 export function registerDatasetCommand(
   program: Command,
@@ -9,6 +10,7 @@ export function registerDatasetCommand(
   client: OpsiClient,
 ): void {
   const dataset = program.command("dataset").description("Inspect datasets");
+  registerDatasetOpenCommand(dataset, context, client);
   dataset
     .command("show")
     .description("Show dataset details")

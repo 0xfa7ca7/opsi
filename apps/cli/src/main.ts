@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { readFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import { readFileSync, realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { loadConfiguration, resolveConfigPaths } from "@opsi/config";
 import { EXIT_CODES, type ExitCode } from "@opsi/domain";
 import { Renderer } from "@opsi/output";
@@ -62,6 +62,6 @@ export async function runCli(argv: readonly string[], io: CliIo): Promise<ExitCo
 }
 
 const entrypoint = process.argv[1];
-if (entrypoint !== undefined && pathToFileURL(entrypoint).href === import.meta.url) {
+if (entrypoint !== undefined && realpathSync(entrypoint) === fileURLToPath(import.meta.url)) {
   process.exitCode = await runCli(process.argv.slice(2), processIo());
 }

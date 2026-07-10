@@ -8,6 +8,15 @@ export function registerCacheCommand(
   context: CliContext,
   client: OpsiClient,
 ): void {
+  const confirmed = (yes: boolean | undefined): void => {
+    if (yes === true) return;
+    throw new OpsiError({
+      code: "CONFIRMATION_REQUIRED",
+      message: "This destructive cache operation requires explicit confirmation.",
+      exitCode: EXIT_CODES.INVALID_INPUT,
+      suggestion: "Run the command again with --yes.",
+    });
+  };
   const service = () => {
     if (client.cache === undefined)
       throw new OpsiError({
@@ -20,11 +29,21 @@ export function registerCacheCommand(
   const cache = program.command("cache").description("Inspect and maintain the local cache");
   cache.command("info").action(async () => context.renderer?.write(await service().info()));
   cache.command("list").action(async () => context.renderer?.write(await service().list()));
-  cache.command("clear").action(async () => {
-    await service().clear();
-    context.renderer?.write({ cleared: true });
-  });
-  cache.command("prune").action(async () => context.renderer?.write(await service().prune()));
+  cache
+    .command("clear")
+    .option("--yes", "confirm deletion without prompting")
+    .action(async (options: { yes?: boolean }) => {
+      confirmed(options.yes);
+      await service().clear();
+      context.renderer?.write({ cleared: true });
+    });
+  cache
+    .command("prune")
+    .option("--yes", "confirm deletion without prompting")
+    .action(async (options: { yes?: boolean }) => {
+      confirmed(options.yes);
+      context.renderer?.write(await service().prune());
+    });
   cache.command("verify").action(async () => {
     const result = await service().verify();
     if (result.errors.length > 0)

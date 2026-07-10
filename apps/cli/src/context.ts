@@ -14,6 +14,7 @@ export interface CliContext {
   readonly version: string;
   readonly configuration?: OpsiConfiguration;
   readonly renderer?: Renderer;
+  readonly openUrl?: (url: string) => Promise<void>;
 }
 
 export function processIo(): CliIo {

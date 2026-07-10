@@ -11,6 +11,19 @@ function redact(text: string): string {
 
 export function normalizeError(error: unknown): OpsiError {
   if (error instanceof OpsiError) return error;
+  const raw = error as NodeJS.ErrnoException;
+  if (
+    (raw.code === "ERR_MODULE_NOT_FOUND" || raw.code === "MODULE_NOT_FOUND") &&
+    /duckdb/iu.test(raw.message ?? "")
+  )
+    return new OpsiError({
+      code: "DUCKDB_UNAVAILABLE",
+      message: `DuckDB native bindings are unavailable for ${process.platform}/${process.arch}.`,
+      exitCode: EXIT_CODES.UNSUPPORTED,
+      suggestion:
+        "Install optional dependencies on a supported Node 24 platform (Linux x64 glibc, macOS arm64, or Windows x64), then reinstall opsi.",
+      cause: error,
+    });
   return new OpsiError({
     code: "INTERNAL_ERROR",
     message: "An unexpected internal error occurred.",

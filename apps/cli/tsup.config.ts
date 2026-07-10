@@ -1,11 +1,12 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: { main: "src/main.ts", "query-worker": "src/query-worker-entry.ts" },
+  entry: { main: "src/main.ts", "query-worker": "src/query-worker-entry.ts", sdk: "src/sdk.ts" },
   format: ["esm"],
   target: "node24",
   platform: "node",
   sourcemap: true,
+  dts: true,
   clean: true,
   splitting: false,
   noExternal: [/^@opsi\//],

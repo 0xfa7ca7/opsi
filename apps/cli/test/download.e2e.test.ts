@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 let home: string;
 let apiUrl: string;
 let fileUrl: string;
+let trafficUrl: string;
 let requests = 0;
 let api: ReturnType<typeof createServer>;
 let files: ReturnType<typeof createServer>;
@@ -20,6 +21,11 @@ beforeAll(async () => {
   home = await mkdtemp(join(tmpdir(), "opsi-download-e2e-"));
   files = createServer((request, response) => {
     requests++;
+    if (request.url === "/traffic.csv") {
+      response.writeHead(200, { "content-type": "text/csv" });
+      response.end("road,count\nA1,42\nA2,7\n");
+      return;
+    }
     if (request.method === "HEAD") {
       response.writeHead(200, { "content-type": "text/plain", "content-length": "5" });
       response.end();
@@ -34,21 +40,53 @@ beforeAll(async () => {
   if (fileAddress === null || typeof fileAddress === "string")
     throw new Error("file listen failed");
   fileUrl = `http://127.0.0.1:${fileAddress.port}/download.txt`;
+  trafficUrl = `http://127.0.0.1:${fileAddress.port}/traffic.csv`;
   api = createServer((request, response) => {
     requests++;
     const url = new URL(request.url ?? "/", "http://localhost");
     if (url.pathname === "/resource_show" && url.searchParams.get("id") === "missing") {
       response.writeHead(404, { "content-type": "application/json" });
       response.end(JSON.stringify({ success: false, error: { message: "not found" } }));
-    } else if (url.pathname === "/resource_show")
+    } else if (
+      url.pathname === "/package_show" &&
+      url.searchParams.get("id") === "dataset-traffic-001"
+    )
       json(response, {
         success: true,
         result: {
-          id: "resource-1",
-          package_id: "dataset-abc",
-          name: "Download",
-          url: fileUrl,
-          format: "TXT",
+          id: "dataset-traffic-001",
+          name: "traffic",
+          title: "Traffic",
+          resources: [
+            {
+              id: "resource-traffic-csv-001",
+              package_id: "dataset-traffic-001",
+              name: "traffic.csv",
+              url: trafficUrl,
+              format: "CSV",
+            },
+          ],
+        },
+      });
+    else if (url.pathname === "/resource_show")
+      json(response, {
+        success: true,
+        result: {
+          ...(url.searchParams.get("id") === "resource-traffic-csv-001"
+            ? {
+                id: "resource-traffic-csv-001",
+                package_id: "dataset-traffic-001",
+                name: "traffic.csv",
+                url: trafficUrl,
+                format: "CSV",
+              }
+            : {
+                id: "resource-1",
+                package_id: "dataset-abc",
+                name: "Download",
+                url: fileUrl,
+                format: "TXT",
+              }),
         },
       });
     else if (url.pathname === "/package_search")
@@ -199,6 +237,69 @@ describe("download, cache, offline, and provenance CLI", () => {
       data: [expect.objectContaining({ bytes: 5 })],
       error: { code: "PARTIAL_DOWNLOAD" },
       meta: { failures: [expect.anything()] },
+    });
+  }, 30_000);
+
+  it("accepts --output as a destination directory alias", async () => {
+    const directory = join(home, "output-directory");
+    await import("node:fs/promises").then(({ mkdir }) => mkdir(directory));
+    const result = await cli([
+      "download",
+      "resource-1",
+      "--output",
+      directory,
+      "--allow-insecure-http",
+      "--allow-private-network",
+      "--json",
+    ]);
+    expect(result).toMatchObject({
+      exitCode: 0,
+      json: { data: { path: join(directory, "download.txt") } },
+    });
+    expect(await readFile(join(directory, "download.txt"), "utf8")).toBe("hello");
+  });
+
+  it("runs the controlled discovery-to-provenance workflow without live OPSI", async () => {
+    const directory = join(home, "controlled-workflow");
+    await import("node:fs/promises").then(({ mkdir }) => mkdir(directory));
+    await expect(cli(["search", "promet", "--json", "--limit", "1"])).resolves.toMatchObject({
+      exitCode: 0,
+    });
+    await expect(cli(["dataset", "show", "dataset-traffic-001", "--json"])).resolves.toMatchObject({
+      exitCode: 0,
+    });
+    await expect(
+      cli([
+        "download",
+        "opsi:resource:resource-traffic-csv-001",
+        "--output",
+        directory,
+        "--allow-insecure-http",
+        "--allow-private-network",
+      ]),
+    ).resolves.toMatchObject({ exitCode: 0 });
+    await expect(
+      cli([
+        "resource",
+        "preview",
+        "resource-traffic-csv-001",
+        "--json",
+        "--allow-insecure-http",
+        "--allow-private-network",
+      ]),
+    ).resolves.toMatchObject({ exitCode: 0 });
+    const csv = join(directory, "traffic.csv");
+    await expect(cli(["validate", csv, "--json"])).resolves.toMatchObject({ exitCode: 0 });
+    await expect(
+      cli(["query", csv, "--sql", "select * from data limit 2", "--json"]),
+    ).resolves.toMatchObject({ exitCode: 0 });
+    const parquet = join(directory, "traffic.parquet");
+    await expect(
+      cli(["convert", csv, "--to", "parquet", "--output", parquet]),
+    ).resolves.toMatchObject({ exitCode: 0 });
+    await expect(cli(["provenance", "verify", parquet, "--json"])).resolves.toMatchObject({
+      exitCode: 0,
+      json: { data: { valid: true } },
     });
   }, 30_000);
 });

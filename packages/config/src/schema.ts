@@ -24,7 +24,7 @@ const querySchema = z.strictObject({
 
 const duckdbSchema = z.strictObject({
   memoryLimit: z.string().refine((value) => duckDbMemoryLimitBytes(value) !== undefined, {
-    message: "must be a supported positive byte size no larger than 1GiB",
+    message: "must be a supported positive byte size no larger than 1GB",
   }),
   threads: z.number().int().positive().max(4),
 });

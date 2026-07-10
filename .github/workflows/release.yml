@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Locate successful CI run for this commit
+        id: ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUN_ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&status=success" --jq '.workflow_runs[0].id')"
+          test -n "$RUN_ID"
+          echo "run-id=$RUN_ID" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: canonical-npm-package
+          path: artifacts
+          run-id: ${{ steps.ci.outputs.run-id }}
+          github-token: ${{ github.token }}
+      - name: Verify tag, version, checksum, and package absence
+        shell: bash
+        run: |
+          cd artifacts && sha256sum --check SHA256SUMS && cd ..
+          TARBALL="$(find artifacts -name '*.tgz' -print -quit)"
+          VERSION="$(npm pkg get version --workspaces=false --prefix apps/cli | tr -d '\"')"
+          test "$GITHUB_REF_NAME" = "v$VERSION"
+          if npm view "opsi@$VERSION" version >/tmp/existing-package 2>/tmp/npm-view-error; then
+            echo "opsi@$VERSION already exists" >&2
+            exit 1
+          fi
+          grep -q E404 /tmp/npm-view-error
+      - run: npm install --global npm@^11.5.1
+      - name: Publish tested tarball with trusted publishing
+        run: npm publish "$(find artifacts -name '*.tgz' -print -quit)" --provenance --access public
+      - name: Verify published package and provenance
+        shell: bash
+        run: |
+          VERSION="$(npm pkg get version --workspaces=false --prefix apps/cli | tr -d '\"')"
+          mkdir published && cd published && npm init -y
+          npm install "opsi@$VERSION"
+          ./node_modules/.bin/opsi --version
+          npm audit signatures
+          npm view "opsi@$VERSION" dist.integrity
+      - uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45
+        with:
+          subject-path: artifacts/*.tgz
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-assets-${{ github.ref_name }}
+          path: |
+            artifacts/*.tgz
+            artifacts/SHA256SUMS
+          if-no-files-found: error

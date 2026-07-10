@@ -1,11 +1,6 @@
 import { availableParallelism } from "node:os";
 import { isAbsolute, relative, resolve } from "node:path";
-import {
-  DuckDBInstance,
-  StatementType,
-  type DuckDBConnection,
-  type DuckDBPreparedStatement,
-} from "@duckdb/node-api";
+import type { DuckDBInstance, DuckDBConnection, DuckDBPreparedStatement } from "@duckdb/node-api";
 import { duckDbMemoryLimitBytes } from "@opsi/domain";
 import type {
   QueryLimits,
@@ -101,7 +96,7 @@ async function validateAndPrepare(connection: DuckDBConnection, sql: string, lim
   if (extracted.count !== 1)
     throw failure("QUERY_FORBIDDEN", "Exactly one SELECT statement is allowed.");
   const prepared = await extracted.prepare(0);
-  if (prepared.statementType !== StatementType.SELECT) {
+  if (prepared.statementType !== 1) {
     prepared.destroySync();
     throw failure("QUERY_FORBIDDEN", "Only SELECT, WITH ... SELECT, or VALUES is allowed.");
   }
@@ -115,6 +110,7 @@ export async function executeQueryWorker(request: QueryWorkerRequest): Promise<Q
   let queryResult: QueryResult | undefined;
   let operationError: unknown;
   try {
+    const { DuckDBInstance } = await import("@duckdb/node-api");
     if (duckDbMemoryLimitBytes(request.limits.memoryLimit) === undefined)
       throw failure("QUERY_MEMORY_LIMIT", "DuckDB memory must not exceed 1GB.");
     instance = await DuckDBInstance.create(request.databasePath, {

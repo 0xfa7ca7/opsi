@@ -1,4 +1,4 @@
-import { DuckDBInstance, StatementType, type DuckDBConnection } from "@duckdb/node-api";
+import type { DuckDBInstance, DuckDBConnection } from "@duckdb/node-api";
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
 
 export const DEFAULT_MAX_SQL_BYTES = 64 * 1024;
@@ -33,6 +33,7 @@ export class QueryPolicy {
     let connection = options.connection;
     try {
       if (connection === undefined) {
+        const { DuckDBInstance } = await import("@duckdb/node-api");
         ownedInstance = await DuckDBInstance.create(":memory:", {
           enable_external_access: "false",
           autoinstall_known_extensions: "false",
@@ -47,7 +48,7 @@ export class QueryPolicy {
       let prepared;
       try {
         prepared = await extracted.prepare(0);
-        if (prepared.statementType !== StatementType.SELECT)
+        if (prepared.statementType !== 1)
           throw forbidden("QUERY_FORBIDDEN", "Only SELECT, WITH ... SELECT, or VALUES is allowed.");
       } finally {
         prepared?.destroySync();

@@ -16,6 +16,7 @@
     "test:e2e": "vitest run --project cli-e2e",
     "lint": "eslint .",
     "format:check": "prettier --check .",
+    "pack:cli": "pnpm build && npm pack ./apps/cli --json",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "devDependencies": {

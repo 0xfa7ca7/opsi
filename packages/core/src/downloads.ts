@@ -1,5 +1,6 @@
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
 import { EXIT_CODES, OpsiError, type ResourceId } from "@opsi/domain";
 import {
   Downloader,
@@ -39,6 +40,16 @@ interface CachedDownload {
   readonly redirectChain: readonly string[];
   readonly mediaType?: string;
 }
+
+async function destinationPath(requested: string | undefined, fallback: string): Promise<string> {
+  if (requested === undefined) return fallback;
+  try {
+    return (await stat(requested)).isDirectory() ? join(requested, basename(fallback)) : requested;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return requested;
+    throw error;
+  }
+}
 export class DownloadService {
   private readonly downloader: Downloader;
   private readonly provenance: ProvenanceStore;
@@ -54,12 +65,11 @@ export class DownloadService {
     const provider = this.options.registry.get(selectedProviderId);
     const resource = await provider.getResource(id);
     const resolved = await provider.resolveResource(resource);
-    const destination =
-      options.destination ??
-      join(
-        this.options.downloadDir,
-        safeFilename(resolved.filename, filenameFromUrl(resolved.url, safeFilename(`${id}`))),
-      );
+    const fallback = join(
+      this.options.downloadDir,
+      safeFilename(resolved.filename, filenameFromUrl(resolved.url, safeFilename(`${id}`))),
+    );
+    const destination = await destinationPath(options.destination, fallback);
     const cacheKey = `download:${resource.providerId}:${resource.id}`;
     let result: DownloadResult;
     if (this.options.offline) {

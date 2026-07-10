@@ -99,7 +99,7 @@ export class DuckDbQueryRunner {
     if (duckDbMemoryLimitBytes(memoryLimit) === undefined)
       throw new OpsiError({
         code: "QUERY_MEMORY_LIMIT",
-        message: "DuckDB memory must be a supported positive size no larger than 1GiB.",
+        message: "DuckDB memory must be a supported positive size no larger than 1GB.",
         exitCode: EXIT_CODES.QUERY_FAILURE,
       });
     const limits: QueryLimits = {

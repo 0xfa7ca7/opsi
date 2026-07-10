@@ -37,7 +37,7 @@ function integer(value: string): number {
 
 function duckDbMemoryLimit(value: string): string {
   if (duckDbMemoryLimitBytes(value) === undefined)
-    throw new InvalidArgumentError("must be a supported positive byte size no larger than 1GiB");
+    throw new InvalidArgumentError("must be a supported positive byte size no larger than 1GB");
   return value;
 }
 

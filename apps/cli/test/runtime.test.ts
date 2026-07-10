@@ -161,6 +161,8 @@ describe("CLI bootstrap options", () => {
       runCli(["--duckdb-memory-limit", "unlimited", "--help"], fixture.io),
     ).resolves.toBe(2);
     await expect(runCli(["--duckdb-memory-limit", "1GiB", "--help"], fixture.io)).resolves.toBe(2);
+    expect(fixture.stderr.join("")).toContain("1GB");
+    expect(fixture.stderr.join("")).not.toContain("no larger than 1GiB");
   });
 
   it("retains separate-token bootstrap option parsing", () => {

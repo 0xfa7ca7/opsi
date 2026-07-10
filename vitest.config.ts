@@ -36,6 +36,7 @@ export default defineConfig({
             ...defaultProject.exclude,
             "**/*.integration.test.ts",
             "**/*.e2e.test.ts",
+            "apps/cli/test/pack.test.ts",
             "packages/storage/test/**",
           ],
         },
@@ -59,7 +60,7 @@ export default defineConfig({
         test: {
           ...defaultProject,
           name: "cli-e2e",
-          include: ["apps/cli/**/*.e2e.test.ts"],
+          include: ["apps/cli/**/*.e2e.test.ts", "apps/cli/test/pack.test.ts"],
           testTimeout: 30_000,
           hookTimeout: 30_000,
         },
