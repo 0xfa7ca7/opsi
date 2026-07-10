@@ -8,7 +8,7 @@ const UNIT_BYTES: Readonly<Record<string, number>> = {
   GIB: 1024 ** 3,
 };
 
-export const MAX_DUCKDB_MEMORY_BYTES = 1024 ** 3;
+export const MAX_DUCKDB_MEMORY_BYTES = 1_000_000_000;
 
 export function duckDbMemoryLimitBytes(value: string): number | undefined {
   const match = /^(\d+(?:\.\d+)?)\s*(B|KB|MB|GB|KiB|MiB|GiB)$/iu.exec(value.trim());

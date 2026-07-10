@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DuckDbQueryRunner } from "../src/query.js";
-import { executeQueryWorker } from "../src/query-worker.js";
+import { executeQueryWorker, finalizeQueryWorkerResources } from "../src/query-worker.js";
 import { stageTabularInput } from "../src/tabular-stage.js";
 
 let directory: string;
@@ -19,6 +19,47 @@ beforeEach(async () => {
 afterEach(async () => rm(directory, { recursive: true, force: true }));
 
 describe("DuckDbQueryRunner security", () => {
+  it("attempts every worker cleanup and preserves the query error when cleanup also fails", () => {
+    const calls: string[] = [];
+    const queryError = new Error("query failed");
+    let received: unknown;
+    try {
+      finalizeQueryWorkerResources(
+        {
+          prepared: {
+            destroySync() {
+              calls.push("prepared");
+              throw new Error("prepared cleanup failed");
+            },
+          },
+          connection: {
+            closeSync() {
+              calls.push("connection");
+              throw new Error("connection cleanup failed");
+            },
+          },
+          instance: {
+            closeSync() {
+              calls.push("instance");
+            },
+          },
+        },
+        queryError,
+      );
+    } catch (error) {
+      received = error;
+    }
+    expect(calls).toEqual(["prepared", "connection", "instance"]);
+    expect(received).toMatchObject({
+      code: "QUERY_CLEANUP_FAILED",
+      exitCode: 7,
+      context: { failureCount: 2, operationMessage: "query failed" },
+      cause: expect.objectContaining({
+        errors: [queryError, expect.any(Error), expect.any(Error)],
+      }),
+    });
+  });
+
   it("documents DuckDB 1.5 rejecting an explicit temp directory on read-only open", async () => {
     const database = join(directory, "probe.duckdb");
     const writable = await DuckDBInstance.create(database);
@@ -108,7 +149,7 @@ describe("DuckDbQueryRunner security", () => {
     ).rejects.toMatchObject({ exitCode: 7 });
   });
 
-  it("enforces the hard 1 GiB worker memory ceiling", async () => {
+  it("enforces the exact decimal 1GB worker memory ceiling", async () => {
     let directoriesCreated = 0;
     const runner = new DuckDbQueryRunner({
       workerPath: new URL("./fixtures/query-worker-source-entry.ts", import.meta.url),
@@ -125,6 +166,9 @@ describe("DuckDbQueryRunner security", () => {
     ).rejects.toMatchObject({ code: "QUERY_MEMORY_LIMIT", exitCode: 7 });
     await expect(
       runner.execute({ input, sql: "SELECT 1", memoryLimit: "unlimited" }),
+    ).rejects.toMatchObject({ code: "QUERY_MEMORY_LIMIT", exitCode: 7 });
+    await expect(
+      runner.execute({ input, sql: "SELECT 1", memoryLimit: "1GiB" }),
     ).rejects.toMatchObject({ code: "QUERY_MEMORY_LIMIT", exitCode: 7 });
     expect(directoriesCreated).toBe(1);
   });

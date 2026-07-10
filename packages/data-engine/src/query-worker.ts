@@ -20,6 +20,12 @@ interface WorkerError extends Error {
   readonly context?: Readonly<Record<string, unknown>>;
 }
 
+export interface QueryWorkerResources {
+  readonly prepared: Pick<DuckDBPreparedStatement, "destroySync"> | undefined;
+  readonly connection: Pick<DuckDBConnection, "closeSync"> | undefined;
+  readonly instance: Pick<DuckDBInstance, "closeSync"> | undefined;
+}
+
 let activeConnection: DuckDBConnection | undefined;
 
 function failure(
@@ -32,6 +38,43 @@ function failure(
     exitCode: 7,
     ...(context === undefined ? {} : { context }),
   });
+}
+
+export function finalizeQueryWorkerResources(
+  resources: QueryWorkerResources,
+  operationError?: unknown,
+): void {
+  const failures: unknown[] = [];
+  for (const close of [
+    resources.prepared === undefined ? undefined : () => resources.prepared?.destroySync(),
+    resources.connection === undefined ? undefined : () => resources.connection?.closeSync(),
+    resources.instance === undefined ? undefined : () => resources.instance?.closeSync(),
+  ]) {
+    if (close === undefined) continue;
+    try {
+      close();
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  if (failures.length > 0) {
+    const error = failure(
+      "QUERY_CLEANUP_FAILED",
+      "Query worker resources could not be fully closed.",
+      {
+        failureCount: failures.length,
+        ...(operationError instanceof Error ? { operationMessage: operationError.message } : {}),
+      },
+    );
+    Object.assign(error, {
+      cause: new AggregateError(
+        operationError === undefined ? failures : [operationError, ...failures],
+        "Query execution and worker cleanup failures",
+      ),
+    });
+    throw error;
+  }
+  if (operationError !== undefined) throw operationError;
 }
 
 function cellBytes(value: unknown): number {
@@ -69,9 +112,11 @@ export async function executeQueryWorker(request: QueryWorkerRequest): Promise<Q
   let instance: DuckDBInstance | undefined;
   let connection: DuckDBConnection | undefined;
   let prepared: DuckDBPreparedStatement | undefined;
+  let queryResult: QueryResult | undefined;
+  let operationError: unknown;
   try {
     if (duckDbMemoryLimitBytes(request.limits.memoryLimit) === undefined)
-      throw failure("QUERY_MEMORY_LIMIT", "DuckDB memory must not exceed 1GiB.");
+      throw failure("QUERY_MEMORY_LIMIT", "DuckDB memory must not exceed 1GB.");
     instance = await DuckDBInstance.create(request.databasePath, {
       access_mode: "READ_ONLY",
       enable_external_access: "false",
@@ -135,19 +180,22 @@ export async function executeQueryWorker(request: QueryWorkerRequest): Promise<Q
         if (rows.length > request.limits.rowLimit) break outer;
       }
     }
-    return {
+    queryResult = {
       columns,
       rows: rows.slice(0, request.limits.rowLimit),
       returnedCount: Math.min(rows.length, request.limits.rowLimit),
       truncated: rows.length > request.limits.rowLimit,
       sql: request.sql,
     };
+  } catch (error) {
+    operationError = error;
   } finally {
-    prepared?.destroySync();
     activeConnection = undefined;
-    connection?.closeSync();
-    instance?.closeSync();
   }
+  finalizeQueryWorkerResources({ prepared, connection, instance }, operationError);
+  if (queryResult === undefined)
+    throw failure("QUERY_FAILED", "The query worker completed without a result.");
+  return queryResult;
 }
 
 function send(message: QueryWorkerMessage): void {

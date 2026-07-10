@@ -58,13 +58,13 @@ afterEach(async () => {
 });
 
 describe("configuration", () => {
-  it.each(["1GB", "1GiB", "1024MiB"])("accepts DuckDB memory limit %s", async (memoryLimit) => {
+  it.each(["1GB", "999MB", "953MiB"])("accepts DuckDB memory limit %s", async (memoryLimit) => {
     await expect(
       loadConfiguration(await fixtureSources({ project: { duckdb: { memoryLimit } } })),
     ).resolves.toMatchObject({ duckdb: { memoryLimit } });
   });
 
-  it.each(["100GB", "1.1GiB", "unlimited", "1XB", ""])(
+  it.each(["1GiB", "1024MiB", "1.001GB", "1.073GB", "100GB", "unlimited", "1XB", ""])(
     "rejects unsafe DuckDB memory limit %s",
     async (memoryLimit) => {
       await expect(
