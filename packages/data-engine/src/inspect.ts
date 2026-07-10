@@ -18,6 +18,8 @@ import type {
 } from "./types.js";
 import { listSheets, previewXlsx } from "./xlsx.js";
 import { validateData } from "./validate.js";
+import { convertData } from "./convert.js";
+import type { ConversionOptions } from "./types.js";
 
 function supported(format: string): format is SupportedDataFormat {
   return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet"].includes(format);
@@ -201,5 +203,9 @@ export class DataEngine {
       maxIssueGroups: this.options.validationMaxIssueGroups ?? 10_000,
       xlsxSharedStringsByteLimit: this.xlsxSharedStringsByteLimit,
     });
+  }
+
+  convert(options: ConversionOptions) {
+    return convertData(options, this.options, this.xlsxSharedStringsByteLimit);
   }
 }

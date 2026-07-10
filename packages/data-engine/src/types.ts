@@ -1,3 +1,5 @@
+import type { ConversionResult as DomainConversionResult } from "@opsi/domain";
+
 export type SupportedDataFormat = "csv" | "tsv" | "json" | "ndjson" | "xlsx" | "parquet";
 export type DetectedInputFormat = SupportedDataFormat | "zip" | "unknown";
 export type DetectionConfidence =
@@ -91,4 +93,18 @@ export interface DataEngineOptions {
   readonly validationMaxColumns?: number;
   readonly validationMaxStateBytes?: number;
   readonly validationMaxIssueGroups?: number;
+}
+
+export interface ConversionOptions {
+  readonly input: DataInput;
+  readonly output: string;
+  readonly targetFormat: SupportedDataFormat;
+  readonly sheet?: string;
+  readonly force: boolean;
+  readonly spreadsheetSafe?: boolean;
+}
+
+export interface ConversionResult extends DomainConversionResult {
+  readonly provenancePath: string;
+  readonly warnings: readonly ValidationIssue[];
 }

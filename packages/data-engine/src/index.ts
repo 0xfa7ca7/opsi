@@ -8,6 +8,8 @@ export type {
   DataRow,
   DataSource,
   DataValidationResult,
+  ConversionOptions,
+  ConversionResult,
   DetectedInputFormat,
   DetectionConfidence,
   FormatDetection,

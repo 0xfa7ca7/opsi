@@ -1,0 +1,118 @@
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import ExcelJS from "exceljs";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { DataEngine } from "@opsi/data-engine";
+
+interface CliResult {
+  readonly exitCode: number;
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly json?: unknown;
+}
+
+let home: string;
+let input: string;
+
+beforeEach(async () => {
+  home = await mkdtemp(join(tmpdir(), "opsi-convert-e2e-"));
+  input = join(home, "input.xlsx");
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Data");
+  sheet.addRow(["občina", "vrednost", "opomba"]);
+  sheet.addRow(["Škofja Loka", 1.5, null]);
+  sheet.addRow(["Črnomelj", 2, "živjo"]);
+  await workbook.xlsx.writeFile(input);
+});
+
+afterEach(async () => rm(home, { recursive: true, force: true }));
+
+async function cli(argv: readonly string[]): Promise<CliResult> {
+  const child = spawn(process.execPath, [resolve("apps/cli/dist/main.js"), ...argv], {
+    cwd: home,
+    env: { ...process.env, HOME: home, NO_COLOR: "1" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk: string) => (stdout += chunk));
+  child.stderr.on("data", (chunk: string) => (stderr += chunk));
+  const [exitCode] = (await once(child, "exit")) as [number];
+  let json: unknown;
+  try {
+    json = JSON.parse(stdout) as unknown;
+  } catch {
+    json = undefined;
+  }
+  return { exitCode, stdout, stderr, ...(json === undefined ? {} : { json }) };
+}
+
+describe("convert CLI", () => {
+  it("converts an explicit XLSX sheet to Parquet and renders structured JSON", async () => {
+    const output = join(home, "out.parquet");
+
+    await expect(
+      cli(["convert", input, "--sheet", "Data", "--to", "parquet", "--output", output, "--json"]),
+    ).resolves.toMatchObject({
+      exitCode: 0,
+      stderr: "",
+      json: {
+        data: {
+          input,
+          output,
+          targetFormat: "parquet",
+          provenance: {
+            transformations: [
+              expect.objectContaining({
+                operation: "convert",
+                details: expect.objectContaining({ sourceFormat: "xlsx", sheet: "Data" }),
+              }),
+            ],
+          },
+        },
+      },
+    });
+    await expect(new DataEngine().preview(output)).resolves.toMatchObject({
+      columns: ["občina", "vrednost", "opomba"],
+      rows: [
+        { občina: "Škofja Loka", vrednost: 1.5, opomba: null },
+        { občina: "Črnomelj", vrednost: 2, opomba: "živjo" },
+      ],
+    });
+  });
+
+  it("refuses overwrite, replaces with --force, and produces verifiable provenance", async () => {
+    const output = "out.csv";
+    const args = [
+      "convert",
+      input,
+      "--sheet",
+      "Data",
+      "--to",
+      "csv",
+      "--output",
+      output,
+      "--json",
+    ] as const;
+
+    await expect(cli(args)).resolves.toMatchObject({ exitCode: 0 });
+    await expect(cli(args)).resolves.toMatchObject({
+      exitCode: 2,
+      json: { error: { code: "CONVERSION_DESTINATION_EXISTS" } },
+    });
+    await expect(cli([...args, "--force"])).resolves.toMatchObject({ exitCode: 0 });
+    await expect(cli(["provenance", "verify", output, "--json"])).resolves.toMatchObject({
+      exitCode: 0,
+      stderr: "",
+      json: { data: { valid: true, sha256: expect.stringMatching(/^[a-f\d]{64}$/u) } },
+    });
+    await expect(new DataEngine().preview(join(home, output))).resolves.toMatchObject({
+      columns: ["občina", "vrednost", "opomba"],
+    });
+  });
+});

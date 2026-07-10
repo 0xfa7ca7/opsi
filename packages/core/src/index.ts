@@ -6,5 +6,7 @@ export { DownloadService } from "./downloads.js";
 export type { DownloadServiceOptions, ResourceDownloadOptions } from "./downloads.js";
 export { CacheService } from "./cache.js";
 export { DataService } from "./data.js";
-export type { DataOperationOptions, DataResolutionOptions } from "./data.js";
+export type { DataConversionOptions, DataOperationOptions, DataResolutionOptions } from "./data.js";
+export { ConversionService } from "./conversions.js";
+export type { ConversionServiceOptions } from "./conversions.js";
 export { validateDatasetMetadata, validateResourceMetadata } from "./metadata-validation.js";

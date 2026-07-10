@@ -6,6 +6,7 @@ import { DownloadService, type DownloadServiceOptions } from "./downloads.js";
 import type { ContentCache } from "@opsi/storage";
 import { DataEngine } from "@opsi/data-engine";
 import { DataService } from "./data.js";
+import { ConversionService } from "./conversions.js";
 
 export interface OpsiClientOptions {
   readonly registry: ProviderRegistry;
@@ -22,6 +23,7 @@ export class OpsiClient {
   readonly downloads?: DownloadService;
   readonly cache?: CacheService;
   readonly data: DataService;
+  readonly conversions: ConversionService;
   private readonly registry: ProviderRegistry;
   private readonly providerId: string;
 
@@ -32,6 +34,7 @@ export class OpsiClient {
     this.resources = new ResourceCatalog(this.registry, this.providerId);
     this.providers = new ProviderCatalog(this.registry);
     this.data = new DataService(this, new DataEngine(), { cwd: options.cwd ?? process.cwd() });
+    this.conversions = new ConversionService(this.data);
     if (options.downloads !== undefined)
       this.downloads = new DownloadService({
         ...options.downloads,

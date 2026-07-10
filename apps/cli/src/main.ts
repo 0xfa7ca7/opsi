@@ -9,7 +9,7 @@ import { CommanderError } from "commander";
 import { processIo, type CliIo } from "./context.js";
 import { handleRuntimeError } from "./errors.js";
 import { cliConfigurationFromArgv, requestedOutputFormat } from "./options.js";
-import { createProgram } from "./program.js";
+import { createProgram, normalizeProgramArgv } from "./program.js";
 
 export type { CliContext, CliIo } from "./context.js";
 export { createProgram } from "./program.js";
@@ -48,7 +48,7 @@ export async function runCli(argv: readonly string[], io: CliIo): Promise<ExitCo
     });
     const renderer = new Renderer({ format: configuration.output, stdout: io.stdout });
     const program = createProgram({ io, version: VERSION, configuration, renderer });
-    await program.parseAsync([...argv], { from: "user" });
+    await program.parseAsync([...normalizeProgramArgv(argv)], { from: "user" });
     return EXIT_CODES.SUCCESS;
   } catch (error) {
     if (error instanceof CommanderError) {

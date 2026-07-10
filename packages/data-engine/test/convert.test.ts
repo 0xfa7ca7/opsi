@@ -1,0 +1,323 @@
+import { createHash } from "node:crypto";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DuckDBInstance } from "@duckdb/node-api";
+import ExcelJS from "exceljs";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { DataEngine, type SupportedDataFormat } from "../src/index.js";
+
+const columns = ["občina", "vrednost", "opomba", "aktivna"] as const;
+const rows = [
+  { občina: "Škofja Loka", vrednost: 1.5, opomba: null, aktivna: true },
+  { občina: "Črnomelj", vrednost: 2, opomba: "živjo", aktivna: false },
+] as const;
+
+let root: string;
+
+function path(name: string): string {
+  return join(root, name);
+}
+
+function sha256(contents: Buffer): string {
+  return createHash("sha256").update(contents).digest("hex");
+}
+
+async function createInputs(): Promise<Readonly<Record<SupportedDataFormat, string>>> {
+  const csv = path("input.csv");
+  const tsv = path("input.tsv");
+  const json = path("input.json");
+  const ndjson = path("input.ndjson");
+  const xlsx = path("input.xlsx");
+  const parquet = path("input.parquet");
+  await writeFile(
+    csv,
+    `občina,vrednost,opomba,aktivna\nŠkofja Loka,1.5,,true\nČrnomelj,2,živjo,false\n`,
+  );
+  await writeFile(
+    tsv,
+    `občina\tvrednost\topomba\taktivna\nŠkofja Loka\t1.5\t\ttrue\nČrnomelj\t2\tživjo\tfalse\n`,
+  );
+  await writeFile(json, JSON.stringify(rows));
+  await writeFile(ndjson, `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`);
+
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("Data");
+  worksheet.addRow(columns);
+  for (const row of rows) worksheet.addRow(columns.map((column) => row[column]));
+  await workbook.xlsx.writeFile(xlsx);
+
+  const instance = await DuckDBInstance.create(":memory:");
+  const connection = await instance.connect();
+  try {
+    await connection.run(
+      `COPY (SELECT * FROM read_json_auto('${json.replaceAll("'", "''")}')) TO '${parquet.replaceAll("'", "''")}' (FORMAT PARQUET)`,
+    );
+  } finally {
+    connection.closeSync();
+    instance.closeSync();
+  }
+  return { csv, tsv, json, ndjson, xlsx, parquet };
+}
+
+beforeEach(async () => {
+  root = await mkdtemp(join(tmpdir(), "opsi-convert-"));
+});
+
+afterEach(async () => rm(root, { recursive: true, force: true }));
+
+describe("tabular conversion", () => {
+  it("converts every input handler to at least two output formats", async () => {
+    const inputs = await createInputs();
+    const matrix = [
+      ["csv", "json"],
+      ["csv", "parquet"],
+      ["tsv", "json"],
+      ["tsv", "xlsx"],
+      ["json", "csv"],
+      ["json", "parquet"],
+      ["json", "ndjson"],
+      ["ndjson", "tsv"],
+      ["ndjson", "xlsx"],
+      ["xlsx", "csv"],
+      ["xlsx", "json"],
+      ["parquet", "json"],
+      ["parquet", "csv"],
+    ] as const;
+    const engine = new DataEngine();
+
+    for (const [sourceFormat, targetFormat] of matrix) {
+      const output = path(`${sourceFormat}-to-${targetFormat}.${targetFormat}`);
+      const result = await engine.convert({
+        input: inputs[sourceFormat],
+        output,
+        targetFormat,
+        ...(sourceFormat === "xlsx" ? { sheet: "Data" } : {}),
+        force: false,
+      });
+
+      expect(result).toMatchObject({
+        input: inputs[sourceFormat],
+        output,
+        targetFormat,
+        bytesWritten: expect.any(Number),
+        provenance: {
+          sha256: expect.stringMatching(/^[a-f\d]{64}$/u),
+          transformations: [
+            expect.objectContaining({
+              operation: "convert",
+              inputSha256: expect.stringMatching(/^[a-f\d]{64}$/u),
+            }),
+          ],
+        },
+      });
+      const preview = await engine.preview(output, {
+        ...(targetFormat === "xlsx" ? { sheet: "Data" } : {}),
+      });
+      expect(preview.columns).toEqual(columns);
+      expect(preview.rows).toHaveLength(2);
+    }
+  }, 30_000);
+
+  it("preserves Unicode, column order, nulls, numbers, and booleans through CSV and Parquet", async () => {
+    const inputs = await createInputs();
+    const engine = new DataEngine();
+    const parquet = path("roundtrip.parquet");
+    const json = path("roundtrip.json");
+
+    await engine.convert({
+      input: inputs.csv,
+      output: parquet,
+      targetFormat: "parquet",
+      force: false,
+    });
+    await engine.convert({
+      input: parquet,
+      output: json,
+      targetFormat: "json",
+      force: false,
+    });
+
+    await expect(engine.preview(json)).resolves.toMatchObject({
+      columns,
+      rows,
+    });
+  });
+
+  it("preserves the CSV distinction between null and a quoted empty string", async () => {
+    const input = path("empty.csv");
+    const output = path("empty.json");
+    await writeFile(input, 'kind,value\nnull,\nempty,""\n');
+    const engine = new DataEngine();
+
+    await engine.convert({ input, output, targetFormat: "json", force: false });
+
+    await expect(engine.preview(output)).resolves.toMatchObject({
+      rows: [
+        { kind: "null", value: null },
+        { kind: "empty", value: "" },
+      ],
+    });
+  });
+
+  it("preserves XLSX nulls and types through CSV by re-importing the delimited result", async () => {
+    const inputs = await createInputs();
+    const engine = new DataEngine();
+    const csv = path("xlsx.csv");
+    const json = path("xlsx-roundtrip.json");
+
+    await engine.convert({
+      input: inputs.xlsx,
+      output: csv,
+      targetFormat: "csv",
+      sheet: "Data",
+      force: false,
+    });
+    await engine.convert({ input: csv, output: json, targetFormat: "json", force: false });
+
+    await expect(engine.preview(json)).resolves.toMatchObject({ columns, rows });
+  });
+
+  it("accepts a single JSON object as a one-row table", async () => {
+    const input = path("single.json");
+    const output = path("single-output.json");
+    await writeFile(input, JSON.stringify({ občina: "Žužemberk", vrednost: 3 }));
+    const engine = new DataEngine();
+
+    await engine.convert({ input, output, targetFormat: "json", force: false });
+
+    await expect(engine.preview(output)).resolves.toMatchObject({
+      columns: ["občina", "vrednost"],
+      rows: [{ občina: "Žužemberk", vrednost: 3 }],
+    });
+  });
+
+  it("never overwrites without force and atomically replaces a regular file with force", async () => {
+    const inputs = await createInputs();
+    const engine = new DataEngine();
+    const output = path("existing.json");
+    await writeFile(output, "keep me");
+
+    await expect(
+      engine.convert({ input: inputs.json, output, targetFormat: "json", force: false }),
+    ).rejects.toMatchObject({ code: "CONVERSION_DESTINATION_EXISTS", exitCode: 2 });
+    await expect(readFile(output, "utf8")).resolves.toBe("keep me");
+
+    await expect(
+      engine.convert({ input: inputs.json, output, targetFormat: "json", force: true }),
+    ).resolves.toMatchObject({ output });
+    await expect(engine.preview(output)).resolves.toMatchObject({ rows });
+  });
+
+  it("cleans all temporary files when an injected export failure occurs", async () => {
+    const inputs = await createInputs();
+    const engine = new DataEngine({
+      onAdapter: (name) => {
+        if (name === "convert-json") throw new Error("injected export failure");
+      },
+    });
+    const output = path("failed.json");
+
+    await expect(
+      engine.convert({ input: inputs.json, output, targetFormat: "json", force: false }),
+    ).rejects.toThrow("injected export failure");
+    expect((await readdir(root)).filter((name) => name.startsWith("failed.json."))).toEqual([]);
+    await expect(readFile(output)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("restores a forced destination if failure occurs between output and provenance", async () => {
+    const inputs = await createInputs();
+    const output = path("rollback.json");
+    const originalEngine = new DataEngine();
+    await originalEngine.convert({
+      input: inputs.json,
+      output,
+      targetFormat: "json",
+      force: false,
+    });
+    const originalOutput = await readFile(output);
+    const originalProvenance = await readFile(`${output}.provenance.json`);
+    const replacement = path("replacement.json");
+    await writeFile(replacement, JSON.stringify([{ changed: true }]));
+    const failingEngine = new DataEngine({
+      onAdapter: (name) => {
+        if (name === "convert-output-published") throw new Error("injected publication failure");
+      },
+    });
+
+    await expect(
+      failingEngine.convert({
+        input: replacement,
+        output,
+        targetFormat: "json",
+        force: true,
+      }),
+    ).rejects.toThrow("injected publication failure");
+    await expect(readFile(output)).resolves.toEqual(originalOutput);
+    await expect(readFile(`${output}.provenance.json`)).resolves.toEqual(originalProvenance);
+    expect((await readdir(root)).filter((name) => name.startsWith("rollback.json."))).toEqual([
+      "rollback.json.provenance.json",
+    ]);
+  });
+
+  it("hashes both sides of the derivation before publishing provenance", async () => {
+    const inputs = await createInputs();
+    const engine = new DataEngine();
+    const output = path("derived.parquet");
+
+    const result = await engine.convert({
+      input: inputs.json,
+      output,
+      targetFormat: "parquet",
+      force: false,
+    });
+    const inputBytes = await readFile(inputs.json);
+    const outputBytes = await readFile(output);
+    const sidecar = JSON.parse(await readFile(`${output}.provenance.json`, "utf8")) as {
+      sha256: string;
+      transformations: readonly { inputSha256?: string }[];
+    };
+
+    expect(sidecar.sha256).toBe(sha256(outputBytes));
+    expect(sidecar.transformations[0]?.inputSha256).toBe(sha256(inputBytes));
+    expect(result.provenance).toMatchObject(sidecar);
+  });
+
+  it("records spreadsheet-safe transformations while default mode only warns", async () => {
+    const input = path("formula.json");
+    await writeFile(
+      input,
+      JSON.stringify([
+        { label: "=2+2", command: "+cmd" },
+        { label: "safe", command: "safe" },
+      ]),
+    );
+    const engine = new DataEngine();
+    const unsafe = path("unsafe.csv");
+    const safe = path("safe.csv");
+
+    const defaultResult = await engine.convert({
+      input,
+      output: unsafe,
+      targetFormat: "csv",
+      force: false,
+    });
+    const safeResult = await engine.convert({
+      input,
+      output: safe,
+      targetFormat: "csv",
+      force: false,
+      spreadsheetSafe: true,
+    });
+
+    expect(defaultResult.warnings).toContainEqual(
+      expect.objectContaining({ code: "FORMULA_LIKE_VALUE" }),
+    );
+    expect(await readFile(unsafe, "utf8")).toContain("=2+2");
+    expect(await readFile(safe, "utf8")).toContain("'=2+2");
+    expect(safeResult.provenance.transformations[0]?.details).toMatchObject({
+      spreadsheetSafe: true,
+      spreadsheetSafeChanges: 2,
+    });
+  });
+});

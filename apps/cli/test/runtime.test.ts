@@ -5,6 +5,7 @@ import { loadConfiguration, resolveConfigPaths } from "@opsi/config";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCli, type CliIo } from "../src/main.js";
 import { cliConfigurationFromArgv, requestedOutputFormat } from "../src/options.js";
+import { normalizeProgramArgv } from "../src/program.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -109,6 +110,18 @@ describe("CLI runtime", () => {
 });
 
 describe("CLI bootstrap options", () => {
+  it("rewrites conversion output only when convert is the actual command", () => {
+    expect(
+      normalizeProgramArgv(["--provider", "convert", "providers", "--output", "json"]),
+    ).toEqual(["--provider", "convert", "providers", "--output", "json"]);
+    expect(normalizeProgramArgv(["convert", "input.csv", "--output", "out.parquet"])).toEqual([
+      "convert",
+      "input.csv",
+      "--destination",
+      "out.parquet",
+    ]);
+  });
+
   it("applies equals-form values for every bootstrap configuration option", () => {
     expect(
       cliConfigurationFromArgv([

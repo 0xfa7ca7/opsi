@@ -1,7 +1,13 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DataEngine, type DataInput, type PreviewOptions } from "@opsi/data-engine";
+import {
+  DataEngine,
+  type ConversionResult,
+  type DataInput,
+  type PreviewOptions,
+  type SupportedDataFormat,
+} from "@opsi/data-engine";
 import {
   EXIT_CODES,
   OpsiError,
@@ -18,6 +24,14 @@ export interface DataResolutionOptions {
 }
 
 export interface DataOperationOptions extends PreviewOptions, DataResolutionOptions {}
+
+export interface DataConversionOptions extends DataResolutionOptions {
+  readonly output: string;
+  readonly targetFormat: SupportedDataFormat;
+  readonly sheet?: string;
+  readonly force?: boolean;
+  readonly spreadsheetSafe?: boolean;
+}
 
 export class DataService {
   private readonly local: LocalProvider;
@@ -97,5 +111,18 @@ export class DataService {
 
   validate(input: string, options: DataOperationOptions = {}) {
     return this.withInput(input, options, (source) => this.engine.validate(source, options));
+  }
+
+  convert(input: string, options: DataConversionOptions): Promise<ConversionResult> {
+    return this.withInput(input, options, (source) =>
+      this.engine.convert({
+        input: source,
+        output: options.output,
+        targetFormat: options.targetFormat,
+        ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+        force: options.force ?? false,
+        spreadsheetSafe: options.spreadsheetSafe ?? false,
+      }),
+    );
   }
 }
