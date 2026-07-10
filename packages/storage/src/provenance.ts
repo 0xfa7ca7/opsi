@@ -35,6 +35,10 @@ const downloadProvenanceSchema = z.strictObject({
   providerId: z.string().optional(),
   datasetId: z.string().optional(),
   resourceId: z.string().optional(),
+  title: z.string().optional(),
+  organization: z.string().optional(),
+  sourceModifiedAt: z.iso.datetime().optional(),
+  transformations: z.array(z.lazy(() => transformationSchema)).optional(),
   localPath: z.string(),
 });
 const transformationSchema = z.strictObject({
@@ -66,6 +70,10 @@ export type ProvenanceInput = Omit<
   readonly finalUrl: string;
   readonly redirectChain: readonly string[];
 };
+export interface ProvenanceWriteOptions {
+  readonly publishedArtifact?: string;
+  readonly sidecarPath?: string;
+}
 async function digest(path: string): Promise<string> {
   const hash = createHash("sha256");
   for await (const chunk of createReadStream(path)) hash.update(chunk);
@@ -83,8 +91,13 @@ export class ProvenanceStore {
   pathFor(artifact: string): string {
     return `${resolve(artifact)}.provenance.json`;
   }
-  async write(artifact: string, input: ProvenanceInput): Promise<string> {
+  async write(
+    artifact: string,
+    input: ProvenanceInput,
+    options: ProvenanceWriteOptions = {},
+  ): Promise<string> {
     const normalizedArtifact = resolve(artifact);
+    const publishedArtifact = resolve(options.publishedArtifact ?? artifact);
     const details = await lstat(normalizedArtifact);
     if (!details.isFile() || details.isSymbolicLink())
       throw integrity("The artifact is not a durable regular file.");
@@ -96,10 +109,10 @@ export class ProvenanceStore {
       sourceUrl: redactUrl(input.sourceUrl),
       finalUrl: redactUrl(input.finalUrl),
       redirectChain: input.redirectChain.map(redactUrl),
-      localPath: normalizedArtifact,
+      localPath: publishedArtifact,
     };
     provenanceSchema.parse(value);
-    const path = this.pathFor(normalizedArtifact);
+    const path = resolve(options.sidecarPath ?? this.pathFor(publishedArtifact));
     const temp = `${path}.tmp-${process.pid}-${randomUUID()}`;
     const handle = await open(temp, "wx", 0o600);
     try {

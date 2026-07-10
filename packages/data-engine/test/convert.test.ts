@@ -68,6 +68,18 @@ beforeEach(async () => {
 afterEach(async () => rm(root, { recursive: true, force: true }));
 
 describe("tabular conversion", () => {
+  it("normalizes malformed structured input instead of leaking a DuckDB error", async () => {
+    const input = path("broken.json");
+    await writeFile(input, "{broken");
+    await expect(
+      new DataEngine().convert({
+        input,
+        output: path("out.csv"),
+        targetFormat: "csv",
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_TABULAR_DATA", exitCode: 6 });
+  });
+
   it("converts every input handler to at least two output formats", async () => {
     const inputs = await createInputs();
     const matrix = [

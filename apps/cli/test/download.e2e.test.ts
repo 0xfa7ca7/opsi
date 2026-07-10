@@ -172,6 +172,7 @@ describe("download, cache, offline, and provenance CLI", () => {
     const download = await cli([
       "download",
       "resource-1",
+      "--resource",
       "--destination",
       target,
       "--allow-insecure-http",
@@ -191,7 +192,15 @@ describe("download, cache, offline, and provenance CLI", () => {
     const offlineTarget = join(home, "artifact-offline.txt");
     const beforeOfflineDownload = requests;
     await expect(
-      cli(["download", "resource-1", "--destination", offlineTarget, "--offline", "--json"]),
+      cli([
+        "download",
+        "resource-1",
+        "--resource",
+        "--destination",
+        offlineTarget,
+        "--offline",
+        "--json",
+      ]),
     ).resolves.toMatchObject({ exitCode: 0, json: { data: { bytes: 5, path: offlineTarget } } });
     expect(await readFile(offlineTarget, "utf8")).toBe("hello");
     expect(requests).toBe(beforeOfflineDownload);
@@ -201,6 +210,7 @@ describe("download, cache, offline, and provenance CLI", () => {
       cli([
         "download",
         "resource-1",
+        "--resource",
         "--destination",
         blockedTarget,
         "--allow-insecure-http",
@@ -226,6 +236,7 @@ describe("download, cache, offline, and provenance CLI", () => {
       "download",
       "resource-1",
       "missing",
+      "--resource",
       "--allow-insecure-http",
       "--allow-private-network",
       "--json",
@@ -246,6 +257,7 @@ describe("download, cache, offline, and provenance CLI", () => {
     const result = await cli([
       "download",
       "resource-1",
+      "--resource",
       "--output",
       directory,
       "--allow-insecure-http",

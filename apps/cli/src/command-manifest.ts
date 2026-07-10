@@ -58,6 +58,10 @@ export const GLOBAL_OPTION_MANIFEST: readonly CommandOptionManifest[] = [
   option("--output-format <format>", "select output format", {
     choices: ["table", "json", "ndjson", "csv", "tsv"],
   }),
+  option("--fields <field>", "select output field (repeatable or comma-separated)", {
+    parser: "collect",
+    defaultValue: [],
+  }),
   option("--provider <id>", "select provider", { choices: ["opsi", "local"] }),
   option("--offline", "disable network access"),
   option("--cache-dir <path>", "override cache directory"),
@@ -97,6 +101,7 @@ export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
       }),
       option("--limit <number>", "maximum results", { parser: "positive" }),
       option("--offset <number>", "result offset", { parser: "nonnegative" }),
+      option("--all", "retrieve every result page", { conflicts: ["limit"] }),
     ],
   ),
   leaf("dataset show", "Show dataset details", [argument("<id>", "dataset identifier")]),
@@ -139,6 +144,8 @@ export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
     "Download one or more resources securely",
     [argument("<ids...>", "resource identifiers")],
     [
+      option("--dataset", "treat bare identifiers as datasets", { conflicts: ["resource"] }),
+      option("--resource", "treat bare identifiers as resources", { conflicts: ["dataset"] }),
       option("--destination <path>", "destination path (one resource only)"),
       option("--output <path>", "alias for --destination"),
       option("--force", "replace the requested regular file"),

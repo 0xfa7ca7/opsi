@@ -381,6 +381,25 @@ describe("complete command surface", () => {
     });
   });
 
+  it("uses an injected confirmation only for interactive human cache commands", async () => {
+    const value = await fixture();
+    let prompts = 0;
+    const io = {
+      ...value.io,
+      stdin: { isTTY: true },
+      stdout: { isTTY: true, write: value.io.stdout.write },
+      confirm: async () => {
+        prompts += 1;
+        return true;
+      },
+    };
+    await expect(runCli(["cache", "prune"], io)).resolves.toBe(0);
+    expect(prompts).toBe(1);
+    prompts = 0;
+    await expect(runCli(["cache", "prune", "--json"], io)).resolves.toBe(2);
+    expect(prompts).toBe(0);
+  });
+
   it.each(["bash", "zsh", "fish"])("generates static %s completion", async (shell) => {
     const value = await fixture();
     await expect(runCli(["completion", shell], value.io)).resolves.toBe(0);

@@ -1,8 +1,8 @@
 import { createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
+import { parse } from "csv-parse";
 import { extname } from "node:path";
 import { OpsiError } from "@opsi/domain";
-import { readDelimited } from "./csv.js";
 import { detectFormat } from "./detect.js";
 import { scanWithDuckDb } from "./duckdb-import.js";
 import { inferredType, type DataEngine } from "./inspect.js";
@@ -24,6 +24,77 @@ function issue(
   location: Partial<Pick<ValidationIssue, "row" | "column" | "field" | "context">> = {},
 ): ValidationIssue {
   return { code, severity, message, recommendation, ...location };
+}
+
+async function validateDelimitedStream(
+  path: string,
+  delimiter: "," | "\t",
+  limits: ConstructorParameters<typeof StreamingDiagnostics>[0],
+): Promise<readonly ValidationIssue[]> {
+  const diagnostics = new StreamingDiagnostics(limits);
+  const source = createReadStream(path);
+  const parser = parse({
+    bom: true,
+    delimiter,
+    relax_column_count: true,
+    skip_empty_lines: true,
+    max_record_size: limits.maxRecordBytes,
+  });
+  source.pipe(parser);
+  let headers: readonly string[] | undefined;
+  let rowNumber = 0;
+  try {
+    for await (const raw of parser) {
+      const record = (raw as unknown[]).map(String);
+      rowNumber += 1;
+      if (headers === undefined) {
+        headers = record;
+        const headerIssues: ValidationIssue[] = [];
+        const first = new Map<string, number>();
+        record.forEach((field, index) => {
+          const prior = first.get(field);
+          if (prior === undefined) first.set(field, index);
+          else
+            headerIssues.push(
+              issue(
+                "DUPLICATE_HEADER",
+                "error",
+                `Header '${field}' is duplicated.`,
+                "Rename columns so every header is unique.",
+                {
+                  row: 1,
+                  column: index + 1,
+                  field,
+                  context: { firstColumn: prior + 1 },
+                },
+              ),
+            );
+        });
+        diagnostics.chargeHeader(record, headerIssues);
+        continue;
+      }
+      const warnings: ValidationIssue[] = [];
+      if (record.length !== headers.length)
+        warnings.push(
+          issue(
+            "INCONSISTENT_COLUMN_COUNT",
+            "error",
+            `Row ${rowNumber} has ${record.length} columns; expected ${headers.length}.`,
+            "Add or remove fields so the row matches the header width.",
+            { row: rowNumber, context: { expected: headers.length, actual: record.length } },
+          ),
+        );
+      diagnostics.add(
+        Object.fromEntries(headers.map((header, index) => [header, record[index] ?? null])),
+        warnings,
+        false,
+      );
+    }
+    return diagnostics.finish();
+  } finally {
+    source.destroy();
+    parser.destroy();
+  }
 }
 
 async function validUtf8(path: string): Promise<boolean> {
@@ -62,7 +133,7 @@ function complete(
   };
 }
 
-function analyzeRows(
+export function analyzeRows(
   headers: readonly string[],
   records: readonly (readonly unknown[])[],
   widths: readonly number[],
@@ -249,7 +320,11 @@ class StreamingDiagnostics {
     this.retain(bytes);
     for (const warning of warnings) this.addIssue(warning);
   }
-  add(row: Readonly<Record<string, unknown>>, warnings: readonly ValidationIssue[] = []): void {
+  add(
+    row: Readonly<Record<string, unknown>>,
+    warnings: readonly ValidationIssue[] = [],
+    aggregateCellIssues = true,
+  ): void {
     const columns = Object.keys(row);
     if (columns.length > this.limits.maxColumns)
       throw new OpsiError({
@@ -325,6 +400,7 @@ class StreamingDiagnostics {
             "Treat the value as untrusted text.",
             { row: this.rows + 1, field },
           ),
+          aggregateCellIssues ? undefined : `FORMULA_LIKE_VALUE:${field}:${this.rows}`,
         );
       if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(value) && type === "string")
         this.addIssue(
@@ -335,6 +411,7 @@ class StreamingDiagnostics {
             "Use a real YYYY-MM-DD date.",
             { row: this.rows + 1, field },
           ),
+          aggregateCellIssues ? undefined : `INVALID_DATE:${field}:${this.rows}`,
         );
     }
   }
@@ -425,33 +502,18 @@ export async function validateData(
   if (detection.format === "csv" || detection.format === "tsv") {
     const delimiter = detection.format === "csv" ? "," : "\t";
     try {
-      const parsed = await readDelimited(detection.path, delimiter);
-      issues.push(...analyzeRows(parsed.headers, parsed.records, parsed.widths));
-    } catch (strictError) {
-      try {
-        const diagnostic = await readDelimited(detection.path, delimiter, { relaxed: true });
-        const diagnostics = analyzeRows(diagnostic.headers, diagnostic.records, diagnostic.widths);
-        issues.push(...diagnostics);
-        if (!diagnostics.some((candidate) => candidate.code === "INCONSISTENT_COLUMN_COUNT"))
-          throw strictError;
-      } catch (diagnosticError) {
-        issues.push(
-          issue(
-            "MALFORMED_DELIMITED_DATA",
-            "error",
-            "The delimited file cannot be parsed strictly.",
-            "Repair quoting, escaping, and record boundaries.",
-            {
-              context: {
-                detail:
-                  diagnosticError instanceof Error
-                    ? diagnosticError.message
-                    : String(diagnosticError),
-              },
-            },
-          ),
-        );
-      }
+      issues.push(...(await validateDelimitedStream(detection.path, delimiter, limits)));
+    } catch (error) {
+      if (error instanceof OpsiError) throw error;
+      issues.push(
+        issue(
+          "MALFORMED_DELIMITED_DATA",
+          "error",
+          "The delimited file cannot be parsed.",
+          "Repair quoting, escaping, and record boundaries.",
+          { context: { detail: error instanceof Error ? error.message : String(error) } },
+        ),
+      );
     }
   }
 

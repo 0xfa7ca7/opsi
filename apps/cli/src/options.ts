@@ -25,6 +25,23 @@ export interface GlobalOptions {
   readonly ndjson?: boolean;
   readonly csv?: boolean;
   readonly tsv?: boolean;
+  readonly fields?: readonly string[];
+}
+
+export function selectedFields(argv: readonly string[]): readonly string[] | undefined {
+  const fields: string[] = [];
+  for (const [index, token] of argv.entries()) {
+    const value = token.startsWith("--fields=")
+      ? token.slice("--fields=".length)
+      : token === "--fields"
+        ? argv[index + 1]
+        : undefined;
+    if (value === undefined) continue;
+    for (const field of value.split(",").map((candidate) => candidate.trim())) {
+      if (field.length > 0 && !fields.includes(field)) fields.push(field);
+    }
+  }
+  return fields.length === 0 ? undefined : fields;
 }
 
 export function addGlobalOptions(program: Command): Command {

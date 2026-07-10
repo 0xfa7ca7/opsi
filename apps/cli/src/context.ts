@@ -7,6 +7,8 @@ export interface CliIo {
   readonly env?: NodeJS.ProcessEnv;
   readonly stdout: WritableOutput;
   readonly stderr: WritableOutput;
+  readonly stdin?: { readonly isTTY?: boolean };
+  readonly confirm?: (message: string) => Promise<boolean>;
 }
 
 export interface CliContext {
@@ -23,5 +25,15 @@ export function processIo(): CliIo {
     env: process.env,
     stdout: process.stdout,
     stderr: process.stderr,
+    stdin: process.stdin,
+    confirm: async (message) => {
+      const { createInterface } = await import("node:readline/promises");
+      const prompt = createInterface({ input: process.stdin, output: process.stderr });
+      try {
+        return /^(?:y|yes)$/iu.test((await prompt.question(`${message} [y/N] `)).trim());
+      } finally {
+        prompt.close();
+      }
+    },
   };
 }

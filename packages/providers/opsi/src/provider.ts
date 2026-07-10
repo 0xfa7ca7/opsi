@@ -167,8 +167,31 @@ export class OpsiProvider implements DataProvider {
   }
 
   async resolveResource(resource: Resource): Promise<ResolvedResource> {
-    const format = resource.format?.toLowerCase();
-    const kind = format === "api" || format === "wms" || format === "wfs" ? "service" : "file";
+    const format = resource.format?.trim().toLowerCase() ?? "";
+    const mediaType = resource.mediaType?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+    let pathname = "";
+    try {
+      pathname = new URL(resource.url).pathname.toLowerCase();
+    } catch {
+      // The secure downloader maps malformed provider URLs to a typed input error.
+    }
+    const rawType = String(resource.providerMetadata?.raw.resource_type ?? "").toLowerCase();
+    const service = /^(?:wms|wfs|wmts|sos|csw)$/u.test(format) || /service/iu.test(rawType);
+    const archive =
+      /^(?:zip|7z|rar|tar|gz|gzip)$/u.test(format) ||
+      /^(?:application\/(?:zip|x-7z-compressed|x-rar-compressed|gzip|x-tar))$/u.test(mediaType) ||
+      /\.(?:zip|7z|rar|tar|gz)$/u.test(pathname);
+    const page =
+      /^(?:html?|website|web page)$/u.test(format) ||
+      /\.html?$/u.test(pathname) ||
+      mediaType === "text/html" ||
+      /page/iu.test(rawType);
+    const api =
+      !service &&
+      (/^(?:api|json api|rest|soap|sparql)$/u.test(format) ||
+        /(?:^|\/)api(?:\/|$)/u.test(pathname) ||
+        /api/iu.test(rawType));
+    const kind = service ? "service" : archive ? "archive" : page ? "page" : api ? "api" : "file";
     return {
       resource,
       kind,

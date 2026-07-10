@@ -292,6 +292,26 @@ describe("data validation", () => {
     });
   });
 
+  it("applies the shared streaming bounds to CSV without retaining the full file", async () => {
+    const path = await fixture(
+      `id,value\n${Array.from({ length: 20 }, (_, id) => `${id},x`).join("\n")}\n`,
+    );
+    await expect(new DataEngine({ validationMaxRecords: 10 }).validate(path)).rejects.toMatchObject(
+      {
+        code: "VALIDATION_RECORD_LIMIT",
+        exitCode: 5,
+      },
+    );
+    await expect(
+      new DataEngine({ validationMaxTotalBytes: 20 }).validate(path),
+    ).rejects.toMatchObject({ code: "VALIDATION_TOTAL_BYTES_LIMIT", exitCode: 5 });
+    const wide = await fixture("a,b\n1,2\n", "wide.csv");
+    await expect(new DataEngine({ validationMaxColumns: 1 }).validate(wide)).rejects.toMatchObject({
+      code: "VALIDATION_COLUMN_LIMIT",
+      exitCode: 5,
+    });
+  });
+
   it("bounds retained state and aggregates repeated issues", async () => {
     const repeated = await fixture(
       `${Array.from({ length: 100 }, () => '{"value":"=x","date":"2026-99-99"}').join("\n")}\n`,

@@ -85,6 +85,7 @@ export class DataService {
         destination: join(directory, "source"),
         allowInsecureHttp: options.allowInsecureHttp ?? false,
         allowPrivateNetwork: options.allowPrivateNetwork ?? false,
+        requireTabular: true,
       });
       const mediaType = downloaded.mediaType ?? resource.mediaType;
       return await operation({

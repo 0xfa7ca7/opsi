@@ -11,4 +11,7 @@ export { safeFilename, filenameFromUrl } from "./filename.js";
 export { Downloader } from "./download.js";
 export type { DownloadInput, DownloadLimits, DownloadResult, ProbeResult } from "./download.js";
 export { ProvenanceStore, redactUrl } from "./provenance.js";
-export type { ProvenanceInput, StoredProvenance } from "./provenance.js";
+export type { ProvenanceInput, ProvenanceWriteOptions, StoredProvenance } from "./provenance.js";
+export { publishArtifactPair } from "./paired-publication.js";
+export type { PairPublicationOptions, PairPublicationPoint } from "./paired-publication.js";
+export type { MetadataRecord, MetadataValidators } from "./cache.js";

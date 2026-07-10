@@ -8,7 +8,7 @@ import { Renderer } from "@opsi/output";
 import { CommanderError } from "commander";
 import { processIo, type CliIo } from "./context.js";
 import { handleRuntimeError } from "./errors.js";
-import { cliConfigurationFromArgv, requestedOutputFormat } from "./options.js";
+import { cliConfigurationFromArgv, requestedOutputFormat, selectedFields } from "./options.js";
 import { createProgram } from "./program.js";
 
 export type { CliContext, CliIo } from "./context.js";
@@ -46,7 +46,12 @@ export async function runCli(argv: readonly string[], io: CliIo): Promise<ExitCo
       ...(io.env === undefined ? {} : { env: io.env }),
       cli: cliConfigurationFromArgv(argv),
     });
-    const renderer = new Renderer({ format: configuration.output, stdout: io.stdout });
+    const fields = selectedFields(argv);
+    const renderer = new Renderer({
+      format: configuration.output,
+      stdout: io.stdout,
+      ...(fields === undefined ? {} : { fields }),
+    });
     const program = createProgram({ io, version: VERSION, configuration, renderer });
     await program.parseAsync([...argv], { from: "user" });
     return EXIT_CODES.SUCCESS;

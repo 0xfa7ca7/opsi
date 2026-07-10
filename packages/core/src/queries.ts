@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { open, rename, rm } from "node:fs/promises";
+import { open, rm } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import {
   DuckDbQueryRunner,
@@ -9,6 +9,7 @@ import {
   type QueryResult,
 } from "@opsi/data-engine";
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { publishArtifactPair, type PairPublicationOptions } from "@opsi/storage";
 import type { DataResolutionOptions, DataService } from "./data.js";
 
 export interface QueryServiceOptions extends DataResolutionOptions {
@@ -72,6 +73,7 @@ async function publishQueryOutput(
   rows: readonly DataRow[],
   columns: readonly string[],
   force: boolean,
+  publicationOptions: PairPublicationOptions = {},
 ) {
   const destination = resolve(output);
   const temp = `${destination}.tmp-${process.pid}-${randomUUID()}`;
@@ -85,23 +87,7 @@ async function publishQueryOutput(
     await handle.close();
   }
   try {
-    if (!force) {
-      try {
-        await open(destination, "wx").then((placeholder) => placeholder.close());
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "EEXIST")
-          throw new OpsiError({
-            code: "QUERY_DESTINATION_EXISTS",
-            message: "The query output already exists.",
-            exitCode: EXIT_CODES.QUERY_FAILURE,
-            suggestion: "Use --force to replace it.",
-          });
-        throw error;
-      }
-      await rm(destination, { force: true });
-    }
-    await rename(temp, destination);
-    const [sourceDigest, outputDigest] = await Promise.all([digest(input), digest(destination)]);
+    const [sourceDigest, outputDigest] = await Promise.all([digest(input), digest(temp)]);
     const provenance = {
       schemaVersion: "1",
       retrievedAt: new Date().toISOString(),
@@ -123,8 +109,12 @@ async function publishQueryOutput(
     } finally {
       await sidecar.close();
     }
-    await rename(provenanceTemp, provenancePath);
-    return { output: destination, provenancePath };
+    return await publishArtifactPair(temp, provenanceTemp, destination, {
+      ...publicationOptions,
+      force,
+      existsCode: "QUERY_DESTINATION_EXISTS",
+      existsExitCode: EXIT_CODES.QUERY_FAILURE,
+    });
   } catch (error) {
     await Promise.all([rm(temp, { force: true }), rm(provenanceTemp, { force: true })]);
     throw error;
@@ -139,6 +129,7 @@ export class QueryService {
   constructor(
     private readonly data: DataService,
     private readonly runner: DuckDbQueryRunner,
+    private readonly publicationOptions: PairPublicationOptions = {},
   ) {}
 
   execute(input: string, options: QueryServiceOptions): Promise<QueryServiceResult> {
@@ -165,6 +156,7 @@ export class QueryService {
               result.rows,
               result.columns,
               options.force ?? false,
+              this.publicationOptions,
             );
       return {
         ...result,

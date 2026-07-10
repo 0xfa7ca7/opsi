@@ -34,14 +34,6 @@ export function providerId(value: string): ProviderId {
       context: { value },
     });
   }
-  if (id === "local") {
-    throw new OpsiError({
-      code: "INVALID_ID",
-      message: "Provider ID 'local' is reserved for local file references",
-      exitCode: 2,
-      context: { value },
-    });
-  }
   return id;
 }
 
@@ -75,10 +67,12 @@ export type ParsedCanonicalReference =
   ParsedDatasetReference | ParsedResourceReference | ParsedLocalFileReference;
 
 export function datasetReference(provider: ProviderId, id: DatasetId): CanonicalReference {
+  if (provider === "local") throw invalidReference(`${provider}:dataset:${id}`);
   return `${provider}:dataset:${id}` as CanonicalReference;
 }
 
 export function resourceReference(provider: ProviderId, id: ResourceId): CanonicalReference {
+  if (provider === "local") throw invalidReference(`${provider}:resource:${id}`);
   return `${provider}:resource:${id}` as CanonicalReference;
 }
 

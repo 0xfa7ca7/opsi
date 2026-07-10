@@ -22,6 +22,8 @@ export interface OpsiTransportOptions {
   readonly fetch?: OpsiFetch;
   readonly scheduler?: RequestScheduler;
   readonly timeoutMs?: number;
+  readonly apiKey?: string;
+  readonly maxRedirects?: number;
 }
 
 function queryValue(value: unknown): string {
@@ -70,12 +72,18 @@ export class OpsiTransport {
   private readonly fetch: OpsiFetch;
   private readonly scheduler: RequestScheduler;
   private readonly timeoutMs: number;
+  private readonly apiKey: string | undefined;
+  private readonly origin: string;
+  private readonly maxRedirects: number;
 
   constructor(options: OpsiTransportOptions = {}) {
     this.baseUrl = (options.baseUrl ?? DEFAULT_OPSI_BASE_URL).replace(/\/$/u, "");
     this.fetch = options.fetch ?? globalThis.fetch;
     this.scheduler = options.scheduler ?? new RequestScheduler();
     this.timeoutMs = options.timeoutMs ?? 30_000;
+    this.apiKey = options.apiKey;
+    this.origin = new URL(this.baseUrl).origin;
+    this.maxRedirects = options.maxRedirects ?? 5;
   }
 
   call<Operation extends OpsiOperationName>(
@@ -131,8 +139,38 @@ export class OpsiTransport {
     const combinedSignal = signal === undefined ? timeout : AbortSignal.any([signal, timeout]);
     let response: Response;
     try {
-      response = await this.fetch(url, { ...init, signal: combinedSignal });
+      let current = url;
+      let request = init;
+      let redirects = 0;
+      while (true) {
+        const headers = new Headers(request.headers);
+        if (this.apiKey !== undefined && current.origin === this.origin)
+          headers.set("X-CKAN-API-Key", this.apiKey);
+        else headers.delete("X-CKAN-API-Key");
+        response = await this.fetch(current, {
+          ...request,
+          headers,
+          redirect: "manual",
+          signal: combinedSignal,
+        });
+        if (![301, 302, 303, 307, 308].includes(response.status)) break;
+        const location = response.headers.get("location");
+        if (location === null) break;
+        if (redirects >= this.maxRedirects)
+          throw providerError(operation, "OPSI exceeded the redirect limit.");
+        redirects += 1;
+        current = new URL(location, current);
+        if (
+          response.status === 303 ||
+          ((response.status === 301 || response.status === 302) && request.method === "POST")
+        ) {
+          const redirectedHeaders = new Headers(request.headers);
+          redirectedHeaders.delete("content-type");
+          request = { method: "GET", headers: redirectedHeaders };
+        }
+      }
     } catch (error) {
+      if (error instanceof OpsiError) throw error;
       throw new RetryableRequestError("OPSI network request failed.", undefined, undefined, error);
     }
 

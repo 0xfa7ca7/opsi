@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { datasetId, resourceId } from "@opsi/domain";
+import { datasetId, providerId, resourceId } from "@opsi/domain";
 import { describe, expect, it, vi } from "vitest";
 import {
   OpsiProvider,
@@ -22,7 +22,72 @@ interface CapturedRequest {
   readonly path: string;
   readonly query?: Readonly<Record<string, string>>;
   readonly body?: unknown;
+  readonly headers?: Readonly<Record<string, string>>;
+  readonly redirect?: RequestRedirect;
 }
+
+it("scopes the environment API key to the configured origin and strips it on redirects", async () => {
+  const calls: Array<{ url: string; headers: Headers; redirect?: RequestRedirect }> = [];
+  const fetch = vi.fn(async (input: string | URL, init?: RequestInit) => {
+    const url = input.toString();
+    calls.push({
+      url,
+      headers: new Headers(init?.headers),
+      ...(init?.redirect === undefined ? {} : { redirect: init.redirect }),
+    });
+    if (calls.length === 1)
+      return new Response(null, {
+        status: 302,
+        headers: { location: "https://other.invalid/package_search" },
+      });
+    return new Response(JSON.stringify(await fixture("package-search")), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  });
+  const transport = new OpsiTransport({
+    baseUrl: "https://example.invalid/fixture",
+    apiKey: "environment-secret",
+    fetch,
+    scheduler: new RequestScheduler({ intervalMs: 0, maxRetries: 0 }),
+  });
+
+  await transport.call("package_search", {
+    q: "*:*",
+    fq: "",
+    rows: 1,
+    start: 0,
+    facet: "true",
+    "facet.field": [],
+    "facet.mincount": 0,
+    "facet.limit": 50,
+    sort: "relevance asc",
+  });
+
+  expect(calls).toHaveLength(2);
+  expect(calls[0]?.headers.get("x-ckan-api-key")).toBe("environment-secret");
+  expect(calls[0]?.redirect).toBe("manual");
+  expect(calls[1]?.headers.get("x-ckan-api-key")).toBeNull();
+});
+
+it.each([
+  [{ format: "HTML", mediaType: "text/html" }, "page"],
+  [{ format: "JSON", mediaType: "application/json", url: "https://example.test/api" }, "api"],
+  [{ format: "ZIP", mediaType: "application/zip" }, "archive"],
+  [{ format: "WMS", mediaType: "application/xml" }, "service"],
+])("classifies resolved resource evidence %j as %s", async (overrides, kind) => {
+  const { transport } = fixtureTransport({});
+  const provider = new OpsiProvider(transport);
+  const resource = {
+    id: resourceId("r"),
+    datasetId: datasetId("d"),
+    providerId: providerId("opsi"),
+    title: "resource",
+    url: "https://example.test/file",
+    ...overrides,
+  };
+  await expect(provider.resolveResource(resource)).resolves.toMatchObject({ kind });
+});
 
 async function fixture(name: FixtureName): Promise<unknown> {
   const url = new URL(`../../../testing/fixtures/opsi/${name}.json`, import.meta.url);

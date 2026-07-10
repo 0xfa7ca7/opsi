@@ -32,6 +32,8 @@ export interface DownloadResult {
   readonly bytes: number;
   readonly mediaType?: string;
   readonly sha256: string;
+  readonly etag?: string;
+  readonly lastModified?: string;
 }
 export interface ProbeResult {
   readonly finalUrl: string;
@@ -343,6 +345,10 @@ export class Downloader {
           ? { mediaType: response.headers["content-type"].split(";", 1)[0] }
           : {}),
         sha256,
+        ...(typeof response.headers.etag === "string" ? { etag: response.headers.etag } : {}),
+        ...(typeof response.headers["last-modified"] === "string"
+          ? { lastModified: response.headers["last-modified"] }
+          : {}),
       };
     } catch (error) {
       await handle?.close().catch(() => undefined);

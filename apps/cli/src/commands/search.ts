@@ -14,6 +14,7 @@ interface SearchOptions {
   readonly sort?: readonly string[];
   readonly limit?: number;
   readonly offset?: number;
+  readonly all?: boolean;
 }
 
 function searchSort(values: readonly string[] | undefined): readonly SearchSort[] | undefined {
@@ -56,6 +57,34 @@ export function registerSearchCommand(
         ...(options.offset === undefined ? {} : { offset: options.offset }),
       };
       const page = await client.search(query);
+      if (options.all === true) {
+        const items = [...page.items];
+        let nextOffset = page.nextOffset;
+        let pages = 1;
+        const maximum = 10_000;
+        if (page.total - page.offset > maximum)
+          throw new InvalidArgumentError(`--all is bounded to ${maximum} results`);
+        while (nextOffset !== undefined) {
+          if (items.length >= maximum || nextOffset <= (query.offset ?? 0))
+            throw new InvalidArgumentError(`--all is bounded to ${maximum} results`);
+          const next = await client.search({ ...query, offset: nextOffset });
+          items.push(...next.items);
+          pages += 1;
+          if (items.length > maximum)
+            throw new InvalidArgumentError(`--all is bounded to ${maximum} results`);
+          if (next.nextOffset !== undefined && next.nextOffset <= nextOffset)
+            throw new InvalidArgumentError("provider pagination did not advance");
+          nextOffset = next.nextOffset;
+        }
+        context.renderer?.write(items, {
+          total: page.total,
+          limit: items.length,
+          offset: page.offset,
+          all: true,
+          pages,
+        });
+        return;
+      }
       context.renderer?.write(page.items, {
         total: page.total,
         limit: page.limit,

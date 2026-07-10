@@ -17,8 +17,11 @@ export class DatasetCatalog {
     return this.registry.get(selectedProviderId).getDataset(id);
   }
 
-  resources(id: DatasetId): Promise<readonly Resource[]> {
-    return this.registry.get(this.providerId).listDatasetResources(id);
+  resources(
+    id: DatasetId,
+    selectedProviderId: string = this.providerId,
+  ): Promise<readonly Resource[]> {
+    return this.registry.get(selectedProviderId).listDatasetResources(id);
   }
 }
 

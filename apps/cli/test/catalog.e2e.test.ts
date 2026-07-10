@@ -170,7 +170,12 @@ describe("catalogue CLI", () => {
     });
     await expect(cli(["providers", "list", "--json"])).resolves.toMatchObject({
       exitCode: 0,
-      json: { data: [{ id: "opsi", name: "OPSI" }] },
+      json: {
+        data: [
+          { id: "local", name: "Local files", capabilities: ["resolve-resource"] },
+          { id: "opsi", name: "OPSI" },
+        ],
+      },
     });
   });
 });

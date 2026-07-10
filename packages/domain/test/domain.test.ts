@@ -32,8 +32,9 @@ describe("branded identifiers", () => {
 
 describe("canonical references", () => {
   it("keeps provider formatters closed over parser-accepted references", () => {
-    expect(() => providerId("local")).toThrowError(
-      expect.objectContaining({ code: "INVALID_ID", exitCode: 2 }),
+    expect(providerId("local")).toBe("local");
+    expect(() => datasetReference(providerId("local"), datasetId("d"))).toThrowError(
+      expect.objectContaining({ code: "INVALID_REFERENCE", exitCode: 2 }),
     );
 
     const provider = providerId("ckan");

@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { OpsiClient, ProviderRegistry } from "@opsi/core";
 import { OpsiProvider, OpsiTransport, RequestScheduler } from "@opsi/provider-opsi";
+import { LocalProvider } from "@opsi/provider-local";
 import { ContentCache, ProvenanceStore } from "@opsi/storage";
 import { registerDatasetCommand } from "./commands/dataset.js";
 import { registerProvidersCommand } from "./commands/providers.js";
@@ -38,10 +39,14 @@ function createClient(context: CliContext): OpsiClient {
         ? {}
         : { timeoutMs: context.configuration.http.timeoutMs }),
       scheduler: new RequestScheduler({ ...(intervalMs === undefined ? {} : { intervalMs }) }),
+      ...(configuration?.apiKey === undefined ? {} : { apiKey: configuration.apiKey }),
     }),
     { metadataCache: cache, offline: configuration?.offline ?? false },
   );
-  const registry = new ProviderRegistry([provider]);
+  const registry = new ProviderRegistry([
+    provider,
+    new LocalProvider({ ...(context.io.cwd === undefined ? {} : { cwd: context.io.cwd }) }),
+  ]);
   return new OpsiClient({
     registry,
     providerId: context.configuration?.provider ?? provider.descriptor.id,

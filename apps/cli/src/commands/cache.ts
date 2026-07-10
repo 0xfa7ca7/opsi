@@ -9,8 +9,20 @@ export function registerCacheCommand(
   context: CliContext,
   client: OpsiClient,
 ): void {
-  const confirmed = (yes: boolean | undefined): void => {
+  const confirmed = async (yes: boolean | undefined): Promise<void> => {
     if (yes === true) return;
+    const interactiveHuman =
+      context.io.stdin?.isTTY === true &&
+      context.io.stdout.isTTY === true &&
+      context.configuration?.output === "human";
+    if (interactiveHuman && context.io.confirm !== undefined) {
+      if (await context.io.confirm("Delete the selected cache data?")) return;
+      throw new OpsiError({
+        code: "CONFIRMATION_DECLINED",
+        message: "Cache operation cancelled.",
+        exitCode: EXIT_CODES.INVALID_INPUT,
+      });
+    }
     throw new OpsiError({
       code: "CONFIRMATION_REQUIRED",
       message: "This destructive cache operation requires explicit confirmation.",
@@ -34,12 +46,12 @@ export function registerCacheCommand(
     context.renderer?.write(await service().list()),
   );
   manifestCommand(program, "cache clear").action(async (options: { yes?: boolean }) => {
-    confirmed(options.yes);
+    await confirmed(options.yes);
     await service().clear();
     context.renderer?.write({ cleared: true });
   });
   manifestCommand(program, "cache prune").action(async (options: { yes?: boolean }) => {
-    confirmed(options.yes);
+    await confirmed(options.yes);
     context.renderer?.write(await service().prune());
   });
   manifestCommand(program, "cache verify").action(async () => {

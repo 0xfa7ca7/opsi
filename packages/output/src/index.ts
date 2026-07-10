@@ -16,6 +16,20 @@ export type OutputFormat = "human" | "json" | "ndjson" | "csv" | "tsv";
 export interface RendererOptions {
   readonly format: OutputFormat;
   readonly stdout: { write(chunk: string): unknown };
+  readonly fields?: readonly string[];
+}
+
+function projectRecord(value: unknown, fields: readonly string[]): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
+  const record = value as Readonly<Record<string, unknown>>;
+  return Object.fromEntries(fields.map((field) => [field, record[field] ?? null]));
+}
+
+function project(data: unknown, fields: readonly string[] | undefined): unknown {
+  if (fields === undefined || fields.length === 0) return data;
+  return Array.isArray(data)
+    ? data.map((value) => projectRecord(value, fields))
+    : projectRecord(data, fields);
 }
 
 function rowsFrom(data: unknown): readonly OutputRow[] {
@@ -28,10 +42,11 @@ export class Renderer {
   constructor(private readonly options: RendererOptions) {}
 
   render(data: unknown, meta: Readonly<Record<string, unknown>> = {}): string {
-    const rows = rowsFrom(data);
+    const projected = project(data, this.options.fields);
+    const rows = rowsFrom(projected);
     switch (this.options.format) {
       case "json":
-        return renderJson({ data, meta });
+        return renderJson({ data: projected, meta });
       case "ndjson":
         return renderNdjson(rows);
       case "csv":

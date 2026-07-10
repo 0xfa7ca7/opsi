@@ -12,6 +12,10 @@ Canonical references are `<provider>:dataset:<id>` and `<provider>:resource:<id>
 
 The first-party adapter targets the configurable legacy CKAN-compatible gateway. It validates operation input/output with strict known fields plus preserved unknown metadata, maps irregular null/string/number values, uses a keyed scheduler to coalesce/retry allowed reads, and caches normalized metadata. Offline mode reads cache only and returns `OFFLINE_CACHE_MISS` without attempting transport. The public page opener does not trust provider URLs: it derives a fixed HTTPS podatki.gov.si origin from the validated dataset slug.
 
+## Local provider
+
+The registered `local` provider declares only local resource resolution. It resolves ordinary paths relative to the invocation directory and absolute `local:file:` references without network access. Search and catalogue lookups are intentionally unsupported and return `PROVIDER_CAPABILITY_UNSUPPORTED`; `opsi doctor` skips connectivity when local is selected.
+
 ## Adding a provider
 
 Implement the domain interface, add descriptor/capability tests, register it at the composition root, expose any non-secret configuration, and add controlled contract fixtures for success, not found, malformed envelope, authentication/rate limiting, and offline cache behavior. Search sorting/filtering must reject unsupported fields rather than forwarding arbitrary provider syntax. Never put API keys in canonical references, cache keys, errors, provenance URLs, or test snapshots.

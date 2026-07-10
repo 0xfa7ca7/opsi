@@ -1,6 +1,7 @@
 import { basename, join } from "node:path";
+import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { rm, stat } from "node:fs/promises";
 import { EXIT_CODES, OpsiError, type ResourceId } from "@opsi/domain";
 import {
   Downloader,
@@ -8,6 +9,7 @@ import {
   filenameFromUrl,
   safeFilename,
   redactUrl,
+  publishArtifactPair,
   type ContentCache,
   type DownloadLimits,
   type DownloadResult,
@@ -22,6 +24,7 @@ export interface ResourceDownloadOptions {
   readonly allowInsecureHttp?: boolean;
   readonly allowPrivateNetwork?: boolean;
   readonly signal?: AbortSignal;
+  readonly requireTabular?: boolean;
 }
 export interface DownloadServiceOptions {
   readonly registry: ProviderRegistry;
@@ -39,6 +42,9 @@ interface CachedDownload {
   readonly finalUrl: string;
   readonly redirectChain: readonly string[];
   readonly mediaType?: string;
+  readonly etag?: string;
+  readonly lastModified?: string;
+  readonly retrievalSource?: string;
 }
 
 async function destinationPath(requested: string | undefined, fallback: string): Promise<string> {
@@ -65,11 +71,28 @@ export class DownloadService {
     const provider = this.options.registry.get(selectedProviderId);
     const resource = await provider.getResource(id);
     const resolved = await provider.resolveResource(resource);
+    if (options.requireTabular === true && resolved.kind !== "file")
+      throw new OpsiError({
+        code: resolved.kind === "archive" ? "DOWNLOAD_ONLY_FORMAT" : "UNSUPPORTED_RESOURCE_KIND",
+        message:
+          resolved.kind === "archive"
+            ? "Archives are download-only and cannot be used directly as tabular input."
+            : `The ${resolved.kind} resource is not a direct tabular file.`,
+        exitCode: EXIT_CODES.UNSUPPORTED,
+        suggestion:
+          resolved.kind === "archive"
+            ? "Download and extract a supported CSV, TSV, JSON, NDJSON, XLSX, or Parquet file."
+            : "Open the resource endpoint or choose a direct tabular file resource.",
+        context: { kind: resolved.kind, resourceId: `${resource.id}` },
+      });
     const fallback = join(
       this.options.downloadDir,
       safeFilename(resolved.filename, filenameFromUrl(resolved.url, safeFilename(`${id}`))),
     );
     const destination = await destinationPath(options.destination, fallback);
+    const token = `${process.pid}-${randomUUID()}`;
+    const stagedDestination = `${destination}.part-${token}`;
+    const stagedProvenance = `${destination}.provenance.json.part-${token}`;
     const cacheKey = `download:${resource.providerId}:${resource.id}`;
     let result: DownloadResult;
     if (this.options.offline) {
@@ -83,8 +106,8 @@ export class DownloadService {
         });
       const materialized = await this.options.cache.materialize(
         cached.sha256,
-        destination,
-        options.force ?? false,
+        stagedDestination,
+        false,
       );
       result = {
         path: materialized.path,
@@ -95,11 +118,20 @@ export class DownloadService {
         ...(cached.mediaType === undefined ? {} : { mediaType: cached.mediaType }),
       };
     } else {
-      result = await this.downloader.download({
+      const cachedRecord = await this.options.cache?.getMetadataRecord<CachedDownload>(
+        cacheKey,
+        "download-v1",
+        true,
+      );
+      const conditionalHeaders = {
+        ...(cachedRecord?.etag === undefined ? {} : { "if-none-match": cachedRecord.etag }),
+        ...(cachedRecord?.lastModified === undefined
+          ? {}
+          : { "if-modified-since": cachedRecord.lastModified }),
+      };
+      const commonRequest = {
         url: resolved.url,
-        destination,
         limits: this.options.limits,
-        ...(options.force === undefined ? {} : { force: options.force }),
         ...(options.allowInsecureHttp === undefined
           ? {}
           : { allowInsecureHttp: options.allowInsecureHttp }),
@@ -107,42 +139,119 @@ export class DownloadService {
           ? {}
           : { allowPrivateNetwork: options.allowPrivateNetwork }),
         ...(options.signal === undefined ? {} : { signal: options.signal }),
-      });
-      if (this.options.cache !== undefined) {
-        const object = await this.options.cache.putObject(createReadStream(result.path));
-        if (object.sha256 !== result.sha256)
-          throw new OpsiError({
-            code: "CACHE_CORRUPT",
-            message: "Cached download digest mismatch.",
-            exitCode: EXIT_CODES.INTEGRITY_FAILURE,
-          });
-        const cached: CachedDownload = {
+      };
+      const conditional =
+        cachedRecord === undefined || Object.keys(conditionalHeaders).length === 0
+          ? undefined
+          : await this.downloader.probe({ ...commonRequest, headers: conditionalHeaders });
+      if (
+        conditional?.status === 304 &&
+        this.options.cache !== undefined &&
+        cachedRecord !== undefined
+      ) {
+        const materialized = await this.options.cache.materialize(
+          cachedRecord.value.sha256,
+          stagedDestination,
+          false,
+        );
+        result = {
+          path: materialized.path,
+          sha256: cachedRecord.value.sha256,
+          bytes: cachedRecord.value.bytes,
+          finalUrl: cachedRecord.value.finalUrl,
+          redirectChain: cachedRecord.value.redirectChain,
+          ...(cachedRecord.value.mediaType === undefined
+            ? {}
+            : { mediaType: cachedRecord.value.mediaType }),
+          ...(cachedRecord.etag === undefined ? {} : { etag: cachedRecord.etag }),
+          ...(cachedRecord.lastModified === undefined
+            ? {}
+            : { lastModified: cachedRecord.lastModified }),
+        };
+      } else {
+        result = await this.downloader.download({
+          ...commonRequest,
+          destination: stagedDestination,
+          force: false,
+        });
+      }
+    }
+    let dataset;
+    try {
+      dataset = await provider.getDataset(resource.datasetId);
+    } catch {
+      dataset = undefined;
+    }
+    let publication;
+    try {
+      await this.provenance.write(
+        result.path,
+        {
+          sourceUrl: resolved.url,
+          finalUrl: result.finalUrl,
+          redirectChain: result.redirectChain,
+          retrievedAt: new Date().toISOString(),
           sha256: result.sha256,
           bytes: result.bytes,
+          ...(result.mediaType === undefined ? {} : { mediaType: result.mediaType }),
+          overrideFlags: {
+            allowPrivateNetwork: options.allowPrivateNetwork ?? false,
+            allowInsecureHttp: options.allowInsecureHttp ?? false,
+          },
+          providerId: `${resource.providerId}`,
+          datasetId: `${resource.datasetId}`,
+          resourceId: `${resource.id}`,
+          title: resource.title,
+          ...(dataset?.organization?.title === undefined
+            ? {}
+            : { organization: dataset.organization.title }),
+          ...(resource.modifiedAt === undefined ? {} : { sourceModifiedAt: resource.modifiedAt }),
+          transformations: [],
+        },
+        { publishedArtifact: destination, sidecarPath: stagedProvenance },
+      );
+      publication = await publishArtifactPair(result.path, stagedProvenance, destination, {
+        force: options.force ?? false,
+        existsCode: "DOWNLOAD_DESTINATION_EXISTS",
+        existsExitCode: EXIT_CODES.INVALID_INPUT,
+      });
+    } catch (error) {
+      await Promise.all([
+        rm(stagedDestination, { force: true }),
+        rm(stagedProvenance, { force: true }),
+      ]);
+      throw error;
+    }
+    if (!this.options.offline && this.options.cache !== undefined) {
+      const object = await this.options.cache.putObjectWithMetadata(
+        cacheKey,
+        "download-v1",
+        createReadStream(publication.output),
+        (stored): CachedDownload => ({
+          sha256: stored.sha256,
+          bytes: stored.bytes,
           finalUrl: redactUrl(result.finalUrl),
           redirectChain: result.redirectChain.map(redactUrl),
           ...(result.mediaType === undefined ? {} : { mediaType: result.mediaType }),
-        };
-        await this.options.cache.putMetadata(cacheKey, "download-v1", cached, result.sha256);
-      }
+          ...(result.etag === undefined ? {} : { etag: result.etag }),
+          ...(result.lastModified === undefined ? {} : { lastModified: result.lastModified }),
+          retrievalSource: redactUrl(resolved.url),
+        }),
+        undefined,
+        {
+          ...(result.etag === undefined ? {} : { etag: result.etag }),
+          ...(result.lastModified === undefined ? {} : { lastModified: result.lastModified }),
+          source: redactUrl(resolved.url),
+        },
+      );
+      if (object.sha256 !== result.sha256)
+        throw new OpsiError({
+          code: "CACHE_CORRUPT",
+          message: "Cached download digest mismatch.",
+          exitCode: EXIT_CODES.INTEGRITY_FAILURE,
+        });
     }
-    const provenancePath = await this.provenance.write(result.path, {
-      sourceUrl: resolved.url,
-      finalUrl: result.finalUrl,
-      redirectChain: result.redirectChain,
-      retrievedAt: new Date().toISOString(),
-      sha256: result.sha256,
-      bytes: result.bytes,
-      ...(result.mediaType === undefined ? {} : { mediaType: result.mediaType }),
-      overrideFlags: {
-        allowPrivateNetwork: options.allowPrivateNetwork ?? false,
-        allowInsecureHttp: options.allowInsecureHttp ?? false,
-      },
-      providerId: `${resource.providerId}`,
-      datasetId: `${resource.datasetId}`,
-      resourceId: `${resource.id}`,
-    });
-    return { ...result, provenancePath };
+    return { ...result, path: publication.output, provenancePath: publication.provenancePath };
   }
   async headers(
     id: ResourceId,

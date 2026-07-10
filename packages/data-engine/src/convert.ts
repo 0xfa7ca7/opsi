@@ -559,7 +559,16 @@ export async function convertData(
       warnings,
     };
   } catch (error) {
-    primaryError = error;
+    primaryError =
+      error instanceof OpsiError || stage !== undefined
+        ? error
+        : new OpsiError({
+            code: "INVALID_TABULAR_DATA",
+            message: "The input data cannot be parsed for conversion.",
+            exitCode: EXIT_CODES.INTEGRITY_FAILURE,
+            suggestion: "Validate and repair the input before converting it.",
+            cause: error,
+          });
     if (
       !committed &&
       (outputPublication.published ||
@@ -573,7 +582,7 @@ export async function convertData(
           directory,
           outputPublication,
           provenancePublication,
-          error,
+          primaryError,
         );
       } catch (rollbackError) {
         primaryError = rollbackError;

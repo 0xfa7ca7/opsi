@@ -173,6 +173,31 @@ describe("DuckDbQueryRunner security", () => {
     expect(directoriesCreated).toBe(1);
   });
 
+  it.each([
+    ["rowLimit", 0],
+    ["rowLimit", 1_000_001],
+    ["timeoutMs", 0],
+    ["timeoutMs", 600_001],
+    ["maxColumns", 0],
+    ["maxCellBytes", -1],
+    ["maxOutputBytes", Number.MAX_SAFE_INTEGER],
+    ["threads", 5],
+  ] as const)("rejects invalid public SDK limit %s=%s before staging", async (key, value) => {
+    let staged = false;
+    const runner = new DuckDbQueryRunner({
+      workerPath: new URL("./fixtures/query-worker-source-entry.ts", import.meta.url),
+      stage: async () => {
+        staged = true;
+        throw new Error("must not stage");
+      },
+    });
+    await expect(runner.execute({ input, sql: "SELECT 1", [key]: value })).rejects.toMatchObject({
+      code: "QUERY_LIMIT_INVALID",
+      exitCode: 7,
+    });
+    expect(staged).toBe(false);
+  });
+
   it("caps columns, cells, and total serialized output", async () => {
     const runner = new DuckDbQueryRunner({
       workerPath: new URL("./fixtures/query-worker-source-entry.ts", import.meta.url),

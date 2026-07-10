@@ -61,6 +61,33 @@ describe("ContentCache", () => {
     expect(await cache.getObject(sha256("hello"))).toMatchObject({ sha256: sha256("hello") });
   });
 
+  it("prunes expired metadata and only orphaned objects while preserving live references", async () => {
+    const cache = new ContentCache(await root());
+    const live = await cache.putObject(Readable.from(["live"]));
+    const orphan = await cache.putObject(Readable.from(["orphan"]));
+    await cache.putMetadata("live", "v1", { ok: true }, live.sha256);
+    await cache.putMetadata("expired", "v1", { old: true }, undefined, -1);
+    await expect(cache.prune()).resolves.toEqual({ removed: 2 });
+    await expect(cache.getObject(live.sha256)).resolves.toMatchObject({ sha256: live.sha256 });
+    await expect(cache.getObject(orphan.sha256)).rejects.toMatchObject({ code: "CACHE_MISS" });
+  });
+
+  it("stores conditional metadata validators and retrieval source without exposing them as value", async () => {
+    const cache = new ContentCache(await root());
+    await cache.putMetadata("conditional", "v1", { data: 1 }, undefined, 1000, {
+      etag: '"abc"',
+      lastModified: "Sat, 11 Jul 2026 10:00:00 GMT",
+      source: "https://example.test/data",
+    });
+    await expect(cache.getMetadataRecord("conditional", "v1", true)).resolves.toMatchObject({
+      value: { data: 1 },
+      etag: '"abc"',
+      lastModified: "Sat, 11 Jul 2026 10:00:00 GMT",
+      source: "https://example.test/data",
+    });
+    await expect(cache.getMetadata("conditional", "v1")).resolves.toEqual({ data: 1 });
+  });
+
   it("lets two child processes race the same object and metadata key without partial state", async () => {
     const directory = await root();
     const helper = join(process.cwd(), "packages/storage/test/fixtures/cache-publisher.mjs");

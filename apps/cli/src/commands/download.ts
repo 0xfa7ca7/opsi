@@ -1,4 +1,11 @@
-import { EXIT_CODES, OpsiError, parseCanonicalReference, resourceId } from "@opsi/domain";
+import {
+  EXIT_CODES,
+  OpsiError,
+  datasetId,
+  parseCanonicalReference,
+  resourceId,
+  type ResourceId,
+} from "@opsi/domain";
 import type { OpsiClient } from "@opsi/core";
 import type { Command } from "commander";
 import type { CliContext } from "../context.js";
@@ -10,6 +17,8 @@ interface Options {
   readonly force?: boolean;
   readonly allowInsecureHttp?: boolean;
   readonly allowPrivateNetwork?: boolean;
+  readonly dataset?: boolean;
+  readonly resource?: boolean;
 }
 export function registerDownloadCommand(
   program: Command,
@@ -36,28 +45,87 @@ export function registerDownloadCommand(
         message: "A destination may only be used with one resource.",
         exitCode: EXIT_CODES.INVALID_INPUT,
       });
+    const selections: Array<{ id: ResourceId; providerId?: string }> = [];
+    for (const id of ids) {
+      const reference = id.includes(":") ? parseCanonicalReference(id) : undefined;
+      if (reference?.kind === "file")
+        throw new OpsiError({
+          code: "RESOURCE_REFERENCE_REQUIRED",
+          message: "Download requires a dataset or resource reference.",
+          exitCode: EXIT_CODES.INVALID_INPUT,
+        });
+      if (
+        reference !== undefined &&
+        ((options.dataset === true && reference.kind !== "dataset") ||
+          (options.resource === true && reference.kind !== "resource"))
+      )
+        throw new OpsiError({
+          code: "DOWNLOAD_SELECTOR_MISMATCH",
+          message: "The explicit selector does not match the canonical reference kind.",
+          exitCode: EXIT_CODES.INVALID_INPUT,
+          context: { reference: id, selector: options.dataset ? "dataset" : "resource" },
+        });
+      const kind =
+        reference?.kind ??
+        (options.dataset ? "dataset" : options.resource ? "resource" : undefined);
+      if (kind === undefined)
+        throw new OpsiError({
+          code: "AMBIGUOUS_DOWNLOAD_REFERENCE",
+          message: `Bare identifier '${id}' is ambiguous.`,
+          exitCode: EXIT_CODES.INVALID_INPUT,
+          suggestion: "Add --dataset or --resource, or use a canonical reference.",
+        });
+      const providerId = reference === undefined ? undefined : `${reference.providerId}`;
+      if (kind === "dataset") {
+        const selectedDataset = reference?.kind === "dataset" ? reference.id : datasetId(id);
+        const resources =
+          providerId === undefined
+            ? await client.datasets.resources(selectedDataset)
+            : await client.datasets.resources(selectedDataset, providerId);
+        selections.push(
+          ...resources.map((item) => ({
+            id: item.id,
+            ...(providerId === undefined ? {} : { providerId }),
+          })),
+        );
+      } else {
+        selections.push({
+          id: reference?.kind === "resource" ? reference.id : resourceId(id),
+          ...(providerId === undefined ? {} : { providerId }),
+        });
+      }
+    }
+    if (selections.length === 0)
+      throw new OpsiError({
+        code: "NO_DOWNLOAD_RESOURCES",
+        message: "The selection contains no resources.",
+        exitCode: EXIT_CODES.NOT_FOUND,
+      });
+    const uniqueSelections = selections.filter(
+      (selection, index) =>
+        selections.findIndex(
+          (candidate) =>
+            candidate.id === selection.id && candidate.providerId === selection.providerId,
+        ) === index,
+    );
+    if (uniqueSelections.length > 1 && destination !== undefined)
+      throw new OpsiError({
+        code: "INVALID_DOWNLOAD_DESTINATION",
+        message: "A destination may only be used with one resource.",
+        exitCode: EXIT_CODES.INVALID_INPUT,
+      });
     const results: unknown[] = [];
     const errors: unknown[] = [];
-    for (const id of ids) {
+    for (const selection of uniqueSelections) {
       try {
-        const reference = id.includes(":") ? parseCanonicalReference(id) : undefined;
-        if (reference !== undefined && reference.kind !== "resource")
-          throw new OpsiError({
-            code: "RESOURCE_REFERENCE_REQUIRED",
-            message: "Download requires a resource reference.",
-            exitCode: EXIT_CODES.INVALID_INPUT,
-          });
         results.push(
-          await client.downloads.resource(
-            reference?.kind === "resource" ? reference.id : resourceId(id),
-            {
-              ...(reference?.kind === "resource" ? { providerId: `${reference.providerId}` } : {}),
-              ...(destination === undefined ? {} : { destination }),
-              force: options.force ?? false,
-              allowInsecureHttp: options.allowInsecureHttp ?? false,
-              allowPrivateNetwork: options.allowPrivateNetwork ?? false,
-            },
-          ),
+          await client.downloads.resource(selection.id, {
+            ...(selection.providerId === undefined ? {} : { providerId: selection.providerId }),
+            ...(destination === undefined ? {} : { destination }),
+            force: options.force ?? false,
+            allowInsecureHttp: options.allowInsecureHttp ?? false,
+            allowPrivateNetwork: options.allowPrivateNetwork ?? false,
+          }),
         );
       } catch (error) {
         errors.push(error);
@@ -78,6 +146,7 @@ export function registerDownloadCommand(
         });
       throw errors[0];
     }
-    if (results.length > 0) context.renderer?.write(ids.length === 1 ? results[0] : results);
+    if (results.length > 0)
+      context.renderer?.write(uniqueSelections.length === 1 ? results[0] : results);
   });
 }

@@ -24,6 +24,26 @@ const DEFAULT_LIMITS: QueryLimits = {
   memoryLimit: "1GB",
   threads: 4,
 };
+const MAX_LIMITS = {
+  rowLimit: 1_000_000,
+  timeoutMs: 600_000,
+  maxSqlBytes: 64 * 1024,
+  maxColumns: 4_096,
+  maxCellBytes: 16 * 1024 * 1024,
+  maxOutputBytes: 256 * 1024 * 1024,
+  threads: 4,
+} as const;
+
+function boundedLimit(name: keyof typeof MAX_LIMITS, value: number): number {
+  if (!Number.isSafeInteger(value) || value <= 0 || value > MAX_LIMITS[name])
+    throw new OpsiError({
+      code: "QUERY_LIMIT_INVALID",
+      message: `${name} must be a positive integer no larger than ${MAX_LIMITS[name]}.`,
+      exitCode: EXIT_CODES.QUERY_FAILURE,
+      context: { limit: name, value, maximum: MAX_LIMITS[name] },
+    });
+  return value;
+}
 
 export interface QueryExecutionOptions {
   readonly input: DataInput;
@@ -103,14 +123,20 @@ export class DuckDbQueryRunner {
         exitCode: EXIT_CODES.QUERY_FAILURE,
       });
     const limits: QueryLimits = {
-      rowLimit: options.rowLimit ?? DEFAULT_LIMITS.rowLimit,
-      timeoutMs: options.timeoutMs ?? DEFAULT_LIMITS.timeoutMs,
-      maxSqlBytes: options.maxSqlBytes ?? DEFAULT_LIMITS.maxSqlBytes,
-      maxColumns: options.maxColumns ?? DEFAULT_LIMITS.maxColumns,
-      maxCellBytes: options.maxCellBytes ?? DEFAULT_LIMITS.maxCellBytes,
-      maxOutputBytes: options.maxOutputBytes ?? DEFAULT_LIMITS.maxOutputBytes,
+      rowLimit: boundedLimit("rowLimit", options.rowLimit ?? DEFAULT_LIMITS.rowLimit),
+      timeoutMs: boundedLimit("timeoutMs", options.timeoutMs ?? DEFAULT_LIMITS.timeoutMs),
+      maxSqlBytes: boundedLimit("maxSqlBytes", options.maxSqlBytes ?? DEFAULT_LIMITS.maxSqlBytes),
+      maxColumns: boundedLimit("maxColumns", options.maxColumns ?? DEFAULT_LIMITS.maxColumns),
+      maxCellBytes: boundedLimit(
+        "maxCellBytes",
+        options.maxCellBytes ?? DEFAULT_LIMITS.maxCellBytes,
+      ),
+      maxOutputBytes: boundedLimit(
+        "maxOutputBytes",
+        options.maxOutputBytes ?? DEFAULT_LIMITS.maxOutputBytes,
+      ),
       memoryLimit,
-      threads: options.threads ?? DEFAULT_LIMITS.threads,
+      threads: boundedLimit("threads", options.threads ?? DEFAULT_LIMITS.threads),
     };
     let directory: string | undefined;
     let stage: TabularStage | undefined;

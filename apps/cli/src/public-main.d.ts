@@ -4,6 +4,8 @@ export interface CliIo {
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly stdout: { readonly isTTY?: boolean; write(chunk: string): unknown };
   readonly stderr: { readonly isTTY?: boolean; write(chunk: string): unknown };
+  readonly stdin?: { readonly isTTY?: boolean };
+  readonly confirm?: (message: string) => Promise<boolean>;
 }
 export interface CliContext {
   readonly io: CliIo;

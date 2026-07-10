@@ -6,6 +6,7 @@ import {
   renderNdjson,
   renderTable,
   sanitizeTerminalText,
+  Renderer,
 } from "../src/index.js";
 
 describe("structured output", () => {
@@ -25,6 +26,16 @@ describe("structured output", () => {
       '{"value":"safe\\u202espoof"}\n{"value":2}\n',
     );
   });
+});
+
+it("projects manifest-selected fields in the requested deterministic order for every renderer", () => {
+  const data = [{ id: "d", title: "Dataset", ignored: true }];
+  expect(
+    new Renderer({ format: "json", stdout: { write() {} }, fields: ["title", "id"] }).render(data),
+  ).toBe('{"schemaVersion":"1","data":[{"title":"Dataset","id":"d"}],"meta":{}}\n');
+  expect(
+    new Renderer({ format: "csv", stdout: { write() {} }, fields: ["title", "id"] }).render(data),
+  ).toBe("title,id\nDataset,d\n");
 });
 
 describe("terminal output", () => {

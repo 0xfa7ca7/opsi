@@ -12,13 +12,21 @@ export interface CacheObject {
   readonly sha256: string;
   readonly bytes: number;
 }
-interface MetadataRecord<T = unknown> {
+export interface MetadataRecord<T = unknown> {
   schemaVersion: string;
   key: string;
   value: T;
   objectSha256?: string;
   createdAt: string;
   expiresAt?: string;
+  etag?: string;
+  lastModified?: string;
+  source?: string;
+}
+export interface MetadataValidators {
+  readonly etag?: string;
+  readonly lastModified?: string;
+  readonly source?: string;
 }
 const MAX_CACHE_OBJECT_BYTES = 2 * 1024 * 1024 * 1024;
 export interface ContentCacheOptions {
@@ -65,7 +73,10 @@ function parseMetadataRecord<T>(text: string): MetadataRecord<T> {
     !("value" in record) ||
     (record.expiresAt !== undefined &&
       (typeof record.expiresAt !== "string" || Number.isNaN(Date.parse(record.expiresAt)))) ||
-    (record.objectSha256 !== undefined && !/^[a-f\d]{64}$/u.test(record.objectSha256))
+    (record.objectSha256 !== undefined && !/^[a-f\d]{64}$/u.test(record.objectSha256)) ||
+    (record.etag !== undefined && typeof record.etag !== "string") ||
+    (record.lastModified !== undefined && typeof record.lastModified !== "string") ||
+    (record.source !== undefined && typeof record.source !== "string")
   )
     throw corrupt("Cached metadata does not match its schema.");
   return record as MetadataRecord<T>;
@@ -266,12 +277,26 @@ export class ContentCache implements MetadataCache {
     key: string,
     schemaVersion: string,
     input: Readable | AsyncIterable<Uint8Array | string>,
-    value: T,
+    value: T | ((object: CacheObject) => T),
     ttlMs?: number,
+    validators: MetadataValidators = {},
   ): Promise<CacheObject> {
-    const object = await this.putObject(input);
-    await this.putMetadata(key, schemaVersion, value, object.sha256, ttlMs);
-    return object;
+    const layout = await this.layout();
+    const lock = await CacheLock.acquire(layout.locks, "cache-publication");
+    try {
+      const object = await this.putObject(input);
+      await this.putMetadata(
+        key,
+        schemaVersion,
+        typeof value === "function" ? (value as (object: CacheObject) => T)(object) : value,
+        object.sha256,
+        ttlMs,
+        validators,
+      );
+      return object;
+    } finally {
+      await lock.release();
+    }
   }
   async putMetadata<T>(
     key: string,
@@ -279,6 +304,7 @@ export class ContentCache implements MetadataCache {
     value: T,
     objectSha256?: string,
     ttlMs?: number,
+    validators: MetadataValidators = {},
   ): Promise<void> {
     const layout = await this.layout();
     if (objectSha256 !== undefined) await this.getObject(objectSha256);
@@ -292,6 +318,9 @@ export class ContentCache implements MetadataCache {
         createdAt: new Date(now).toISOString(),
         ...(objectSha256 === undefined ? {} : { objectSha256 }),
         ...(ttlMs === undefined ? {} : { expiresAt: new Date(now + ttlMs).toISOString() }),
+        ...(validators.etag === undefined ? {} : { etag: validators.etag }),
+        ...(validators.lastModified === undefined ? {} : { lastModified: validators.lastModified }),
+        ...(validators.source === undefined ? {} : { source: validators.source }),
       };
       await atomicJson(layout.metadataPath(key), record, () =>
         this.options.fault?.("before-metadata-rename"),
@@ -330,6 +359,30 @@ export class ContentCache implements MetadataCache {
       }
     }
     return record.value;
+  }
+  async getMetadataRecord<T>(
+    key: string,
+    schemaVersion: string,
+    includeExpired = false,
+  ): Promise<MetadataRecord<T> | undefined> {
+    const path = (await this.layout()).metadataPath(key);
+    let text: string;
+    try {
+      text = await readFile(path, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+      throw error;
+    }
+    const record = parseMetadataRecord<T>(text);
+    if (record.schemaVersion !== schemaVersion || record.key !== key)
+      throw corrupt("Cached metadata does not match its schema or key.");
+    if (
+      !includeExpired &&
+      record.expiresAt !== undefined &&
+      Date.parse(record.expiresAt) <= Date.now()
+    )
+      return undefined;
+    return record;
   }
   get<T>(key: string, schemaVersion: string): Promise<T | undefined> {
     return this.getMetadata<T>(key, schemaVersion);
@@ -400,20 +453,34 @@ export class ContentCache implements MetadataCache {
   }
   async prune(): Promise<{ readonly removed: number }> {
     const layout = await this.layout();
+    const lock = await CacheLock.acquire(layout.locks, "cache-publication");
     let removed = 0;
-    for (const name of await readdir(layout.metadata)) {
-      const path = `${layout.metadata}/${name}`;
-      try {
-        const record = JSON.parse(await readFile(path, "utf8")) as MetadataRecord;
-        if (record.expiresAt !== undefined && Date.parse(record.expiresAt) <= Date.now()) {
-          await rm(path, { force: true });
+    try {
+      const live = new Set<string>();
+      for (const name of await readdir(layout.metadata)) {
+        const path = `${layout.metadata}/${name}`;
+        try {
+          const record = parseMetadataRecord(await readFile(path, "utf8"));
+          if (record.expiresAt !== undefined && Date.parse(record.expiresAt) <= Date.now()) {
+            await rm(path, { force: true });
+            removed++;
+          } else if (record.objectSha256 !== undefined) live.add(record.objectSha256);
+        } catch {
+          /* verify reports corruption */
+        }
+      }
+      for (const name of await readdir(layout.objects)) {
+        if (/^[a-f\d]{64}$/u.test(name) && !live.has(name)) {
+          await rm(layout.objectPath(name), { force: true });
           removed++;
         }
-      } catch {
-        /* verify reports corruption */
       }
+      await syncDirectory(layout.metadata);
+      await syncDirectory(layout.objects);
+      return { removed };
+    } finally {
+      await lock.release();
     }
-    return { removed };
   }
   async clear(): Promise<void> {
     await rm(this.paths.root, { recursive: true, force: true });

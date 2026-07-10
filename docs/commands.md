@@ -2,13 +2,13 @@
 
 All commands send result data to stdout and warnings/diagnostics to stderr. Human tables are the interactive default. `--json`, `--ndjson`, `--csv`, `--tsv`, and `--output-format table|json|ndjson|csv|tsv` select machine output and are mutually exclusive. JSON uses `{schemaVersion,data,meta,error?}`. Stable exit categories are 0 success, 1 internal, 2 invalid input/configuration, 3 not found, 4 provider/network, 5 unsupported, 6 validation/integrity, 7 query, and 8 partial success. Stacks require `--debug` and are redacted.
 
-Global controls are `--provider opsi|local`, `--offline`, `--cache-dir`, `--download-dir`, `--http-timeout-ms`, `--max-download-bytes`, `--preview-row-limit`, `--query-row-limit`, `--query-timeout-ms`, `--duckdb-memory-limit`, `--duckdb-threads`, `--quiet`, `--debug`, and `--no-color`. `NO_COLOR` also disables styling. Remote-content overrides `--allow-insecure-http` and `--allow-private-network` affect one invocation only.
+Global controls are `--provider opsi|local`, repeatable/comma-separated `--fields`, `--offline`, `--cache-dir`, `--download-dir`, `--http-timeout-ms`, `--max-download-bytes`, `--preview-row-limit`, `--query-row-limit`, `--query-timeout-ms`, `--duckdb-memory-limit`, `--duckdb-threads`, `--quiet`, `--debug`, and `--no-color`. Field projection preserves the requested order in every output format. `NO_COLOR` also disables styling. Remote-content overrides `--allow-insecure-http` and `--allow-private-network` affect one invocation only.
 
 ## Catalogue
 
 ### `search`
 
-Syntax: `opsi search [text] [options]`. Filters: `--organization`, repeatable `--tag` and `--format`, `--license`, `--modified-after`, `--modified-before`, repeatable `--sort field:asc|desc`, positive `--limit`, and nonnegative `--offset`. Output is dataset summaries with pagination metadata. Invalid sort/number values exit 2; provider failures exit 4. Example: `opsi search promet --tag mobilnost --format CSV --limit 5 --json`.
+Syntax: `opsi search [text] [options]`. Filters: `--organization`, repeatable `--tag` and `--format`, `--license`, `--modified-after`, `--modified-before`, repeatable `--sort field:asc|desc`, positive `--limit`, nonnegative `--offset`, and `--all`. `--all` performs bounded advancing page traversal and conflicts with `--limit`. Output is dataset summaries with deterministic pagination metadata. Invalid sort/number values exit 2; provider failures exit 4. Example: `opsi search promet --tag mobilnost --format CSV --all --fields id,title --json`.
 
 ### `dataset show`
 
@@ -40,13 +40,13 @@ Syntax: `opsi resource headers <id>`. Securely probes remote status, headers, me
 
 ### `providers list`
 
-Syntax: `opsi providers list`. Returns registered provider IDs, names, homepages, and capabilities. This is catalogue-only and works without DuckDB. Example: `opsi providers list --json`.
+Syntax: `opsi providers list`. Returns the registered `opsi` catalogue provider and `local` file resolver with their names, homepages, and declared capabilities. `--provider local` is for local paths and `local:file:` references; catalogue operations return a typed unsupported-capability error. This command works without DuckDB. Example: `opsi providers list --json`.
 
 ## Files and data
 
 ### `download`
 
-Syntax: `opsi download <ids...> [--destination <path>|--output <path>] [--force]`. IDs may be bare or canonical `provider:resource:id` references. A directory receives a sanitized provider filename; a file path is valid for one resource. Downloads are bounded, atomically published, cached by digest, and accompanied by provenance. Existing different content is not overwritten without `--force`. Partial batches exit 8. Example: `opsi download opsi:resource:resource-traffic-csv-001 --output ./downloads --json`.
+Syntax: `opsi download <ids...> [--dataset|--resource] [--destination <path>|--output <path>] [--force]`. Canonical `provider:dataset:id` and `provider:resource:id` references are self-describing. Bare IDs require exactly one selector; dataset selection expands all embedded resources and an empty dataset exits 3. A directory receives sanitized provider filenames; a file path is valid for one selected resource. Each artifact and provenance sidecar is transactionally published without clobber races. Existing different content is not overwritten without `--force`. Partial batches exit 8. Examples: `opsi download RESOURCE_ID --resource --output ./downloads --json` and `opsi download opsi:dataset:DATASET_ID --output ./downloads`.
 
 ### `validate`
 
@@ -80,11 +80,11 @@ Lists cache objects and metadata without mutation. Example: `opsi cache list --j
 
 ### `cache clear`
 
-Deletes cache content only with explicit `--yes`; non-TTY use never prompts and otherwise exits 2 with `CONFIRMATION_REQUIRED`. Example: `opsi cache clear --yes`.
+Deletes cache content with `--yes` or an interactive human confirmation. Non-TTY and structured-output use never prompt and exit 2 with `CONFIRMATION_REQUIRED`. Example: `opsi cache clear --yes`.
 
 ### `cache prune`
 
-Removes unreferenced cache objects only with `--yes`. Locked/live entries are preserved. Example: `opsi cache prune --yes --json`.
+Removes expired metadata and unreferenced objects with `--yes` or interactive human confirmation. Publication locks and valid live references are preserved. Example: `opsi cache prune --yes --json`.
 
 ### `cache verify`
 

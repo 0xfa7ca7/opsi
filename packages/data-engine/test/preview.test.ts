@@ -20,6 +20,14 @@ afterEach(async () => {
 });
 
 describe("bounded previews and schema inference", () => {
+  it("normalizes malformed delimited user input to a stable typed error", async () => {
+    const path = await temporaryFile("broken.csv", 'a,b\n"unterminated,2\n');
+    await expect(engine.preview(path)).rejects.toMatchObject({
+      code: "INVALID_TABULAR_DATA",
+      exitCode: 6,
+    });
+  });
+
   it("returns twenty rows by default without losing Unicode", async () => {
     const path = await temporaryFile(
       "rows.csv",

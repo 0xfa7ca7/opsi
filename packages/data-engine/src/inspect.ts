@@ -117,9 +117,22 @@ export class DataEngine {
     if (!supported(detection.format)) unsupported(detection.format);
     if (detection.format === "csv" || detection.format === "tsv") {
       this.options.onAdapter?.(detection.format);
-      const parsed = await readDelimited(detection.path, detection.format === "csv" ? "," : "\t", {
-        limit,
-      });
+      let parsed;
+      try {
+        parsed = await readDelimited(detection.path, detection.format === "csv" ? "," : "\t", {
+          limit,
+        });
+      } catch (error) {
+        if (error instanceof OpsiError) throw error;
+        throw new OpsiError({
+          code: "INVALID_TABULAR_DATA",
+          message: "The delimited file cannot be parsed.",
+          exitCode: EXIT_CODES.INTEGRITY_FAILURE,
+          suggestion: "Repair quoting, escaping, and record boundaries.",
+          context: { path: detection.path },
+          cause: error,
+        });
+      }
       const rows = recordsToRows(parsed.headers, parsed.records);
       return {
         format: detection.format,

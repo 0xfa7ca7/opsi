@@ -148,7 +148,12 @@ export async function runDoctorChecks(
     writable(context.configuration?.paths.cacheDir ?? join(tmpdir(), "opsi-cache")),
   );
   await capture(checks, "temp", () => writable(tmpdir()));
-  if (offline) checks.push({ name: "connectivity", status: "skip", detail: { reason: "offline" } });
+  if (offline || context.configuration?.provider === "local")
+    checks.push({
+      name: "connectivity",
+      status: "skip",
+      detail: { reason: offline ? "offline" : "local-provider" },
+    });
   else
     await capture(checks, "connectivity", async () => {
       const page = await client.search({ limit: 1 });
