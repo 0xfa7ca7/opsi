@@ -3,6 +3,7 @@ import { mkdtemp, open, readFile, readdir, rename, rm, writeFile } from "node:fs
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DuckDBInstance } from "@duckdb/node-api";
+import { ProvenanceStore } from "@opsi/storage";
 import ExcelJS from "exceljs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DataEngine, type SupportedDataFormat } from "../src/index.js";
@@ -307,6 +308,130 @@ describe("tabular conversion", () => {
       await expect(readFile(`${output}.provenance.json`)).resolves.toBeInstanceOf(Buffer);
     },
   );
+
+  it.each([
+    ["first", "output"],
+    ["second", "provenance"],
+  ] as const)(
+    "reports committed %s backup removal failure and retains the %s backup",
+    async (_position, failedBackup) => {
+      const inputs = await createInputs();
+      const output = path(`backup-${failedBackup}.json`);
+      await new DataEngine().convert({
+        input: inputs.json,
+        output,
+        targetFormat: "json",
+        force: false,
+      });
+      const originalOutput = await readFile(output);
+      const originalProvenance = await readFile(`${output}.provenance.json`);
+      const replacement = path(`backup-${failedBackup}-replacement.json`);
+      await writeFile(replacement, JSON.stringify([{ changed: failedBackup }]));
+      const engine = new DataEngine({
+        conversionFileSystem: {
+          rm: async (candidate, options) => {
+            const outputBackup = candidate.startsWith(`${output}.backup-`);
+            const provenanceBackup = candidate.startsWith(`${output}.provenance.json.backup-`);
+            if (
+              (failedBackup === "output" && outputBackup) ||
+              (failedBackup === "provenance" && provenanceBackup)
+            )
+              throw Object.assign(new Error(`backup remove failed: ${candidate}`), {
+                code: "EBUSY",
+              });
+            await rm(candidate, options);
+          },
+        },
+      });
+
+      const error = await engine
+        .convert({ input: replacement, output, targetFormat: "json", force: true })
+        .then(
+          () => undefined,
+          (candidate: unknown) => candidate,
+        );
+
+      expect(error).toMatchObject({
+        code: "CONVERSION_CLEANUP_FAILED",
+        exitCode: 6,
+        context: {
+          cleanupFailures: [
+            expect.objectContaining({
+              phase: "backup-remove",
+              code: "EBUSY",
+              path: expect.stringContaining(".backup-"),
+            }),
+          ],
+        },
+      });
+      expect((error as { cause?: unknown }).cause).toBeInstanceOf(AggregateError);
+      const failure = (error as { context: { cleanupFailures: readonly { path: string }[] } })
+        .context.cleanupFailures[0] as { path: string };
+      await expect(readFile(failure.path)).resolves.toEqual(
+        failedBackup === "output" ? originalOutput : originalProvenance,
+      );
+      expect(
+        (await readdir(root)).filter(
+          (name) => name.includes(".backup-") && name.startsWith(`backup-${failedBackup}.json`),
+        ),
+      ).toHaveLength(1);
+      await expect(engine.preview(output)).resolves.toMatchObject({
+        rows: [{ changed: failedBackup }],
+      });
+      await expect(new ProvenanceStore().verify(output)).resolves.toMatchObject({ valid: true });
+    },
+  );
+
+  it("reports committed backup directory sync failure after retaining a valid pair", async () => {
+    const inputs = await createInputs();
+    const output = path("backup-sync.json");
+    await new DataEngine().convert({
+      input: inputs.json,
+      output,
+      targetFormat: "json",
+      force: false,
+    });
+    const replacement = path("backup-sync-replacement.json");
+    await writeFile(replacement, JSON.stringify([{ changed: "sync" }]));
+    let directorySyncs = 0;
+    const engine = new DataEngine({
+      conversionFileSystem: {
+        open: async (candidate, flags, mode) => {
+          if (candidate === root && flags === "r") {
+            directorySyncs += 1;
+            if (directorySyncs === 4)
+              throw Object.assign(new Error("backup directory sync failed"), { code: "EIO" });
+          }
+          return open(candidate, flags, mode);
+        },
+      },
+    });
+
+    const error = await engine
+      .convert({ input: replacement, output, targetFormat: "json", force: true })
+      .then(
+        () => undefined,
+        (candidate: unknown) => candidate,
+      );
+
+    expect(error).toMatchObject({
+      code: "CONVERSION_CLEANUP_FAILED",
+      exitCode: 6,
+      context: {
+        cleanupFailures: [
+          expect.objectContaining({
+            phase: "backup-directory-sync",
+            code: "EIO",
+            paths: expect.arrayContaining([root, expect.stringContaining(".backup-")]),
+          }),
+        ],
+      },
+    });
+    expect((error as { cause?: unknown }).cause).toBeInstanceOf(AggregateError);
+    expect((await readdir(root)).filter((name) => name.includes(".backup-"))).toEqual([]);
+    await expect(engine.preview(output)).resolves.toMatchObject({ rows: [{ changed: "sync" }] });
+    await expect(new ProvenanceStore().verify(output)).resolves.toMatchObject({ valid: true });
+  });
 
   it("preserves a primary typed error while attaching cleanup failures and paths", async () => {
     const inputs = await createInputs();

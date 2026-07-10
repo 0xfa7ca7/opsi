@@ -272,3 +272,64 @@ pnpm check
 
 No cleanup failure is swallowed, every injected affected path/cause is reported,
 and recovery backups remain outside normal finalization.
+
+## Committed backup cleanup fix
+
+### RED
+
+```text
+pnpm vitest run --project integration packages/data-engine/test/convert.test.ts \
+  -t "committed.*backup|backup directory sync"
+# 3 failed, 17 skipped
+```
+
+Observed failures:
+
+- Injected first and second forced-backup removals returned raw `EBUSY` errors.
+- Injected parent-directory fsync after backup removal returned raw `EIO`.
+- None of the failures used the typed cleanup envelope or reported affected
+  backup paths.
+
+### GREEN
+
+Committed forced-publication backup removal now runs inside cleanup finalization,
+after the output/provenance pair is durable. Both backup removals are attempted
+independently, followed by parent-directory fsync, and all failures are added to
+the existing cleanup aggregate.
+
+- A failed output or provenance backup removal returns
+  `CONVERSION_CLEANUP_FAILED` with exit 6, `backup-remove`, the retained backup
+  path, error code/message, and `AggregateError` cause.
+- A post-removal directory `EIO` returns the same typed code with
+  `backup-directory-sync` and the directory plus both affected backup paths.
+- The newly committed output/provenance pair remains valid and checksum
+  verifiable for every cleanup failure.
+- Cleanup still skips every backup and restore link from an unresolved rollback;
+  committed backup cleanup runs only when `committed === true`.
+
+```text
+pnpm vitest run --project integration packages/data-engine/test/convert.test.ts \
+  -t "committed.*backup|backup directory sync"
+# 3 passed, 17 skipped
+
+pnpm vitest run --project integration packages/data-engine/test/convert.test.ts
+# 20 passed
+
+pnpm build
+pnpm vitest run --project cli-e2e apps/cli/test/convert.e2e.test.ts
+# build passed; 4 passed
+```
+
+Final verification:
+
+```text
+pnpm check
+# format: passed
+# lint: passed
+# typecheck: passed
+# tests: 28 files passed, 273 tests passed
+# build: passed
+```
+
+No committed-backup removal or durability failure is reported as a raw ordinary
+error or false conversion success.

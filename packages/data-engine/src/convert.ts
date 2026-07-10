@@ -285,7 +285,7 @@ async function rollbackPublications(
 }
 
 interface CleanupFailure {
-  readonly phase: "stage-close" | "remove";
+  readonly phase: "stage-close" | "remove" | "backup-remove" | "backup-directory-sync";
   readonly path?: string;
   readonly paths?: readonly string[];
   readonly code?: string;
@@ -363,6 +363,9 @@ async function cleanupConversion(
   fileSystem: ConversionFileSystem,
   engineOptions: DataEngineOptions,
   stage: TabularStage | undefined,
+  committed: boolean,
+  directory: string,
+  publications: readonly PublicationState[],
   paths: {
     readonly outputTemp: string;
     readonly provenanceTemp: string;
@@ -371,6 +374,27 @@ async function cleanupConversion(
   },
 ): Promise<readonly CleanupFailure[]> {
   const failures: CleanupFailure[] = [];
+  const backupPaths = publications
+    .filter((publication) => publication.backedUp)
+    .map((publication) => publication.backup);
+  if (committed && backupPaths.length > 0) {
+    for (const path of backupPaths)
+      try {
+        await fileSystem.rm(path, { force: true });
+      } catch (error) {
+        failures.push(cleanupFailure("backup-remove", error, { path }));
+      }
+    try {
+      await syncDirectory(fileSystem, directory);
+    } catch (error) {
+      failures.push(
+        cleanupFailure("backup-directory-sync", error, {
+          paths: [directory, ...backupPaths],
+        }),
+      );
+    }
+  }
+
   const stagePaths = [paths.databasePath, `${paths.databasePath}.wal`, paths.xlsxRowsPath];
   if (stage !== undefined)
     try {
@@ -525,11 +549,6 @@ export async function convertData(
     await syncDirectory(fileSystem, directory);
     engineOptions.onAdapter?.("convert-provenance-published");
     committed = true;
-    if (outputPublication.backedUp) await fileSystem.rm(outputPublication.backup, { force: true });
-    if (provenancePublication.backedUp)
-      await fileSystem.rm(provenancePublication.backup, { force: true });
-    if (outputPublication.backedUp || provenancePublication.backedUp)
-      await syncDirectory(fileSystem, directory);
     result = {
       input: stage.inputPath,
       output,
@@ -561,12 +580,20 @@ export async function convertData(
       }
   }
 
-  const cleanupFailures = await cleanupConversion(fileSystem, engineOptions, stage, {
-    outputTemp,
-    provenanceTemp,
-    databasePath,
-    xlsxRowsPath,
-  });
+  const cleanupFailures = await cleanupConversion(
+    fileSystem,
+    engineOptions,
+    stage,
+    committed,
+    directory,
+    [outputPublication, provenancePublication],
+    {
+      outputTemp,
+      provenanceTemp,
+      databasePath,
+      xlsxRowsPath,
+    },
+  );
   if (cleanupFailures.length > 0) throw withCleanupFailures(primaryError, cleanupFailures);
   if (primaryError !== undefined) throw primaryError;
   if (result === undefined)
