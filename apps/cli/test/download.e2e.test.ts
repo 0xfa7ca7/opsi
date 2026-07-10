@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer, type ServerResponse } from "node:http";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { lstat, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -147,6 +147,23 @@ describe("download, cache, offline, and provenance CLI", () => {
     ).resolves.toMatchObject({ exitCode: 0, json: { data: { bytes: 5, path: offlineTarget } } });
     expect(await readFile(offlineTarget, "utf8")).toBe("hello");
     expect(requests).toBe(beforeOfflineDownload);
+    const blockedTarget = join(home, "blocked.txt");
+    await writeFile(blockedTarget, "existing-different-content");
+    await expect(
+      cli([
+        "download",
+        "resource-1",
+        "--destination",
+        blockedTarget,
+        "--allow-insecure-http",
+        "--allow-private-network",
+        "--json",
+      ]),
+    ).resolves.toMatchObject({ exitCode: 2 });
+    expect(await readFile(blockedTarget, "utf8")).toBe("existing-different-content");
+    await expect(lstat(`${blockedTarget}.provenance.json`)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
     await expect(cli(["search", "dataset", "--json"])).resolves.toMatchObject({ exitCode: 0 });
     const onlineRequests = requests;
     await expect(cli(["search", "dataset", "--offline", "--json"])).resolves.toMatchObject({

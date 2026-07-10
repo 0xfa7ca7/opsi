@@ -1,9 +1,10 @@
 import { once } from "node:events";
-import { lstat, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
-import { createServer } from "node:http";
+import { lstat, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { createServer, type RequestListener, type Server } from "node:http";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { MockAgent } from "undici";
 import {
   Downloader,
   SafeDispatcherFactory,
@@ -12,20 +13,51 @@ import {
 } from "@opsi/storage";
 
 const roots: string[] = [];
-afterEach(async () =>
-  Promise.all(roots.splice(0).map((path) => rm(path, { recursive: true, force: true }))),
-);
+const servers: Server[] = [];
+afterEach(async () => {
+  await Promise.all(
+    servers.splice(0).map(async (server) => {
+      server.close();
+      await once(server, "close");
+    }),
+  );
+  await Promise.all(roots.splice(0).map((path) => rm(path, { recursive: true, force: true })));
+});
+async function listen(handler: RequestListener): Promise<string> {
+  const server = createServer(handler);
+  servers.push(server);
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (address === null || typeof address === "string") throw new Error("listen failed");
+  return `http://127.0.0.1:${address.port}`;
+}
+async function destination(name = "file.txt"): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), "opsi-download-"));
+  roots.push(directory);
+  return join(directory, name);
+}
+const localOptions = (url: string, path: string, maxBytes = 100) => ({
+  url,
+  destination: path,
+  allowInsecureHttp: true,
+  allowPrivateNetwork: true,
+  limits: { maxBytes, timeoutMs: 1_000 },
+});
 describe("network policy", () => {
   it.each([
     "127.0.0.1",
+    "0.0.0.0",
     "10.0.0.1",
     "172.16.0.1",
     "192.168.1.1",
     "100.64.0.1",
     "169.254.169.254",
     "::1",
+    "::",
     "fc00::1",
     "fe80::1",
+    "ff02::1",
     "::ffff:127.0.0.1",
   ])("rejects special address %s", (address) => {
     expect(() =>
@@ -49,6 +81,34 @@ describe("network policy", () => {
       ),
     );
     expect(result).toEqual({ address: "93.184.216.34", family: 4 });
+  });
+
+  it("rejects private hostnames and revalidates every connection-time lookup against rebinding", async () => {
+    let call = 0;
+    const factory = new SafeDispatcherFactory({
+      resolver: async () =>
+        call++ === 0
+          ? [{ address: "93.184.216.34", family: 4 }]
+          : [{ address: "127.0.0.1", family: 4 }],
+    });
+    const lookup = factory.lookupFor(new URL("https://rebind.example"));
+    const invoke = () =>
+      new Promise<{ address: string; family: number }>((resolve, reject) =>
+        lookup("rebind.example", {}, (error, address, family) =>
+          error ? reject(error) : resolve({ address: address as string, family: family as number }),
+        ),
+      );
+    await expect(invoke()).resolves.toEqual({ address: "93.184.216.34", family: 4 });
+    await expect(invoke()).rejects.toMatchObject({ code: "NETWORK_ADDRESS_FORBIDDEN" });
+
+    const localhost = new SafeDispatcherFactory({
+      resolver: async () => [{ address: "127.0.0.1", family: 4 }],
+    }).lookupFor(new URL("https://localhost"));
+    await expect(
+      new Promise((resolve, reject) =>
+        localhost("localhost", {}, (error, address) => (error ? reject(error) : resolve(address))),
+      ),
+    ).rejects.toMatchObject({ code: "NETWORK_ADDRESS_FORBIDDEN" });
   });
 });
 
@@ -119,4 +179,161 @@ describe("Downloader", () => {
       expect(safe).not.toBe("..");
     },
   );
+
+  it.each([
+    "../secret",
+    "/absolute/secret",
+    "C:\\absolute\\secret",
+    "..\\secret",
+    "\u001b[31mterminal",
+    "CON",
+    "NUL.txt",
+    "COM1.csv",
+    "hello:ads",
+    "trail. ",
+    "",
+    `${"x".repeat(300)}.csv`,
+  ])("keeps untrusted filename %j inside a single safe leaf", (name) => {
+    const safe = safeFilename(name, "download");
+    expect(basename(safe)).toBe(safe);
+    expect(Buffer.byteLength(safe)).toBeLessThanOrEqual(180);
+    expect(safe).not.toMatch(/[\\/:]|\p{Cc}/u);
+    expect(safe).not.toMatch(/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/iu);
+  });
+
+  it("bounds redirect loops and chains longer than five hops", async () => {
+    const base = await listen((request, response) => {
+      const match = /^\/chain\/(\d+)$/u.exec(request.url ?? "");
+      if (request.url === "/loop") response.writeHead(302, { location: "/loop" }).end();
+      else if (match !== null)
+        response.writeHead(302, { location: `/chain/${Number(match[1]) + 1}` }).end();
+      else response.end("hello");
+    });
+    await expect(
+      new Downloader().download(localOptions(`${base}/loop`, await destination("loop.txt"))),
+    ).rejects.toMatchObject({ code: "TOO_MANY_REDIRECTS" });
+    await expect(
+      new Downloader().download(localOptions(`${base}/chain/0`, await destination("chain.txt"))),
+    ).rejects.toMatchObject({ code: "TOO_MANY_REDIRECTS" });
+  });
+
+  it("strips credentials on cross-origin redirects", async () => {
+    let received: Record<string, string | string[] | undefined> = {};
+    const target = await listen((request, response) => {
+      received = request.headers;
+      response.end("hello");
+    });
+    const source = await listen((_request, response) =>
+      response.writeHead(302, { location: `${target}/final` }).end(),
+    );
+    await new Downloader().download({
+      ...localOptions(`${source}/start`, await destination()),
+      headers: {
+        authorization: "Bearer secret",
+        cookie: "session=secret",
+        "proxy-authorization": "Basic secret",
+        "x-safe": "keep",
+      },
+    });
+    expect(received.authorization).toBeUndefined();
+    expect(received.cookie).toBeUndefined();
+    expect(received["proxy-authorization"]).toBeUndefined();
+    expect(received["x-safe"]).toBe("keep");
+  });
+
+  it("denies redirects to private addresses, HTTPS downgrade, and forbidden schemes", async () => {
+    const cases = [
+      { location: "https://127.0.0.1/private", code: "NETWORK_ADDRESS_FORBIDDEN" },
+      { location: "http://public.example/final", code: "HTTPS_DOWNGRADE_FORBIDDEN" },
+      { location: "file:///etc/passwd", code: "INSECURE_DOWNLOAD_URL" },
+    ];
+    for (const item of cases) {
+      const mock = new MockAgent();
+      mock.disableNetConnect();
+      mock
+        .get("https://public.example")
+        .intercept({ method: "GET", path: "/start" })
+        .reply(302, "", { headers: { location: item.location } });
+      const factory = { create: () => mock } as unknown as SafeDispatcherFactory;
+      await expect(
+        new Downloader(factory).download({
+          url: "https://public.example/start",
+          destination: await destination(),
+          limits: { maxBytes: 100, timeoutMs: 1_000 },
+        }),
+      ).rejects.toMatchObject({ code: item.code });
+    }
+  });
+
+  it("accepts missing Content-Length and rejects declared or actual oversized bodies", async () => {
+    const missing = await listen((_request, response) => {
+      response.write("he");
+      response.end("llo");
+    });
+    await expect(
+      new Downloader().download(localOptions(missing, await destination("missing.txt"))),
+    ).resolves.toMatchObject({ bytes: 5 });
+
+    const declared = await listen((_request, response) => {
+      response.writeHead(200, { "content-length": "1000" });
+      response.end();
+    });
+    const declaredPath = await destination("declared.txt");
+    await expect(
+      new Downloader().download(localOptions(declared, declaredPath, 5)),
+    ).rejects.toMatchObject({ code: "DOWNLOAD_TOO_LARGE" });
+    await expect(lstat(declaredPath)).rejects.toMatchObject({ code: "ENOENT" });
+
+    const falseLength = await listen((_request, response) => {
+      response.writeHead(200, { "content-length": "10" });
+      response.end("hello");
+    });
+    const falsePath = await destination("false.txt");
+    await expect(new Downloader().download(localOptions(falseLength, falsePath))).rejects.toThrow();
+    await expect(lstat(falsePath)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("removes partial output after an abrupt connection close", async () => {
+    const base = await listen((_request, response) => {
+      response.writeHead(200);
+      response.write("partial");
+      response.socket?.destroy();
+    });
+    const path = await destination("abrupt.txt");
+    await expect(new Downloader().download(localOptions(base, path))).rejects.toThrow();
+    await expect(lstat(path)).rejects.toMatchObject({ code: "ENOENT" });
+    expect((await readdir(join(path, ".."))).filter((name) => name.includes(".part-"))).toEqual([]);
+  });
+
+  it("handles identical, conflicting, forced, and concurrent destinations atomically", async () => {
+    const base = await listen((_request, response) => response.end("hello"));
+    const identical = await destination("identical.txt");
+    await writeFile(identical, "hello");
+    await expect(new Downloader().download(localOptions(base, identical))).resolves.toMatchObject({
+      bytes: 5,
+    });
+
+    const conflicting = await destination("conflicting.txt");
+    await writeFile(conflicting, "old");
+    await expect(new Downloader().download(localOptions(base, conflicting))).rejects.toMatchObject({
+      code: "DOWNLOAD_DESTINATION_EXISTS",
+    });
+    expect(await readFile(conflicting, "utf8")).toBe("old");
+    await expect(
+      new Downloader().download({ ...localOptions(base, conflicting), force: true }),
+    ).resolves.toMatchObject({ bytes: 5 });
+    expect(await readFile(conflicting, "utf8")).toBe("hello");
+
+    const concurrent = await destination("concurrent.txt");
+    await expect(
+      Promise.all([
+        new Downloader().download(localOptions(base, concurrent)),
+        new Downloader().download(localOptions(base, concurrent)),
+      ]),
+    ).resolves.toHaveLength(2);
+    expect(await readFile(concurrent, "utf8")).toBe("hello");
+    expect(
+      (await readdir(join(concurrent, ".."))).filter((name) => name.includes(".part-")),
+    ).toEqual([]);
+  });
 });

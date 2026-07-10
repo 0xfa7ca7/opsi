@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { constants } from "node:fs";
 import { link, lstat, mkdir, open, rename, rm, unlink } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { EXIT_CODES, OpsiError, type FailureExitCode } from "@opsi/domain";
@@ -70,16 +71,16 @@ function validateUrl(
       "Download URLs may not contain credentials or fragments.",
       EXIT_CODES.INVALID_INPUT,
     );
-  if (url.protocol !== "https:" && !(url.protocol === "http:" && allowInsecureHttp))
-    throw failure(
-      "INSECURE_DOWNLOAD_URL",
-      "Only HTTPS download URLs are permitted.",
-      EXIT_CODES.INVALID_INPUT,
-    );
   if (previous?.protocol === "https:" && url.protocol === "http:" && !allowInsecureHttp)
     throw failure(
       "HTTPS_DOWNGRADE_FORBIDDEN",
       "HTTPS redirects may not downgrade to HTTP.",
+      EXIT_CODES.INVALID_INPUT,
+    );
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && allowInsecureHttp))
+    throw failure(
+      "INSECURE_DOWNLOAD_URL",
+      "Only HTTPS download URLs are permitted.",
       EXIT_CODES.INVALID_INPUT,
     );
   if (
@@ -114,6 +115,31 @@ async function syncDirectory(path: string): Promise<void> {
     }
   } catch {
     // Opening directories is not supported on every Node platform.
+  }
+}
+
+async function digestRegularFile(
+  path: string,
+): Promise<{ sha256: string; bytes: number } | undefined> {
+  let handle;
+  try {
+    handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const details = await handle.stat();
+    if (!details.isFile()) return undefined;
+    const hash = createHash("sha256");
+    const buffer = Buffer.allocUnsafe(64 * 1024);
+    let position = 0;
+    while (true) {
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, position);
+      if (bytesRead === 0) break;
+      hash.update(buffer.subarray(0, bytesRead));
+      position += bytesRead;
+    }
+    return { sha256: hash.digest("hex"), bytes: details.size };
+  } catch {
+    return undefined;
+  } finally {
+    await handle?.close().catch(() => undefined);
   }
 }
 
@@ -247,6 +273,7 @@ export class Downloader {
       await handle.sync();
       await handle.close();
       handle = undefined;
+      const sha256 = hash.digest("hex");
       if (input.force) {
         try {
           const current = await lstat(destination);
@@ -264,15 +291,24 @@ export class Downloader {
         try {
           await link(temp, destination);
         } catch (error) {
-          if ((error as NodeJS.ErrnoException).code === "EEXIST")
-            throw failure(
-              "DOWNLOAD_DESTINATION_EXISTS",
-              "The destination already exists.",
-              EXIT_CODES.INVALID_INPUT,
-            );
-          throw error;
+          if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+            const existing = await digestRegularFile(destination);
+            if (existing?.sha256 === sha256 && existing.bytes === bytes) {
+              await unlink(temp);
+            } else {
+              throw failure(
+                "DOWNLOAD_DESTINATION_EXISTS",
+                "The destination already exists.",
+                EXIT_CODES.INVALID_INPUT,
+              );
+            }
+          } else {
+            throw error;
+          }
         }
-        await unlink(temp);
+        await unlink(temp).catch((error: NodeJS.ErrnoException) => {
+          if (error.code !== "ENOENT") throw error;
+        });
       }
       await syncDirectory(directory);
       return {
@@ -283,7 +319,7 @@ export class Downloader {
         ...(typeof response.headers["content-type"] === "string"
           ? { mediaType: response.headers["content-type"].split(";", 1)[0] }
           : {}),
-        sha256: hash.digest("hex"),
+        sha256,
       };
     } catch (error) {
       await handle?.close().catch(() => undefined);
