@@ -1,13 +1,25 @@
-import { access, mkdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import type { OpsiClient } from "@opsi/core";
+import { DataEngine, SUPPORTED_DATA_FORMATS, type SupportedDataFormat } from "@opsi/data-engine";
 import type { Command } from "commander";
+import { manifestCommand } from "../command-manifest.js";
 import type { CliContext } from "../context.js";
 
-const FORMATS = ["csv", "tsv", "json", "ndjson", "xlsx", "parquet"] as const;
+export interface DoctorCheck {
+  readonly name: string;
+  readonly status: "pass" | "fail" | "skip";
+  readonly detail?: Readonly<Record<string, unknown>>;
+  readonly message?: string;
+}
+
+export interface DoctorReport {
+  readonly status: "pass" | "fail";
+  readonly checks: readonly DoctorCheck[];
+}
 
 function duckDbUnavailable(cause: unknown): OpsiError {
   return new OpsiError({
@@ -20,7 +32,7 @@ function duckDbUnavailable(cause: unknown): OpsiError {
   });
 }
 
-export async function checkDuckDb(): Promise<{ readonly ok: true; readonly answer: number }> {
+export async function checkDuckDb(): Promise<Readonly<Record<string, unknown>>> {
   try {
     const { DuckDBInstance } = await import("@duckdb/node-api");
     const instance = await DuckDBInstance.create(":memory:", {
@@ -32,7 +44,7 @@ export async function checkDuckDb(): Promise<{ readonly ok: true; readonly answe
     try {
       const reader = await connection.runAndReadAll("SELECT 42 AS answer");
       const row = reader.getRowObjects()[0] as { answer?: number | bigint } | undefined;
-      return { ok: true, answer: Number(row?.answer) };
+      return { answer: Number(row?.answer), version: process.versions.node };
     } finally {
       connection.closeSync();
       instance.closeSync();
@@ -42,12 +54,138 @@ export async function checkDuckDb(): Promise<{ readonly ok: true; readonly answe
   }
 }
 
-async function writable(directory: string): Promise<void> {
+async function writable(directory: string): Promise<Readonly<Record<string, unknown>>> {
   const probe = join(directory, `.doctor-${randomUUID()}`);
   await mkdir(directory, { recursive: true });
-  await writeFile(probe, "ok", { flag: "wx" });
-  await access(probe);
-  await rm(probe, { force: true });
+  try {
+    await writeFile(probe, "ok", { flag: "wx", mode: 0o600 });
+    await access(probe);
+    return { path: directory };
+  } finally {
+    await rm(probe, { force: true });
+  }
+}
+
+async function createBasicFormatFixtures(
+  directory: string,
+): Promise<Readonly<Record<Exclude<SupportedDataFormat, "parquet">, string>>> {
+  const paths = {
+    csv: join(directory, "data.csv"),
+    tsv: join(directory, "data.tsv"),
+    json: join(directory, "data.json"),
+    ndjson: join(directory, "data.ndjson"),
+    xlsx: join(directory, "data.xlsx"),
+  } as const;
+  await Promise.all([
+    writeFile(paths.csv, "answer\n42\n"),
+    writeFile(paths.tsv, "answer\n42\n".replace("answer\n", "answer\n")),
+    writeFile(paths.json, '[{"answer":42}]\n'),
+    writeFile(paths.ndjson, '{"answer":42}\n'),
+  ]);
+  const { default: ExcelJS } = await import("exceljs");
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("Data");
+  worksheet.addRow(["answer"]);
+  worksheet.addRow([42]);
+  await workbook.xlsx.writeFile(paths.xlsx);
+  return paths;
+}
+
+async function createParquetFixture(path: string): Promise<void> {
+  const { DuckDBInstance } = await import("@duckdb/node-api");
+  const instance = await DuckDBInstance.create(":memory:", {
+    autoinstall_known_extensions: "false",
+    autoload_known_extensions: "false",
+    allow_unsigned_extensions: "false",
+  });
+  const connection = await instance.connect();
+  try {
+    const literal = `'${path.replaceAll("'", "''")}'`;
+    await connection.run(`COPY (SELECT 42 AS answer) TO ${literal} (FORMAT PARQUET)`);
+  } finally {
+    connection.closeSync();
+    instance.closeSync();
+  }
+}
+
+async function capture(
+  checks: DoctorCheck[],
+  name: string,
+  operation: () => Promise<Readonly<Record<string, unknown>>>,
+): Promise<void> {
+  try {
+    checks.push({ name, status: "pass", detail: await operation() });
+  } catch (error) {
+    checks.push({
+      name,
+      status: "fail",
+      message: error instanceof Error ? error.message : String(error),
+      ...(error instanceof OpsiError ? { detail: { code: error.code } } : {}),
+    });
+  }
+}
+
+export async function runDoctorChecks(
+  context: CliContext,
+  client: OpsiClient,
+  offline: boolean,
+): Promise<DoctorReport> {
+  const checks: DoctorCheck[] = [];
+  const nodeMajor = Number(process.versions.node.split(".")[0]);
+  checks.push({
+    name: "node",
+    status: nodeMajor >= 24 ? "pass" : "fail",
+    detail: { version: process.versions.node, platform: process.platform, arch: process.arch },
+  });
+  checks.push({
+    name: "configuration",
+    status: context.configuration === undefined ? "fail" : "pass",
+    ...(context.configuration === undefined ? { message: "Configuration was not loaded." } : {}),
+  });
+  await capture(checks, "cache", () =>
+    writable(context.configuration?.paths.cacheDir ?? join(tmpdir(), "opsi-cache")),
+  );
+  await capture(checks, "temp", () => writable(tmpdir()));
+  if (offline) checks.push({ name: "connectivity", status: "skip", detail: { reason: "offline" } });
+  else
+    await capture(checks, "connectivity", async () => {
+      const page = await client.search({ limit: 1 });
+      return {
+        provider: context.configuration?.provider ?? "opsi",
+        resultCount: page.items.length,
+      };
+    });
+  await capture(checks, "duckdb", checkDuckDb);
+
+  const directory = await mkdtemp(join(tmpdir(), "opsi-doctor-formats-"));
+  try {
+    const engine = new DataEngine();
+    let fixtures: Readonly<Record<Exclude<SupportedDataFormat, "parquet">, string>> | undefined;
+    await capture(checks, "format-fixtures", async () => {
+      fixtures = await createBasicFormatFixtures(directory);
+      return { created: true };
+    });
+    for (const format of SUPPORTED_DATA_FORMATS.filter((value) => value !== "parquet"))
+      await capture(checks, `format:${format}`, async () => {
+        if (fixtures === undefined) throw new Error("Basic format fixtures are unavailable.");
+        const preview = await engine.preview(fixtures[format], {
+          limit: 1,
+          ...(format === "xlsx" ? { sheet: "Data" } : {}),
+        });
+        if (preview.rows.length !== 1) throw new Error(`${format} handler returned no rows.`);
+        return { format, rows: preview.rows.length };
+      });
+    await capture(checks, "format:parquet", async () => {
+      const path = join(directory, "data.parquet");
+      await createParquetFixture(path);
+      const preview = await engine.preview(path, { limit: 1 });
+      if (preview.rows.length !== 1) throw new Error("parquet handler returned no rows.");
+      return { format: "parquet", rows: preview.rows.length };
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+  return { status: checks.some((check) => check.status === "fail") ? "fail" : "pass", checks };
 }
 
 export function registerDoctorCommand(
@@ -55,28 +193,29 @@ export function registerDoctorCommand(
   context: CliContext,
   client: OpsiClient,
 ): void {
-  program
-    .command("doctor")
-    .description("Run installation and environment diagnostics")
-    .option("--offline", "skip connectivity checks")
-    .action(async (options: { offline?: boolean }) => {
-      const cacheDir = context.configuration?.paths.cacheDir ?? join(tmpdir(), "opsi-cache");
-      await writable(cacheDir);
-      await writable(tmpdir());
-      const offline = options.offline === true || context.configuration?.offline === true;
-      const connectivity = offline
-        ? { skipped: true, reason: "offline" }
-        : await client.search({ limit: 1 }).then(() => ({ ok: true }));
-      context.renderer?.write({
-        node: {
-          ok: Number(process.versions.node.split(".")[0]) >= 24,
-          version: process.versions.node,
-        },
-        configuration: { ok: context.configuration !== undefined },
-        filesystem: { ok: true, cacheDir, tempDir: tmpdir() },
-        connectivity,
-        duckdb: await checkDuckDb(),
-        formats: FORMATS.map((format) => ({ format, ok: true })),
-      });
+  manifestCommand(program, "doctor").action(async (options: { offline?: boolean }) => {
+    const offline = options.offline === true || context.configuration?.offline === true;
+    const report = await runDoctorChecks(context, client, offline);
+    if (report.status === "pass") {
+      context.renderer?.write(report);
+      return;
+    }
+    const nativeFailed = report.checks.some(
+      (check) => check.status === "fail" && check.detail?.code === "DUCKDB_UNAVAILABLE",
+    );
+    const connectivityFailed = report.checks.some(
+      (check) => check.name === "connectivity" && check.status === "fail",
+    );
+    throw new OpsiError({
+      code: nativeFailed ? "DUCKDB_UNAVAILABLE" : "DOCTOR_FAILED",
+      message: "One or more diagnostic checks failed.",
+      exitCode: nativeFailed
+        ? EXIT_CODES.UNSUPPORTED
+        : connectivityFailed
+          ? EXIT_CODES.PROVIDER_FAILURE
+          : EXIT_CODES.INTEGRITY_FAILURE,
+      suggestion: "Review every failed check, correct the environment, and run doctor again.",
+      context: { data: report },
     });
+  });
 }

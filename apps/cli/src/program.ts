@@ -14,7 +14,7 @@ import { registerConvertCommand } from "./commands/convert.js";
 import { registerQueryCommand } from "./commands/query.js";
 import type { CliContext } from "./context.js";
 import { addGlobalOptions } from "./options.js";
-import { COMMAND_MANIFEST } from "./command-manifest.js";
+import { registerCommandManifest } from "./command-manifest.js";
 import { registerConfigCommand } from "./commands/config.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerCompletionCommand } from "./commands/completion.js";
@@ -75,22 +75,20 @@ export function createProgram(context: CliContext): Command {
     })
     .action(() => program.help({ error: true }));
   addGlobalOptions(program);
+  registerCommandManifest(program);
   const client = createClient(context);
-  const registrations: Record<string, () => void> = {
-    search: () => registerSearchCommand(program, context, client),
-    dataset: () => registerDatasetCommand(program, context, client),
-    resource: () => registerResourceCommand(program, context, client),
-    providers: () => registerProvidersCommand(program, context, client),
-    download: () => registerDownloadCommand(program, context, client),
-    cache: () => registerCacheCommand(program, context, client),
-    provenance: () => registerProvenanceCommand(program, context),
-    validate: () => registerValidateCommand(program, context, client),
-    convert: () => registerConvertCommand(program, context, client),
-    query: () => registerQueryCommand(program, context, client),
-    config: () => registerConfigCommand(program, context),
-    doctor: () => registerDoctorCommand(program, context, client),
-    completion: () => registerCompletionCommand(program, context),
-  };
-  for (const entry of COMMAND_MANIFEST) registrations[entry.name]?.();
+  registerSearchCommand(program, context, client);
+  registerDatasetCommand(program, context, client);
+  registerResourceCommand(program, context, client);
+  registerProvidersCommand(program, context, client);
+  registerDownloadCommand(program, context, client);
+  registerCacheCommand(program, context, client);
+  registerProvenanceCommand(program, context);
+  registerValidateCommand(program, context, client);
+  registerConvertCommand(program, context, client);
+  registerQueryCommand(program, context, client);
+  registerConfigCommand(program, context);
+  registerDoctorCommand(program, context, client);
+  registerCompletionCommand(program, context);
   return program;
 }

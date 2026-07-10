@@ -1,6 +1,7 @@
 import { ConfigStore, resolveConfigPaths } from "@opsi/config";
 import type { Command } from "commander";
 import type { CliContext } from "../context.js";
+import { manifestCommand } from "../command-manifest.js";
 
 function atPath(source: unknown, key: string): unknown {
   return key
@@ -28,24 +29,18 @@ export function registerConfigCommand(program: Command, context: CliContext): vo
     ...(context.io.home === undefined ? {} : { home: context.io.home }),
   });
   const store = new ConfigStore(paths.userFile);
-  const config = program.command("config").description("Inspect and update user configuration");
-  config
-    .command("get")
-    .argument("<key>")
-    .action(async (key: string) => {
-      context.renderer?.write({ key, value: atPath(await store.read(), key) });
-    });
-  config
-    .command("set")
-    .argument("<key>")
-    .argument("<value>")
-    .action(async (key: string, value: string) => {
-      const parsed = configValue(value);
-      await store.set(key, parsed);
-      context.renderer?.write({ key, value: parsed });
-    });
-  config.command("list").action(async () => context.renderer?.write(await store.read()));
-  config
-    .command("path")
-    .action(() => context.renderer?.write({ user: paths.userFile, project: paths.projectFile }));
+  manifestCommand(program, "config get").action(async (key: string) => {
+    context.renderer?.write({ key, value: atPath(await store.read(), key) });
+  });
+  manifestCommand(program, "config set").action(async (key: string, value: string) => {
+    const parsed = configValue(value);
+    await store.set(key, parsed);
+    context.renderer?.write({ key, value: parsed });
+  });
+  manifestCommand(program, "config list").action(async () =>
+    context.renderer?.write(await store.read()),
+  );
+  manifestCommand(program, "config path").action(() =>
+    context.renderer?.write({ user: paths.userFile, project: paths.projectFile }),
+  );
 }

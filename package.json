@@ -10,14 +10,15 @@
   "scripts": {
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "vitest run --project unit --project integration --project cli-e2e",
+    "test": "pnpm build && pnpm test:unit && pnpm test:integration && pnpm test:e2e",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
-    "test:e2e": "vitest run --project cli-e2e",
+    "test:e2e": "vitest run --project cli-e2e apps/cli/test/*.e2e.test.ts",
+    "test:pack": "vitest run --project cli-e2e apps/cli/test/pack.test.ts",
     "lint": "eslint .",
     "format:check": "prettier --check .",
     "pack:cli": "pnpm build && npm pack ./apps/cli --json",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:pack"
   },
   "devDependencies": {
     "@changesets/cli": "2.31.0",

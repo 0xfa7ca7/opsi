@@ -9,3 +9,33 @@ Inspect and validate: `opsi resource preview ./downloads/data.csv --limit 10 --j
 Query and export: `opsi query ./downloads/data.csv --sql "select * from data limit 10" --output result.json --json`.
 
 Convert and verify: `opsi convert data.csv --to parquet --output data.parquet`; `opsi provenance show data.parquet`; `opsi provenance verify data.parquet --json`.
+
+## Complete reproducible workflow
+
+Create a directory, search, inspect, download by canonical reference, validate locally, query, convert, and verify:
+
+```sh
+WORKFLOW_TMP="$(mktemp -d)"
+opsi search promet --json --limit 1
+opsi dataset show dataset-traffic-001 --json
+opsi download opsi:resource:resource-traffic-csv-001 --output "$WORKFLOW_TMP"
+opsi resource preview resource-traffic-csv-001 --json
+opsi validate "$WORKFLOW_TMP/traffic.csv" --json
+opsi query "$WORKFLOW_TMP/traffic.csv" --sql "select * from data limit 2" --json
+opsi convert "$WORKFLOW_TMP/traffic.csv" --to parquet --output "$WORKFLOW_TMP/traffic.parquet"
+opsi provenance verify "$WORKFLOW_TMP/traffic.parquet" --json
+```
+
+Use real IDs returned by search. Public HTTPS needs no override. For a deliberately controlled loopback fixture only, add both remote-content overrides; provenance records them.
+
+## Offline and automation
+
+Warm metadata/content online, then add `--offline` or `OPSI_OFFLINE=1`. Cached downloads materialize into a new destination and preserve digest/provenance without requests. `resource headers` cannot operate offline. For scripts choose `--json`, check the exit status, and parse `data`; partial downloads use exit 8 with successful `data` plus failure metadata. Set `NO_COLOR=1` and never scrape human tables.
+
+Generate shell setup with `opsi completion bash`, `zsh`, or `fish`. The script is static and safe to generate offline. Store it in your shell's completion directory. It completes command-specific options/choices/providers and filesystem paths.
+
+## Data safety recipes
+
+Inspect before converting: preview a bounded sample, validate, then convert to a new destination. Use `--sheet` for ambiguous XLSX and `--spreadsheet-safe` when CSV/XLSX output will open in office software. Do not use `--force` until provenance for the existing file is saved/verified. Query exports support only bounded CSV/TSV/JSON/NDJSON outputs; convert to Parquet separately and verify its sidecar.
+
+Diagnose installations with `opsi doctor --offline --json`. A `skip` connectivity check is expected offline; any `fail` produces a nonzero status after all checks finish. Catalogue/configuration commands remain usable after typed DuckDB absence, which is useful for inspecting provider data while fixing the native installation.

@@ -2,6 +2,7 @@ import type { OpsiClient } from "@opsi/core";
 import type { SearchQuery, SearchSort } from "@opsi/domain";
 import { InvalidArgumentError, type Command } from "commander";
 import type { CliContext } from "../context.js";
+import { manifestCommand } from "../command-manifest.js";
 
 interface SearchOptions {
   readonly organization?: string;
@@ -13,26 +14,6 @@ interface SearchOptions {
   readonly sort?: readonly string[];
   readonly limit?: number;
   readonly offset?: number;
-}
-
-function positiveInteger(value: string): number {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-    throw new InvalidArgumentError("must be a positive integer");
-  }
-  return parsed;
-}
-
-function nonnegativeInteger(value: string): number {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 0) {
-    throw new InvalidArgumentError("must be a non-negative integer");
-  }
-  return parsed;
-}
-
-function collect(value: string, previous: readonly string[]): readonly string[] {
-  return [...previous, value];
 }
 
 function searchSort(values: readonly string[] | undefined): readonly SearchSort[] | undefined {
@@ -56,20 +37,8 @@ export function registerSearchCommand(
   context: CliContext,
   client: OpsiClient,
 ): void {
-  program
-    .command("search")
-    .description("Search datasets")
-    .argument("[text]", "full-text search query")
-    .option("--organization <name>", "filter by organization")
-    .option("--tag <name>", "filter by tag (repeatable)", collect, [])
-    .option("--format <name>", "filter by resource format (repeatable)", collect, [])
-    .option("--license <id>", "filter by license")
-    .option("--modified-after <date>", "filter by earliest modification date")
-    .option("--modified-before <date>", "filter by latest modification date")
-    .option("--sort <field:direction>", "sort result (repeatable)", collect, [])
-    .option("--limit <number>", "maximum results", positiveInteger)
-    .option("--offset <number>", "result offset", nonnegativeInteger)
-    .action(async (text: string | undefined, options: SearchOptions) => {
+  manifestCommand(program, "search").action(
+    async (text: string | undefined, options: SearchOptions) => {
       const filters = {
         ...(options.organization === undefined ? {} : { organization: options.organization }),
         ...(options.tag === undefined ? {} : { tags: options.tag }),
@@ -93,5 +62,6 @@ export function registerSearchCommand(
         offset: page.offset,
         ...(page.nextOffset === undefined ? {} : { nextOffset: page.nextOffset }),
       });
-    });
+    },
+  );
 }

@@ -1,133 +1,316 @@
+import { duckDbMemoryLimitBytes } from "@opsi/domain";
+import { Argument, Command, InvalidArgumentError, Option } from "commander";
+
+type ParserKind = "positive" | "nonnegative" | "collect" | "duckdb-memory";
+
 export interface CommandOptionManifest {
   readonly flags: string;
+  readonly description: string;
+  readonly choices?: readonly string[];
+  readonly conflicts?: readonly string[];
+  readonly mandatory?: boolean;
+  readonly parser?: ParserKind;
+  readonly defaultValue?: unknown;
+}
+
+export interface CommandArgumentManifest {
+  readonly name: string;
+  readonly description: string;
   readonly choices?: readonly string[];
 }
 
 export interface CommandManifestEntry {
-  readonly name: string;
+  readonly path: string;
   readonly description: string;
-  readonly options?: readonly CommandOptionManifest[];
-  readonly commands?: readonly CommandManifestEntry[];
+  readonly arguments: readonly CommandArgumentManifest[];
+  readonly options: readonly CommandOptionManifest[];
 }
 
+const option = (
+  flags: string,
+  description: string,
+  properties: Omit<CommandOptionManifest, "flags" | "description"> = {},
+): CommandOptionManifest => ({ flags, description, ...properties });
+const argument = (name: string, description: string, choices?: readonly string[]) => ({
+  name,
+  description,
+  ...(choices === undefined ? {} : { choices }),
+});
+const leaf = (
+  path: string,
+  description: string,
+  commandArguments: readonly CommandArgumentManifest[] = [],
+  options: readonly CommandOptionManifest[] = [],
+): CommandManifestEntry => ({ path, description, arguments: commandArguments, options });
+
+const NETWORK_OPTIONS = [
+  option("--allow-insecure-http", "allow HTTP for this invocation"),
+  option("--allow-private-network", "allow private network addresses for this invocation"),
+] as const;
+
 export const GLOBAL_OPTION_MANIFEST: readonly CommandOptionManifest[] = [
-  { flags: "--json" },
-  { flags: "--ndjson" },
-  { flags: "--csv" },
-  { flags: "--tsv" },
-  { flags: "--output-format <format>", choices: ["table", "json", "ndjson", "csv", "tsv"] },
-  { flags: "--provider <id>", choices: ["opsi", "local"] },
-  { flags: "--offline" },
-  { flags: "--no-color" },
-  { flags: "--quiet" },
-  { flags: "--debug" },
+  option("--json", "render JSON", { conflicts: ["ndjson", "csv", "tsv", "outputFormat"] }),
+  option("--ndjson", "render newline-delimited JSON", {
+    conflicts: ["json", "csv", "tsv", "outputFormat"],
+  }),
+  option("--csv", "render CSV", { conflicts: ["json", "ndjson", "tsv", "outputFormat"] }),
+  option("--tsv", "render TSV", { conflicts: ["json", "ndjson", "csv", "outputFormat"] }),
+  option("--output-format <format>", "select output format", {
+    choices: ["table", "json", "ndjson", "csv", "tsv"],
+  }),
+  option("--provider <id>", "select provider", { choices: ["opsi", "local"] }),
+  option("--offline", "disable network access"),
+  option("--cache-dir <path>", "override cache directory"),
+  option("--download-dir <path>", "override download directory"),
+  option("--http-timeout-ms <number>", "HTTP timeout in milliseconds", { parser: "positive" }),
+  option("--max-download-bytes <number>", "maximum download size", { parser: "positive" }),
+  option("--preview-row-limit <number>", "preview row limit", { parser: "positive" }),
+  option("--query-row-limit <number>", "query row limit", { parser: "positive" }),
+  option("--query-timeout-ms <number>", "query timeout in milliseconds", {
+    parser: "positive",
+  }),
+  option("--duckdb-memory-limit <limit>", "DuckDB memory limit", { parser: "duckdb-memory" }),
+  option("--duckdb-threads <number>", "DuckDB worker threads", { parser: "positive" }),
+  option("--quiet", "suppress non-result output"),
+  option("--debug", "include diagnostic stack traces"),
+  option("--no-color", "disable color output"),
 ] as const;
 
 export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
-  {
-    name: "search",
-    description: "Search datasets",
-    options: [{ flags: "--limit <number>" }, { flags: "--offset <number>" }],
-  },
-  {
-    name: "dataset",
-    description: "Inspect datasets",
-    commands: [
-      { name: "show", description: "Show dataset details" },
-      { name: "resources", description: "List dataset resources" },
-      {
-        name: "schema",
-        description: "Infer a dataset schema",
-        options: [{ flags: "--resource <id>" }, { flags: "--sheet <name>" }],
-      },
-      { name: "open", description: "Open the public dataset page" },
+  leaf(
+    "search",
+    "Search datasets",
+    [argument("[text]", "full-text search query")],
+    [
+      option("--organization <name>", "filter by organization"),
+      option("--tag <name>", "filter by tag (repeatable)", { parser: "collect", defaultValue: [] }),
+      option("--format <name>", "filter by resource format (repeatable)", {
+        parser: "collect",
+        defaultValue: [],
+      }),
+      option("--license <id>", "filter by license"),
+      option("--modified-after <date>", "filter by earliest modification date"),
+      option("--modified-before <date>", "filter by latest modification date"),
+      option("--sort <field:direction>", "sort result (repeatable)", {
+        parser: "collect",
+        defaultValue: [],
+      }),
+      option("--limit <number>", "maximum results", { parser: "positive" }),
+      option("--offset <number>", "result offset", { parser: "nonnegative" }),
     ],
-  },
-  {
-    name: "resource",
-    description: "Inspect resources",
-    commands: [
-      { name: "show", description: "Show resource details" },
-      {
-        name: "preview",
-        description: "Preview bounded rows",
-        options: [{ flags: "--limit <rows>" }, { flags: "--sheet <name>" }],
-      },
-      { name: "headers", description: "Probe resource headers" },
+  ),
+  leaf("dataset show", "Show dataset details", [argument("<id>", "dataset identifier")]),
+  leaf("dataset resources", "List resources embedded in a dataset", [
+    argument("<id>", "dataset identifier"),
+  ]),
+  leaf(
+    "dataset schema",
+    "Infer the schema of a dataset's tabular resource",
+    [argument("<id>", "dataset identifier")],
+    [
+      option("--resource <id>", "resource identifier or canonical resource reference"),
+      option("--sheet <name>", "XLSX sheet name"),
+      ...NETWORK_OPTIONS,
     ],
-  },
-  {
-    name: "download",
-    description: "Download resources",
-    options: [
-      { flags: "--destination <path>" },
-      { flags: "--output <path>" },
-      { flags: "--force" },
+  ),
+  leaf("dataset open", "Open the provider's public dataset page", [
+    argument("<id>", "dataset identifier"),
+  ]),
+  leaf(
+    "resource preview",
+    "Preview bounded rows from a local or provider resource",
+    [argument("<input>", "local path, local:file reference, resource ID, or canonical resource")],
+    [
+      option("--limit <rows>", "maximum preview rows", { parser: "positive" }),
+      option("--sheet <name>", "XLSX sheet name"),
+      ...NETWORK_OPTIONS,
     ],
-  },
-  {
-    name: "query",
-    description: "Run a sandboxed query",
-    options: [
-      { flags: "--sql <query>" },
-      { flags: "--limit <rows>" },
-      { flags: "--output <path>" },
+  ),
+  leaf("resource show", "Show resource details", [argument("<id>", "resource identifier")]),
+  leaf(
+    "resource headers",
+    "Probe resource headers securely",
+    [argument("<id>", "resource identifier")],
+    NETWORK_OPTIONS,
+  ),
+  leaf("providers list", "List registered providers"),
+  leaf(
+    "download",
+    "Download one or more resources securely",
+    [argument("<ids...>", "resource identifiers")],
+    [
+      option("--destination <path>", "destination path (one resource only)"),
+      option("--output <path>", "alias for --destination"),
+      option("--force", "replace the requested regular file"),
+      ...NETWORK_OPTIONS,
     ],
-  },
-  {
-    name: "convert",
-    description: "Convert tabular data",
-    options: [
-      { flags: "--to <format>", choices: ["csv", "tsv", "json", "ndjson", "xlsx", "parquet"] },
-      { flags: "--output <path>" },
+  ),
+  leaf("cache info", "Show cache statistics"),
+  leaf("cache list", "List cache entries"),
+  leaf(
+    "cache clear",
+    "Clear cache entries",
+    [],
+    [option("--yes", "confirm deletion without prompting")],
+  ),
+  leaf(
+    "cache prune",
+    "Prune unreferenced cache entries",
+    [],
+    [option("--yes", "confirm deletion without prompting")],
+  ),
+  leaf("cache verify", "Verify cached content"),
+  leaf("provenance show", "Show artifact provenance", [argument("<path>", "artifact path")]),
+  leaf("provenance verify", "Verify artifact provenance", [argument("<path>", "artifact path")]),
+  leaf(
+    "validate",
+    "Validate local data, provider resources, or metadata",
+    [argument("<input>", "data input or canonical metadata reference")],
+    [
+      option("--metadata", "validate metadata without fetching resource content"),
+      option("--sheet <name>", "XLSX sheet name"),
+      ...NETWORK_OPTIONS,
     ],
-  },
-  { name: "validate", description: "Validate data or metadata" },
-  {
-    name: "provenance",
-    description: "Inspect provenance",
-    commands: [
-      { name: "show", description: "Show provenance" },
-      { name: "verify", description: "Verify provenance" },
+  ),
+  leaf(
+    "convert",
+    "Convert tabular data between supported formats",
+    [argument("<input>", "local path or canonical resource reference")],
+    [
+      option("--to <format>", "destination data format", {
+        choices: ["csv", "tsv", "json", "ndjson", "xlsx", "parquet"],
+        mandatory: true,
+      }),
+      option("--output <path>", "destination file path", { mandatory: true }),
+      option("--sheet <name>", "XLSX sheet name"),
+      option("--force", "replace an existing regular destination"),
+      option("--spreadsheet-safe", "prefix formula-like string values"),
+      ...NETWORK_OPTIONS,
     ],
-  },
-  {
-    name: "providers",
-    description: "Inspect providers",
-    commands: [{ name: "list", description: "List providers" }],
-  },
-  {
-    name: "cache",
-    description: "Maintain the cache",
-    commands: ["info", "list", "clear", "prune", "verify"].map((name) => ({
-      name,
-      description: `${name} cache`,
-      ...(["clear", "prune"].includes(name) ? { options: [{ flags: "--yes" }] } : {}),
-    })),
-  },
-  {
-    name: "config",
-    description: "Inspect and update configuration",
-    commands: ["get", "set", "list", "path"].map((name) => ({
-      name,
-      description: `${name} configuration`,
-    })),
-  },
-  {
-    name: "doctor",
-    description: "Run installation diagnostics",
-    options: [{ flags: "--offline" }],
-  },
-  {
-    name: "completion",
-    description: "Generate shell completion",
-    options: [{ flags: "<shell>", choices: ["bash", "zsh", "fish"] }],
-  },
+  ),
+  leaf(
+    "query",
+    "Run one sandboxed read-only query over tabular data",
+    [argument("<input>", "local path or canonical resource reference")],
+    [
+      option("--sql <query>", "one SELECT, WITH ... SELECT, or VALUES statement", {
+        mandatory: true,
+      }),
+      option("--limit <rows>", "maximum returned rows", { parser: "positive" }),
+      option("--timeout-ms <milliseconds>", "hard query deadline", { parser: "positive" }),
+      option("--sheet <name>", "XLSX sheet name"),
+      option("--output <path>", "export bounded results (.csv, .tsv, .json, .ndjson)"),
+      option("--force", "replace an existing output"),
+      ...NETWORK_OPTIONS,
+    ],
+  ),
+  leaf("config get", "Get a user configuration value", [argument("<key>", "dotted key")]),
+  leaf("config set", "Set a validated user configuration value", [
+    argument("<key>", "dotted key"),
+    argument("<value>", "JSON value or string"),
+  ]),
+  leaf("config list", "List user configuration"),
+  leaf("config path", "Show configuration paths"),
+  leaf(
+    "doctor",
+    "Run installation and environment diagnostics",
+    [],
+    [option("--offline", "skip connectivity checks")],
+  ),
+  leaf("completion", "Generate static shell completion", [
+    argument("<shell>", "shell name", ["bash", "zsh", "fish"]),
+  ]),
 ] as const;
 
-export function commandWords(): readonly string[] {
-  return COMMAND_MANIFEST.flatMap((entry) => [
-    entry.name,
-    ...(entry.commands?.map((child) => child.name) ?? []),
-  ]);
+const GROUP_DESCRIPTIONS: Readonly<Record<string, string>> = {
+  dataset: "Inspect datasets",
+  resource: "Inspect resources",
+  providers: "Inspect data providers",
+  cache: "Inspect and maintain the local cache",
+  provenance: "Inspect and verify artifact provenance",
+  config: "Inspect and update user configuration",
+};
+
+function parsePositive(value: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0)
+    throw new InvalidArgumentError("must be a positive integer");
+  return parsed;
+}
+
+function parseNonnegative(value: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0)
+    throw new InvalidArgumentError("must be a non-negative integer");
+  return parsed;
+}
+
+function collect(value: string, previous: readonly string[]): readonly string[] {
+  return [...previous, value];
+}
+
+function parseDuckDbMemory(value: string): string {
+  if (duckDbMemoryLimitBytes(value) === undefined)
+    throw new InvalidArgumentError("must be a supported positive byte size no larger than 1GB");
+  return value;
+}
+
+function commanderOption(specification: CommandOptionManifest): Option {
+  let result = new Option(specification.flags, specification.description);
+  if (specification.choices !== undefined) result = result.choices([...specification.choices]);
+  if (specification.conflicts !== undefined)
+    result = result.conflicts([...specification.conflicts]);
+  if (specification.mandatory === true) result = result.makeOptionMandatory();
+  if (specification.parser === "positive") result = result.argParser(parsePositive);
+  if (specification.parser === "nonnegative") result = result.argParser(parseNonnegative);
+  if (specification.parser === "collect") result = result.argParser(collect);
+  if (specification.parser === "duckdb-memory") result = result.argParser(parseDuckDbMemory);
+  if (specification.defaultValue !== undefined) result = result.default(specification.defaultValue);
+  return result;
+}
+
+function applyLeaf(command: Command, specification: CommandManifestEntry): Command {
+  command.description(specification.description);
+  for (const item of specification.arguments) {
+    let registered = new Argument(item.name, item.description);
+    if (item.choices !== undefined) registered = registered.choices([...item.choices]);
+    command.addArgument(registered);
+  }
+  for (const item of specification.options) command.addOption(commanderOption(item));
+  return command;
+}
+
+export function registerCommandManifest(program: Command): void {
+  const groups = new Map<string, Command>();
+  for (const specification of COMMAND_MANIFEST) {
+    const [parentName, childName] = specification.path.split(" ");
+    if (parentName === undefined) continue;
+    if (childName === undefined) {
+      applyLeaf(program.command(parentName), specification);
+      continue;
+    }
+    let parent = groups.get(parentName);
+    if (parent === undefined) {
+      parent = program
+        .command(parentName)
+        .description(GROUP_DESCRIPTIONS[parentName] ?? parentName);
+      groups.set(parentName, parent);
+    }
+    applyLeaf(parent.command(childName), specification);
+  }
+}
+
+export function registerGlobalOptions(program: Command): void {
+  for (const item of GLOBAL_OPTION_MANIFEST) program.addOption(commanderOption(item));
+}
+
+export function manifestCommand(program: Command, path: string): Command {
+  const [parentName, childName] = path.split(" ");
+  const parent = program.commands.find((candidate) => candidate.name() === parentName);
+  const result =
+    childName === undefined
+      ? parent
+      : parent?.commands.find((candidate) => candidate.name() === childName);
+  if (result === undefined) throw new Error(`Command manifest path is not registered: ${path}`);
+  return result;
 }

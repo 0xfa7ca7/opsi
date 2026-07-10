@@ -7,25 +7,46 @@ on:
 permissions:
   contents: read
   actions: read
-  id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     environment: npm
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.ref }}
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - name: Locate successful CI run for this commit
+      - name: Verify protected tag context and locate its successful CI run
         id: ci
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          RUN_ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&status=success" --jq '.workflow_runs[0].id')"
-          test -n "$RUN_ID"
+          test "$GITHUB_REF_TYPE" = "tag"
+          test "$GITHUB_REF" = "refs/tags/$GITHUB_REF_NAME"
+          test "$(git rev-list -n 1 "$GITHUB_REF_NAME")" = "$GITHUB_SHA"
+          RUN_JSON=null
+          for attempt in $(seq 1 30); do
+            RUN_JSON="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&branch=$GITHUB_REF_NAME&event=push&status=success" --jq '.workflow_runs[0]')"
+            test "$RUN_JSON" != "null" && break
+            sleep 20
+          done
+          RUN_ID="$(jq -r '.id' <<<"$RUN_JSON")"
+          CI_HEAD_SHA="$(jq -r '.head_sha' <<<"$RUN_JSON")"
+          CI_EVENT="$(jq -r '.event' <<<"$RUN_JSON")"
+          CI_HEAD_BRANCH="$(jq -r '.head_branch' <<<"$RUN_JSON")"
+          test "$RUN_ID" != "null"
+          test "$CI_HEAD_SHA" = "$GITHUB_SHA"
+          test "$CI_EVENT" = "push"
+          test "$CI_HEAD_BRANCH" = "$GITHUB_REF_NAME"
           echo "run-id=$RUN_ID" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -33,13 +54,21 @@ jobs:
           path: artifacts
           run-id: ${{ steps.ci.outputs.run-id }}
           github-token: ${{ github.token }}
-      - name: Verify tag, version, checksum, and package absence
+      - name: Verify canonical tag, embedded version, digest, and package absence
         shell: bash
         run: |
           cd artifacts && sha256sum --check SHA256SUMS && cd ..
           TARBALL="$(find artifacts -name '*.tgz' -print -quit)"
-          VERSION="$(npm pkg get version --workspaces=false --prefix apps/cli | tr -d '\"')"
+          test -n "$TARBALL"
+          npm pack "$TARBALL" --dry-run --json > artifacts/verified-pack.json
+          VERSION="$(tar -xOf "$TARBALL" package/package.json | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>process.stdout.write(JSON.parse(s).version))')"
+          NAME="$(tar -xOf "$TARBALL" package/package.json | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>process.stdout.write(JSON.parse(s).name))')"
+          test "$NAME" = "opsi"
           test "$GITHUB_REF_NAME" = "v$VERSION"
+          EXPECTED_INTEGRITY="sha512-$(openssl dgst -sha512 -binary "$TARBALL" | openssl base64 -A)"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TARBALL=$TARBALL" >> "$GITHUB_ENV"
+          echo "EXPECTED_INTEGRITY=$EXPECTED_INTEGRITY" >> "$GITHUB_ENV"
           if npm view "opsi@$VERSION" version >/tmp/existing-package 2>/tmp/npm-view-error; then
             echo "opsi@$VERSION already exists" >&2
             exit 1
@@ -47,16 +76,27 @@ jobs:
           grep -q E404 /tmp/npm-view-error
       - run: npm install --global npm@^11.5.1
       - name: Publish tested tarball with trusted publishing
-        run: npm publish "$(find artifacts -name '*.tgz' -print -quit)" --provenance --access public
-      - name: Verify published package and provenance
+        run: npm publish "$TARBALL" --provenance --access public
+      - name: Verify published bytes, install, and provenance
         shell: bash
         run: |
-          VERSION="$(npm pkg get version --workspaces=false --prefix apps/cli | tr -d '\"')"
-          mkdir published && cd published && npm init -y
+          ACTUAL_INTEGRITY=""
+          for attempt in $(seq 1 12); do
+            ACTUAL_INTEGRITY="$(npm view "opsi@$VERSION" dist.integrity 2>/dev/null || true)"
+            test "$ACTUAL_INTEGRITY" = "$EXPECTED_INTEGRITY" && break
+            sleep 10
+          done
+          test "$ACTUAL_INTEGRITY" = "$EXPECTED_INTEGRITY"
+          mkdir registry published
+          for attempt in $(seq 1 12); do
+            npm pack "opsi@$VERSION" --pack-destination registry && break
+            sleep 10
+          done
+          test "$(sha256sum "$TARBALL" | cut -d' ' -f1)" = "$(sha256sum registry/*.tgz | cut -d' ' -f1)"
+          cd published && npm init -y
           npm install "opsi@$VERSION"
           ./node_modules/.bin/opsi --version
           npm audit signatures
-          npm view "opsi@$VERSION" dist.integrity
       - uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45
         with:
           subject-path: artifacts/*.tgz
@@ -67,3 +107,28 @@ jobs:
             artifacts/*.tgz
             artifacts/SHA256SUMS
           if-no-files-found: error
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.ref }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-assets-${{ github.ref_name }}
+          path: artifacts
+      - name: Create immutable GitHub Release assets from canonical bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd artifacts && sha256sum --check SHA256SUMS && cd ..
+          gh release create "$GITHUB_REF_NAME" artifacts/*.tgz artifacts/SHA256SUMS \
+            --verify-tag \
+            --target "$GITHUB_SHA" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes

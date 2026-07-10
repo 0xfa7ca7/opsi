@@ -1,4 +1,5 @@
 export { detectFormat } from "./detect.js";
+export { SUPPORTED_DATA_FORMATS } from "./types.js";
 export { DataEngine, inferredType } from "./inspect.js";
 export { QueryPolicy } from "./query-policy.js";
 export { DuckDbQueryRunner } from "./query.js";

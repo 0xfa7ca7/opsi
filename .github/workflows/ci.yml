@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
 
 permissions:
@@ -13,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Prove clean-source ordering
+        run: rm -rf apps/cli/dist packages/*/dist packages/providers/*/dist
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24
@@ -22,16 +25,25 @@ jobs:
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm test:unit
         env:
           OPSI_OFFLINE: "1"
-      - run: pnpm build
-      - name: Create canonical tarball
+      - run: pnpm test:integration
+        env:
+          OPSI_OFFLINE: "1"
+      - run: pnpm test:e2e
+        env:
+          OPSI_OFFLINE: "1"
+      - name: Create and test canonical tarball bytes
+        run: mkdir -p artifacts && pnpm test:pack
+        env:
+          OPSI_OFFLINE: "1"
+          OPSI_PACK_DESTINATION: ${{ github.workspace }}/artifacts
+      - name: Record canonical tarball checksum
         run: |
-          mkdir -p artifacts
-          npm pack ./apps/cli --json > artifacts/pack.json
-          TARBALL="$(node -e "const p=require('./artifacts/pack.json'); process.stdout.write(p[0].filename)")"
-          mv "$TARBALL" artifacts/
+          TARBALL="$(find artifacts -name '*.tgz' -exec basename {} \; -quit)"
+          test -n "$TARBALL"
           cd artifacts && sha256sum "$TARBALL" > SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -47,7 +59,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-14, windows-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+            libc: glibc
+          - os: macos-14
+            platform: darwin
+            arch: arm64
+            libc: none
+          - os: windows-latest
+            platform: win32
+            arch: x64
+            libc: none
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -60,8 +84,18 @@ jobs:
           path: artifacts
       - name: Record runtime facts
         shell: bash
+        env:
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          EXPECTED_LIBC: ${{ matrix.libc }}
         run: |
-          node -p "JSON.stringify({platform:process.platform,arch:process.arch,node:process.version,glibc:process.report?.getReport().header.glibcVersionRuntime??null})"
+          node --input-type=module -e '
+            const facts={platform:process.platform,arch:process.arch,node:process.version,glibc:process.report?.getReport().header.glibcVersionRuntime??null};
+            console.log(JSON.stringify(facts));
+            if(facts.platform!==process.env.EXPECTED_PLATFORM) throw new Error(`platform ${facts.platform}`);
+            if(facts.arch!==process.env.EXPECTED_ARCH) throw new Error(`arch ${facts.arch}`);
+            if(process.env.EXPECTED_LIBC==="glibc"&&!facts.glibc) throw new Error("glibc required");
+          '
           npm --version
       - name: Install and smoke exact bytes
         shell: bash
@@ -84,4 +118,4 @@ jobs:
         with:
           node-version: current
       - run: corepack enable && corepack prepare pnpm@11.11.0 --activate
-      - run: pnpm install --frozen-lockfile && pnpm test && pnpm build
+      - run: pnpm install --frozen-lockfile && pnpm test && pnpm test:pack

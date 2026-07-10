@@ -2,6 +2,7 @@ import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import type { OpsiClient } from "@opsi/core";
 import type { Command } from "commander";
 import type { CliContext } from "../context.js";
+import { manifestCommand } from "../command-manifest.js";
 
 export function registerCacheCommand(
   program: Command,
@@ -26,25 +27,22 @@ export function registerCacheCommand(
       });
     return client.cache;
   };
-  const cache = program.command("cache").description("Inspect and maintain the local cache");
-  cache.command("info").action(async () => context.renderer?.write(await service().info()));
-  cache.command("list").action(async () => context.renderer?.write(await service().list()));
-  cache
-    .command("clear")
-    .option("--yes", "confirm deletion without prompting")
-    .action(async (options: { yes?: boolean }) => {
-      confirmed(options.yes);
-      await service().clear();
-      context.renderer?.write({ cleared: true });
-    });
-  cache
-    .command("prune")
-    .option("--yes", "confirm deletion without prompting")
-    .action(async (options: { yes?: boolean }) => {
-      confirmed(options.yes);
-      context.renderer?.write(await service().prune());
-    });
-  cache.command("verify").action(async () => {
+  manifestCommand(program, "cache info").action(async () =>
+    context.renderer?.write(await service().info()),
+  );
+  manifestCommand(program, "cache list").action(async () =>
+    context.renderer?.write(await service().list()),
+  );
+  manifestCommand(program, "cache clear").action(async (options: { yes?: boolean }) => {
+    confirmed(options.yes);
+    await service().clear();
+    context.renderer?.write({ cleared: true });
+  });
+  manifestCommand(program, "cache prune").action(async (options: { yes?: boolean }) => {
+    confirmed(options.yes);
+    context.renderer?.write(await service().prune());
+  });
+  manifestCommand(program, "cache verify").action(async () => {
     const result = await service().verify();
     if (result.errors.length > 0)
       throw new OpsiError({

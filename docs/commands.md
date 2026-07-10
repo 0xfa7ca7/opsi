@@ -1,17 +1,117 @@
 # Command reference
 
-Global flags: `--json`, `--ndjson`, `--csv`, `--tsv`, `--output-format table|json|ndjson|csv|tsv`, `--provider`, `--offline`, cache/download/HTTP/preview/query/DuckDB limit overrides, `--quiet`, `--debug`, and `--no-color`. Result data uses stdout; diagnostics use stderr. Non-TTY sessions never prompt. Errors use stable exit categories 0–8 and omit stacks unless `--debug`.
+All commands send result data to stdout and warnings/diagnostics to stderr. Human tables are the interactive default. `--json`, `--ndjson`, `--csv`, `--tsv`, and `--output-format table|json|ndjson|csv|tsv` select machine output and are mutually exclusive. JSON uses `{schemaVersion,data,meta,error?}`. Stable exit categories are 0 success, 1 internal, 2 invalid input/configuration, 3 not found, 4 provider/network, 5 unsupported, 6 validation/integrity, 7 query, and 8 partial success. Stacks require `--debug` and are redacted.
 
-- `search [text]`: filters by organization, repeatable tag/format, license, modification dates, sort, limit, and offset.
-- `dataset show|resources <id>`: shows metadata or resources. `dataset schema <id> [--resource ID] [--sheet NAME]` infers tabular fields. `dataset open <id>` opens only the validated public OPSI HTTPS page.
-- `resource show|headers <id>` shows metadata or safely probes headers. `resource preview <input>` supports bounded `--limit` and XLSX `--sheet`.
-- `download <ids...> [--output PATH|--destination PATH] [--force]` downloads securely and records provenance; multiple IDs require a directory/default destination.
-- `validate <input> [--metadata] [--sheet NAME]` reports validation issues and exits 6 on failure.
-- `convert <input> --to csv|tsv|json|ndjson|xlsx|parquet --output PATH` supports `--force`, `--sheet`, and `--spreadsheet-safe`.
-- `query <input> --sql SQL` accepts one read-only SELECT/WITH/VALUES statement, with bounded limit, timeout, memory, threads, optional sheet, and bounded export output.
-- `provenance show|verify <path>` reads or verifies the adjacent provenance record.
-- `providers list`; `cache info|list|clear|prune|verify`; `config get <key>|set <key> <JSON-or-string>|list|path`.
-- `doctor [--offline] [--json]` checks Node, configuration, writable cache/temp storage, connectivity unless offline, DuckDB load/query, and every registered format.
-- `completion bash|zsh|fish` prints a static, offline script generated from the command manifest. Redirect it to the appropriate shell completion location.
+Global controls are `--provider opsi|local`, `--offline`, `--cache-dir`, `--download-dir`, `--http-timeout-ms`, `--max-download-bytes`, `--preview-row-limit`, `--query-row-limit`, `--query-timeout-ms`, `--duckdb-memory-limit`, `--duckdb-threads`, `--quiet`, `--debug`, and `--no-color`. `NO_COLOR` also disables styling. Remote-content overrides `--allow-insecure-http` and `--allow-private-network` affect one invocation only.
 
-Remote content flags `--allow-insecure-http` and `--allow-private-network` relax a single invocation only. Use `--help` on each command for exact arguments and examples.
+## Catalogue
+
+### `search`
+
+Syntax: `opsi search [text] [options]`. Filters: `--organization`, repeatable `--tag` and `--format`, `--license`, `--modified-after`, `--modified-before`, repeatable `--sort field:asc|desc`, positive `--limit`, and nonnegative `--offset`. Output is dataset summaries with pagination metadata. Invalid sort/number values exit 2; provider failures exit 4. Example: `opsi search promet --tag mobilnost --format CSV --limit 5 --json`.
+
+### `dataset show`
+
+Syntax: `opsi dataset show <id>`. Returns complete normalized dataset metadata and embedded resources. A missing ID exits 3; malformed provider data or network failure exits 4. Example: `opsi dataset show dataset-traffic-001 --json`.
+
+### `dataset resources`
+
+Syntax: `opsi dataset resources <id>`. Returns resources belonging to the dataset. Missing datasets exit 3. Example: `opsi dataset resources dataset-traffic-001 --csv`.
+
+### `dataset schema`
+
+Syntax: `opsi dataset schema <id> [--resource <id-or-reference>] [--sheet <name>]`. If exactly one tabular resource exists it is selected; otherwise `--resource` is required. Network safety overrides are available. Output contains inferred fields/types. Ambiguous selection exits 2, missing content exits 3, unsupported formats exit 5. Example: `opsi dataset schema dataset-traffic-001 --resource resource-traffic-csv-001 --json`.
+
+### `dataset open`
+
+Syntax: `opsi dataset open <id>`. Resolves metadata and opens only the validated `https://podatki.gov.si/dataset/...` public page through the platform browser. It never opens a resource URL. Invalid origins exit 2; missing metadata exits 3. Example: `opsi dataset open dataset-traffic-001`.
+
+### `resource show`
+
+Syntax: `opsi resource show <id>`. Returns normalized resource metadata, canonical reference, format, media type, and URL. Not found exits 3. Example: `opsi resource show resource-traffic-csv-001 --json`.
+
+### `resource preview`
+
+Syntax: `opsi resource preview <input> [--limit <rows>] [--sheet <name>]`. Input may be a local path, `local:file:` reference, bare resource ID, or canonical resource reference. Previewing is bounded and never executes spreadsheet formulas. XLSX with multiple sheets requires `--sheet`. Unsupported/malformed content exits 5/6. Example: `opsi resource preview traffic.xlsx --sheet Data --limit 10 --json`.
+
+### `resource headers`
+
+Syntax: `opsi resource headers <id>`. Securely probes remote status, headers, media type, and size with the same HTTPS, DNS, redirect, and timeout policy as downloads. It is unavailable on an offline cache miss. Example: `opsi resource headers resource-traffic-csv-001 --json`.
+
+### `providers list`
+
+Syntax: `opsi providers list`. Returns registered provider IDs, names, homepages, and capabilities. This is catalogue-only and works without DuckDB. Example: `opsi providers list --json`.
+
+## Files and data
+
+### `download`
+
+Syntax: `opsi download <ids...> [--destination <path>|--output <path>] [--force]`. IDs may be bare or canonical `provider:resource:id` references. A directory receives a sanitized provider filename; a file path is valid for one resource. Downloads are bounded, atomically published, cached by digest, and accompanied by provenance. Existing different content is not overwritten without `--force`. Partial batches exit 8. Example: `opsi download opsi:resource:resource-traffic-csv-001 --output ./downloads --json`.
+
+### `validate`
+
+Syntax: `opsi validate <input> [--metadata] [--sheet <name>]`. Without `--metadata`, validates local/provider tabular content. With it, input must be a canonical dataset/resource reference and only metadata is checked. Output includes issues, severities, and recommendations. Invalid data exits 6. Example: `opsi validate ./downloads/traffic.csv --json`.
+
+### `convert`
+
+Syntax: `opsi convert <input> --to <csv|tsv|json|ndjson|xlsx|parquet> --output <path> [options]`. Options are `--sheet`, `--force`, `--spreadsheet-safe`, and network overrides. Publication is atomic; provenance records the source, digest, transformation, and override flags. Unsupported conversion exits 5; invalid input/output conflicts exit 2. Example: `opsi convert traffic.csv --to parquet --output traffic.parquet`.
+
+### `query`
+
+Syntax: `opsi query <input> --sql <statement> [options]`. Only one read-only SELECT, WITH…SELECT, or VALUES statement is accepted. Options: `--limit`, `--timeout-ms`, `--sheet`, `--output`, `--force`, and network overrides. User SQL runs in a worker against staged table `data`, with row/time/1GB memory/4-thread/cell/output bounds and extensions/external access disabled. Rejected, timed-out, or cancelled queries exit 7. Example: `opsi query traffic.csv --sql "select * from data limit 2" --json`.
+
+### `provenance show`
+
+Syntax: `opsi provenance show <path>`. Reads the adjacent versioned provenance record for a downloaded/converted/query-exported artifact. Missing or malformed provenance exits 3 or 6. Example: `opsi provenance show traffic.parquet --json`.
+
+### `provenance verify`
+
+Syntax: `opsi provenance verify <path>`. Recomputes the artifact SHA-256 and compares the stored record. Mismatch/tampering exits 6. Example: `opsi provenance verify traffic.parquet --json`.
+
+## Local state
+
+### `cache info`
+
+Reports cache paths, object/metadata counts, and bytes. Example: `opsi cache info --json`.
+
+### `cache list`
+
+Lists cache objects and metadata without mutation. Example: `opsi cache list --json`.
+
+### `cache clear`
+
+Deletes cache content only with explicit `--yes`; non-TTY use never prompts and otherwise exits 2 with `CONFIRMATION_REQUIRED`. Example: `opsi cache clear --yes`.
+
+### `cache prune`
+
+Removes unreferenced cache objects only with `--yes`. Locked/live entries are preserved. Example: `opsi cache prune --yes --json`.
+
+### `cache verify`
+
+Re-hashes cached objects and reports corruption. Any corrupt object exits 6. Example: `opsi cache verify --json`.
+
+### `config get`
+
+Syntax: `opsi config get <dotted-key>`. Reads the persisted user source (not secret environment values). Example: `opsi config get query.rowLimit --json`.
+
+### `config set`
+
+Syntax: `opsi config set <dotted-key> <JSON-or-string>`. The complete strict source is validated and atomically written mode 0600. Secret-like keys are rejected. Example: `opsi config set query.rowLimit 500`.
+
+### `config list`
+
+Lists persisted user configuration only. It does not print `OPSI_API_KEY`. Example: `opsi config list --json`.
+
+### `config path`
+
+Returns platform user configuration and current project configuration paths. Example: `opsi config path --json`.
+
+## Diagnostics and shell integration
+
+### `doctor`
+
+Syntax: `opsi doctor [--offline]`. Aggregates Node, configuration, writable cache/temp, connectivity (or deterministic skip), real DuckDB load/query, and real CSV/TSV/JSON/NDJSON/XLSX/Parquet handler previews. Output is `{status,checks[]}` where each check is `pass`, `fail`, or `skip`. All checks run before failure. Native absence exits 5 as `DUCKDB_UNAVAILABLE`; connectivity failure exits 4; other failed checks exit 6. Example: `opsi doctor --offline --json`.
+
+### `completion`
+
+Syntax: `opsi completion <bash|zsh|fish>`. Prints a static script generated from the normalized command manifest. It completes only known commands/options/enum/provider values plus local filesystem paths and never calls OPSI. Install with `opsi completion bash > ~/.local/share/bash-completion/completions/opsi`, the corresponding zsh `$fpath` file, or `~/.config/fish/completions/opsi.fish`.

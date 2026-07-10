@@ -34,7 +34,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup --config tsup.config.ts",
+    "build": "tsup --config tsup.config.ts && node scripts/copy-public-declarations.mjs",
     "typecheck": "pnpm --filter @opsi/domain --filter @opsi/config --filter @opsi/output --filter @opsi/storage --filter @opsi/core --filter @opsi/provider-opsi build && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

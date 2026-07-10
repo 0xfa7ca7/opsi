@@ -6,8 +6,10 @@ import { runCli, type CliIo } from "../src/main.js";
 import { createProgram } from "../src/program.js";
 import { registerDatasetOpenCommand } from "../src/commands/open.js";
 import { normalizeError } from "../src/errors.js";
+import { runDoctorChecks } from "../src/commands/doctor.js";
 import { Command } from "commander";
 import type { OpsiClient } from "@opsi/core";
+import { COMMAND_MANIFEST, registerCommandManifest } from "../src/command-manifest.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -89,6 +91,62 @@ describe("complete command surface", () => {
     );
   });
 
+  it("keeps registered arguments and options identical to the normalized manifest", async () => {
+    const value = await fixture();
+    const program = createProgram({ io: value.io, version: "1.2.3" });
+    const registered = program.commands.flatMap((parent) =>
+      (parent.commands.length === 0 ? [parent] : parent.commands).map((leaf) => ({
+        path: parent === leaf ? parent.name() : `${parent.name()} ${leaf.name()}`,
+        arguments: leaf.registeredArguments.map((argument) => argument.name()),
+        options: leaf.options
+          .filter((option) => option.long !== "--help")
+          .map((option) => option.flags)
+          .sort(),
+      })),
+    );
+    type ManifestLeaf = {
+      path: string;
+      arguments: Array<{ name: string }>;
+      options: Array<{ flags: string }>;
+      commands?: never;
+    };
+    const declared = (COMMAND_MANIFEST as unknown as ManifestLeaf[]).map((entry) => ({
+      path: entry.path,
+      arguments: entry.arguments.map((argument) => argument.name.replace(/[.[\]{}<>]/gu, "")),
+      options: entry.options.map((option) => option.flags).sort(),
+    }));
+    expect(registered).toEqual(declared);
+  });
+
+  it("keeps Commander metadata out of action-only command adapters", async () => {
+    const adapters = [
+      "cache",
+      "completion",
+      "config",
+      "convert",
+      "dataset",
+      "doctor",
+      "download",
+      "open",
+      "preview",
+      "provenance",
+      "providers",
+      "query",
+      "resource",
+      "search",
+      "validate",
+    ];
+    for (const adapter of adapters) {
+      const source = await readFile(
+        join(process.cwd(), `apps/cli/src/commands/${adapter}.ts`),
+        "utf8",
+      );
+      expect(source, adapter).not.toMatch(
+        /\.(?:command|description|argument|addArgument|option|requiredOption|addOption)\s*\(/u,
+      );
+    }
+  });
+
   it("gets, sets, lists, and locates non-secret user configuration", async () => {
     const value = await fixture();
     await expect(
@@ -129,21 +187,64 @@ describe("complete command surface", () => {
   it("runs an offline JSON doctor without network access", async () => {
     const value = await fixture();
     await expect(runCli(["doctor", "--json", "--offline"], value.io)).resolves.toBe(0);
-    expect(JSON.parse(value.stdout.join(""))).toMatchObject({
-      data: {
-        node: { ok: true },
-        configuration: { ok: true },
-        connectivity: { skipped: true },
-        duckdb: { ok: true },
+    const envelope = JSON.parse(value.stdout.join("")) as {
+      data: { status: string; checks: Array<{ name: string; status: string }> };
+    };
+    expect(envelope.data.status).toBe("pass");
+    expect(envelope.data.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "node", status: "pass" }),
+        expect.objectContaining({ name: "configuration", status: "pass" }),
+        expect.objectContaining({ name: "cache", status: "pass" }),
+        expect.objectContaining({ name: "temp", status: "pass" }),
+        expect.objectContaining({ name: "connectivity", status: "skip" }),
+        expect.objectContaining({ name: "duckdb", status: "pass" }),
+        ...["csv", "tsv", "json", "ndjson", "xlsx", "parquet"].map((format) =>
+          expect.objectContaining({ name: `format:${format}`, status: "pass" }),
+        ),
+      ]),
+    );
+  });
+
+  it("aggregates later native and format checks after connectivity fails", async () => {
+    const value = await fixture();
+    const context = {
+      io: value.io,
+      version: "1.0.0",
+      configuration: {
+        provider: "opsi",
+        output: "json" as const,
+        locale: "sl-SI",
+        offline: false,
+        paths: { cacheDir: join(value.cwd, "cache"), downloadDir: join(value.cwd, "downloads") },
+        http: { timeoutMs: 100, maxDownloadBytes: 1_000 },
+        preview: { rowLimit: 20 },
+        query: { rowLimit: 20, timeoutMs: 100 },
+        duckdb: { memoryLimit: "1GB", threads: 1 },
+        terminal: { color: false },
       },
-    });
+    };
+    const client = {
+      search: async () => {
+        throw new Error("controlled connectivity failure");
+      },
+    } as unknown as OpsiClient;
+    const report = await runDoctorChecks(context, client, false);
+    expect(report.status).toBe("fail");
+    expect(report.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "connectivity", status: "fail" }),
+        expect.objectContaining({ name: "duckdb", status: "pass" }),
+        expect.objectContaining({ name: "format:parquet", status: "pass" }),
+      ]),
+    );
   });
 
   it("opens only the derived public provider page through the injected adapter", async () => {
     const value = await fixture();
     const opened: string[] = [];
     const parent = new Command();
-    const dataset = parent.command("dataset");
+    registerCommandManifest(parent);
     const client = {
       datasets: {
         get: async () => ({
@@ -156,7 +257,7 @@ describe("complete command surface", () => {
       },
     } as unknown as OpsiClient;
     registerDatasetOpenCommand(
-      dataset,
+      parent,
       { io: value.io, version: "1.0.0", openUrl: async (url) => void opened.push(url) },
       client,
     );
@@ -184,8 +285,16 @@ describe("complete command surface", () => {
     await expect(runCli(["completion", shell], value.io)).resolves.toBe(0);
     const output = value.stdout.join("");
     expect(output).toContain("dataset");
-    expect(output).toContain("--json");
+    expect(output).toContain(shell === "fish" ? "-l 'json'" : "--json");
     expect(output).toContain("opsi");
+    if (shell === "bash") expect(output).toContain('case "$COMP_LINE"');
+    if (shell === "zsh") {
+      expect(output).toContain("dataset) _values");
+      expect(output).toContain("resources:");
+    }
+    if (shell === "fish") expect(output).toContain("__fish_seen_subcommand_from dataset");
+    expect(output).toContain("parquet");
+    expect(output).toContain("local");
     expect(value.stderr).toEqual([]);
   });
 
@@ -199,5 +308,11 @@ describe("complete command surface", () => {
     await expect(runCli(["--version"], value.io)).resolves.toBe(0);
     expect(value.stdout.join("")).toMatch(/^\d+\.\d+\.\d+\n$/u);
     expect(value.stderr.join("")).not.toContain(" at ");
+  });
+
+  it("honors NO_COLOR with no ANSI control sequences", async () => {
+    const value = await fixture();
+    await expect(runCli(["--help"], value.io)).resolves.toBe(0);
+    expect(value.stdout.join("") + value.stderr.join("")).not.toContain(String.fromCharCode(27));
   });
 });

@@ -1,13 +1,13 @@
 import type { CliConfigurationOptions, OutputFormat } from "@opsi/config";
-import { duckDbMemoryLimitBytes } from "@opsi/domain";
-import { InvalidArgumentError, Option, type Command } from "commander";
+import type { Command } from "commander";
+import { registerGlobalOptions } from "./command-manifest.js";
 
-const OUTPUT_FORMATS = ["table", "json", "ndjson", "csv", "tsv"] as const;
+type CliOutputFormat = "table" | "json" | "ndjson" | "csv" | "tsv";
 const STRUCTURED_FORMATS = ["json", "ndjson", "csv", "tsv"] as const;
 
 export interface GlobalOptions {
   readonly provider?: string;
-  readonly outputFormat?: (typeof OUTPUT_FORMATS)[number];
+  readonly outputFormat?: CliOutputFormat;
   readonly offline?: boolean;
   readonly cacheDir?: string;
   readonly downloadDir?: string;
@@ -27,56 +27,8 @@ export interface GlobalOptions {
   readonly tsv?: boolean;
 }
 
-function integer(value: string): number {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-    throw new InvalidArgumentError("must be a positive integer");
-  }
-  return parsed;
-}
-
-function duckDbMemoryLimit(value: string): string {
-  if (duckDbMemoryLimitBytes(value) === undefined)
-    throw new InvalidArgumentError("must be a supported positive byte size no larger than 1GB");
-  return value;
-}
-
 export function addGlobalOptions(program: Command): Command {
-  program
-    .addOption(
-      new Option("--json", "render JSON").conflicts(["ndjson", "csv", "tsv", "outputFormat"]),
-    )
-    .addOption(
-      new Option("--ndjson", "render newline-delimited JSON").conflicts([
-        "json",
-        "csv",
-        "tsv",
-        "outputFormat",
-      ]),
-    )
-    .addOption(
-      new Option("--csv", "render CSV").conflicts(["json", "ndjson", "tsv", "outputFormat"]),
-    )
-    .addOption(
-      new Option("--tsv", "render TSV").conflicts(["json", "ndjson", "csv", "outputFormat"]),
-    )
-    .addOption(
-      new Option("--output-format <format>", "select output format").choices([...OUTPUT_FORMATS]),
-    )
-    .option("--provider <id>", "select provider")
-    .option("--offline", "disable network access")
-    .option("--cache-dir <path>", "override cache directory")
-    .option("--download-dir <path>", "override download directory")
-    .option("--http-timeout-ms <number>", "HTTP timeout in milliseconds", integer)
-    .option("--max-download-bytes <number>", "maximum download size", integer)
-    .option("--preview-row-limit <number>", "preview row limit", integer)
-    .option("--query-row-limit <number>", "query row limit", integer)
-    .option("--query-timeout-ms <number>", "query timeout in milliseconds", integer)
-    .option("--duckdb-memory-limit <limit>", "DuckDB memory limit", duckDbMemoryLimit)
-    .option("--duckdb-threads <number>", "DuckDB worker threads", integer)
-    .option("--quiet", "suppress non-result output")
-    .option("--debug", "include diagnostic stack traces")
-    .option("--no-color", "disable color output");
+  registerGlobalOptions(program);
   return program;
 }
 

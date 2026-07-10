@@ -25,7 +25,7 @@ function defaultQueryWorkerPath(): URL {
   const bundled = new URL("./query-worker.js", import.meta.url);
   return existsSync(fileURLToPath(bundled))
     ? bundled
-    : new URL("./query-worker.js", import.meta.resolve("@opsi/data-engine"));
+    : new URL("../../data-engine/dist/query-worker.js", import.meta.url);
 }
 
 export class OpsiClient {

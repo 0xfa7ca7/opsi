@@ -3,6 +3,7 @@ import type { Stats } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
 
 export type SupportedDataFormat = "csv" | "tsv" | "json" | "ndjson" | "xlsx" | "parquet";
+export const SUPPORTED_DATA_FORMATS = ["csv", "tsv", "json", "ndjson", "xlsx", "parquet"] as const;
 export type DetectedInputFormat = SupportedDataFormat | "zip" | "unknown";
 export type DetectionConfidence =
   "signature" | "media-type" | "content" | "declared-format" | "extension" | "unknown";

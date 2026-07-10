@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { chmod, mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -10,10 +10,50 @@ let root: string;
 let omittedRoot: string | undefined;
 let tarball: string;
 let files: Array<{ path: string; mode: number }>;
+let packDestination: string;
+
+const EXPECTED_FILES = [
+  "LICENSE",
+  "README.md",
+  "dist/main.d.ts",
+  "dist/main.js",
+  "dist/main.js.map",
+  "dist/query-worker.d.ts",
+  "dist/query-worker.js",
+  "dist/query-worker.js.map",
+  "dist/sdk.d.ts",
+  "dist/sdk.js",
+  "dist/sdk.js.map",
+  "package.json",
+] as const;
+
+async function tarText(path: string): Promise<string> {
+  return (
+    await execute("tar", ["-xOf", tarball, `package/${path}`], {
+      maxBuffer: 30 * 1024 * 1024,
+    })
+  ).stdout;
+}
+
+async function compileSdkConsumer(directory: string): Promise<void> {
+  await writeFile(
+    join(directory, "consumer.ts"),
+    "import { OpsiClient, ProviderRegistry, type Dataset, type SearchQuery } from 'opsi/sdk';\nconst registry = new ProviderRegistry([]);\nconst client: OpsiClient = new OpsiClient({ registry, providerId: 'opsi' });\nconst query: SearchQuery = { text: 'promet' };\nconst dataset: Dataset | undefined = undefined;\nvoid [client, query, dataset];\n",
+  );
+  await writeFile(
+    join(directory, "tsconfig.json"),
+    `${JSON.stringify({ compilerOptions: { strict: true, noEmit: true, module: "NodeNext", moduleResolution: "NodeNext", target: "ES2024", skipLibCheck: false }, include: ["consumer.ts"] }, null, 2)}\n`,
+  );
+  await execute(join(directory, "node_modules", ".bin", "tsc"), ["-p", "tsconfig.json"], {
+    cwd: directory,
+  });
+}
 
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), "opsi-pack-"));
-  const packed = await execute("npm", ["pack", "--json", "--pack-destination", root], {
+  packDestination = process.env.OPSI_PACK_DESTINATION ?? root;
+  await mkdir(packDestination, { recursive: true });
+  const packed = await execute("npm", ["pack", "--json", "--pack-destination", packDestination], {
     cwd: resolve(process.cwd(), "apps/cli"),
     maxBuffer: 10 * 1024 * 1024,
   });
@@ -21,8 +61,10 @@ beforeAll(async () => {
     filename: string;
     files: Array<{ path: string; mode: number }>;
   }>;
-  tarball = join(root, result[0]?.filename ?? "missing.tgz");
+  tarball = join(packDestination, result[0]?.filename ?? "missing.tgz");
   files = result[0]?.files ?? [];
+  if (process.env.OPSI_PACK_DESTINATION !== undefined)
+    await writeFile(join(packDestination, "pack.json"), `${JSON.stringify(result, null, 2)}\n`);
 });
 
 afterAll(async () => {
@@ -33,22 +75,11 @@ afterAll(async () => {
 describe("canonical npm tarball", () => {
   it("contains only the public runtime, SDK, and package documentation", async () => {
     const paths = files.map((file) => file.path).sort();
-    expect(paths).toContain("dist/main.js");
-    expect(paths).toContain("dist/query-worker.js");
-    expect(paths).toContain("dist/sdk.js");
-    expect(paths).toContain("dist/sdk.d.ts");
-    expect(paths.map((path) => path.toLowerCase())).toEqual(
-      expect.arrayContaining(["readme.md", "license"]),
-    );
-    expect(
-      paths.every((path) => /^(?:dist\/|package\.json$|readme\.md$|license$)/iu.test(path)),
-    ).toBe(true);
+    expect(paths).toEqual([...EXPECTED_FILES].sort());
     expect(paths.some((path) => /(?:test|fixture|\.tsbuildinfo)/iu.test(path))).toBe(false);
     expect(files.find((file) => file.path === "dist/main.js")?.mode & 0o111).toBeGreaterThan(0);
 
-    const metadata = JSON.parse(
-      await readFile(resolve(process.cwd(), "apps/cli/package.json"), "utf8"),
-    ) as Record<string, unknown>;
+    const metadata = JSON.parse(await tarText("package.json")) as Record<string, unknown>;
     expect(metadata).toMatchObject({
       name: "opsi",
       license: "MIT",
@@ -56,20 +87,26 @@ describe("canonical npm tarball", () => {
       repository: { type: "git" },
     });
     expect(JSON.stringify(metadata)).not.toContain("workspace:");
+    expect(await tarText("dist/main.js")).toMatch(/^#!\/usr\/bin\/env node\n/u);
     for (const file of files.filter((entry) => /\.(?:js|d\.ts|map)$/u.test(entry.path))) {
-      const unpacked = await execute("tar", ["-xOf", tarball, `package/${file.path}`], {
-        maxBuffer: 20 * 1024 * 1024,
-      });
-      expect(unpacked.stdout).not.toMatch(/(?:\/Users\/|[A-Z]:\\|workspace:)/u);
-      if (file.path.endsWith(".js"))
-        expect(unpacked.stdout).not.toMatch(/(?:from\s*|import\s*\()\s*["']@opsi\//u);
-      expect(unpacked.stdout).not.toMatch(/(?:api[_-]?key|token|secret)\s*[=:]\s*['"][^'"]+/iu);
+      const unpacked = await tarText(file.path);
+      expect(unpacked).not.toMatch(/(?:\/Users\/|[A-Z]:\\|workspace:)/u);
+      if (file.path.endsWith(".js")) {
+        expect(unpacked).not.toMatch(/(?:from\s*|import\s*\()\s*["']@opsi\//u);
+        expect(unpacked).not.toMatch(/import\.meta\.resolve\(\s*["']@opsi\//u);
+      }
+      if (file.path.endsWith(".d.ts"))
+        expect(unpacked).not.toMatch(/(?:@opsi\/|@duckdb\/node-api|from\s+["']zod["'])/u);
+      expect(unpacked).not.toMatch(/(?:api[_-]?key|token|secret)\s*[=:]\s*['"][^'"]+/iu);
     }
   });
 
   it("installs the exact tarball cleanly and smokes CLI, native formats, and SDK", async () => {
     await execute("npm", ["init", "-y"], { cwd: root });
-    await execute("npm", ["install", tarball], { cwd: root, timeout: 120_000 });
+    await execute("npm", ["install", tarball, "typescript@6.0.3"], {
+      cwd: root,
+      timeout: 120_000,
+    });
     const binary = join(
       root,
       "node_modules",
@@ -81,7 +118,7 @@ describe("canonical npm tarball", () => {
     expect((await execute(binary, ["--version"], { cwd: root })).stdout).toMatch(/^0\.1\.0\n$/u);
     expect(
       JSON.parse((await execute(binary, ["doctor", "--json", "--offline"], { cwd: root })).stdout),
-    ).toMatchObject({ data: { duckdb: { ok: true } } });
+    ).toMatchObject({ data: { status: "pass" } });
     const csv = resolve(process.cwd(), "packages/testing/fixtures/data/valid.csv");
     expect(
       JSON.parse(
@@ -112,13 +149,14 @@ describe("canonical npm tarball", () => {
       { cwd: root },
     );
     expect(sdk.stderr).toBe("");
+    await compileSdkConsumer(root);
   });
 
   it("reports a typed failure when optional DuckDB dependencies are omitted", async () => {
     const omitted = await mkdtemp(join(tmpdir(), "opsi-pack-omitted-"));
     omittedRoot = omitted;
     await execute("npm", ["init", "-y"], { cwd: omitted });
-    await execute("npm", ["install", "--omit=optional", tarball], {
+    await execute("npm", ["install", "--omit=optional", tarball, "typescript@6.0.3"], {
       cwd: omitted,
       timeout: 120_000,
     });
@@ -128,11 +166,26 @@ describe("canonical npm tarball", () => {
       ".bin",
       process.platform === "win32" ? "opsi.cmd" : "opsi",
     );
-    await expect(
-      execute(binary, ["doctor", "--json", "--offline"], { cwd: omitted }),
-    ).rejects.toMatchObject({
+    let nativeFailure: (Error & { code?: number; stdout?: string }) | undefined;
+    try {
+      await execute(binary, ["doctor", "--json", "--offline"], { cwd: omitted });
+    } catch (error) {
+      nativeFailure = error as Error & { code?: number; stdout?: string };
+    }
+    expect(nativeFailure).toMatchObject({
       code: 5,
       stdout: expect.stringContaining("DUCKDB_UNAVAILABLE"),
     });
+    const report = JSON.parse(nativeFailure?.stdout ?? "") as {
+      data: { checks: Array<{ name: string; status: string }> };
+    };
+    expect(report.data.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "format:csv", status: "pass" }),
+        expect.objectContaining({ name: "format:xlsx", status: "pass" }),
+        expect.objectContaining({ name: "format:parquet", status: "fail" }),
+      ]),
+    );
+    await compileSdkConsumer(omitted);
   });
 });
