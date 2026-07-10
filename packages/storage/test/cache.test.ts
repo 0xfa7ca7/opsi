@@ -167,6 +167,70 @@ describe("ContentCache", () => {
     await replacement.release();
   });
 
+  it("does not trust a stale registry when a live reused PID has a different OS start identity", async () => {
+    const directory = await root();
+    const lock = await CacheLock.acquire(directory, "third-process", {
+      processStartIdentity: async () => "actual-start",
+      staleMs: 50,
+    });
+    await writeFile(
+      join(lock.path, "owner.json"),
+      JSON.stringify({
+        token: "third",
+        createdAt: Date.now(),
+        heartbeatAt: Date.now(),
+        pid: process.pid,
+        hostname: hostname(),
+        processStartedAt: 0,
+        processStartIdentity: "old-reused-start",
+      }),
+    );
+    await lock.release();
+    await expect(
+      CacheLock.acquire(directory, "third-process", {
+        processStartIdentity: async () => "actual-start",
+        staleMs: 50,
+        waitMs: 20,
+      }),
+    ).rejects.toMatchObject({ code: "CACHE_LOCK_TIMEOUT" });
+    const ownerPath = join(lock.path, "owner.json");
+    const owner = JSON.parse(await readFile(ownerPath, "utf8")) as Record<string, unknown>;
+    owner.heartbeatAt = 0;
+    await writeFile(ownerPath, JSON.stringify(owner));
+    const recovered = await CacheLock.acquire(directory, "third-process", {
+      processStartIdentity: async () => "actual-start",
+      staleMs: 1,
+      waitMs: 100,
+    });
+    await recovered.release();
+  });
+
+  it("rejects digest-named symlink objects before hashing or EEXIST publication", async () => {
+    const cache = new ContentCache(await root());
+    const layout = await cache.layout();
+    const digest = sha256("hello");
+    const victim = join(await root(), "victim");
+    await writeFile(victim, "hello");
+    await symlink(victim, layout.objectPath(digest));
+    await expect(cache.getObject(digest)).rejects.toMatchObject({ code: "CACHE_CORRUPT" });
+    await expect(cache.putObject(Readable.from(["hello"]))).rejects.toMatchObject({
+      code: "CACHE_CORRUPT",
+    });
+    expect(await cache.verify()).toMatchObject({ errors: [`object:${digest}`] });
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "rejects a digest-named FIFO without opening it",
+    async () => {
+      const cache = new ContentCache(await root());
+      const layout = await cache.layout();
+      const digest = sha256("fifo");
+      await execFileAsync("mkfifo", [layout.objectPath(digest)]);
+      await expect(cache.getObject(digest)).rejects.toMatchObject({ code: "CACHE_CORRUPT" });
+      expect(await cache.verify()).toMatchObject({ errors: [`object:${digest}`] });
+    },
+  );
+
   it("detects corrupted objects before reads or materialization and uses exclusive temps", async () => {
     const cache = new ContentCache(await root());
     const object = await cache.putObject(Readable.from(["hello"]));

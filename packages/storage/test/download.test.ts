@@ -305,6 +305,19 @@ describe("Downloader", () => {
     expect(received["x-safe"]).toBe("keep");
   });
 
+  it("does not allow callers to override Accept-Encoding identity", async () => {
+    let encoding: string | undefined;
+    const base = await listen((request, response) => {
+      encoding = request.headers["accept-encoding"];
+      response.end("hello");
+    });
+    await new Downloader().download({
+      ...localOptions(base, await destination("encoding")),
+      headers: { "accept-encoding": "gzip" },
+    });
+    expect(encoding).toBe("identity");
+  });
+
   it("denies redirects to private addresses, HTTPS downgrade, and forbidden schemes", async () => {
     const cases = [
       { location: "https://127.0.0.1/private", code: "NETWORK_ADDRESS_FORBIDDEN" },

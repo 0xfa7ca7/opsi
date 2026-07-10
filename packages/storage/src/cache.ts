@@ -20,6 +20,7 @@ interface MetadataRecord<T = unknown> {
   createdAt: string;
   expiresAt?: string;
 }
+const MAX_CACHE_OBJECT_BYTES = 2 * 1024 * 1024 * 1024;
 export interface ContentCacheOptions {
   readonly fault?: (
     point: "after-partial-write" | "after-object-rename" | "before-metadata-rename",
@@ -141,14 +142,19 @@ export class ContentCache implements MetadataCache {
         throw error;
       }
     }
+    const winner = await lstat(target);
+    if (
+      !winner.isFile() ||
+      winner.isSymbolicLink() ||
+      winner.size !== bytes ||
+      winner.size > MAX_CACHE_OBJECT_BYTES
+    ) {
+      await rm(temp, { force: true });
+      throw corrupt("An existing cache object is not a regular file.");
+    }
     if ((await fileDigest(target)).sha256 !== sha256) {
       await rm(temp, { force: true });
       throw corrupt("An existing cache object failed checksum verification.");
-    }
-    const winner = await lstat(target);
-    if (!winner.isFile() || winner.isSymbolicLink()) {
-      await rm(temp, { force: true });
-      throw corrupt("An existing cache object is not a regular file.");
     }
     await unlink(temp).catch(() => undefined);
     this.options.fault?.("after-object-rename");
@@ -169,7 +175,8 @@ export class ContentCache implements MetadataCache {
         });
       throw error;
     }
-    if (!details.isFile()) throw corrupt("Cached object is not a regular file.");
+    if (!details.isFile() || details.isSymbolicLink() || details.size > MAX_CACHE_OBJECT_BYTES)
+      throw corrupt("Cached object is not a regular file.");
     const verified = await fileDigest(path);
     if (verified.sha256 !== sha256 || verified.bytes !== details.size)
       throw corrupt("Cached object checksum verification failed.");
@@ -323,8 +330,14 @@ export class ContentCache implements MetadataCache {
     for (const name of await readdir(layout.objects)) {
       if (!/^[a-f\d]{64}$/u.test(name)) continue;
       objects++;
+      const path = layout.objectPath(name);
+      const details = await lstat(path);
+      if (!details.isFile() || details.isSymbolicLink() || details.size > MAX_CACHE_OBJECT_BYTES) {
+        errors.push(`object:${name}`);
+        continue;
+      }
       const hash = createHash("sha256");
-      for await (const chunk of createReadStream(layout.objectPath(name))) hash.update(chunk);
+      for await (const chunk of createReadStream(path)) hash.update(chunk);
       if (hash.digest("hex") !== name) errors.push(`object:${name}`);
     }
     const metadataFiles = (await readdir(layout.metadata)).filter((name) => name.endsWith(".json"));

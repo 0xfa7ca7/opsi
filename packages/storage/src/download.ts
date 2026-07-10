@@ -174,8 +174,8 @@ export class Downloader {
     let url = validateUrl(input.url, allowHttp, allowPrivate);
     const chain: string[] = [];
     let headers: Record<string, string> = {
-      "accept-encoding": "identity",
       ...(input.headers ?? {}),
+      "accept-encoding": "identity",
     };
     for (let redirect = 0; ; redirect++) {
       chain.push(url.toString());
