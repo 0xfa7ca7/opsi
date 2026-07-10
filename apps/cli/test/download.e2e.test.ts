@@ -26,6 +26,11 @@ beforeAll(async () => {
       response.end("road,count\nA1,42\nA2,7\n");
       return;
     }
+    if (request.url === "/second.txt") {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("second");
+      return;
+    }
     if (request.method === "HEAD") {
       response.writeHead(200, { "content-type": "text/plain", "content-length": "5" });
       response.end();
@@ -47,7 +52,32 @@ beforeAll(async () => {
     if (url.pathname === "/resource_show" && url.searchParams.get("id") === "missing") {
       response.writeHead(404, { "content-type": "application/json" });
       response.end(JSON.stringify({ success: false, error: { message: "not found" } }));
-    } else if (
+    } else if (url.pathname === "/package_show" && url.searchParams.get("id") === "dataset-multi")
+      json(response, {
+        success: true,
+        result: {
+          id: "dataset-multi",
+          name: "multi",
+          title: "Multi",
+          resources: [
+            {
+              id: "resource-1",
+              package_id: "dataset-multi",
+              name: "download.txt",
+              url: fileUrl,
+              format: "TXT",
+            },
+            {
+              id: "resource-2",
+              package_id: "dataset-multi",
+              name: "second.txt",
+              url: `${new URL(fileUrl).origin}/second.txt`,
+              format: "TXT",
+            },
+          ],
+        },
+      });
+    else if (
       url.pathname === "/package_show" &&
       url.searchParams.get("id") === "dataset-traffic-001"
     )
@@ -80,13 +110,21 @@ beforeAll(async () => {
                 url: trafficUrl,
                 format: "CSV",
               }
-            : {
-                id: "resource-1",
-                package_id: "dataset-abc",
-                name: "Download",
-                url: fileUrl,
-                format: "TXT",
-              }),
+            : url.searchParams.get("id") === "resource-2"
+              ? {
+                  id: "resource-2",
+                  package_id: "dataset-multi",
+                  name: "second.txt",
+                  url: `${new URL(fileUrl).origin}/second.txt`,
+                  format: "TXT",
+                }
+              : {
+                  id: "resource-1",
+                  package_id: "dataset-abc",
+                  name: "Download",
+                  url: fileUrl,
+                  format: "TXT",
+                }),
         },
       });
     else if (url.pathname === "/package_search")
@@ -269,6 +307,30 @@ describe("download, cache, offline, and provenance CLI", () => {
       json: { data: { path: join(directory, "download.txt") } },
     });
     expect(await readFile(join(directory, "download.txt"), "utf8")).toBe("hello");
+  });
+
+  it("downloads every dataset resource into an existing destination directory", async () => {
+    const directory = join(home, "dataset-directory");
+    await import("node:fs/promises").then(({ mkdir }) => mkdir(directory));
+    await expect(
+      cli([
+        "download",
+        "dataset-multi",
+        "--dataset",
+        "--destination",
+        directory,
+        "--allow-insecure-http",
+        "--allow-private-network",
+        "--json",
+      ]),
+    ).resolves.toMatchObject({
+      exitCode: 0,
+      json: {
+        data: [{ path: join(directory, "download.txt") }, { path: join(directory, "second.txt") }],
+      },
+    });
+    expect(await readFile(join(directory, "download.txt"), "utf8")).toBe("hello");
+    expect(await readFile(join(directory, "second.txt"), "utf8")).toBe("second");
   });
 
   it("runs the controlled discovery-to-provenance workflow without live OPSI", async () => {

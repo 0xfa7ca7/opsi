@@ -26,8 +26,9 @@ interface CapturedRequest {
   readonly redirect?: RequestRedirect;
 }
 
-it("scopes the environment API key to the configured origin and strips it on redirects", async () => {
+it("preserves the API key on a same-origin HTTPS redirect and cancels the redirect body", async () => {
   const calls: Array<{ url: string; headers: Headers; redirect?: RequestRedirect }> = [];
+  let cancelled = false;
   const fetch = vi.fn(async (input: string | URL, init?: RequestInit) => {
     const url = input.toString();
     calls.push({
@@ -36,9 +37,9 @@ it("scopes the environment API key to the configured origin and strips it on red
       ...(init?.redirect === undefined ? {} : { redirect: init.redirect }),
     });
     if (calls.length === 1)
-      return new Response(null, {
+      return new Response(new ReadableStream({ cancel: () => void (cancelled = true) }), {
         status: 302,
-        headers: { location: "https://other.invalid/package_search" },
+        headers: { location: "/redirected" },
       });
     return new Response(JSON.stringify(await fixture("package-search")), {
       status: 200,
@@ -67,7 +68,35 @@ it("scopes the environment API key to the configured origin and strips it on red
   expect(calls).toHaveLength(2);
   expect(calls[0]?.headers.get("x-ckan-api-key")).toBe("environment-secret");
   expect(calls[0]?.redirect).toBe("manual");
-  expect(calls[1]?.headers.get("x-ckan-api-key")).toBeNull();
+  expect(calls[1]?.headers.get("x-ckan-api-key")).toBe("environment-secret");
+  expect(cancelled).toBe(true);
+});
+
+it.each([
+  ["cross-origin", "https://other.invalid/package_search"],
+  ["loopback", "http://127.0.0.1/package_search"],
+  ["link-local", "http://169.254.169.254/package_search"],
+  ["downgrade", "http://example.invalid/package_search"],
+])("rejects %s catalogue redirects and cancels their bodies", async (_name, location) => {
+  let cancelled = false;
+  const fetch = vi.fn(
+    async () =>
+      new Response(new ReadableStream({ cancel: () => void (cancelled = true) }), {
+        status: 302,
+        headers: { location },
+      }),
+  );
+  const transport = new OpsiTransport({
+    baseUrl: "https://example.invalid/fixture",
+    apiKey: "environment-secret",
+    fetch,
+    scheduler: new RequestScheduler({ intervalMs: 0, maxRetries: 0 }),
+  });
+  await expect(
+    transport.call("package_show", { id: "dataset", use_default_schema: false }),
+  ).rejects.toMatchObject({ code: "UNSAFE_PROVIDER_REDIRECT", exitCode: 4 });
+  expect(cancelled).toBe(true);
+  expect(fetch).toHaveBeenCalledTimes(1);
 });
 
 it.each([

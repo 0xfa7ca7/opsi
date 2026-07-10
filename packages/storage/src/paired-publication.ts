@@ -4,7 +4,13 @@ import { dirname, resolve } from "node:path";
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import { CacheLock } from "./cache-lock.js";
 
-export type PairPublicationPoint = "artifact-published" | "sidecar-published";
+export type PairPublicationPoint =
+  | "artifact-published"
+  | "sidecar-published"
+  | "artifact-backup-remove"
+  | "sidecar-backup-remove"
+  | "artifact-restore"
+  | "sidecar-restore";
 export interface PairPublicationOptions {
   readonly force?: boolean;
   readonly fault?: (point: PairPublicationPoint) => void;
@@ -53,6 +59,32 @@ function destinationExists(
   });
 }
 
+function recoveryError(
+  code: "ARTIFACT_PUBLICATION_CLEANUP_FAILED" | "ARTIFACT_PUBLICATION_ROLLBACK_FAILED",
+  message: string,
+  failures: readonly unknown[],
+  recoveryPaths: readonly string[],
+  operationError?: unknown,
+): OpsiError {
+  return new OpsiError({
+    code,
+    message,
+    exitCode: EXIT_CODES.INTEGRITY_FAILURE,
+    suggestion: "Inspect and retain the listed recovery paths before retrying.",
+    context: {
+      failureCount: failures.length,
+      recoveryPaths,
+      failures: failures.map((failure) =>
+        failure instanceof Error ? failure.message : String(failure),
+      ),
+    },
+    cause: new AggregateError(
+      operationError === undefined ? failures : [operationError, ...failures],
+      message,
+    ),
+  });
+}
+
 export async function publishArtifactPair(
   stagedArtifact: string,
   stagedSidecar: string,
@@ -70,6 +102,7 @@ export async function publishArtifactPair(
   let sidecarPublished = false;
   let artifactBackedUp = false;
   let sidecarBackedUp = false;
+  let committed = false;
   try {
     const [artifactExists, sidecarExists] = await Promise.all([
       existsRegular(destination),
@@ -101,14 +134,70 @@ export async function publishArtifactPair(
     }
     options.fault?.("sidecar-published");
     await syncDirectory(directory);
-    await Promise.all([rm(artifactBackup, { force: true }), rm(sidecarBackup, { force: true })]);
+    committed = true;
+    const cleanupFailures: unknown[] = [];
+    const recoveryPaths: string[] = [];
+    if (artifactBackedUp)
+      try {
+        options.fault?.("artifact-backup-remove");
+        await rm(artifactBackup);
+        artifactBackedUp = false;
+      } catch (error) {
+        cleanupFailures.push(error);
+        recoveryPaths.push(artifactBackup);
+      }
+    if (sidecarBackedUp)
+      try {
+        options.fault?.("sidecar-backup-remove");
+        await rm(sidecarBackup);
+        sidecarBackedUp = false;
+      } catch (error) {
+        cleanupFailures.push(error);
+        recoveryPaths.push(sidecarBackup);
+      }
+    if (cleanupFailures.length > 0)
+      throw recoveryError(
+        "ARTIFACT_PUBLICATION_CLEANUP_FAILED",
+        "The new artifact pair is committed, but backup cleanup was incomplete.",
+        cleanupFailures,
+        recoveryPaths,
+      );
     return { output: destination, provenancePath };
   } catch (error) {
-    if (sidecarPublished) await rm(provenancePath, { force: true });
-    if (artifactPublished) await rm(destination, { force: true });
-    if (artifactBackedUp) await rename(artifactBackup, destination).catch(() => undefined);
-    if (sidecarBackedUp) await rename(sidecarBackup, provenancePath).catch(() => undefined);
+    if (committed) throw error;
+    const rollbackFailures: unknown[] = [];
+    if (sidecarPublished)
+      await rm(provenancePath, { force: true }).catch((failure) => rollbackFailures.push(failure));
+    if (artifactPublished)
+      await rm(destination, { force: true }).catch((failure) => rollbackFailures.push(failure));
+    if (artifactBackedUp)
+      try {
+        options.fault?.("artifact-restore");
+        await rename(artifactBackup, destination);
+        artifactBackedUp = false;
+      } catch (failure) {
+        rollbackFailures.push(failure);
+      }
+    if (sidecarBackedUp)
+      try {
+        options.fault?.("sidecar-restore");
+        await rename(sidecarBackup, provenancePath);
+        sidecarBackedUp = false;
+      } catch (failure) {
+        rollbackFailures.push(failure);
+      }
     await syncDirectory(directory);
+    if (rollbackFailures.length > 0)
+      throw recoveryError(
+        "ARTIFACT_PUBLICATION_ROLLBACK_FAILED",
+        "Artifact publication failed and the original pair could not be fully restored.",
+        rollbackFailures,
+        [
+          ...(artifactBackedUp ? [artifactBackup] : []),
+          ...(sidecarBackedUp ? [sidecarBackup] : []),
+        ],
+        error,
+      );
     throw error;
   } finally {
     await lock.release();

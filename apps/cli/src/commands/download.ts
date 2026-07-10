@@ -7,6 +7,7 @@ import {
   type ResourceId,
 } from "@opsi/domain";
 import type { OpsiClient } from "@opsi/core";
+import { stat } from "node:fs/promises";
 import type { Command } from "commander";
 import type { CliContext } from "../context.js";
 import { manifestCommand } from "../command-manifest.js";
@@ -19,6 +20,15 @@ interface Options {
   readonly allowPrivateNetwork?: boolean;
   readonly dataset?: boolean;
   readonly resource?: boolean;
+}
+
+async function isExistingDirectory(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
 }
 export function registerDownloadCommand(
   program: Command,
@@ -39,12 +49,6 @@ export function registerDownloadCommand(
         exitCode: EXIT_CODES.INVALID_INPUT,
       });
     const destination = options.destination ?? options.output;
-    if (ids.length > 1 && destination !== undefined)
-      throw new OpsiError({
-        code: "INVALID_DOWNLOAD_DESTINATION",
-        message: "A destination may only be used with one resource.",
-        exitCode: EXIT_CODES.INVALID_INPUT,
-      });
     const selections: Array<{ id: ResourceId; providerId?: string }> = [];
     for (const id of ids) {
       const reference = id.includes(":") ? parseCanonicalReference(id) : undefined;
@@ -108,11 +112,16 @@ export function registerDownloadCommand(
             candidate.id === selection.id && candidate.providerId === selection.providerId,
         ) === index,
     );
-    if (uniqueSelections.length > 1 && destination !== undefined)
+    if (
+      uniqueSelections.length > 1 &&
+      destination !== undefined &&
+      !(await isExistingDirectory(destination))
+    )
       throw new OpsiError({
         code: "INVALID_DOWNLOAD_DESTINATION",
-        message: "A destination may only be used with one resource.",
+        message: "Multiple resources require an existing destination directory.",
         exitCode: EXIT_CODES.INVALID_INPUT,
+        suggestion: "Create the directory first or omit --destination/--output.",
       });
     const results: unknown[] = [];
     const errors: unknown[] = [];

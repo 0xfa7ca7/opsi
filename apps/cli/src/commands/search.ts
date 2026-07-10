@@ -1,5 +1,5 @@
 import type { OpsiClient } from "@opsi/core";
-import type { SearchQuery, SearchSort } from "@opsi/domain";
+import { EXIT_CODES, OpsiError, type SearchQuery, type SearchSort } from "@opsi/domain";
 import { InvalidArgumentError, type Command } from "commander";
 import type { CliContext } from "../context.js";
 import { manifestCommand } from "../command-manifest.js";
@@ -33,6 +33,15 @@ function searchSort(values: readonly string[] | undefined): readonly SearchSort[
   });
 }
 
+function paginationError(message: string): OpsiError {
+  return new OpsiError({
+    code: "SEARCH_PAGINATION_INVALID",
+    message,
+    exitCode: EXIT_CODES.PROVIDER_FAILURE,
+    suggestion: "Narrow the search or use --limit and --offset to retrieve a bounded page.",
+  });
+}
+
 export function registerSearchCommand(
   program: Command,
   context: CliContext,
@@ -63,17 +72,17 @@ export function registerSearchCommand(
         let pages = 1;
         const maximum = 10_000;
         if (page.total - page.offset > maximum)
-          throw new InvalidArgumentError(`--all is bounded to ${maximum} results`);
+          throw paginationError(`Search --all is bounded to ${maximum} results.`);
         while (nextOffset !== undefined) {
           if (items.length >= maximum || nextOffset <= (query.offset ?? 0))
-            throw new InvalidArgumentError(`--all is bounded to ${maximum} results`);
+            throw paginationError("The provider returned a non-advancing search page.");
           const next = await client.search({ ...query, offset: nextOffset });
           items.push(...next.items);
           pages += 1;
           if (items.length > maximum)
-            throw new InvalidArgumentError(`--all is bounded to ${maximum} results`);
+            throw paginationError(`Search --all is bounded to ${maximum} results.`);
           if (next.nextOffset !== undefined && next.nextOffset <= nextOffset)
-            throw new InvalidArgumentError("provider pagination did not advance");
+            throw paginationError("The provider returned a non-advancing search page.");
           nextOffset = next.nextOffset;
         }
         context.renderer?.write(items, {

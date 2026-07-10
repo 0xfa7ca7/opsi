@@ -63,6 +63,24 @@ describe("final command contracts", () => {
     });
   });
 
+  it.each([
+    ["non-advancing", { items: [], total: 2, limit: 1, offset: 0, nextOffset: 0 }],
+    ["over-cap", { items: [], total: 10_001, limit: 10, offset: 0, nextOffset: 10 }],
+  ])("returns a typed actionable error for %s --all pagination", async (_name, page) => {
+    const program = new Command();
+    registerCommandManifest(program);
+    registerSearchCommand(program, context(), {
+      search: vi.fn(async () => page),
+    } as unknown as OpsiClient);
+    await expect(
+      program.parseAsync(["search", "x", "--all"], { from: "user" }),
+    ).rejects.toMatchObject({
+      code: "SEARCH_PAGINATION_INVALID",
+      exitCode: 4,
+      suggestion: expect.any(String),
+    });
+  });
+
   it("rejects ambiguous bare downloads and expands explicit dataset selection", async () => {
     const resource = {
       id: resourceId("r1"),

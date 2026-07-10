@@ -55,4 +55,62 @@ describe("paired artifact publication", () => {
     };
     expect(sidecar.label).toBe(artifact);
   });
+
+  it.each([
+    ["artifact-backup-remove", "result.csv.backup-", "result.csv.provenance.json.backup-"],
+    ["sidecar-backup-remove", "result.csv.provenance.json.backup-", "result.csv.backup-"],
+  ])(
+    "keeps the committed new pair and recovery path when %s fails",
+    async (point, retained, removed) => {
+      const item = await fixture("new");
+      const destination = join(item.root, "result.csv");
+      await writeFile(destination, "old");
+      await writeFile(`${destination}.provenance.json`, JSON.stringify({ label: "old" }));
+      await expect(
+        publishArtifactPair(item.artifact, item.sidecar, destination, {
+          force: true,
+          fault: ((candidate: string) => {
+            if (candidate === point) throw new Error(`injected ${point}`);
+          }) as never,
+        }),
+      ).rejects.toMatchObject({ code: "ARTIFACT_PUBLICATION_CLEANUP_FAILED", exitCode: 6 });
+      expect(await readFile(destination, "utf8")).toBe("new");
+      expect(JSON.parse(await readFile(`${destination}.provenance.json`, "utf8"))).toEqual({
+        label: "new",
+      });
+      const { readdir } = await import("node:fs/promises");
+      const files = await readdir(item.root);
+      expect(files.some((name) => name.startsWith(retained))).toBe(true);
+      expect(files.some((name) => name.startsWith(removed))).toBe(false);
+    },
+  );
+
+  it("reports a typed rollback failure and retains the original backup when restore fails", async () => {
+    const item = await fixture("new");
+    const destination = join(item.root, "result.csv");
+    await writeFile(destination, "old");
+    await writeFile(`${destination}.provenance.json`, JSON.stringify({ label: "old" }));
+    await expect(
+      publishArtifactPair(item.artifact, item.sidecar, destination, {
+        force: true,
+        fault: ((point: string) => {
+          if (point === "artifact-published" || point === "artifact-restore")
+            throw new Error(`injected ${point}`);
+        }) as never,
+      }),
+    ).rejects.toMatchObject({
+      code: "ARTIFACT_PUBLICATION_ROLLBACK_FAILED",
+      exitCode: 6,
+      context: {
+        recoveryPaths: expect.arrayContaining([expect.stringContaining("result.csv.backup-")]),
+      },
+    });
+    expect(JSON.parse(await readFile(`${destination}.provenance.json`, "utf8"))).toEqual({
+      label: "old",
+    });
+    const { readdir } = await import("node:fs/promises");
+    expect((await readdir(item.root)).some((name) => name.startsWith("result.csv.backup-"))).toBe(
+      true,
+    );
+  });
 });

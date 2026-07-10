@@ -67,6 +67,16 @@ function providerError(
   });
 }
 
+function unsafeRedirect(operation: OpsiOperationName, destination: URL): OpsiError {
+  return new OpsiError({
+    code: "UNSAFE_PROVIDER_REDIRECT",
+    message: "OPSI attempted to redirect catalogue traffic outside its configured HTTPS origin.",
+    exitCode: EXIT_CODES.PROVIDER_FAILURE,
+    suggestion: "Verify OPSI_BASE_URL and retry without following the unsafe redirect.",
+    context: { provider: "opsi", operation, origin: destination.origin },
+  });
+}
+
 export class OpsiTransport {
   private readonly baseUrl: string;
   private readonly fetch: OpsiFetch;
@@ -156,10 +166,23 @@ export class OpsiTransport {
         if (![301, 302, 303, 307, 308].includes(response.status)) break;
         const location = response.headers.get("location");
         if (location === null) break;
+        await response.body?.cancel();
         if (redirects >= this.maxRedirects)
           throw providerError(operation, "OPSI exceeded the redirect limit.");
         redirects += 1;
-        current = new URL(location, current);
+        let next: URL;
+        try {
+          next = new URL(location, current);
+        } catch {
+          throw unsafeRedirect(operation, current);
+        }
+        if (
+          this.origin.startsWith("https://") === false ||
+          next.protocol !== "https:" ||
+          next.origin !== this.origin
+        )
+          throw unsafeRedirect(operation, next);
+        current = next;
         if (
           response.status === 303 ||
           ((response.status === 301 || response.status === 302) && request.method === "POST")
