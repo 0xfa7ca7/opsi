@@ -221,6 +221,34 @@ class StreamingDiagnostics {
     this.retain(Buffer.byteLength(key) + Buffer.byteLength(JSON.stringify(candidate)));
     this.grouped.set(key, { issue: candidate, count: 1 });
   }
+  chargeHeader(columns: readonly string[], warnings: readonly ValidationIssue[]): void {
+    if (columns.length > this.limits.maxColumns)
+      throw new OpsiError({
+        code: "VALIDATION_COLUMN_LIMIT",
+        message: "Validation header exceeds the column limit.",
+        exitCode: 5,
+        suggestion: "Reduce the number of columns.",
+      });
+    const serialized = JSON.stringify(columns);
+    const bytes = Buffer.byteLength(serialized);
+    if (bytes > this.limits.maxRecordBytes)
+      throw new OpsiError({
+        code: "VALIDATION_RECORD_TOO_LARGE",
+        message: "Validation header exceeds the record byte limit.",
+        exitCode: 5,
+        suggestion: "Shorten header values.",
+      });
+    this.totalBytes += bytes;
+    if (this.totalBytes > this.limits.maxTotalBytes)
+      throw new OpsiError({
+        code: "VALIDATION_TOTAL_BYTES_LIMIT",
+        message: "Validation total byte limit exceeded.",
+        exitCode: 5,
+        suggestion: "Shorten header values.",
+      });
+    this.retain(bytes);
+    for (const warning of warnings) this.addIssue(warning);
+  }
   add(row: Readonly<Record<string, unknown>>, warnings: readonly ValidationIssue[] = []): void {
     const columns = Object.keys(row);
     if (columns.length > this.limits.maxColumns)
@@ -450,6 +478,7 @@ export async function validateData(
           },
           (row, warnings) => diagnostics.add(row, warnings),
           (headerIssue) => diagnostics.addIssue(headerIssue),
+          (columns, warnings) => diagnostics.chargeHeader(columns, warnings),
         );
       else
         await scanWithDuckDb(detection.path, detection.format as "json" | "parquet", (row) =>

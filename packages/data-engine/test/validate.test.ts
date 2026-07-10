@@ -331,4 +331,68 @@ describe("data validation", () => {
       new DataEngine({ validationMaxColumns: 1 }).validate(path, { sheet: "Wide" }),
     ).rejects.toMatchObject({ code: "VALIDATION_COLUMN_LIMIT", exitCode: 5 });
   });
+
+  it("charges XLSX headers and header formulas to shared budgets", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "opsi-xlsx-header-budget-"));
+    temporary.push(directory);
+    const path = join(directory, "header-budget.xlsx");
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Rows");
+    sheet.addRow([{ formula: '"danger"', result: "danger" }, "x".repeat(200)]);
+    await workbook.xlsx.writeFile(path);
+    await expect(
+      new DataEngine({ validationMaxRecordBytes: 40 }).validate(path, { sheet: "Rows" }),
+    ).rejects.toMatchObject({ code: "VALIDATION_RECORD_TOO_LARGE", exitCode: 5 });
+    const result = await new DataEngine({ validationMaxRecordBytes: 1_000 }).validate(path, {
+      sheet: "Rows",
+    });
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        code: "FORMULA_CELL",
+        row: 1,
+        context: expect.objectContaining({ occurrenceCount: 1 }),
+      }),
+    );
+  });
+
+  it("applies shared row/record/total/column limits to JSON and Parquet", async () => {
+    const json = await fixture('[{"a":"12345","b":2},{"a":"67890","b":3}]', "limits.json");
+    await expect(new DataEngine({ validationMaxRecords: 1 }).validate(json)).rejects.toMatchObject({
+      code: "VALIDATION_RECORD_LIMIT",
+    });
+    await expect(
+      new DataEngine({ validationMaxRecordBytes: 5 }).validate(json),
+    ).rejects.toMatchObject({ code: "VALIDATION_RECORD_TOO_LARGE" });
+    await expect(
+      new DataEngine({ validationMaxTotalBytes: 10 }).validate(json),
+    ).rejects.toMatchObject({ code: "VALIDATION_TOTAL_BYTES_LIMIT" });
+    await expect(new DataEngine({ validationMaxColumns: 1 }).validate(json)).rejects.toMatchObject({
+      code: "VALIDATION_COLUMN_LIMIT",
+    });
+    const directory = await mkdtemp(join(tmpdir(), "opsi-parquet-limits-"));
+    temporary.push(directory);
+    const parquet = join(directory, "limits.parquet");
+    const instance = await DuckDBInstance.create(":memory:");
+    const connection = await instance.connect();
+    try {
+      await connection.run(
+        `COPY (SELECT * FROM (VALUES ('12345', 2), ('67890', 3)) t(a,b)) TO '${parquet}' (FORMAT PARQUET)`,
+      );
+    } finally {
+      connection.closeSync();
+      instance.closeSync();
+    }
+    await expect(
+      new DataEngine({ validationMaxRecords: 1 }).validate(parquet),
+    ).rejects.toMatchObject({ code: "VALIDATION_RECORD_LIMIT" });
+    await expect(
+      new DataEngine({ validationMaxRecordBytes: 5 }).validate(parquet),
+    ).rejects.toMatchObject({ code: "VALIDATION_RECORD_TOO_LARGE" });
+    await expect(
+      new DataEngine({ validationMaxTotalBytes: 10 }).validate(parquet),
+    ).rejects.toMatchObject({ code: "VALIDATION_TOTAL_BYTES_LIMIT" });
+    await expect(
+      new DataEngine({ validationMaxColumns: 1 }).validate(parquet),
+    ).rejects.toMatchObject({ code: "VALIDATION_COLUMN_LIMIT" });
+  }, 20_000);
 });

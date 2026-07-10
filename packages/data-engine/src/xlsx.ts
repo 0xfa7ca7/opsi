@@ -195,6 +195,7 @@ export async function scanXlsx(
   },
   onRow: (row: DataRow, warnings: readonly ValidationIssue[]) => void,
   onIssue: (issue: ValidationIssue) => void,
+  onHeader: (columns: readonly string[], warnings: readonly ValidationIssue[]) => void,
 ): Promise<void> {
   if (sheet === undefined || sheet.trim().length === 0) {
     const sheets = await listSheets(path, options.sharedStringsByteLimit);
@@ -256,6 +257,7 @@ export async function scanXlsx(
             });
           return count === 1 ? base : `${base}_${count}`;
         });
+        onHeader(columns, warnings);
       } else {
         if (values.length !== columns.length)
           onIssue({
