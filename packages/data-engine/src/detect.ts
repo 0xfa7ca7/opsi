@@ -47,7 +47,9 @@ function result(
 }
 
 function signature(head: Buffer, tail: Buffer): DetectedInputFormat | undefined {
-  if (head.subarray(0, 4).equals(Buffer.from("PAR1"))) return "parquet";
+  const finalBytes = tail.length >= 4 ? tail.subarray(-4) : head.subarray(-4);
+  if (head.subarray(0, 4).equals(Buffer.from("PAR1")) && finalBytes.equals(Buffer.from("PAR1")))
+    return "parquet";
   const zipHeader = head.subarray(0, 4);
   if (
     zipHeader.equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])) ||
@@ -123,6 +125,16 @@ export async function detectFormat(input: DataInput): Promise<FormatDetection> {
   const byContent = text === undefined ? undefined : structuredContent(text, structuredFallback);
   if (byContent !== undefined)
     return result(path, byContent, "content", source.mediaType, extension);
+
+  const declared = source.declaredFormat?.trim().toLowerCase().replace(/^\./u, "");
+  const byDeclared =
+    declared === "jsonl"
+      ? "ndjson"
+      : (["csv", "tsv", "json", "ndjson", "xlsx", "parquet"] as const).find(
+          (format) => format === declared,
+        );
+  if (byDeclared !== undefined)
+    return result(path, byDeclared, "declared-format", source.mediaType, extension);
 
   return result(
     path,

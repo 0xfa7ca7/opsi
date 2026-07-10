@@ -3,8 +3,10 @@ import { extname } from "node:path";
 import { OpsiError } from "@opsi/domain";
 import { readDelimited } from "./csv.js";
 import { detectFormat } from "./detect.js";
-import { validateWithDuckDb } from "./duckdb-import.js";
+import { scanWithDuckDb } from "./duckdb-import.js";
 import { inferredType, type DataEngine } from "./inspect.js";
+import { scanNdjson } from "./json.js";
+import { scanXlsx } from "./xlsx.js";
 import type {
   DataSource,
   DataValidationResult,
@@ -178,6 +180,11 @@ export async function validateData(
   engine: DataEngine,
   source: DataSource,
   options: PreviewOptions,
+  limits: {
+    readonly maxRecords: number;
+    readonly maxRecordBytes: number;
+    readonly xlsxSharedStringsByteLimit: number;
+  },
 ): Promise<DataValidationResult> {
   const detection = await detectFormat(source);
   const issues: ValidationIssue[] = [];
@@ -247,36 +254,45 @@ export async function validateData(
     }
   }
 
-  if (["json", "ndjson", "parquet"].includes(detection.format)) {
-    try {
-      await validateWithDuckDb(detection.path, detection.format as "json" | "ndjson" | "parquet");
-    } catch (error) {
-      issues.push(
-        issue(
-          "PARSE_ERROR",
-          "error",
-          "The structured data cannot be parsed completely.",
-          "Repair the malformed record or replace the file.",
-          { context: { detail: error instanceof Error ? error.message : String(error) } },
-        ),
-      );
-    }
-  }
-
   if (
     ["json", "ndjson", "xlsx", "parquet"].includes(detection.format) &&
     !issues.some((candidate) => candidate.severity === "error")
   ) {
     try {
-      const preview = await engine.preview(source, { ...options, limit: 500 });
-      const records = preview.rows.map((row) => preview.columns.map((column) => row[column]));
+      const scanned =
+        detection.format === "ndjson"
+          ? {
+              rows: await scanNdjson(detection.path, {
+                maxRecords: limits.maxRecords,
+                maxRecordBytes: limits.maxRecordBytes,
+              }),
+              warnings: [] as readonly ValidationIssue[],
+            }
+          : detection.format === "xlsx"
+            ? await scanXlsx(detection.path, options.sheet, {
+                maxRecords: limits.maxRecords,
+                sharedStringsByteLimit: limits.xlsxSharedStringsByteLimit,
+              })
+            : {
+                rows: await scanWithDuckDb(
+                  detection.path,
+                  detection.format as "json" | "parquet",
+                  limits.maxRecords,
+                ),
+                warnings: [] as readonly ValidationIssue[],
+              };
+      const columns =
+        "columns" in scanned
+          ? scanned.columns
+          : [...new Set(scanned.rows.flatMap((row) => Object.keys(row)))];
+      const records = scanned.rows.map((row) => columns.map((column) => row[column]));
       issues.push(
         ...analyzeRows(
-          preview.columns,
+          columns,
           records,
           records.map((record) => record.length),
         ),
-        ...preview.warnings,
+        ...scanned.warnings,
       );
     } catch (error) {
       if (
@@ -287,6 +303,8 @@ export async function validateData(
           "XLSX_SHARED_STRINGS_TOO_LARGE",
           "DOWNLOAD_ONLY_FORMAT",
           "UNSUPPORTED_FORMAT",
+          "VALIDATION_RECORD_LIMIT",
+          "VALIDATION_RECORD_TOO_LARGE",
         ].includes(error.code)
       )
         throw error;

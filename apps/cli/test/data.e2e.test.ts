@@ -27,29 +27,32 @@ beforeAll(async () => {
       return;
     }
     if (url.pathname === "/resource_show") {
+      const mediaOnly = url.searchParams.get("id") === "resource-media";
       response.writeHead(200, { "content-type": "application/json" });
       response.end(
         JSON.stringify({
           success: true,
           result: {
-            id: "resource-data",
-            package_id: "dataset-data",
+            id: mediaOnly ? "resource-media" : "resource-data",
+            package_id: mediaOnly ? "dataset-media" : "dataset-data",
             name: "Rows",
             url: `${baseUrl}/data.csv`,
-            format: "CSV",
+            format: mediaOnly ? null : "CSV",
+            mimetype: mediaOnly ? "text/csv" : null,
           },
         }),
       );
       return;
     }
     if (url.pathname === "/package_show") {
+      const mediaOnly = url.searchParams.get("id") === "dataset-media";
       response.writeHead(200, { "content-type": "application/json" });
       response.end(
         JSON.stringify({
           success: true,
           result: {
-            id: "dataset-data",
-            name: "dataset-data",
+            id: mediaOnly ? "dataset-media" : "dataset-data",
+            name: mediaOnly ? "dataset-media" : "dataset-data",
             title: "Dataset",
             notes: "Description",
             metadata_modified: "2026-07-10T12:00:00Z",
@@ -57,10 +60,30 @@ beforeAll(async () => {
             license_title: "CC BY",
             organization: { id: "org", name: "org", title: "Org" },
             tags: [],
-            resources: [
-              { id: "resource-data", name: "Rows", url: `${baseUrl}/data.csv`, format: "CSV" },
-              { id: "resource-other", name: "Other", url: `${baseUrl}/other.tsv`, format: "TSV" },
-            ],
+            resources: mediaOnly
+              ? [
+                  {
+                    id: "resource-media",
+                    name: "Rows",
+                    url: `${baseUrl}/data.csv`,
+                    format: null,
+                    mimetype: "text/csv",
+                  },
+                ]
+              : [
+                  {
+                    id: "resource-data",
+                    name: "Rows",
+                    url: `${baseUrl}/data.csv`,
+                    format: "CSV",
+                  },
+                  {
+                    id: "resource-other",
+                    name: "Other",
+                    url: `${baseUrl}/other.tsv`,
+                    format: "TSV",
+                  },
+                ],
           },
         }),
       );
@@ -210,5 +233,21 @@ describe("data CLI", () => {
     await expect(
       cli(["validate", "opsi:dataset:dataset-data", "--metadata", "--json"]),
     ).resolves.toMatchObject({ exitCode: 0, json: { data: { valid: true } } });
+  });
+
+  it("selects a sole tabular dataset resource by definitive media type", async () => {
+    await expect(
+      cli([
+        "dataset",
+        "schema",
+        "dataset-media",
+        "--json",
+        "--allow-private-network",
+        "--allow-insecure-http",
+      ]),
+    ).resolves.toMatchObject({
+      exitCode: 0,
+      json: { data: { format: "csv", fields: expect.any(Array) } },
+    });
   });
 });

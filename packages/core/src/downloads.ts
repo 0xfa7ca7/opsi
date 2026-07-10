@@ -15,6 +15,7 @@ import {
 import type { ProviderRegistry } from "./registry.js";
 
 export interface ResourceDownloadOptions {
+  readonly providerId?: string;
   readonly destination?: string;
   readonly force?: boolean;
   readonly allowInsecureHttp?: boolean;
@@ -49,7 +50,8 @@ export class DownloadService {
     id: ResourceId,
     options: ResourceDownloadOptions = {},
   ): Promise<DownloadResult & { readonly provenancePath: string }> {
-    const provider = this.options.registry.get(this.options.providerId);
+    const selectedProviderId = options.providerId ?? this.options.providerId;
+    const provider = this.options.registry.get(selectedProviderId);
     const resource = await provider.getResource(id);
     const resolved = await provider.resolveResource(resource);
     const destination =
@@ -142,7 +144,7 @@ export class DownloadService {
         message: "Resource headers are unavailable in offline mode.",
         exitCode: EXIT_CODES.NOT_FOUND,
       });
-    const provider = this.options.registry.get(this.options.providerId);
+    const provider = this.options.registry.get(options.providerId ?? this.options.providerId);
     const resolved = await provider.resolveResource(await provider.getResource(id));
     return this.downloader.probe({
       url: resolved.url,

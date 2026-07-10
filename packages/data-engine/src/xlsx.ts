@@ -184,3 +184,62 @@ export async function previewXlsx(
     warnings,
   };
 }
+
+export async function scanXlsx(
+  path: string,
+  sheet: string | undefined,
+  options: { readonly maxRecords: number; readonly sharedStringsByteLimit: number },
+): Promise<{
+  readonly columns: readonly string[];
+  readonly rows: readonly DataRow[];
+  readonly warnings: readonly ValidationIssue[];
+}> {
+  if (sheet === undefined || sheet.trim().length === 0) {
+    const sheets = await listSheets(path, options.sharedStringsByteLimit);
+    throw new OpsiError({
+      code: "SHEET_REQUIRED",
+      message: "XLSX validation requires an explicit sheet selection.",
+      exitCode: EXIT_CODES.INVALID_INPUT,
+      suggestion: `Use --sheet with one of: ${sheets.join(", ")}.`,
+      context: { sheets },
+    });
+  }
+  const workbook = await streamingReader(path, options.sharedStringsByteLimit);
+  const records: unknown[][] = [];
+  const warnings: ValidationIssue[] = [];
+  let found = false;
+  for await (const rawWorksheet of workbook) {
+    const worksheet = rawWorksheet as NamedWorksheetReader;
+    if (worksheet.name !== sheet) {
+      for await (const row of worksheet) void row;
+      continue;
+    }
+    found = true;
+    for await (const row of worksheet) {
+      if (records.length > options.maxRecords)
+        throw new OpsiError({
+          code: "VALIDATION_RECORD_LIMIT",
+          message: "Validation record limit exceeded.",
+          exitCode: EXIT_CODES.UNSUPPORTED,
+          suggestion: "Split the worksheet and validate each part.",
+          context: { limit: options.maxRecords },
+        });
+      const values: unknown[] = [];
+      for (let column = 1; column <= row.cellCount; column += 1)
+        values.push(cellValue(row.getCell(column), warnings, row.number));
+      records.push(values);
+    }
+    break;
+  }
+  if (!found)
+    throw new OpsiError({
+      code: "SHEET_NOT_FOUND",
+      message: `XLSX sheet '${sheet}' was not found.`,
+      exitCode: EXIT_CODES.NOT_FOUND,
+      context: { sheet },
+    });
+  const columns = (records[0] ?? []).map((value, index) =>
+    value === null || value === "" ? `column_${index + 1}` : String(value),
+  );
+  return { columns, rows: recordsToRows(columns, records.slice(1)), warnings };
+}

@@ -42,10 +42,21 @@ export function registerDatasetCommand(
         },
       ) => {
         const value = await client.datasets.get(datasetId(id));
-        const tabular = value.resources.filter((resource) =>
-          ["csv", "tsv", "json", "jsonl", "ndjson", "xlsx", "parquet"].includes(
-            resource.format?.toLowerCase() ?? "",
-          ),
+        const tabular = value.resources.filter(
+          (resource) =>
+            ["csv", "tsv", "json", "jsonl", "ndjson", "xlsx", "parquet"].includes(
+              resource.format?.toLowerCase() ?? "",
+            ) ||
+            [
+              "text/csv",
+              "text/tab-separated-values",
+              "application/json",
+              "application/x-ndjson",
+              "application/ndjson",
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              "application/vnd.apache.parquet",
+              "application/parquet",
+            ].includes(resource.mediaType?.split(";", 1)[0]?.trim().toLowerCase() ?? ""),
         );
         let selected = options.resource;
         if (selected === undefined) {

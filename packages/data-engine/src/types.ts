@@ -1,6 +1,7 @@
 export type SupportedDataFormat = "csv" | "tsv" | "json" | "ndjson" | "xlsx" | "parquet";
 export type DetectedInputFormat = SupportedDataFormat | "zip" | "unknown";
-export type DetectionConfidence = "signature" | "media-type" | "content" | "extension" | "unknown";
+export type DetectionConfidence =
+  "signature" | "media-type" | "content" | "declared-format" | "extension" | "unknown";
 
 export interface DataSource {
   readonly path: string;

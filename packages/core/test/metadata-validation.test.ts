@@ -69,11 +69,12 @@ describe("metadata validation", () => {
 
   it("parses canonical resource references before applying local path heuristics", async () => {
     const calls: string[] = [];
+    const downloadProviders: Array<string | undefined> = [];
     const fixture = resolve("packages/testing/fixtures/data/valid.csv");
     const client = {
       resources: {
-        get: async (id: string) => {
-          calls.push(id);
+        get: async (id: string, selectedProvider?: string) => {
+          calls.push(`${selectedProvider}:${id}`);
           return {
             id: resourceId(id),
             datasetId: datasetId("dataset-1"),
@@ -85,21 +86,45 @@ describe("metadata validation", () => {
         },
       },
       downloads: {
-        resource: async () => ({
-          path: fixture,
-          sha256: "0".repeat(64),
-          bytes: 1,
-          finalUrl: "https://example.invalid/data.csv",
-          redirectChain: [],
-          mediaType: "text/csv",
-          provenancePath: `${fixture}.provenance.json`,
-        }),
+        resource: async (_id: string, options?: { readonly providerId?: string }) => {
+          downloadProviders.push(options?.providerId);
+          return {
+            path: fixture,
+            sha256: "0".repeat(64),
+            bytes: 1,
+            finalUrl: "https://example.invalid/data.csv",
+            redirectChain: [],
+            mediaType: "text/csv",
+            provenancePath: `${fixture}.provenance.json`,
+          };
+        },
       },
     } as unknown as OpsiClient;
 
     const preview = await new DataService(client).preview("opsi:resource:folder/data.csv");
 
-    expect(calls).toEqual(["folder/data.csv"]);
+    expect(calls).toEqual(["opsi:folder/data.csv"]);
+    expect(downloadProviders).toEqual(["opsi"]);
     expect(preview.rows).toHaveLength(3);
+  });
+
+  it("preserves canonical provider identity and rejects unregistered providers", async () => {
+    const calls: string[] = [];
+    const client = {
+      resources: {
+        get: async (id: string, selectedProvider?: string) => {
+          calls.push(`${selectedProvider}:${id}`);
+          throw Object.assign(new Error("missing"), {
+            code: "PROVIDER_NOT_FOUND",
+            exitCode: 2,
+          });
+        },
+      },
+    } as unknown as OpsiClient;
+
+    await expect(
+      new DataService(client).preview("other:resource:resource.csv"),
+    ).rejects.toMatchObject({ code: "PROVIDER_NOT_FOUND" });
+    expect(calls).toEqual(["other:resource.csv"]);
   });
 });

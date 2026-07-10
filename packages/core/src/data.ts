@@ -36,6 +36,7 @@ export class DataService {
     operation: (source: DataInput) => Promise<T>,
   ): Promise<T> {
     let id: ResourceId;
+    let selectedProviderId: string | undefined;
     if (input.startsWith("local:file:") || /^[^:]+:(?:dataset|resource):/u.test(input)) {
       const reference = parseCanonicalReference(input);
       if (reference.kind === "file") return operation(await this.local.resolve(input));
@@ -47,6 +48,7 @@ export class DataService {
           suggestion: "Select a dataset resource first.",
         });
       id = reference.id;
+      selectedProviderId = reference.providerId;
     } else {
       try {
         return await operation(await this.local.resolve(input));
@@ -55,16 +57,17 @@ export class DataService {
       }
       id = resourceId(input);
     }
+    const resource = await this.client.resources.get(id, selectedProviderId);
     if (this.client.downloads === undefined)
       throw new OpsiError({
         code: "DOWNLOAD_SERVICE_UNAVAILABLE",
         message: "Resource data cannot be resolved because downloads are unavailable.",
         exitCode: EXIT_CODES.UNSUPPORTED,
       });
-    const resource = await this.client.resources.get(id);
     const directory = await mkdtemp(join(tmpdir(), "opsi-data-"));
     try {
       const downloaded = await this.client.downloads.resource(id, {
+        ...(selectedProviderId === undefined ? {} : { providerId: selectedProviderId }),
         destination: join(directory, "source"),
         allowInsecureHttp: options.allowInsecureHttp ?? false,
         allowPrivateNetwork: options.allowPrivateNetwork ?? false,

@@ -104,6 +104,23 @@ describe("bounded previews and schema inference", () => {
     ]);
   });
 
+  it("never declares sampled fields non-nullable when inference is truncated", async () => {
+    const path = await temporaryFile(
+      "late-null.ndjson",
+      `${Array.from({ length: 550 }, (_, id) => JSON.stringify({ id, late: id === 525 ? null : "value" })).join("\n")}\n`,
+    );
+
+    const schema = await engine.inferSchema(path);
+
+    expect(schema.sampledRows).toBe(500);
+    expect(schema.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "id", nullable: true }),
+        expect.objectContaining({ name: "late", nullable: true }),
+      ]),
+    );
+  });
+
   it("requires explicit XLSX sheet selection and never evaluates formula cells", async () => {
     const path = resolve("packages/testing/fixtures/data/data.xlsx");
 

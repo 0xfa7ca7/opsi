@@ -13,8 +13,8 @@ export class DatasetCatalog {
     private readonly providerId: string,
   ) {}
 
-  get(id: DatasetId): Promise<Dataset> {
-    return this.registry.get(this.providerId).getDataset(id);
+  get(id: DatasetId, selectedProviderId: string = this.providerId): Promise<Dataset> {
+    return this.registry.get(selectedProviderId).getDataset(id);
   }
 
   resources(id: DatasetId): Promise<readonly Resource[]> {
@@ -28,8 +28,8 @@ export class ResourceCatalog {
     private readonly providerId: string,
   ) {}
 
-  get(id: ResourceId): Promise<Resource> {
-    return this.registry.get(this.providerId).getResource(id);
+  get(id: ResourceId, selectedProviderId: string = this.providerId): Promise<Resource> {
+    return this.registry.get(selectedProviderId).getResource(id);
   }
 }
 

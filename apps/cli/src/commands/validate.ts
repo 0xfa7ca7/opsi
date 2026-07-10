@@ -51,9 +51,9 @@ export function registerValidateCommand(
 async function validateMetadata(input: string, client: OpsiClient) {
   const reference = parseCanonicalReference(input);
   if (reference.kind === "dataset")
-    return validateDatasetMetadata(await client.datasets.get(reference.id));
+    return validateDatasetMetadata(await client.datasets.get(reference.id, reference.providerId));
   if (reference.kind === "resource")
-    return validateResourceMetadata(await client.resources.get(reference.id));
+    return validateResourceMetadata(await client.resources.get(reference.id, reference.providerId));
   throw new OpsiError({
     code: "METADATA_REFERENCE_REQUIRED",
     message: "Metadata validation requires a canonical dataset or resource reference.",

@@ -179,7 +179,7 @@ export class DataEngine {
       return {
         name,
         type: mergeTypes(nonNull.map((value) => inferredType(value) as InferredFieldType)),
-        nullable: nonNull.length !== values.length,
+        nullable: preview.truncated || nonNull.length !== values.length,
         evidence,
       };
     });
@@ -192,6 +192,10 @@ export class DataEngine {
   }
 
   validate(input: DataInput, options: PreviewOptions = {}) {
-    return validateData(this, normalizeInput(input), options);
+    return validateData(this, normalizeInput(input), options, {
+      maxRecords: 100_000,
+      maxRecordBytes: 16 * 1024 * 1024,
+      xlsxSharedStringsByteLimit: this.xlsxSharedStringsByteLimit,
+    });
   }
 }

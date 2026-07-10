@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { DataEngine } from "../src/index.js";
+import ExcelJS from "exceljs";
+import { DuckDBInstance } from "@duckdb/node-api";
 
 const engine = new DataEngine();
 const temporary: string[] = [];
@@ -129,4 +131,118 @@ describe("data validation", () => {
       issues: expect.arrayContaining([expect.objectContaining({ code: "PARSE_ERROR" })]),
     });
   });
+
+  it("runs JSON diagnostics across rows beyond the preview sample", async () => {
+    const rows = Array.from({ length: 1_100 }, (_, id) => ({
+      id,
+      date: "2026-01-01",
+      value: "safe",
+      mostly: id < 500 ? "present" : (null as string | null),
+    }));
+    rows[520] = { id: 520, date: "2026-99-99", value: "=2+2", mostly: null };
+    rows[521] = { ...rows[520] };
+    rows[522] = { id: 522, date: "2026-01-01", value: "3", mostly: null };
+    const path = await fixture(JSON.stringify(rows), "late-diagnostics.json");
+
+    const codes = (await engine.validate(path)).issues.map((candidate) => candidate.code);
+
+    expect(codes).toEqual(
+      expect.arrayContaining([
+        "DUPLICATE_ROW",
+        "MIXED_TYPES",
+        "NULL_HEAVY_COLUMN",
+        "INVALID_DATE",
+        "FORMULA_LIKE_VALUE",
+      ]),
+    );
+  });
+
+  it("runs NDJSON diagnostics across rows beyond the preview sample", async () => {
+    const rows = Array.from({ length: 1_100 }, (_, id) => ({
+      id,
+      date: "2026-01-01",
+      value: "safe",
+      mostly: id < 500 ? "present" : null,
+    }));
+    rows[520] = { id: 520, date: "2026-99-99", value: "=2+2", mostly: null };
+    rows[521] = { ...rows[520] };
+    rows[522] = { id: 522, date: "2026-01-01", value: "3", mostly: null };
+    const path = await fixture(
+      `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`,
+      "late-diagnostics.ndjson",
+    );
+
+    const codes = (await engine.validate(path)).issues.map((candidate) => candidate.code);
+
+    expect(codes).toEqual(
+      expect.arrayContaining([
+        "DUPLICATE_ROW",
+        "MIXED_TYPES",
+        "NULL_HEAVY_COLUMN",
+        "INVALID_DATE",
+        "FORMULA_LIKE_VALUE",
+      ]),
+    );
+  });
+
+  it("streams XLSX diagnostics across rows beyond the preview sample", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "opsi-xlsx-validation-"));
+    temporary.push(directory);
+    const path = join(directory, "late.xlsx");
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Rows");
+    sheet.addRow(["id", "date", "value", "mostly"]);
+    for (let id = 0; id < 1_100; id += 1)
+      sheet.addRow([
+        id,
+        id === 525 ? "2026-99-99" : "2026-01-01",
+        id === 525 ? "=2+2" : id === 526 ? "3" : "safe",
+        id < 500 ? "present" : null,
+      ]);
+    sheet.addRow([525, "2026-99-99", "=2+2", null]);
+    await workbook.xlsx.writeFile(path);
+
+    const codes = (await engine.validate(path, { sheet: "Rows" })).issues.map(
+      (candidate) => candidate.code,
+    );
+
+    expect(codes).toEqual(
+      expect.arrayContaining([
+        "DUPLICATE_ROW",
+        "MIXED_TYPES",
+        "NULL_HEAVY_COLUMN",
+        "INVALID_DATE",
+        "FORMULA_LIKE_VALUE",
+      ]),
+    );
+  }, 20_000);
+
+  it("scans Parquet diagnostics across rows beyond the preview sample", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "opsi-parquet-validation-"));
+    temporary.push(directory);
+    const path = join(directory, "late.parquet");
+    const instance = await DuckDBInstance.create(":memory:");
+    const connection = await instance.connect();
+    try {
+      const escaped = path.replaceAll("'", "''");
+      await connection.run(
+        `COPY (SELECT i AS id, CASE WHEN i = 525 THEN '2026-99-99' ELSE '2026-01-01' END AS date, CASE WHEN i = 525 THEN '=2+2' WHEN i = 526 THEN '3' ELSE 'safe' END AS value, CASE WHEN i < 500 THEN 'present' ELSE NULL END AS mostly FROM range(1100) t(i) UNION ALL SELECT 525, '2026-99-99', '=2+2', NULL) TO '${escaped}' (FORMAT PARQUET)`,
+      );
+    } finally {
+      connection.closeSync();
+      instance.closeSync();
+    }
+
+    const codes = (await engine.validate(path)).issues.map((candidate) => candidate.code);
+
+    expect(codes).toEqual(
+      expect.arrayContaining([
+        "DUPLICATE_ROW",
+        "MIXED_TYPES",
+        "NULL_HEAVY_COLUMN",
+        "INVALID_DATE",
+        "FORMULA_LIKE_VALUE",
+      ]),
+    );
+  }, 20_000);
 });

@@ -28,6 +28,15 @@ describe("format detection", () => {
     });
   });
 
+  it("requires matching leading and trailing Parquet magic", async () => {
+    const path = await fileNamed("leading-only.csv", Buffer.from("PAR1not-parquet"));
+
+    await expect(detectFormat(path)).resolves.toMatchObject({
+      format: "csv",
+      confidence: "extension",
+    });
+  });
+
   it("lets bounded JSON content outrank a misleading extension", async () => {
     const path = await fileNamed("wrong.csv", '[{"mesto":"Ljubljana"}]');
 
@@ -71,5 +80,17 @@ describe("format detection", () => {
       format: "csv",
       confidence: "content",
     });
+  });
+
+  it("uses declared provider format before an extension fallback", async () => {
+    const path = await fileNamed("cache-object", "header\nvalue\n");
+
+    await expect(
+      detectFormat({
+        path,
+        mediaType: "application/octet-stream",
+        declaredFormat: "CSV",
+      }),
+    ).resolves.toMatchObject({ format: "csv", confidence: "declared-format" });
   });
 });
