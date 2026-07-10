@@ -35,7 +35,7 @@
   ],
   "scripts": {
     "build": "tsup --config tsup.config.ts && node scripts/copy-public-declarations.mjs",
-    "typecheck": "pnpm --filter @opsi/domain --filter @opsi/config --filter @opsi/output --filter @opsi/storage --filter @opsi/core --filter @opsi/provider-opsi build && tsc -p tsconfig.json --noEmit"
+    "typecheck": "pnpm --filter @opsi/domain --filter @opsi/config --filter @opsi/output --filter @opsi/storage --filter @opsi/data-engine --filter @opsi/provider-local --filter @opsi/core --filter @opsi/provider-opsi build && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "commander": "15.0.0",

@@ -10,10 +10,17 @@ describe("clean CI and release contract", () => {
       scripts: Record<string, string>;
     };
     expect(rootPackage.scripts.test).toContain("pnpm build");
+    expect(rootPackage.scripts.typecheck).toMatch(/^pnpm build && /u);
     expect(rootPackage.scripts.test).toContain("pnpm test:e2e");
     expect(rootPackage.scripts["test:e2e"]).toContain("apps/cli/test/*.e2e.test.ts");
     expect(rootPackage.scripts["test:e2e"]).not.toContain("pack.test.ts");
     expect(rootPackage.scripts["test:pack"]).toContain("apps/cli/test/pack.test.ts");
+
+    const cliPackage = JSON.parse(await text("apps/cli/package.json")) as {
+      scripts: Record<string, string>;
+    };
+    expect(cliPackage.scripts.typecheck).toContain("--filter @opsi/data-engine");
+    expect(cliPackage.scripts.typecheck).toContain("--filter @opsi/provider-local");
 
     const ci = await text(".github/workflows/ci.yml");
     expect(ci).toContain("rm -rf apps/cli/dist packages/*/dist packages/providers/*/dist");
