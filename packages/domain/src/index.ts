@@ -1,5 +1,5 @@
 export { EXIT_CODES, OpsiError } from "./errors.js";
-export type { ExitCode, OpsiErrorOptions } from "./errors.js";
+export type { ExitCode, FailureExitCode, OpsiErrorOptions } from "./errors.js";
 export {
   datasetId,
   datasetReference,
@@ -56,3 +56,4 @@ export type {
   ValidationResult,
   ValidationSeverity,
 } from "./results.js";
+export { PROVENANCE_SCHEMA_VERSION } from "./results.js";

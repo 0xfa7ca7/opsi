@@ -1,11 +1,34 @@
 import { describe, expect, it } from "vitest";
+import * as domain from "../src/index.js";
 import {
+  EXIT_CODES,
   OpsiError,
   datasetId,
   datasetReference,
+  localFileReference,
   parseCanonicalReference,
   providerId,
+  resourceId,
+  resourceReference,
 } from "../src/index.js";
+
+describe("branded identifiers", () => {
+  it.each([
+    ["provider", providerId],
+    ["dataset", datasetId],
+    ["resource", resourceId],
+  ])("rejects an empty or whitespace-only %s ID", (_label, constructor) => {
+    expect(() => constructor("   ")).toThrowError(
+      expect.objectContaining({ code: "INVALID_ID", exitCode: 2 }),
+    );
+  });
+
+  it("rejects provider IDs containing the canonical separator", () => {
+    expect(() => providerId("op:si")).toThrowError(
+      expect.objectContaining({ code: "INVALID_ID", exitCode: 2 }),
+    );
+  });
+});
 
 describe("canonical references", () => {
   it("round-trips a provider dataset reference", () => {
@@ -18,11 +41,52 @@ describe("canonical references", () => {
     });
   });
 
-  it("rejects a malformed canonical reference", () => {
-    expect(() => parseCanonicalReference("opsi:dataset:")).toThrowError(
-      expect.objectContaining({ code: "INVALID_REFERENCE", exitCode: 2 }),
-    );
+  it("round-trips a provider resource reference", () => {
+    const reference = resourceReference(providerId("opsi"), resourceId("resource-1"));
+    expect(reference).toBe("opsi:resource:resource-1");
+    expect(parseCanonicalReference(reference)).toEqual({
+      providerId: "opsi",
+      kind: "resource",
+      id: "resource-1",
+    });
   });
+
+  it("round-trips a local file reference", () => {
+    const reference = localFileReference("/tmp/data.csv");
+    expect(reference).toBe("local:file:/tmp/data.csv");
+    expect(parseCanonicalReference(reference)).toEqual({
+      providerId: "local",
+      kind: "file",
+      id: "/tmp/data.csv",
+    });
+  });
+
+  it.each(["", "opsi:dataset:", "opsi:unknown:abc", "local:dataset:abc"])(
+    "rejects malformed canonical reference %j",
+    (reference) => {
+      expect(() => parseCanonicalReference(reference)).toThrowError(
+        expect.objectContaining({ code: "INVALID_REFERENCE", exitCode: 2 }),
+      );
+    },
+  );
+});
+
+it("exposes every stable process exit category including success", () => {
+  expect(EXIT_CODES).toEqual({
+    SUCCESS: 0,
+    INTERNAL: 1,
+    INVALID_INPUT: 2,
+    NOT_FOUND: 3,
+    PROVIDER_FAILURE: 4,
+    UNSUPPORTED: 5,
+    INTEGRITY_FAILURE: 6,
+    QUERY_FAILURE: 7,
+    PARTIAL_SUCCESS: 8,
+  });
+});
+
+it("exposes the stable provenance schema version", () => {
+  expect(domain).toHaveProperty("PROVENANCE_SCHEMA_VERSION", "1");
 });
 
 it("serializes a stable typed error without its cause", () => {

@@ -1,6 +1,8 @@
 import type { DataFile } from "./entities.js";
 import type { CanonicalReference, DatasetId, ProviderId, ResourceId } from "./ids.js";
 
+export const PROVENANCE_SCHEMA_VERSION = "1" as const;
+
 export type DataFormat = "csv" | "tsv" | "json" | "ndjson" | "xlsx" | "parquet";
 
 export type FieldType =
@@ -45,7 +47,7 @@ export interface TransformationRecord {
 }
 
 export interface Provenance {
-  readonly schemaVersion: string;
+  readonly schemaVersion: typeof PROVENANCE_SCHEMA_VERSION;
   readonly providerId?: ProviderId;
   readonly datasetId?: DatasetId;
   readonly resourceId?: ResourceId;

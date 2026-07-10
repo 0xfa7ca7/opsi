@@ -1,6 +1,8 @@
-export type ExitCode = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+export type ExitCode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+export type FailureExitCode = Exclude<ExitCode, 0>;
 
 export const EXIT_CODES = Object.freeze({
+  SUCCESS: 0,
   INTERNAL: 1,
   INVALID_INPUT: 2,
   NOT_FOUND: 3,
@@ -14,7 +16,7 @@ export const EXIT_CODES = Object.freeze({
 export interface OpsiErrorOptions {
   readonly code: string;
   readonly message: string;
-  readonly exitCode: ExitCode;
+  readonly exitCode: FailureExitCode;
   readonly suggestion?: string;
   readonly context?: Readonly<Record<string, unknown>>;
   readonly cause?: unknown;
@@ -22,7 +24,7 @@ export interface OpsiErrorOptions {
 
 export class OpsiError extends Error {
   readonly code: string;
-  readonly exitCode: ExitCode;
+  readonly exitCode: FailureExitCode;
   readonly suggestion?: string;
   readonly context?: Readonly<Record<string, unknown>>;
   override readonly cause?: unknown;

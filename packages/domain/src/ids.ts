@@ -25,7 +25,16 @@ function nonEmptyId<T extends string>(value: string, label: string): T {
 }
 
 export function providerId(value: string): ProviderId {
-  return nonEmptyId<ProviderId>(value, "Provider ID");
+  const id = nonEmptyId<ProviderId>(value, "Provider ID");
+  if (id.includes(":")) {
+    throw new OpsiError({
+      code: "INVALID_ID",
+      message: "Provider ID cannot contain ':'",
+      exitCode: 2,
+      context: { value },
+    });
+  }
+  return id;
 }
 
 export function datasetId(value: string): DatasetId {
@@ -81,6 +90,7 @@ export function parseCanonicalReference(reference: string): ParsedCanonicalRefer
     firstSeparator <= 0 ||
     secondSeparator <= firstSeparator + 1 ||
     id.trim().length === 0 ||
+    (provider === "local" && kind !== "file") ||
     (kind !== "dataset" && kind !== "resource" && !(provider === "local" && kind === "file"))
   ) {
     throw invalidReference(reference);

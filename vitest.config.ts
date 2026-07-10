@@ -12,7 +12,7 @@ export default defineConfig({
         test: {
           ...defaultProject,
           name: "unit",
-          include: ["packages/**/test/**/*.test.ts"],
+          include: ["packages/**/test/**/*.test.ts", "apps/**/test/**/*.test.ts"],
           exclude: [...defaultProject.exclude, "**/*.integration.test.ts", "**/*.e2e.test.ts"],
         },
       },
