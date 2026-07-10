@@ -1,4 +1,5 @@
 import type { CliConfigurationOptions, OutputFormat } from "@opsi/config";
+import { duckDbMemoryLimitBytes } from "@opsi/domain";
 import { InvalidArgumentError, Option, type Command } from "commander";
 
 const OUTPUT_FORMATS = ["table", "json", "ndjson", "csv", "tsv"] as const;
@@ -34,6 +35,12 @@ function integer(value: string): number {
   return parsed;
 }
 
+function duckDbMemoryLimit(value: string): string {
+  if (duckDbMemoryLimitBytes(value) === undefined)
+    throw new InvalidArgumentError("must be a supported positive byte size no larger than 1GiB");
+  return value;
+}
+
 export function addGlobalOptions(program: Command): Command {
   program
     .addOption(
@@ -65,7 +72,7 @@ export function addGlobalOptions(program: Command): Command {
     .option("--preview-row-limit <number>", "preview row limit", integer)
     .option("--query-row-limit <number>", "query row limit", integer)
     .option("--query-timeout-ms <number>", "query timeout in milliseconds", integer)
-    .option("--duckdb-memory-limit <limit>", "DuckDB memory limit")
+    .option("--duckdb-memory-limit <limit>", "DuckDB memory limit", duckDbMemoryLimit)
     .option("--duckdb-threads <number>", "DuckDB worker threads", integer)
     .option("--quiet", "suppress non-result output")
     .option("--debug", "include diagnostic stack traces")

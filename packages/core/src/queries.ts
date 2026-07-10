@@ -49,7 +49,7 @@ function cell(value: unknown, delimiter: string): string {
     : text;
 }
 
-function serialize(rows: readonly DataRow[], output: string): string {
+function serialize(rows: readonly DataRow[], columns: readonly string[], output: string): string {
   const format = extname(output).toLowerCase();
   if (format === ".json") return `${JSON.stringify(rows)}\n`;
   if (format === ".ndjson")
@@ -60,9 +60,8 @@ function serialize(rows: readonly DataRow[], output: string): string {
       message: "Query output must end in .csv, .tsv, .json, or .ndjson.",
       exitCode: EXIT_CODES.QUERY_FAILURE,
     });
-  if (rows.length === 0) return "";
   const delimiter = format === ".csv" ? "," : "\t";
-  const columns = Object.keys(rows[0] ?? {});
+  if (columns.length === 0) return "";
   return `${[columns.join(delimiter), ...rows.map((row) => columns.map((column) => cell(row[column], delimiter)).join(delimiter))].join("\n")}\n`;
 }
 
@@ -71,6 +70,7 @@ async function publishQueryOutput(
   output: string,
   sql: string,
   rows: readonly DataRow[],
+  columns: readonly string[],
   force: boolean,
 ) {
   const destination = resolve(output);
@@ -79,7 +79,7 @@ async function publishQueryOutput(
   const provenanceTemp = `${provenancePath}.tmp-${process.pid}-${randomUUID()}`;
   const handle = await open(temp, "wx", 0o600);
   try {
-    await handle.writeFile(serialize(rows, destination));
+    await handle.writeFile(serialize(rows, columns, destination));
     await handle.sync();
   } finally {
     await handle.close();
@@ -163,6 +163,7 @@ export class QueryService {
               options.output,
               options.sql,
               result.rows,
+              result.columns,
               options.force ?? false,
             );
       return {

@@ -6,6 +6,7 @@ import {
   type DuckDBConnection,
   type DuckDBPreparedStatement,
 } from "@duckdb/node-api";
+import { duckDbMemoryLimitBytes } from "@opsi/domain";
 import type {
   QueryLimits,
   QueryResult,
@@ -69,12 +70,15 @@ export async function executeQueryWorker(request: QueryWorkerRequest): Promise<Q
   let connection: DuckDBConnection | undefined;
   let prepared: DuckDBPreparedStatement | undefined;
   try {
+    if (duckDbMemoryLimitBytes(request.limits.memoryLimit) === undefined)
+      throw failure("QUERY_MEMORY_LIMIT", "DuckDB memory must not exceed 1GiB.");
     instance = await DuckDBInstance.create(request.databasePath, {
       access_mode: "READ_ONLY",
       enable_external_access: "false",
       autoinstall_known_extensions: "false",
       autoload_known_extensions: "false",
       allow_community_extensions: "false",
+      allow_unsigned_extensions: "false",
       threads: String(Math.min(4, availableParallelism(), request.limits.threads)),
       memory_limit: request.limits.memoryLimit,
       max_temp_directory_size: "1GB",

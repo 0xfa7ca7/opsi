@@ -106,4 +106,23 @@ describe("query CLI", () => {
       expect.objectContaining({ operation: "query", details: expect.objectContaining({ sql }) }),
     ]);
   });
+
+  it.each([
+    ["csv", "city,value\n"],
+    ["tsv", "city\tvalue\n"],
+  ])("exports known headers for an empty %s query result", async (format, expected) => {
+    const output = join(home, `empty.${format}`);
+    await expect(
+      cli([
+        "query",
+        input,
+        "--sql",
+        "SELECT city, value FROM data WHERE false",
+        "--output",
+        output,
+        "--json",
+      ]),
+    ).resolves.toMatchObject({ exitCode: 0, json: { data: [] } });
+    expect(await readFile(output, "utf8")).toBe(expected);
+  });
 });

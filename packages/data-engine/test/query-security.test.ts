@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { DuckDBInstance } from "@duckdb/node-api";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -88,14 +88,45 @@ describe("DuckDbQueryRunner security", () => {
         current_setting('autoinstall_known_extensions') AS autoinstall,
         current_setting('autoload_known_extensions') AS autoload,
         current_setting('allow_community_extensions') AS community,
+        current_setting('allow_unsigned_extensions') AS unsigned,
+        current_setting('memory_limit') AS memory,
         current_setting('lock_configuration') AS locked`,
     });
     expect(result.rows).toEqual([
-      { external: false, autoinstall: false, autoload: false, community: false, locked: true },
+      {
+        external: false,
+        autoinstall: false,
+        autoload: false,
+        community: false,
+        unsigned: false,
+        memory: "953.6 MiB",
+        locked: true,
+      },
     ]);
     await expect(
       runner.execute({ input, sql: "SELECT set_config('enable_external_access', 'true', false)" }),
     ).rejects.toMatchObject({ exitCode: 7 });
+  });
+
+  it("enforces the hard 1 GiB worker memory ceiling", async () => {
+    let directoriesCreated = 0;
+    const runner = new DuckDbQueryRunner({
+      workerPath: new URL("./fixtures/query-worker-source-entry.ts", import.meta.url),
+      makeTemporaryDirectory: async () => {
+        directoriesCreated += 1;
+        return await mkdtemp(join(tmpdir(), "opsi-query-memory-"));
+      },
+    });
+    await expect(
+      runner.execute({ input, sql: "SELECT 1", memoryLimit: "1GB" }),
+    ).resolves.toMatchObject({ rows: [{ "1": 1 }] });
+    await expect(
+      runner.execute({ input, sql: "SELECT 1", memoryLimit: "100GB" }),
+    ).rejects.toMatchObject({ code: "QUERY_MEMORY_LIMIT", exitCode: 7 });
+    await expect(
+      runner.execute({ input, sql: "SELECT 1", memoryLimit: "unlimited" }),
+    ).rejects.toMatchObject({ code: "QUERY_MEMORY_LIMIT", exitCode: 7 });
+    expect(directoriesCreated).toBe(1);
   });
 
   it("caps columns, cells, and total serialized output", async () => {
@@ -154,5 +185,49 @@ describe("DuckDbQueryRunner security", () => {
     });
     expect(await readFile(databasePath)).toEqual(before);
     expect((await stat(databasePath)).mtimeMs).toBe(beforeStat.mtimeMs);
+  });
+
+  it("removes database, WAL, and spill trees on every completed child path", async () => {
+    const run = async (
+      workerPath: URL,
+      operation: (runner: DuckDbQueryRunner) => Promise<unknown>,
+    ) => {
+      const created: string[] = [];
+      const runner = new DuckDbQueryRunner({
+        workerPath,
+        graceMs: 50,
+        makeTemporaryDirectory: async () => {
+          const path = await mkdtemp(join(tmpdir(), "opsi-query-cleanup-"));
+          created.push(path);
+          return path;
+        },
+      });
+      await operation(runner);
+      expect(created.length).toBeGreaterThan(0);
+      for (const path of created)
+        await expect(access(path)).rejects.toMatchObject({ code: "ENOENT" });
+    };
+    const worker = new URL("./fixtures/query-worker-source-entry.ts", import.meta.url);
+    await run(worker, (runner) => runner.execute({ input, sql: "SELECT 1" }));
+    await run(worker, (runner) =>
+      runner.execute({ input, sql: "PRAGMA version" }).catch(() => undefined),
+    );
+    await run(worker, (runner) =>
+      runner
+        .execute({ input, sql: "SELECT * FROM read_csv('/etc/passwd')" })
+        .catch(() => undefined),
+    );
+    await run(worker, (runner) =>
+      runner
+        .execute({
+          input,
+          sql: "SELECT sum(a.i * b.i) FROM range(1000000000) a(i), range(1000000000) b(i)",
+          timeoutMs: 50,
+        })
+        .catch(() => undefined),
+    );
+    await run(new URL("./fixtures/hanging-query-worker.mjs", import.meta.url), (runner) =>
+      runner.execute({ input, sql: "SELECT 1", timeoutMs: 50 }).catch(() => undefined),
+    );
   });
 });

@@ -46,12 +46,14 @@ async function xlsxAsNdjson(
   path: string,
   sheet: string | undefined,
   sharedStringsByteLimit: number,
+  signal?: AbortSignal,
 ): Promise<readonly ValidationIssue[]> {
   const warnings: ValidationIssue[] = [];
   let descriptor: number | undefined;
   let sawHeader = false;
   let sawRow = false;
   try {
+    signal?.throwIfAborted();
     descriptor = openSync(path, "wx", 0o600);
     await scanXlsx(
       input,
@@ -62,6 +64,7 @@ async function xlsxAsNdjson(
         maxColumns: 16_384,
       },
       (row, rowWarnings) => {
+        signal?.throwIfAborted();
         sawRow = true;
         warnings.push(...rowWarnings);
         writeSync(descriptor as number, `${JSON.stringify(row)}\n`);
@@ -72,6 +75,7 @@ async function xlsxAsNdjson(
         warnings.push(...headerWarnings);
       },
     );
+    signal?.throwIfAborted();
   } finally {
     if (descriptor !== undefined) closeSync(descriptor);
   }
@@ -91,8 +95,11 @@ export async function stageTabularInput(options: {
   readonly xlsxRowsPath: string;
   readonly xlsxSharedStringsByteLimit: number;
   readonly preserveDatabaseOnClose?: boolean;
+  readonly signal?: AbortSignal;
 }): Promise<TabularStage> {
+  options.signal?.throwIfAborted();
   const detection = await detectFormat(options.input);
+  options.signal?.throwIfAborted();
   if (!supported(detection.format))
     throw new OpsiError({
       code: "UNSUPPORTED_CONVERSION_FORMAT",
@@ -114,21 +121,61 @@ export async function stageTabularInput(options: {
       options.xlsxRowsPath,
       options.sheet,
       options.xlsxSharedStringsByteLimit,
+      options.signal,
     );
     stagedSource = options.xlsxRowsPath;
     stagedFormat = "ndjson";
   }
 
-  const instance = await DuckDBInstance.create(options.databasePath, {
-    autoinstall_known_extensions: "false",
-    autoload_known_extensions: "false",
-    allow_unsigned_extensions: "false",
-    threads: "2",
-    memory_limit: "512MB",
-  });
-  const connection = await instance.connect();
+  let instance: DuckDBInstance | undefined;
+  let connection: DuckDBConnection | undefined;
+  const interrupt = () => connection?.interrupt();
+  options.signal?.addEventListener("abort", interrupt, { once: true });
   let closed = false;
+  const cleanup = async (preserveDatabase: boolean): Promise<void> => {
+    if (closed) return;
+    closed = true;
+    options.signal?.removeEventListener("abort", interrupt);
+    const failures: unknown[] = [];
+    if (connection !== undefined) {
+      try {
+        connection.closeSync();
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (instance !== undefined) {
+      try {
+        instance.closeSync();
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    for (const path of [
+      ...(preserveDatabase ? [] : [options.databasePath]),
+      `${options.databasePath}.wal`,
+      options.xlsxRowsPath,
+    ]) {
+      try {
+        await rm(path, { force: true });
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (failures.length > 0)
+      throw new AggregateError(failures, "Failed to close tabular staging resources.");
+  };
   try {
+    instance = await DuckDBInstance.create(options.databasePath, {
+      autoinstall_known_extensions: "false",
+      autoload_known_extensions: "false",
+      allow_unsigned_extensions: "false",
+      threads: "2",
+      memory_limit: "512MB",
+    });
+    options.signal?.throwIfAborted();
+    connection = await instance.connect();
+    options.signal?.throwIfAborted();
     // This is an OPSI-owned statement. Only the path literal is variable and is
     // quoted by sqlString; no user SQL reaches the staging connection.
     await connection.run(
@@ -152,25 +199,17 @@ export async function stageTabularInput(options: {
       inputPath: detection.path,
       warnings,
       async close() {
-        if (closed) return;
-        closed = true;
-        connection.closeSync();
-        instance.closeSync();
-        await Promise.all([
-          ...(options.preserveDatabaseOnClose ? [] : [rm(options.databasePath, { force: true })]),
-          rm(`${options.databasePath}.wal`, { force: true }),
-          rm(options.xlsxRowsPath, { force: true }),
-        ]);
+        await cleanup(options.preserveDatabaseOnClose ?? false);
       },
     };
   } catch (error) {
-    connection.closeSync();
-    instance.closeSync();
-    await Promise.all([
-      rm(options.databasePath, { force: true }),
-      rm(`${options.databasePath}.wal`, { force: true }),
-      rm(options.xlsxRowsPath, { force: true }),
-    ]);
+    try {
+      await cleanup(false);
+    } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], "Tabular staging and cleanup failed.", {
+        cause: cleanupError,
+      });
+    }
     throw error;
   }
 }

@@ -135,7 +135,7 @@ describe("CLI bootstrap options", () => {
         "--preview-row-limit=20",
         "--query-row-limit=30",
         "--query-timeout-ms=400",
-        "--duckdb-memory-limit=2GB",
+        "--duckdb-memory-limit=1GB",
         "--duckdb-threads=3",
       ]),
     ).toEqual({
@@ -148,10 +148,18 @@ describe("CLI bootstrap options", () => {
       previewRowLimit: 20,
       queryRowLimit: 30,
       queryTimeoutMs: 400,
-      duckdbMemoryLimit: "2GB",
+      duckdbMemoryLimit: "1GB",
       duckdbThreads: 3,
     });
     expect(requestedOutputFormat(["--output-format=json"])).toBe("json");
+  });
+
+  it("rejects oversized and malformed DuckDB memory CLI values", async () => {
+    const fixture = await fixtureIo();
+    await expect(runCli(["--duckdb-memory-limit", "100GB", "--help"], fixture.io)).resolves.toBe(2);
+    await expect(
+      runCli(["--duckdb-memory-limit", "unlimited", "--help"], fixture.io),
+    ).resolves.toBe(2);
   });
 
   it("retains separate-token bootstrap option parsing", () => {

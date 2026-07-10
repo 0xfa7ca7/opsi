@@ -1,4 +1,4 @@
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { duckDbMemoryLimitBytes, EXIT_CODES, OpsiError } from "@opsi/domain";
 import { z } from "zod";
 
 export const outputFormatSchema = z.enum(["human", "json", "ndjson", "csv", "tsv"]);
@@ -23,7 +23,9 @@ const querySchema = z.strictObject({
 });
 
 const duckdbSchema = z.strictObject({
-  memoryLimit: z.string().min(1),
+  memoryLimit: z.string().refine((value) => duckDbMemoryLimitBytes(value) !== undefined, {
+    message: "must be a supported positive byte size no larger than 1GiB",
+  }),
   threads: z.number().int().positive().max(4),
 });
 
