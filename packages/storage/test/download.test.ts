@@ -6,6 +6,7 @@ import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { MockAgent } from "undici";
 import {
+  CacheLock,
   Downloader,
   SafeDispatcherFactory,
   assertPublicAddressSet,
@@ -108,6 +109,41 @@ describe("network policy", () => {
       new Promise((resolve, reject) =>
         localhost("localhost", {}, (error, address) => (error ? reject(error) : resolve(address))),
       ),
+    ).rejects.toMatchObject({ code: "NETWORK_ADDRESS_FORBIDDEN" });
+  });
+
+  it("pins the actual Undici socket lookup with no preflight resolver call", async () => {
+    const base = await listen((_request, response) => response.end("pinned"));
+    const port = new URL(base).port;
+    const calls: string[] = [];
+    const factory = new SafeDispatcherFactory({
+      resolver: async (hostname) => {
+        calls.push(hostname);
+        return [{ address: "127.0.0.1", family: 4 }];
+      },
+    });
+    await expect(
+      new Downloader(factory).download({
+        url: `http://pinned.test:${port}/`,
+        destination: await destination("pinned"),
+        allowInsecureHttp: true,
+        allowPrivateNetwork: true,
+        limits: { maxBytes: 100, timeoutMs: 1_000 },
+      }),
+    ).resolves.toMatchObject({ bytes: 6 });
+    expect(calls).toEqual(["pinned.test"]);
+  });
+
+  it("preserves hostname network-policy errors through Undici", async () => {
+    const factory = new SafeDispatcherFactory({
+      resolver: async () => [{ address: "127.0.0.1", family: 4 }],
+    });
+    await expect(
+      new Downloader(factory).download({
+        url: "https://blocked.test/",
+        destination: await destination("blocked"),
+        limits: { maxBytes: 100, timeoutMs: 500 },
+      }),
     ).rejects.toMatchObject({ code: "NETWORK_ADDRESS_FORBIDDEN" });
   });
 });
@@ -217,6 +253,34 @@ describe("Downloader", () => {
     ).rejects.toMatchObject({ code: "TOO_MANY_REDIRECTS" });
   });
 
+  it("cancels hostile unbounded redirect and error bodies instead of dumping them", async () => {
+    const base = await listen((request, response) => {
+      if (request.url === "/redirect") {
+        response.writeHead(302, { location: "/final" });
+        response.write(Buffer.alloc(256 * 1024));
+        return;
+      }
+      if (request.url === "/error") {
+        response.writeHead(500);
+        response.write(Buffer.alloc(256 * 1024));
+        return;
+      }
+      response.end("hello");
+    });
+    await expect(
+      new Downloader().download({
+        ...localOptions(`${base}/redirect`, await destination("redirect-body")),
+        limits: { maxBytes: 100, timeoutMs: 500 },
+      }),
+    ).resolves.toMatchObject({ bytes: 5 });
+    await expect(
+      new Downloader().download({
+        ...localOptions(`${base}/error`, await destination("error-body")),
+        limits: { maxBytes: 100, timeoutMs: 500 },
+      }),
+    ).rejects.toMatchObject({ code: "DOWNLOAD_HTTP_ERROR" });
+  });
+
   it("strips credentials on cross-origin redirects", async () => {
     let received: Record<string, string | string[] | undefined> = {};
     const target = await listen((request, response) => {
@@ -303,6 +367,21 @@ describe("Downloader", () => {
     await expect(new Downloader().download(localOptions(base, path))).rejects.toThrow();
     await expect(lstat(path)).rejects.toMatchObject({ code: "ENOENT" });
     expect((await readdir(join(path, ".."))).filter((name) => name.includes(".part-"))).toEqual([]);
+  });
+
+  it("includes destination-lock waiting in the total deadline", async () => {
+    const path = await destination("locked");
+    const lock = await CacheLock.acquire(join(path, ".."), `download:${path}`);
+    const started = Date.now();
+    await expect(
+      new Downloader().download({
+        url: "https://never.test/",
+        destination: path,
+        limits: { maxBytes: 10, timeoutMs: 100 },
+      }),
+    ).rejects.toThrow();
+    expect(Date.now() - started).toBeLessThan(1_000);
+    await lock.release();
   });
 
   it("handles identical, conflicting, forced, and concurrent destinations atomically", async () => {

@@ -35,7 +35,14 @@ export function writeStructuredError(error: OpsiError, io: CliIo, format: Output
   const record = error.toJSON();
   switch (format) {
     case "json":
-      io.stdout.write(renderJson({ data: null, meta: {}, error: record }));
+      io.stdout.write(
+        renderJson({
+          data: error.code === "PARTIAL_DOWNLOAD" ? (error.context?.data ?? []) : null,
+          meta:
+            error.code === "PARTIAL_DOWNLOAD" ? { failures: error.context?.failures ?? [] } : {},
+          error: record,
+        }),
+      );
       break;
     case "ndjson":
       io.stdout.write(renderNdjson([{ schemaVersion: "1", data: null, error: record }]));

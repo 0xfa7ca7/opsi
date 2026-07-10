@@ -48,6 +48,20 @@ function failure(
 ): OpsiError {
   return new OpsiError({ code, message, exitCode, ...(cause === undefined ? {} : { cause }) });
 }
+function policyError(error: unknown): OpsiError | undefined {
+  let current: unknown = error;
+  const seen = new Set<unknown>();
+  while (current !== undefined && current !== null && !seen.has(current)) {
+    if (current instanceof OpsiError && current.code === "NETWORK_ADDRESS_FORBIDDEN")
+      return current;
+    seen.add(current);
+    current =
+      typeof current === "object" && "cause" in current
+        ? (current as { cause?: unknown }).cause
+        : undefined;
+  }
+  return undefined;
+}
 function validateUrl(
   raw: string,
   allowInsecureHttp: boolean,
@@ -178,6 +192,8 @@ export class Downloader {
         });
       } catch (error) {
         await dispatcher.close();
+        const forbidden = policyError(error);
+        if (forbidden !== undefined) throw forbidden;
         throw failure(
           "DOWNLOAD_FAILED",
           "The download request failed.",
@@ -189,7 +205,8 @@ export class Downloader {
       const isRedirect =
         response.statusCode >= 300 && response.statusCode < 400 && typeof location === "string";
       if (!isRedirect) return { response, url, chain, dispatcher };
-      await response.body.dump();
+      response.body.on("error", () => undefined);
+      response.body.destroy();
       await dispatcher.close();
       if (redirect >= maxRedirects)
         throw failure(
@@ -227,13 +244,13 @@ export class Downloader {
   async download(input: DownloadInput): Promise<DownloadResult> {
     const destination = resolve(input.destination);
     const directory = dirname(destination);
-    await mkdir(directory, { recursive: true, mode: 0o700 });
-    const lock = await CacheLock.acquire(directory, `download:${destination}`, {
-      ...(input.signal === undefined ? {} : { signal: input.signal }),
-    });
-    const temp = `${destination}.part-${process.pid}-${randomUUID()}`;
     const timeout = AbortSignal.timeout(input.limits.timeoutMs);
     const signal = input.signal === undefined ? timeout : AbortSignal.any([input.signal, timeout]);
+    await mkdir(directory, { recursive: true, mode: 0o700 });
+    const lock = await CacheLock.acquire(directory, `download:${destination}`, {
+      signal,
+    });
+    const temp = `${destination}.part-${process.pid}-${randomUUID()}`;
     let dispatcher: Dispatcher | undefined;
     let handle;
     try {
@@ -241,12 +258,14 @@ export class Downloader {
       dispatcher = fetched.dispatcher;
       const { response, url, chain } = fetched;
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        await response.body.dump();
+        response.body.on("error", () => undefined);
+        response.body.destroy();
         throw failure("DOWNLOAD_HTTP_ERROR", `The download returned HTTP ${response.statusCode}.`);
       }
       const declared = response.headers["content-length"];
       if (typeof declared === "string" && Number(declared) > input.limits.maxBytes) {
-        await response.body.dump();
+        response.body.on("error", () => undefined);
+        response.body.destroy();
         throw failure(
           "DOWNLOAD_TOO_LARGE",
           "The download exceeds the byte limit.",

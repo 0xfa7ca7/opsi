@@ -37,7 +37,10 @@ beforeAll(async () => {
   api = createServer((request, response) => {
     requests++;
     const url = new URL(request.url ?? "/", "http://localhost");
-    if (url.pathname === "/resource_show")
+    if (url.pathname === "/resource_show" && url.searchParams.get("id") === "missing") {
+      response.writeHead(404, { "content-type": "application/json" });
+      response.end(JSON.stringify({ success: false, error: { message: "not found" } }));
+    } else if (url.pathname === "/resource_show")
       json(response, {
         success: true,
         result: {
@@ -121,6 +124,11 @@ describe("download, cache, offline, and provenance CLI", () => {
         "--json",
       ]),
     ).resolves.toMatchObject({ exitCode: 0, stderr: "", json: { data: { status: 200 } } });
+    const afterOnlineHeaders = requests;
+    await expect(
+      cli(["resource", "headers", "resource-1", "--offline", "--json"]),
+    ).resolves.toMatchObject({ exitCode: 3, stderr: "" });
+    expect(requests).toBe(afterOnlineHeaders);
     const download = await cli([
       "download",
       "resource-1",
@@ -173,6 +181,22 @@ describe("download, cache, offline, and provenance CLI", () => {
     await expect(cli(["cache", "info", "--json"])).resolves.toMatchObject({
       exitCode: 0,
       json: { data: { metadata: expect.any(Number) } },
+    });
+    const partial = await cli([
+      "download",
+      "resource-1",
+      "missing",
+      "--allow-insecure-http",
+      "--allow-private-network",
+      "--json",
+    ]);
+    expect(partial.exitCode).toBe(8);
+    expect(partial.stderr).toBe("");
+    expect(() => JSON.parse(partial.stdout)).not.toThrow();
+    expect(JSON.parse(partial.stdout)).toMatchObject({
+      data: [expect.objectContaining({ bytes: 5 })],
+      error: { code: "PARTIAL_DOWNLOAD" },
+      meta: { failures: [expect.anything()] },
     });
   }, 15_000);
 });

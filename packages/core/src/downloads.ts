@@ -5,6 +5,7 @@ import {
   Downloader,
   ProvenanceStore,
   filenameFromUrl,
+  safeFilename,
   redactUrl,
   type ContentCache,
   type DownloadLimits,
@@ -53,7 +54,10 @@ export class DownloadService {
     const resolved = await provider.resolveResource(resource);
     const destination =
       options.destination ??
-      join(this.options.downloadDir, resolved.filename ?? filenameFromUrl(resolved.url, `${id}`));
+      join(
+        this.options.downloadDir,
+        safeFilename(resolved.filename, filenameFromUrl(resolved.url, safeFilename(`${id}`))),
+      );
     const cacheKey = `download:${resource.providerId}:${resource.id}`;
     let result: DownloadResult;
     if (this.options.offline) {
@@ -132,6 +136,12 @@ export class DownloadService {
     id: ResourceId,
     options: Omit<ResourceDownloadOptions, "destination" | "force"> = {},
   ): Promise<ProbeResult> {
+    if (this.options.offline)
+      throw new OpsiError({
+        code: "OFFLINE_CACHE_MISS",
+        message: "Resource headers are unavailable in offline mode.",
+        exitCode: EXIT_CODES.NOT_FOUND,
+      });
     const provider = this.options.registry.get(this.options.providerId);
     const resolved = await provider.resolveResource(await provider.getResource(id));
     return this.downloader.probe({

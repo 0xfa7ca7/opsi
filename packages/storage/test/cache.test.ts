@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { execFile, fork, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { promisify } from "node:util";
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
@@ -133,5 +133,61 @@ describe("ContentCache", () => {
       waitMs: 100,
     });
     await recovered.release();
+  });
+
+  it("publishes initialized lock ownership atomically and treats PID start mismatch as stale", async () => {
+    const directory = await root();
+    let release!: () => void;
+    const barrier = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const delayed = CacheLock.acquire(directory, "publish", {
+      beforePublish: () => barrier,
+      waitMs: 500,
+    });
+    const winner = await CacheLock.acquire(directory, "publish", { waitMs: 100 });
+    await winner.release();
+    release();
+    const acquired = await delayed;
+    await acquired.release();
+    const stale = await CacheLock.acquire(directory, "identity", { waitMs: 100 });
+    await writeFile(
+      join(stale.path, "owner.json"),
+      JSON.stringify({
+        token: "reused",
+        createdAt: 0,
+        heartbeatAt: 0,
+        pid: process.pid,
+        hostname: hostname(),
+        processStartedAt: 0,
+      }),
+    );
+    await stale.release();
+    const replacement = await CacheLock.acquire(directory, "identity", { staleMs: 1, waitMs: 100 });
+    await replacement.release();
+  });
+
+  it("detects corrupted objects before reads or materialization and uses exclusive temps", async () => {
+    const cache = new ContentCache(await root());
+    const object = await cache.putObject(Readable.from(["hello"]));
+    await writeFile(object.path, "evil");
+    await expect(cache.getObject(object.sha256)).rejects.toMatchObject({ code: "CACHE_CORRUPT" });
+    const target = join(await root(), "out");
+    await expect(cache.materialize(object.sha256, target)).rejects.toMatchObject({
+      code: "CACHE_CORRUPT",
+    });
+    const safe = new ContentCache(await root(), {
+      materializeTempPath: (destination) => `${destination}.fixed`,
+    });
+    const good = await safe.putObject(Readable.from(["good"]));
+    const destination = join(await root(), "materialized");
+    const victim = join(await root(), "victim");
+    await writeFile(victim, "victim");
+    await symlink(victim, `${destination}.fixed`);
+    await expect(safe.materialize(good.sha256, destination)).rejects.toMatchObject({
+      code: "EEXIST",
+    });
+    expect(await readFile(victim, "utf8")).toBe("victim");
+    expect((await lstat(`${destination}.fixed`)).isSymbolicLink()).toBe(true);
   });
 });

@@ -1,17 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import {
-  copyFile,
-  link,
-  lstat,
-  open,
-  readFile,
-  readdir,
-  rename,
-  rm,
-  stat,
-  unlink,
-} from "node:fs/promises";
+import { link, lstat, open, readFile, readdir, rename, rm, stat, unlink } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import type { Readable } from "node:stream";
 import { EXIT_CODES, OpsiError, type MetadataCache } from "@opsi/domain";
@@ -35,6 +24,17 @@ export interface ContentCacheOptions {
   readonly fault?: (
     point: "after-partial-write" | "after-object-rename" | "before-metadata-rename",
   ) => void;
+  readonly materializeTempPath?: (destination: string) => string;
+}
+async function fileDigest(path: string): Promise<{ sha256: string; bytes: number }> {
+  const hash = createHash("sha256");
+  let bytes = 0;
+  for await (const raw of createReadStream(path)) {
+    const chunk = Buffer.from(raw);
+    bytes += chunk.length;
+    hash.update(chunk);
+  }
+  return { sha256: hash.digest("hex"), bytes };
 }
 function corrupt(message: string, cause?: unknown): OpsiError {
   return new OpsiError({
@@ -141,6 +141,15 @@ export class ContentCache implements MetadataCache {
         throw error;
       }
     }
+    if ((await fileDigest(target)).sha256 !== sha256) {
+      await rm(temp, { force: true });
+      throw corrupt("An existing cache object failed checksum verification.");
+    }
+    const winner = await lstat(target);
+    if (!winner.isFile() || winner.isSymbolicLink()) {
+      await rm(temp, { force: true });
+      throw corrupt("An existing cache object is not a regular file.");
+    }
     await unlink(temp).catch(() => undefined);
     this.options.fault?.("after-object-rename");
     return { path: target, sha256, bytes };
@@ -150,7 +159,7 @@ export class ContentCache implements MetadataCache {
     const path = (await this.layout()).objectPath(sha256);
     let details;
     try {
-      details = await stat(path);
+      details = await lstat(path);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT")
         throw new OpsiError({
@@ -161,6 +170,9 @@ export class ContentCache implements MetadataCache {
       throw error;
     }
     if (!details.isFile()) throw corrupt("Cached object is not a regular file.");
+    const verified = await fileDigest(path);
+    if (verified.sha256 !== sha256 || verified.bytes !== details.size)
+      throw corrupt("Cached object checksum verification failed.");
     return { path, sha256, bytes: details.size };
   }
   async materialize(
@@ -172,15 +184,19 @@ export class ContentCache implements MetadataCache {
     const destination = resolve(requestedDestination);
     const directory = dirname(destination);
     const lock = await CacheLock.acquire(directory, `materialize:${destination}`);
-    const temp = `${destination}.part-${process.pid}-${randomUUID()}`;
+    const temp =
+      this.options.materializeTempPath?.(destination) ??
+      `${destination}.part-${process.pid}-${randomUUID()}`;
+    let tempHandle;
+    let ownsTemp = false;
     try {
-      await copyFile(object.path, temp);
-      const handle = await open(temp, "r+");
-      try {
-        await handle.sync();
-      } finally {
-        await handle.close();
-      }
+      tempHandle = await open(temp, "wx", 0o600);
+      ownsTemp = true;
+      for await (const raw of createReadStream(object.path))
+        await tempHandle.write(Buffer.from(raw));
+      await tempHandle.sync();
+      await tempHandle.close();
+      tempHandle = undefined;
       if (force) {
         try {
           const current = await lstat(destination);
@@ -211,7 +227,8 @@ export class ContentCache implements MetadataCache {
       await syncDirectory(directory);
       return { ...object, path: destination };
     } catch (error) {
-      await rm(temp, { force: true });
+      await tempHandle?.close().catch(() => undefined);
+      if (ownsTemp) await rm(temp, { force: true });
       throw error;
     } finally {
       await lock.release();

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { hostname } from "node:os";
+import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import { canonicalCacheKey } from "./cache-layout.js";
@@ -18,6 +18,7 @@ export interface CacheLockOptions {
   readonly waitMs?: number;
   readonly heartbeatMs?: number;
   readonly signal?: AbortSignal;
+  readonly beforePublish?: () => Promise<void>;
 }
 const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
@@ -32,8 +33,16 @@ const sleep = (ms: number, signal?: AbortSignal) =>
     signal?.addEventListener("abort", onAbort, { once: true });
   });
 
-function localOwnerIsAlive(owner: Owner | undefined): boolean {
+async function localOwnerIsAlive(identityRoot: string, owner: Owner | undefined): Promise<boolean> {
   if (owner === undefined || owner.hostname !== hostname()) return false;
+  const currentStart = Date.now() - Math.floor(process.uptime() * 1_000);
+  if (owner.pid === process.pid && Math.abs(owner.processStartedAt - currentStart) > 2_000)
+    return false;
+  try {
+    await readFile(join(identityRoot, `.process-${owner.pid}-${owner.processStartedAt}.identity`));
+  } catch {
+    return false;
+  }
   try {
     process.kill(owner.pid, 0);
     return true;
@@ -71,6 +80,14 @@ export class CacheLock {
     const staleMs = options.staleMs ?? 60_000;
     const deadline = Date.now() + (options.waitMs ?? 30_000);
     const heartbeatMs = options.heartbeatMs ?? Math.max(250, Math.floor(staleMs / 3));
+    const processStartedAt = Date.now() - Math.floor(process.uptime() * 1_000);
+    const identityRoot = join(tmpdir(), "opsi-lock-identities");
+    await mkdir(identityRoot, { recursive: true, mode: 0o700 });
+    await writeFile(
+      join(identityRoot, `.process-${process.pid}-${processStartedAt}.identity`),
+      `${hostname()}\n`,
+      { mode: 0o600, flag: "a" },
+    );
     while (true) {
       options.signal?.throwIfAborted();
       const now = Date.now();
@@ -78,22 +95,24 @@ export class CacheLock {
         token: randomUUID(),
         pid: process.pid,
         hostname: hostname(),
-        processStartedAt: now - Math.floor(process.uptime() * 1_000),
+        processStartedAt,
         createdAt: now,
         heartbeatAt: now,
       };
+      const candidate = `${path}.pending-${owner.token}`;
       try {
-        await mkdir(path, { mode: 0o700 });
-        await writeFile(join(path, "owner.json"), JSON.stringify(owner), {
+        await mkdir(candidate, { mode: 0o700 });
+        await writeFile(join(candidate, "owner.json"), JSON.stringify(owner), {
           mode: 0o600,
           flag: "wx",
         });
+        await options.beforePublish?.();
+        await rename(candidate, path);
         return new CacheLock(path, owner, heartbeatMs);
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
-          await rm(path, { recursive: true, force: true }).catch(() => undefined);
+        await rm(candidate, { recursive: true, force: true }).catch(() => undefined);
+        if (!["EEXIST", "ENOTEMPTY"].includes((error as NodeJS.ErrnoException).code ?? ""))
           throw error;
-        }
       }
       let existing: Owner | undefined;
       try {
@@ -102,10 +121,21 @@ export class CacheLock {
         /* partial owner is recoverable after staleness */
       }
       const timestamp = existing?.heartbeatAt ?? existing?.createdAt ?? 0;
-      if (Date.now() - timestamp > staleMs && !localOwnerIsAlive(existing)) {
+      if (Date.now() - timestamp > staleMs && !(await localOwnerIsAlive(identityRoot, existing))) {
         const tombstone = `${path}.stale-${existing?.token ?? "unknown"}-${randomUUID()}`;
         try {
           await rename(path, tombstone);
+          const quarantined = JSON.parse(
+            await readFile(join(tombstone, "owner.json"), "utf8"),
+          ) as Owner;
+          if (
+            quarantined.token !== existing?.token ||
+            quarantined.processStartedAt !== existing?.processStartedAt ||
+            quarantined.heartbeatAt !== existing?.heartbeatAt
+          ) {
+            await rename(tombstone, path).catch(() => undefined);
+            continue;
+          }
           await rm(tombstone, { recursive: true, force: true });
           continue;
         } catch {

@@ -51,7 +51,6 @@ export function registerDownloadCommand(
           errors.push(error);
         }
       }
-      if (results.length > 0) context.renderer?.write(ids.length === 1 ? results[0] : results);
       if (errors.length > 0) {
         if (results.length > 0)
           throw new OpsiError({
@@ -59,6 +58,7 @@ export function registerDownloadCommand(
             message: `${results.length} download(s) succeeded and ${errors.length} failed.`,
             exitCode: EXIT_CODES.PARTIAL_SUCCESS,
             context: {
+              data: results,
               failures: errors.map((error) =>
                 error instanceof Error ? error.message : String(error),
               ),
@@ -66,5 +66,6 @@ export function registerDownloadCommand(
           });
         throw errors[0];
       }
+      if (results.length > 0) context.renderer?.write(ids.length === 1 ? results[0] : results);
     });
 }

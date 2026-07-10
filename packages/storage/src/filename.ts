@@ -7,7 +7,19 @@ export function safeFilename(remoteName: string | undefined, fallback = "downloa
     .replace(/[<>:"/\\|?*]/gu, "-")
     .replace(/[. ]+$/gu, "")
     .trim();
-  if (value === "" || value === "." || value === ".." || DEVICES.test(value)) value = fallback;
+  if (value === "" || value === "." || value === ".." || DEVICES.test(value)) {
+    value =
+      fallback
+        .replace(/\\/gu, "/")
+        .split("/")
+        .at(-1)
+        ?.normalize("NFC")
+        .replace(/\p{Cc}/gu, "-")
+        .replace(/[<>:"/\\|?*]/gu, "-")
+        .replace(/[. ]+$/gu, "")
+        .trim() ?? "";
+    if (value === "" || value === "." || value === ".." || DEVICES.test(value)) value = "download";
+  }
   const encoded = Buffer.from(value);
   if (encoded.length > 180) {
     value = encoded
