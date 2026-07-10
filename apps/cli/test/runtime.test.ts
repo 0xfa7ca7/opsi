@@ -1,8 +1,10 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { loadConfiguration, resolveConfigPaths } from "@opsi/config";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCli, type CliIo } from "../src/main.js";
+import { cliConfigurationFromArgv, requestedOutputFormat } from "../src/options.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -58,6 +60,21 @@ describe("CLI runtime", () => {
     expect(fixture.stderr.join("")).toContain("cannot be used with option");
   });
 
+  it.each([
+    ["separate-token", ["--query-row-limit", "nope"]],
+    ["equals-form", ["--query-row-limit=nope"]],
+  ])(
+    "maps %s invalid numeric option values to invalid input without internal diagnostics",
+    async (_form, argv) => {
+      const fixture = await fixtureIo();
+
+      await expect(runCli(argv, fixture.io)).resolves.toBe(2);
+      expect(fixture.stdout).toEqual([]);
+      expect(fixture.stderr.join("")).toContain("must be a positive integer");
+      expect(fixture.stderr.join("")).not.toContain("INTERNAL_ERROR");
+    },
+  );
+
   it("writes readable configuration errors only to stderr by default", async () => {
     const fixture = await fixtureIo({ invalidConfig: true });
 
@@ -76,5 +93,81 @@ describe("CLI runtime", () => {
       error: { code: "INVALID_CONFIGURATION", exitCode: 2 },
     });
     expect(fixture.stderr).toEqual([]);
+  });
+
+  it("writes structured configuration errors for equals-form output selection", async () => {
+    const fixture = await fixtureIo({ invalidConfig: true });
+
+    await expect(runCli(["--output=json"], fixture.io)).resolves.toBe(2);
+    expect(JSON.parse(fixture.stdout.join(""))).toMatchObject({
+      schemaVersion: "1",
+      data: null,
+      error: { code: "INVALID_CONFIGURATION", exitCode: 2 },
+    });
+    expect(fixture.stderr).toEqual([]);
+  });
+});
+
+describe("CLI bootstrap options", () => {
+  it("applies equals-form values for every bootstrap configuration option", () => {
+    expect(
+      cliConfigurationFromArgv([
+        "--provider=custom",
+        "--output=json",
+        "--cache-dir=/tmp/cache",
+        "--download-dir=/tmp/downloads",
+        "--http-timeout-ms=100",
+        "--max-download-bytes=200",
+        "--preview-row-limit=20",
+        "--query-row-limit=30",
+        "--query-timeout-ms=400",
+        "--duckdb-memory-limit=2GB",
+        "--duckdb-threads=3",
+      ]),
+    ).toEqual({
+      provider: "custom",
+      output: "json",
+      cacheDir: "/tmp/cache",
+      downloadDir: "/tmp/downloads",
+      httpTimeoutMs: 100,
+      maxDownloadBytes: 200,
+      previewRowLimit: 20,
+      queryRowLimit: 30,
+      queryTimeoutMs: 400,
+      duckdbMemoryLimit: "2GB",
+      duckdbThreads: 3,
+    });
+    expect(requestedOutputFormat(["--output=json"])).toBe("json");
+  });
+
+  it("retains separate-token bootstrap option parsing", () => {
+    expect(
+      cliConfigurationFromArgv([
+        "--provider",
+        "custom",
+        "--output",
+        "json",
+        "--query-row-limit",
+        "30",
+      ]),
+    ).toMatchObject({ provider: "custom", output: "json", queryRowLimit: 30 });
+    expect(requestedOutputFormat(["--output", "json"])).toBe("json");
+  });
+
+  it("gives equals-form output CLI precedence over the environment", async () => {
+    const fixture = await fixtureIo();
+    const { cwd, home } = fixture.io;
+    if (cwd === undefined || home === undefined) throw new Error("fixture locations are required");
+    const paths = resolveConfigPaths({ cwd, home });
+
+    const configuration = await loadConfiguration({
+      cwd,
+      home,
+      paths,
+      env: { OPSI_OUTPUT: "csv" },
+      cli: cliConfigurationFromArgv(["--output=json"]),
+    });
+
+    expect(configuration.output).toBe("json");
   });
 });

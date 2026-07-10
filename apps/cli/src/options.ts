@@ -1,5 +1,5 @@
 import type { CliConfigurationOptions, OutputFormat } from "@opsi/config";
-import { Option, type Command } from "commander";
+import { InvalidArgumentError, Option, type Command } from "commander";
 
 const FORMATS = ["human", "json", "ndjson", "csv", "tsv"] as const;
 const STRUCTURED_FORMATS = FORMATS.slice(1);
@@ -28,7 +28,9 @@ export interface GlobalOptions {
 
 function integer(value: string): number {
   const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed <= 0) throw new Error("must be a positive integer");
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new InvalidArgumentError("must be a positive integer");
+  }
   return parsed;
 }
 
@@ -64,9 +66,15 @@ export function addGlobalOptions(program: Command): Command {
 }
 
 function optionValue(argv: readonly string[], name: string): string | undefined {
-  const index = argv.indexOf(name);
-  const next = index < 0 ? undefined : argv[index + 1];
-  return next !== undefined && !next.startsWith("-") ? next : undefined;
+  const equalsPrefix = `${name}=`;
+  for (const [index, token] of argv.entries()) {
+    if (token.startsWith(equalsPrefix)) return token.slice(equalsPrefix.length);
+    if (token === name) {
+      const next = argv[index + 1];
+      return next !== undefined && !next.startsWith("-") ? next : undefined;
+    }
+  }
+  return undefined;
 }
 
 function positiveInteger(argv: readonly string[], name: string): number | undefined {
