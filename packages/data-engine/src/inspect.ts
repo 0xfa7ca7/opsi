@@ -197,6 +197,8 @@ export class DataEngine {
       maxRecordBytes: this.options.validationMaxRecordBytes ?? 16 * 1024 * 1024,
       maxTotalBytes: this.options.validationMaxTotalBytes ?? 256 * 1024 * 1024,
       maxColumns: this.options.validationMaxColumns ?? 1_024,
+      maxStateBytes: this.options.validationMaxStateBytes ?? 64 * 1024 * 1024,
+      maxIssueGroups: this.options.validationMaxIssueGroups ?? 10_000,
       xlsxSharedStringsByteLimit: this.xlsxSharedStringsByteLimit,
     });
   }

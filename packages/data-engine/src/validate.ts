@@ -1,4 +1,5 @@
 import { createReadStream } from "node:fs";
+import { createHash } from "node:crypto";
 import { extname } from "node:path";
 import { OpsiError } from "@opsi/domain";
 import { readDelimited } from "./csv.js";
@@ -180,16 +181,46 @@ class StreamingDiagnostics {
   readonly issues: ValidationIssue[] = [];
   private readonly seen = new Map<string, number>();
   private readonly fields = new Map<string, { nonNull: number; types: Set<string> }>();
+  private readonly grouped = new Map<string, { issue: ValidationIssue; count: number }>();
   private rows = 0;
   private totalBytes = 0;
+  private stateBytes = 0;
   constructor(
     private readonly limits: {
       readonly maxRecords: number;
       readonly maxRecordBytes: number;
       readonly maxTotalBytes: number;
       readonly maxColumns: number;
+      readonly maxStateBytes: number;
+      readonly maxIssueGroups: number;
     },
   ) {}
+  private retain(bytes: number): void {
+    this.stateBytes += bytes;
+    if (this.stateBytes > this.limits.maxStateBytes)
+      throw new OpsiError({
+        code: "VALIDATION_STATE_LIMIT",
+        message: "Validation retained-state limit exceeded.",
+        exitCode: 5,
+        suggestion: "Split the input into smaller files.",
+      });
+  }
+  addIssue(candidate: ValidationIssue, key = `${candidate.code}:${candidate.field ?? ""}`): void {
+    const current = this.grouped.get(key);
+    if (current !== undefined) {
+      current.count += 1;
+      return;
+    }
+    if (this.grouped.size >= this.limits.maxIssueGroups)
+      throw new OpsiError({
+        code: "VALIDATION_ISSUE_LIMIT",
+        message: "Validation issue-group limit exceeded.",
+        exitCode: 5,
+        suggestion: "Split the input into smaller files.",
+      });
+    this.retain(Buffer.byteLength(key) + Buffer.byteLength(JSON.stringify(candidate)));
+    this.grouped.set(key, { issue: candidate, count: 1 });
+  }
   add(row: Readonly<Record<string, unknown>>, warnings: readonly ValidationIssue[] = []): void {
     const columns = Object.keys(row);
     if (columns.length > this.limits.maxColumns)
@@ -208,8 +239,8 @@ class StreamingDiagnostics {
         suggestion: "Split the input into smaller files.",
         context: { limit: this.limits.maxRecords },
       });
-    const fingerprint = JSON.stringify(row);
-    const bytes = Buffer.byteLength(fingerprint);
+    const serialized = JSON.stringify(row);
+    const bytes = Buffer.byteLength(serialized);
     if (bytes > this.limits.maxRecordBytes)
       throw new OpsiError({
         code: "VALIDATION_RECORD_TOO_LARGE",
@@ -228,10 +259,13 @@ class StreamingDiagnostics {
         context: { limit: this.limits.maxTotalBytes },
       });
     this.rows += 1;
+    const fingerprint = createHash("sha256").update(serialized).digest("base64url");
     const prior = this.seen.get(fingerprint);
-    if (prior === undefined) this.seen.set(fingerprint, this.rows);
-    else
-      this.issues.push(
+    if (prior === undefined) {
+      this.retain(52);
+      this.seen.set(fingerprint, this.rows);
+    } else
+      this.addIssue(
         issue(
           "DUPLICATE_ROW",
           "warning",
@@ -239,18 +273,23 @@ class StreamingDiagnostics {
           "Confirm the duplicate is intentional or remove it.",
           { row: this.rows + 1 },
         ),
+        `DUPLICATE_ROW:${fingerprint}`,
       );
-    this.issues.push(...warnings);
+    for (const warning of warnings) this.addIssue(warning);
     for (const [field, value] of Object.entries(row)) {
-      const state = this.fields.get(field) ?? { nonNull: 0, types: new Set<string>() };
+      let state = this.fields.get(field);
+      if (state === undefined) {
+        this.retain(Buffer.byteLength(field) + 24);
+        state = { nonNull: 0, types: new Set<string>() };
+        this.fields.set(field, state);
+      }
       const type = inferredType(value);
       if (type !== "null") {
         state.nonNull += 1;
         state.types.add(type);
       }
-      this.fields.set(field, state);
       if (typeof value === "string" && /^[=+\-@]/u.test(value))
-        this.issues.push(
+        this.addIssue(
           issue(
             "FORMULA_LIKE_VALUE",
             "warning",
@@ -260,7 +299,7 @@ class StreamingDiagnostics {
           ),
         );
       if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(value) && type === "string")
-        this.issues.push(
+        this.addIssue(
           issue(
             "INVALID_DATE",
             "warning",
@@ -277,7 +316,7 @@ class StreamingDiagnostics {
         state.types.size > 1 &&
         !(state.types.size === 2 && state.types.has("integer") && state.types.has("double"))
       )
-        this.issues.push(
+        this.addIssue(
           issue(
             "MIXED_TYPES",
             "warning",
@@ -287,7 +326,7 @@ class StreamingDiagnostics {
           ),
         );
       if (this.rows > 0 && state.nonNull / this.rows <= 0.5)
-        this.issues.push(
+        this.addIssue(
           issue(
             "NULL_HEAVY_COLUMN",
             "warning",
@@ -297,6 +336,11 @@ class StreamingDiagnostics {
           ),
         );
     }
+    for (const { issue: groupedIssue, count } of this.grouped.values())
+      this.issues.push({
+        ...groupedIssue,
+        context: { ...groupedIssue.context, occurrenceCount: count },
+      });
     return this.issues;
   }
 }
@@ -311,6 +355,8 @@ export async function validateData(
     readonly xlsxSharedStringsByteLimit: number;
     readonly maxTotalBytes: number;
     readonly maxColumns: number;
+    readonly maxStateBytes: number;
+    readonly maxIssueGroups: number;
   },
 ): Promise<DataValidationResult> {
   const detection = await detectFormat(source);
@@ -400,8 +446,10 @@ export async function validateData(
           {
             maxRecords: limits.maxRecords,
             sharedStringsByteLimit: limits.xlsxSharedStringsByteLimit,
+            maxColumns: limits.maxColumns,
           },
           (row, warnings) => diagnostics.add(row, warnings),
+          (headerIssue) => diagnostics.addIssue(headerIssue),
         );
       else
         await scanWithDuckDb(detection.path, detection.format as "json" | "parquet", (row) =>
@@ -421,6 +469,8 @@ export async function validateData(
           "VALIDATION_RECORD_TOO_LARGE",
           "VALIDATION_TOTAL_BYTES_LIMIT",
           "VALIDATION_COLUMN_LIMIT",
+          "VALIDATION_STATE_LIMIT",
+          "VALIDATION_ISSUE_LIMIT",
         ].includes(error.code)
       )
         throw error;

@@ -89,4 +89,6 @@ export interface DataEngineOptions {
   readonly validationMaxRecordBytes?: number;
   readonly validationMaxTotalBytes?: number;
   readonly validationMaxColumns?: number;
+  readonly validationMaxStateBytes?: number;
+  readonly validationMaxIssueGroups?: number;
 }

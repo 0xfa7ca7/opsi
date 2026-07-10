@@ -188,8 +188,13 @@ export async function previewXlsx(
 export async function scanXlsx(
   path: string,
   sheet: string | undefined,
-  options: { readonly maxRecords: number; readonly sharedStringsByteLimit: number },
+  options: {
+    readonly maxRecords: number;
+    readonly sharedStringsByteLimit: number;
+    readonly maxColumns: number;
+  },
   onRow: (row: DataRow, warnings: readonly ValidationIssue[]) => void,
+  onIssue: (issue: ValidationIssue) => void,
 ): Promise<void> {
   if (sheet === undefined || sheet.trim().length === 0) {
     const sheets = await listSheets(path, options.sharedStringsByteLimit);
@@ -217,10 +222,61 @@ export async function scanXlsx(
       for (let column = 1; column <= row.cellCount; column += 1)
         values.push(cellValue(row.getCell(column), warnings, row.number));
       if (columns === undefined) {
-        columns = values.map((value, index) =>
-          value === null || value === "" ? `column_${index + 1}` : String(value),
-        );
-      } else onRow(recordsToRows(columns, [values])[0] ?? {}, warnings);
+        if (values.length > options.maxColumns)
+          throw new OpsiError({
+            code: "VALIDATION_COLUMN_LIMIT",
+            message: "XLSX header exceeds the column limit.",
+            exitCode: 5,
+            suggestion: "Reduce worksheet columns.",
+          });
+        const used = new Map<string, number>();
+        columns = values.map((value, index) => {
+          const original = value === null || value === "" ? "" : String(value);
+          if (original === "")
+            onIssue({
+              code: "EMPTY_HEADER",
+              severity: "warning",
+              message: "XLSX header is empty.",
+              recommendation: "Name every column.",
+              row: 1,
+              column: index + 1,
+            });
+          const base = original || `column_${index + 1}`;
+          const count = (used.get(base) ?? 0) + 1;
+          used.set(base, count);
+          if (count > 1)
+            onIssue({
+              code: "DUPLICATE_HEADER",
+              severity: "error",
+              message: `Header '${base}' is duplicated.`,
+              recommendation: "Rename duplicate columns.",
+              row: 1,
+              column: index + 1,
+              field: base,
+            });
+          return count === 1 ? base : `${base}_${count}`;
+        });
+      } else {
+        if (values.length !== columns.length)
+          onIssue({
+            code: "INCONSISTENT_COLUMN_COUNT",
+            severity: "error",
+            message: `XLSX row ${row.number} has ${values.length} columns; expected ${columns.length}.`,
+            recommendation: "Match every row to the header width.",
+            row: row.number,
+          });
+        const expanded = [...columns];
+        while (expanded.length < values.length)
+          expanded.push(`extra_column_${expanded.length + 1}`);
+        if (expanded.length > options.maxColumns)
+          throw new OpsiError({
+            code: "VALIDATION_COLUMN_LIMIT",
+            message: "XLSX row exceeds the column limit.",
+            exitCode: 5,
+            suggestion: "Reduce worksheet columns.",
+          });
+        onRow(recordsToRows(expanded, [values])[0] ?? {}, warnings);
+      }
     }
     break;
   }

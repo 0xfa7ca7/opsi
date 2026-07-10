@@ -291,4 +291,44 @@ describe("data validation", () => {
       exitCode: 5,
     });
   });
+
+  it("bounds retained state and aggregates repeated issues", async () => {
+    const repeated = await fixture(
+      `${Array.from({ length: 100 }, () => '{"value":"=x","date":"2026-99-99"}').join("\n")}\n`,
+      "repeated.ndjson",
+    );
+    const result = await new DataEngine({
+      validationMaxStateBytes: 10_000,
+      validationMaxIssueGroups: 10,
+    }).validate(repeated);
+    expect(result.issues.filter((candidate) => candidate.code === "FORMULA_LIKE_VALUE")).toEqual([
+      expect.objectContaining({ context: expect.objectContaining({ occurrenceCount: 100 }) }),
+    ]);
+    await expect(
+      new DataEngine({ validationMaxStateBytes: 20 }).validate(repeated),
+    ).rejects.toMatchObject({ code: "VALIDATION_STATE_LIMIT", exitCode: 5 });
+    await expect(
+      new DataEngine({ validationMaxIssueGroups: 1 }).validate(repeated),
+    ).rejects.toMatchObject({ code: "VALIDATION_ISSUE_LIMIT", exitCode: 5 });
+  });
+
+  it("validates XLSX headers and preserves extra-cell width errors", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "opsi-xlsx-headers-"));
+    temporary.push(directory);
+    const path = join(directory, "headers.xlsx");
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Rows");
+    sheet.addRow(["a", "a", ""]);
+    sheet.addRow([1, 2, 3, 4]);
+    const wide = workbook.addWorksheet("Wide");
+    wide.addRow(["a", "b"]);
+    await workbook.xlsx.writeFile(path);
+    const result = await engine.validate(path, { sheet: "Rows" });
+    expect(result.issues.map((candidate) => candidate.code)).toEqual(
+      expect.arrayContaining(["DUPLICATE_HEADER", "EMPTY_HEADER", "INCONSISTENT_COLUMN_COUNT"]),
+    );
+    await expect(
+      new DataEngine({ validationMaxColumns: 1 }).validate(path, { sheet: "Wide" }),
+    ).rejects.toMatchObject({ code: "VALIDATION_COLUMN_LIMIT", exitCode: 5 });
+  });
 });
