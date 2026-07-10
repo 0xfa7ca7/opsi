@@ -34,6 +34,14 @@ export function providerId(value: string): ProviderId {
       context: { value },
     });
   }
+  if (id === "local") {
+    throw new OpsiError({
+      code: "INVALID_ID",
+      message: "Provider ID 'local' is reserved for local file references",
+      exitCode: 2,
+      context: { value },
+    });
+  }
   return id;
 }
 

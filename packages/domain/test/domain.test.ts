@@ -31,6 +31,27 @@ describe("branded identifiers", () => {
 });
 
 describe("canonical references", () => {
+  it("keeps provider formatters closed over parser-accepted references", () => {
+    expect(() => providerId("local")).toThrowError(
+      expect.objectContaining({ code: "INVALID_ID", exitCode: 2 }),
+    );
+
+    const provider = providerId("ckan");
+    const dataset = datasetReference(provider, datasetId("dataset-1"));
+    const resource = resourceReference(provider, resourceId("resource-1"));
+
+    expect(parseCanonicalReference(dataset)).toEqual({
+      providerId: "ckan",
+      kind: "dataset",
+      id: "dataset-1",
+    });
+    expect(parseCanonicalReference(resource)).toEqual({
+      providerId: "ckan",
+      kind: "resource",
+      id: "resource-1",
+    });
+  });
+
   it("round-trips a provider dataset reference", () => {
     const reference = datasetReference(providerId("opsi"), datasetId("abc"));
     expect(reference).toBe("opsi:dataset:abc");
