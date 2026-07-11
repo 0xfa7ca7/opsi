@@ -128,6 +128,7 @@ function fixtureTransport(responses: Readonly<Record<string, unknown>>): {
   readonly requests: CapturedRequest[];
 } {
   const requests: CapturedRequest[] = [];
+  const responseIndexes = new Map<string, number>();
   const fetch = vi.fn(async (input: string | URL, init?: RequestInit) => {
     const url = new URL(input.toString());
     const request: CapturedRequest = {
@@ -139,8 +140,12 @@ function fixtureTransport(responses: Readonly<Record<string, unknown>>): {
       ...(init?.body === undefined ? {} : { body: JSON.parse(String(init.body)) as unknown }),
     };
     requests.push(request);
-    const response = responses[request.path];
-    if (response === undefined) throw new Error(`Missing fixture for ${request.path}`);
+    const configured = responses[request.path];
+    if (configured === undefined) throw new Error(`Missing fixture for ${request.path}`);
+    const response = Array.isArray(configured)
+      ? configured[Math.min(responseIndexes.get(request.path) ?? 0, configured.length - 1)]
+      : configured;
+    responseIndexes.set(request.path, (responseIndexes.get(request.path) ?? 0) + 1);
     const status =
       typeof response === "object" &&
       response !== null &&
@@ -404,6 +409,88 @@ describe("OPSI provider contract", () => {
     expect(resources).toHaveLength(1);
     expect(requests).toHaveLength(1);
     expect(requests[0]?.path).toBe("/package_show");
+  });
+
+  it("resolves the parent dataset when live resource_show omits package_id", async () => {
+    const resource = {
+      help: "resource_show",
+      success: true,
+      result: {
+        id: "resource-live",
+        url: "https://podatki.gov.si/dataset/dataset-live/resource/resource-live/download/data.csv",
+        format: "CSV",
+      },
+    };
+    const search = {
+      help: "package_search",
+      success: true,
+      result: {
+        count: 1,
+        results: [
+          {
+            id: "dataset-live",
+            title: "Live dataset",
+            resources: [resource.result],
+          },
+        ],
+      },
+    };
+    const { transport, requests } = fixtureTransport({
+      "/resource_show": resource,
+      "/package_search": search,
+    });
+
+    await expect(
+      new OpsiProvider(transport).getResource(resourceId("resource-live")),
+    ).resolves.toMatchObject({
+      id: "resource-live",
+      datasetId: "dataset-live",
+      format: "CSV",
+    });
+    expect(requests).toHaveLength(2);
+    expect(requests[1]?.body).toMatchObject({
+      q: "*:*",
+      rows: 10,
+    });
+    expect((requests[1]?.body as { fq: string }).fq).toMatch(
+      /^res_url:".*resource-live.*data\.csv"$/u,
+    );
+  });
+
+  it("advances parent lookup past ten shared-URL decoys", async () => {
+    const liveResource = {
+      id: "resource-live",
+      url: "https://example.invalid/shared.csv",
+      format: "CSV",
+    };
+    const envelope = (start: number, resources: readonly Readonly<Record<string, unknown>>[]) => ({
+      help: "package_search",
+      success: true,
+      result: {
+        count: 11,
+        results: resources.map((resource, index) => ({
+          id: `dataset-${start + index}`,
+          title: `Dataset ${start + index}`,
+          resources: [resource],
+        })),
+      },
+    });
+    const decoys = Array.from({ length: 10 }, (_, index) => ({
+      ...liveResource,
+      id: `decoy-${index}`,
+    }));
+    const { transport, requests } = fixtureTransport({
+      "/resource_show": { help: "resource_show", success: true, result: liveResource },
+      "/package_search": [envelope(0, decoys), envelope(10, [liveResource])],
+    });
+
+    await expect(
+      new OpsiProvider(transport).getResource(resourceId("resource-live")),
+    ).resolves.toMatchObject({
+      datasetId: "dataset-10",
+    });
+    expect(requests.filter((request) => request.path === "/package_search")).toHaveLength(2);
+    expect(requests[2]?.body).toMatchObject({ start: 10, rows: 10 });
   });
 
   it("maps a failed CKAN envelope to a stable provider error", async () => {

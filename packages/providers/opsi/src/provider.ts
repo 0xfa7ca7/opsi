@@ -1,6 +1,7 @@
 import {
   EXIT_CODES,
   OpsiError,
+  datasetId,
   providerId,
   type DataProvider,
   type Dataset,
@@ -157,9 +158,46 @@ export class OpsiProvider implements DataProvider {
   }
 
   async getResource(id: ResourceId): Promise<Resource> {
-    return this.cached(`resource:${id}`, async () =>
-      mapOpsiResource(await this.transport.call("resource_show", { id })),
-    );
+    return this.cached(`resource:${id}`, async () => {
+      const record = await this.transport.call("resource_show", { id });
+      if (record.package_id !== undefined) return mapOpsiResource(record);
+
+      // OPSI's live resource_show response omits package_id. Resolve the
+      // parent through the exact resource URL so canonical/bare resource
+      // downloads retain correct dataset provenance.
+      const pageSize = 10;
+      const parentSearchCap = 1_000;
+      let start = 0;
+      let parent;
+      while (start < parentSearchCap) {
+        const parents = await this.transport.call("package_search", {
+          q: "*:*",
+          fq: quoted("res_url", record.url),
+          rows: pageSize,
+          start,
+          facet: "false",
+          "facet.field": [],
+          "facet.mincount": 0,
+          "facet.limit": 0,
+          sort: DEFAULT_SORT,
+        });
+        parent = parents.results.find((candidate) =>
+          candidate.resources?.some((resource) => resource.id === record.id),
+        );
+        if (parent !== undefined) break;
+        const next = start + parents.results.length;
+        if (parents.results.length === 0 || next >= parents.count) break;
+        start = next;
+      }
+      if (parent === undefined)
+        throw new OpsiError({
+          code: "INVALID_PROVIDER_RESPONSE",
+          message: `OPSI resource ${record.id} has no resolvable parent dataset.`,
+          exitCode: EXIT_CODES.PROVIDER_FAILURE,
+          context: { provider: "opsi", resourceId: record.id },
+        });
+      return mapOpsiResource(record, datasetId(parent.id));
+    });
   }
 
   async listDatasetResources(id: DatasetId): Promise<readonly Resource[]> {
