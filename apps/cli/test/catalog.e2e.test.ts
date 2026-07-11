@@ -90,6 +90,7 @@ async function cli(argv: readonly string[]): Promise<CliResult> {
         OPSI_CACHE_DIR: join(temporaryHome, "cache"),
         OPSI_DOWNLOAD_DIR: join(temporaryHome, "downloads"),
         OPSI_BASE_URL: baseUrl,
+        OPSI_OFFLINE: "0",
         OPSI_REQUEST_INTERVAL_MS: "0",
         NO_COLOR: "1",
       },

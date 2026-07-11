@@ -168,6 +168,7 @@ async function cli(
       OPSI_CACHE_DIR: join(home, "cache"),
       OPSI_DOWNLOAD_DIR: join(home, "downloads"),
       OPSI_BASE_URL: apiUrl,
+      OPSI_OFFLINE: "0",
       OPSI_REQUEST_INTERVAL_MS: "0",
       NO_COLOR: "1",
     },
