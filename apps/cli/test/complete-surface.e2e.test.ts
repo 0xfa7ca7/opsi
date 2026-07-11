@@ -25,7 +25,7 @@ async function completeWithZsh(input: string, cwd: string): Promise<string> {
   await writeFile(join(completionDirectory, "_opsi"), completionScript("zsh"));
   const harness = `
 zmodload zsh/zpty
-zpty -b completion 'PS1="BOOT> " zsh -f'
+zpty -b completion 'PS1="BOOT> " zsh -f -i'
 integer attempts=0
 typeset ready chunk output
 until zpty -r -m completion ready '*BOOT> *'; do
