@@ -30,7 +30,7 @@ export function registerDatasetCommand(
     let pages = 0;
     let emittedPage = false;
     while (true) {
-      const page = await client.search({ limit: 10_000, offset });
+      const page = await client.search({ limit: 1_000, offset });
       pages += 1;
       if (pages === 1) total = page.total;
       if (page.nextOffset !== undefined && page.nextOffset <= offset)
