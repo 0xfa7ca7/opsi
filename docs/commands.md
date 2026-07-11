@@ -14,6 +14,10 @@ Syntax: `opsi search [text] [options]`. Filters: `--organization`, repeatable `-
 
 Syntax: `opsi dataset show <id>`. Returns complete normalized dataset metadata and embedded resources. A missing ID exits 3; malformed provider data or network failure exits 4. Example: `opsi dataset show dataset-traffic-001 --json`.
 
+### `dataset list`
+
+Syntax: `opsi dataset list`. Retrieves every dataset using advancing provider pagination. The default fields are `id`, human-readable `title`, and provider slug `name`; global `--fields` overrides that selection. Human, NDJSON, CSV, and TSV output streams completed pages, while JSON emits one envelope with `total`, `count`, and `pages` metadata. Invalid provider pagination exits 4. Example: `opsi dataset list --fields id,title,name --json`.
+
 ### `dataset resources`
 
 Syntax: `opsi dataset resources <id>`. Returns resources belonging to the dataset. Missing datasets exit 3. Example: `opsi dataset resources dataset-traffic-001 --csv`.

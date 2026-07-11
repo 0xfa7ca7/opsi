@@ -115,6 +115,37 @@ async function cli(argv: readonly string[]): Promise<CliResult> {
 }
 
 describe("catalogue CLI", () => {
+  it("shows dataset list in help and lists datasets with default fields", async () => {
+    const help = await cli(["dataset", "--help"]);
+    expect(help).toMatchObject({ exitCode: 0, stderr: "" });
+    expect(help.stdout).toContain("list");
+
+    const result = await cli(["dataset", "list", "--json"]);
+    expect(result).toMatchObject({
+      exitCode: 0,
+      stderr: "",
+      json: {
+        schemaVersion: "1",
+        data: [{ id: "dataset-abc", title: "Prometni podatki", name: "prometni-podatki" }],
+        meta: { total: 1, count: 1, pages: 1 },
+      },
+    });
+    expect(requests).toContainEqual(
+      expect.objectContaining({
+        method: "POST",
+        path: "/package_search",
+        body: expect.objectContaining({ rows: 10_000, start: 0 }),
+      }),
+    );
+
+    const projected = await cli(["dataset", "list", "--ndjson", "--fields", "name,providerId"]);
+    expect(projected).toMatchObject({
+      exitCode: 0,
+      stderr: "",
+      stdout: '{"name":"prometni-podatki","providerId":"opsi"}\n',
+    });
+  });
+
   it("searches OPSI through the controlled fixture server", async () => {
     const result = await cli(["search", "promet", "--json", "--limit", "2"]);
 
