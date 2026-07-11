@@ -24,8 +24,6 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - name: Install zsh
-        run: sudo apt-get update && sudo apt-get install -y zsh
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
       - run: pnpm lint
@@ -58,6 +56,20 @@ jobs:
             artifacts/SHA256SUMS
             artifacts/pack.json
           if-no-files-found: error
+
+  zsh-completion:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+      - run: corepack enable && corepack prepare pnpm@11.11.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec vitest run --project cli-e2e apps/cli/test/complete-surface.e2e.test.ts -t "functionally completes"
+        env:
+          OPSI_OFFLINE: "1"
 
   exact-install:
     needs: quality
@@ -123,6 +135,4 @@ jobs:
         with:
           node-version: current
       - run: corepack enable && corepack prepare pnpm@11.11.0 --activate
-      - name: Install zsh
-        run: sudo apt-get update && sudo apt-get install -y zsh
       - run: pnpm install --frozen-lockfile && pnpm test && pnpm test:pack

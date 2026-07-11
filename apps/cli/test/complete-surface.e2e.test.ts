@@ -417,7 +417,9 @@ describe("complete command surface", () => {
     expect(value.stderr).toEqual([]);
   });
 
-  it.each([
+  const functionalZshCompletionTest: typeof it = process.platform === "darwin" ? it : it.skip;
+
+  functionalZshCompletionTest.each([
     ["top-level command", "opsi val", "validate"],
     ["nested command", "opsi dataset sch", "schema"],
     ["enum option", "opsi convert input.csv --to par", "parquet"],
