@@ -25,31 +25,19 @@ async function completeWithZsh(input: string, cwd: string): Promise<string> {
   await writeFile(join(completionDirectory, "_opsi"), completionScript("zsh"));
   const harness = `
 zmodload zsh/zpty
-zpty -b completion 'PS1="BOOT> " zsh -f -i'
+zpty -b completion zsh -f -i
 integer attempts=0
 typeset ready chunk output
-until zpty -r -m completion ready '*BOOT> *'; do
+zpty -w completion "stty -echo; PS1=''; RPS1=''; fpath=(\${(q)1} $fpath); autoload -Uz compinit; compinit -D; setopt AUTO_LIST LIST_AMBIGUOUS; cd -- \${(q)2}; print -r -- __OPSI_''INITIALIZED__"
+attempts=0
+until zpty -r -m completion ready '*__OPSI_INITIALIZED__*'; do
   (( attempts += 1 ))
   (( attempts > 200 )) && exit 2
   sleep 0.01
 done
-zpty -w completion 'stty -echo'
+zpty -w completion 'function compadd { print -r -- "$@" >> '"\${(q)4}"'; builtin compadd "$@" }; function __opsi_completion_ready { zle -D zle-line-init; print -r -- __OPSI_\${:-COMPLETION_READY__} }; zle -N zle-line-init __opsi_completion_ready'
 attempts=0
-until zpty -r -m completion ready '*BOOT> *'; do
-  (( attempts += 1 ))
-  (( attempts > 200 )) && exit 2
-  sleep 0.01
-done
-zpty -w completion "PS1='READY> '; fpath=(\${(q)1} $fpath); autoload -Uz compinit; compinit -D; setopt AUTO_LIST LIST_AMBIGUOUS; cd -- \${(q)2}; print -r -- INITIALIZED"
-attempts=0
-until zpty -r -m completion ready '*INITIALIZED*READY> *'; do
-  (( attempts += 1 ))
-  (( attempts > 200 )) && exit 2
-  sleep 0.01
-done
-zpty -w completion 'function compadd { print -r -- "$@" >> '"\${(q)4}"'; builtin compadd "$@" }'
-attempts=0
-until zpty -r -m completion ready '*READY> *'; do
+until zpty -r -m completion ready '*__OPSI_COMPLETION_READY__*'; do
   (( attempts += 1 ))
   (( attempts > 200 )) && exit 2
   sleep 0.01
