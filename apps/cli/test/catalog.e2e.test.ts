@@ -134,7 +134,7 @@ describe("catalogue CLI", () => {
       expect.objectContaining({
         method: "POST",
         path: "/package_search",
-        body: expect.objectContaining({ rows: 1_000, start: 0 }),
+        body: expect.objectContaining({ rows: 300, start: 0 }),
       }),
     );
 

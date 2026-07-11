@@ -16,7 +16,7 @@ Syntax: `opsi dataset show <id>`. Returns complete normalized dataset metadata a
 
 ### `dataset list`
 
-Syntax: `opsi dataset list`. Retrieves every dataset using advancing 1,000-row provider pages. The default fields are `id`, human-readable `title`, and provider slug `name`; global `--fields` overrides that selection. Human, NDJSON, CSV, and TSV output streams completed pages, while JSON emits one envelope with `total`, `count`, and `pages` metadata. Invalid provider pagination exits 4. Example: `opsi dataset list --fields id,title,name --json`.
+Syntax: `opsi dataset list`. Retrieves every dataset using advancing 300-row provider pages. The default fields are `id`, human-readable `title`, and provider slug `name`; global `--fields` overrides that selection. Human, NDJSON, CSV, and TSV output streams completed pages, while JSON emits one envelope with `total`, `count`, and `pages` metadata. Invalid provider pagination exits 4. Example: `opsi dataset list --fields id,title,name --json`.
 
 ### `dataset resources`
 

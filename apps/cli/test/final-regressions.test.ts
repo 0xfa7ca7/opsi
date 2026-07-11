@@ -130,8 +130,8 @@ describe("final command contracts", () => {
     await program.parseAsync(["dataset", "list"], { from: "user" });
 
     expect(search.mock.calls.map(([query]) => query)).toEqual([
-      { limit: 1_000, offset: 0 },
-      { limit: 1_000, offset: 37 },
+      { limit: 300, offset: 0 },
+      { limit: 300, offset: 37 },
     ]);
     expect(writes).toHaveLength(1);
     expect(JSON.parse(writes[0] ?? "")).toEqual({
