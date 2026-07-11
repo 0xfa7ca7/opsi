@@ -14,7 +14,7 @@ function pad(value: string, width: number): string {
   return `${value}${" ".repeat(Math.max(0, width - stringWidth(value)))}`;
 }
 
-export function renderTable(rows: readonly OutputRow[]): string {
+export function renderTable(rows: readonly OutputRow[], includeHeader = true): string {
   if (rows.length === 0) return "";
   const columns = columnsFor(rows);
   const body = rows.map((row) => columns.map((column) => sanitizeTerminalText(row[column])));
@@ -25,7 +25,9 @@ export function renderTable(rows: readonly OutputRow[]): string {
     ),
   );
   const lines = [
-    columns.map((column, index) => pad(sanitizeTerminalText(column), widths[index] ?? 0)),
+    ...(includeHeader
+      ? [columns.map((column, index) => pad(sanitizeTerminalText(column), widths[index] ?? 0))]
+      : []),
     ...body,
   ].map((row) => row.map((cell, index) => pad(cell, widths[index] ?? 0)).join("  "));
   return `${lines.join("\n")}\n`;

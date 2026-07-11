@@ -19,6 +19,11 @@ export interface RendererOptions {
   readonly fields?: readonly string[];
 }
 
+export interface RendererPageOptions {
+  readonly firstPage: boolean;
+  readonly defaultFields?: readonly string[];
+}
+
 function projectRecord(value: unknown, fields: readonly string[]): unknown {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
   const record = value as Readonly<Record<string, unknown>>;
@@ -41,8 +46,20 @@ function rowsFrom(data: unknown): readonly OutputRow[] {
 export class Renderer {
   constructor(private readonly options: RendererOptions) {}
 
-  render(data: unknown, meta: Readonly<Record<string, unknown>> = {}): string {
-    const projected = project(data, this.options.fields);
+  get format(): OutputFormat {
+    return this.options.format;
+  }
+
+  get streamsPages(): boolean {
+    return this.options.format !== "json";
+  }
+
+  render(
+    data: unknown,
+    meta: Readonly<Record<string, unknown>> = {},
+    defaultFields?: readonly string[],
+  ): string {
+    const projected = project(data, this.options.fields ?? defaultFields);
     const rows = rowsFrom(projected);
     switch (this.options.format) {
       case "json":
@@ -58,7 +75,35 @@ export class Renderer {
     }
   }
 
-  write(data: unknown, meta: Readonly<Record<string, unknown>> = {}): void {
-    this.options.stdout.write(this.render(data, meta));
+  write(
+    data: unknown,
+    meta: Readonly<Record<string, unknown>> = {},
+    defaultFields?: readonly string[],
+  ): void {
+    this.options.stdout.write(this.render(data, meta, defaultFields));
+  }
+
+  writePage(data: unknown, options: RendererPageOptions): void {
+    if (!this.streamsPages) {
+      throw new Error("JSON output must be written as one buffered document");
+    }
+
+    const projected = project(data, this.options.fields ?? options.defaultFields);
+    const rows = rowsFrom(projected);
+    switch (this.options.format) {
+      case "json":
+        return;
+      case "ndjson":
+        this.options.stdout.write(renderNdjson(rows));
+        return;
+      case "csv":
+        this.options.stdout.write(renderDelimited(rows, ",", options.firstPage));
+        return;
+      case "tsv":
+        this.options.stdout.write(renderDelimited(rows, "\t", options.firstPage));
+        return;
+      case "human":
+        this.options.stdout.write(renderTable(rows, options.firstPage));
+    }
   }
 }
