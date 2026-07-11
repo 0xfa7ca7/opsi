@@ -1,6 +1,6 @@
 import { renderDelimited, type OutputRow } from "./render-delimited.js";
 import { renderJson, renderNdjson } from "./render-json.js";
-import { renderTable } from "./render-table.js";
+import { renderTable, tableLayoutFor, type TableLayout } from "./render-table.js";
 
 export { ProgressReporter } from "./progress.js";
 export type { ProgressReporterOptions, WritableOutput } from "./progress.js";
@@ -43,7 +43,17 @@ function rowsFrom(data: unknown): readonly OutputRow[] {
   return [{ value: data }];
 }
 
+function prepareOutput(
+  data: unknown,
+  fields: readonly string[] | undefined,
+): { readonly projected: unknown; readonly rows: readonly OutputRow[] } {
+  const projected = project(data, fields);
+  return { projected, rows: rowsFrom(projected) };
+}
+
 export class Renderer {
+  private tablePageLayout: TableLayout | undefined;
+
   constructor(private readonly options: RendererOptions) {}
 
   get format(): OutputFormat {
@@ -59,8 +69,7 @@ export class Renderer {
     meta: Readonly<Record<string, unknown>> = {},
     defaultFields?: readonly string[],
   ): string {
-    const projected = project(data, this.options.fields ?? defaultFields);
-    const rows = rowsFrom(projected);
+    const { projected, rows } = prepareOutput(data, this.options.fields ?? defaultFields);
     switch (this.options.format) {
       case "json":
         return renderJson({ data: projected, meta });
@@ -88,8 +97,7 @@ export class Renderer {
       throw new Error("JSON output must be written as one buffered document");
     }
 
-    const projected = project(data, this.options.fields ?? options.defaultFields);
-    const rows = rowsFrom(projected);
+    const { rows } = prepareOutput(data, this.options.fields ?? options.defaultFields);
     switch (this.options.format) {
       case "json":
         return;
@@ -103,7 +111,10 @@ export class Renderer {
         this.options.stdout.write(renderDelimited(rows, "\t", options.firstPage));
         return;
       case "human":
-        this.options.stdout.write(renderTable(rows, options.firstPage));
+        if (options.firstPage || this.tablePageLayout === undefined) {
+          this.tablePageLayout = tableLayoutFor(rows);
+        }
+        this.options.stdout.write(renderTable(rows, options.firstPage, this.tablePageLayout));
     }
   }
 }

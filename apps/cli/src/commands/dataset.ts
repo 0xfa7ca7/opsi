@@ -28,6 +28,7 @@ export function registerDatasetCommand(
     let total = 0;
     let count = 0;
     let pages = 0;
+    let emittedPage = false;
     while (true) {
       const page = await client.search({ limit: 10_000, offset });
       pages += 1;
@@ -40,10 +41,13 @@ export function registerDatasetCommand(
       });
       count += items.length;
       if (context.renderer?.streamsPages === true) {
-        context.renderer.writePage(items, {
-          firstPage: pages === 1,
-          defaultFields: DATASET_LIST_FIELDS,
-        });
+        if (items.length > 0) {
+          context.renderer.writePage(items, {
+            firstPage: !emittedPage,
+            defaultFields: DATASET_LIST_FIELDS,
+          });
+          emittedPage = true;
+        }
       } else {
         buffered.push(...items);
       }

@@ -63,6 +63,22 @@ describe("incremental renderer pages", () => {
     );
   });
 
+  it("prefers explicit global fields over command-default fields for page writes", () => {
+    const writes: string[] = [];
+    const renderer = new Renderer({
+      format: "csv",
+      stdout: { write: (chunk) => void writes.push(chunk) },
+      fields: ["title", "id"],
+    });
+
+    renderer.writePage([{ id: "d", title: "Dataset", ignored: true }], {
+      firstPage: true,
+      defaultFields: ["id"],
+    });
+
+    expect(writes).toEqual(["title,id\nDataset,d\n"]);
+  });
+
   it("writes two NDJSON pages immediately", () => {
     const writes: string[] = [];
     const renderer = new Renderer({
@@ -124,6 +140,23 @@ describe("incremental renderer pages", () => {
     renderer.writePage([{ id: "two", title: "Second" }], { firstPage: false, defaultFields });
 
     expect(writes).toEqual(["id   title\none  First\n", "two  Second\n"]);
+  });
+
+  it("keeps streamed human columns aligned when later pages contain wider values", () => {
+    const writes: string[] = [];
+    const renderer = new Renderer({
+      format: "human",
+      stdout: { write: (chunk) => void writes.push(chunk) },
+    });
+    const defaultFields = ["id", "title"];
+
+    renderer.writePage([{ id: "1", title: "Short" }], { firstPage: true, defaultFields });
+    renderer.writePage([{ id: "materially-long-id", title: "A materially longer title" }], {
+      firstPage: false,
+      defaultFields,
+    });
+
+    expect(writes.join("")).toBe("id  title\n1   Short\nm…  A materially longer title\n");
   });
 });
 
