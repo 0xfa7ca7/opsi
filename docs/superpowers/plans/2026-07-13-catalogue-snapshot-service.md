@@ -12,7 +12,7 @@
 
 - Snapshot freshness is measured from `generatedAt` and must never exceed 24 hours.
 - The publisher runs every six hours and uses serial 300-row OPSI pages.
-- Normal `dataset list` makes no OPSI request and has an under-ten-second observable snapshot-network failure bound.
+- Normal `dataset list` makes no OPSI request, shares one 8.5-second remote-operation budget across manifest and snapshot reads, and has an under-ten-second observable failure bound.
 - Snapshot mode contains and supports only `id`, `title`, and `name`.
 - Missing, stale, malformed, oversized, or integrity-invalid snapshots fail quickly with exit category 4.
 - `--live` is the only mode allowed to execute direct OPSI pagination.
@@ -182,7 +182,7 @@ git commit -m "feat: add catalogue snapshot contracts"
 
 **Interfaces:**
 - Consumes: `Downloader`, `ContentCache`, `CacheLock`, and `CacheLayout` from `@opsi/storage`.
-- Produces: `StrictHttpsReader.read(relativePath, maxBytes)`, `CatalogueSnapshotStore.read/write/withLock`, `ContentCacheCatalogueSnapshotStore`, and `CatalogueSnapshotClient.list({ refresh? })`.
+- Produces: `StrictHttpsReader.read(relativePath, maxBytes, timeoutMs?)`, `CatalogueSnapshotStore.read/write/withLock`, `ContentCacheCatalogueSnapshotStore`, and `CatalogueSnapshotClient.list({ refresh? })`.
 
 - [ ] **Step 1: Add a failing same-origin redirect-policy test to storage**
 
@@ -218,7 +218,7 @@ new StrictHttpsReader({
 
 - [ ] **Step 6: Implement the strict remote reader**
 
-`StrictHttpsReader.read(relativePath, maxBytes)` must resolve only relative paths beneath the configured base pathname, reject credentials/query/fragment/traversal, use `Downloader` with `allowedOrigins: [base.origin]`, read the completed regular file, and delete its temporary directory in `finally`. Map retrieval failures to `CATALOGUE_SNAPSHOT_UNAVAILABLE` while preserving already typed snapshot validation errors.
+`StrictHttpsReader.read(relativePath, maxBytes, timeoutMs?)` must resolve only relative paths beneath the configured base pathname, reject credentials/query/fragment/traversal, use `Downloader` with `allowedOrigins: [base.origin]`, read the completed regular file, and delete its temporary directory in `finally`. The optional per-call timeout is capped by the reader's configured per-request ceiling, which defaults to 9.5 seconds; explicit configured values remain unchanged for standalone reads, and a shorter per-call value remains effective. Map retrieval failures to `CATALOGUE_SNAPSHOT_UNAVAILABLE` while preserving already typed snapshot validation errors.
 
 - [ ] **Step 7: Run remote-reader tests**
 
@@ -237,6 +237,7 @@ Create a temporary `ContentCache`, fake `StrictHttpsReader`, and fixed clock. Co
 - identical remote digest reuses the verified cached object;
 - stale remote, stale offline cache, digest mismatch, invalid ordering, and duplicate IDs fail;
 - two concurrent cold calls produce one remote manifest/snapshot pair;
+- a delayed valid manifest followed by a hanging snapshot shares one budget and fails observably before ten seconds;
 - a remote failure never invokes any live provider function.
 
 Use this public result contract:
@@ -253,7 +254,7 @@ await client.list({ refresh: false });
 
 - [ ] **Step 9: Implement the content-cache store and client**
 
-Use cache metadata key `catalogue-snapshot:v1`, schema `catalogue-snapshot-cache-v1`, and the existing object store for exact snapshot bytes. `withLock` must acquire `catalogue-snapshot:v1` under `cache.layout().locks`, recheck cache after acquiring, and release in `finally`. Always read cache metadata with `includeExpired: true` and apply freshness against the injected clock; cache record creation time must never determine acceptance. On online cache corruption, fetch and replace from remote. In offline mode, return only a valid fresh cache or throw the typed stale/unavailable error.
+Use cache metadata key `catalogue-snapshot:v1`, schema `catalogue-snapshot-cache-v1`, and the existing object store for exact snapshot bytes. `withLock` must acquire `catalogue-snapshot:v1` under `cache.layout().locks`, recheck cache after acquiring, and release in `finally`. Immediately before a remote manifest read, start one monotonic 8.5-second deadline and pass only the remaining time to both manifest and snapshot reads; fail typed without another request when no time remains. Always read cache metadata with `includeExpired: true` and apply freshness against the injected clock; cache record creation time must never determine acceptance. On online cache corruption, fetch and replace from remote. In offline mode, return only a valid fresh cache or throw the typed stale/unavailable error.
 
 - [ ] **Step 10: Run client, storage, and type tests**
 
@@ -675,7 +676,7 @@ Expected: all suites pass with no live OPSI or GitHub request from the test comm
 
 - [ ] **Step 5: Run controlled performance and failure smoke checks**
 
-Using the integration fixture, measure a warm cached `dataset list --json` five times and assert each run completes under 250 ms. Verify a cold fixture makes one manifest and one snapshot request. Verify a hanging fixture exits within the under-ten-second observable bound. Record exact timings in the PR description rather than committing generated timing files.
+Using the integration fixture, measure a warm cached `dataset list --json` five times and assert each run completes under 250 ms. Verify a cold fixture makes one manifest and one snapshot request. Verify both an immediately hanging manifest and a delayed valid manifest followed by a hanging snapshot exit within the under-ten-second observable bound. Record exact timings in the PR description rather than committing generated timing files.
 
 - [ ] **Step 6: Commit final regression and documentation changes**
 

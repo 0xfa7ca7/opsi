@@ -1,3 +1,4 @@
+import { performance } from "node:perf_hooks";
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import {
   CATALOGUE_MAX_AGE_MS,
@@ -11,6 +12,8 @@ import {
 } from "./contracts.js";
 import { StrictHttpsReader } from "./remote.js";
 import type { CatalogueSnapshotStore, StoredCatalogueSnapshot } from "./store.js";
+
+const CATALOGUE_REMOTE_OPERATION_TIMEOUT_MS = 8_500;
 
 export interface CatalogueListResult {
   readonly datasets: readonly CatalogueDataset[];
@@ -68,7 +71,8 @@ export class CatalogueSnapshotClient {
         return cacheResult(rechecked.value);
       }
 
-      const manifest = await this.readManifest();
+      const remoteDeadline = performance.now() + CATALOGUE_REMOTE_OPERATION_TIMEOUT_MS;
+      const manifest = await this.readManifest(remoteDeadline);
       const remoteNow = this.now();
       assertSnapshotFresh(manifest.generatedAt, remoteNow);
 
@@ -87,7 +91,11 @@ export class CatalogueSnapshotClient {
         return remoteResult(snapshot.datasets, snapshot.generatedAt);
       }
 
-      const bytes = await this.reader.read(manifest.snapshotPath, CATALOGUE_MAX_SNAPSHOT_BYTES);
+      const bytes = await this.reader.read(
+        manifest.snapshotPath,
+        CATALOGUE_MAX_SNAPSHOT_BYTES,
+        remainingRemoteTimeoutMs(remoteDeadline),
+      );
       const snapshot = parseCatalogueSnapshot(bytes, manifest);
       const snapshotNow = this.now();
       assertSnapshotFresh(snapshot.generatedAt, snapshotNow);
@@ -117,8 +125,12 @@ export class CatalogueSnapshotClient {
     }
   }
 
-  private async readManifest(): Promise<CatalogueManifest> {
-    const bytes = await this.reader.read("v1/latest.json", CATALOGUE_MAX_MANIFEST_BYTES);
+  private async readManifest(remoteDeadline: number): Promise<CatalogueManifest> {
+    const bytes = await this.reader.read(
+      "v1/latest.json",
+      CATALOGUE_MAX_MANIFEST_BYTES,
+      remainingRemoteTimeoutMs(remoteDeadline),
+    );
     if (bytes.byteLength > CATALOGUE_MAX_MANIFEST_BYTES) throw invalid("bytes");
 
     let value: unknown;
@@ -148,6 +160,12 @@ function remoteResult(
 
 function snapshotExpiresAt(generatedAt: string): string {
   return new Date(Date.parse(generatedAt) + CATALOGUE_MAX_AGE_MS).toISOString();
+}
+
+function remainingRemoteTimeoutMs(deadline: number): number {
+  const remaining = Math.floor(deadline - performance.now());
+  if (remaining <= 0) throw unavailable();
+  return remaining;
 }
 
 function unavailable(): OpsiError {

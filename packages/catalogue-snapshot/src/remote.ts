@@ -55,9 +55,9 @@ export class StrictHttpsReader {
     this.downloader = options.downloader ?? new Downloader();
   }
 
-  async read(relativePath: string, maxBytes: number): Promise<Uint8Array> {
+  async read(relativePath: string, maxBytes: number, timeoutMs?: number): Promise<Uint8Array> {
     const url = resolveRelativePath(this.base, relativePath);
-    return this.readUrl(url, maxBytes);
+    return this.readUrl(url, maxBytes, false, this.requestTimeoutMs(timeoutMs));
   }
 
   async readOptional(relativePath: string, maxBytes: number): Promise<Uint8Array | undefined> {
@@ -76,16 +76,23 @@ export class StrictHttpsReader {
     return this.readUrl(url, maxBytes);
   }
 
-  private async readUrl(url: URL, maxBytes: number): Promise<Uint8Array>;
+  private async readUrl(
+    url: URL,
+    maxBytes: number,
+    allowNotFound?: false,
+    timeoutMs?: number,
+  ): Promise<Uint8Array>;
   private async readUrl(
     url: URL,
     maxBytes: number,
     allowNotFound: true,
+    timeoutMs?: number,
   ): Promise<Uint8Array | undefined>;
   private async readUrl(
     url: URL,
     maxBytes: number,
     allowNotFound = false,
+    timeoutMs = this.timeoutMs,
   ): Promise<Uint8Array | undefined> {
     if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) throw invalidPath("maxBytes");
 
@@ -98,7 +105,7 @@ export class StrictHttpsReader {
         allowedOrigins: [this.base.origin],
         limits: {
           maxBytes,
-          timeoutMs: this.timeoutMs,
+          timeoutMs,
           ...(allowNotFound ? { maxRedirects: 0 } : {}),
         },
         ...(this.testOnlyDownloaderOptions.allowInsecureHttp === undefined
@@ -126,6 +133,18 @@ export class StrictHttpsReader {
         await rm(directory, { recursive: true, force: true }).catch(() => undefined);
       }
     }
+  }
+
+  private requestTimeoutMs(timeoutMs: number | undefined): number {
+    if (timeoutMs === undefined) return this.timeoutMs;
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+      throw new OpsiError({
+        code: "INVALID_CATALOGUE_TIMEOUT",
+        message: "The catalogue timeout must be a positive integer.",
+        exitCode: EXIT_CODES.INVALID_INPUT,
+      });
+    }
+    return Math.min(this.timeoutMs, timeoutMs);
   }
 }
 

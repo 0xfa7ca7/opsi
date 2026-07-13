@@ -50,30 +50,37 @@ describe("StrictHttpsReader", () => {
   });
 
   it.each([
-    ["default", undefined, 9_500],
-    ["explicit", 1_234, 1_234],
-  ])("forwards the %s snapshot network timeout", async (_kind, timeoutMs, expected) => {
-    class CapturingDownloader extends Downloader {
-      readonly requests: DownloadInput[] = [];
+    ["default", undefined, undefined, 9_500],
+    ["explicit", 1_234, undefined, 1_234],
+    ["longer explicit", 12_000, undefined, 12_000],
+    ["shorter per-call", 1_234, 500, 500],
+    ["configured maximum", 1_234, 2_000, 1_234],
+    ["operation cap", 12_000, 8_500, 8_500],
+  ])(
+    "forwards the %s snapshot network timeout",
+    async (_kind, configuredTimeoutMs, callTimeoutMs, expected) => {
+      class CapturingDownloader extends Downloader {
+        readonly requests: DownloadInput[] = [];
 
-      override async download(input: DownloadInput): Promise<never> {
-        this.requests.push(input);
-        throw new Error("captured timeout");
+        override async download(input: DownloadInput): Promise<never> {
+          this.requests.push(input);
+          throw new Error("captured timeout");
+        }
       }
-    }
-    const downloader = new CapturingDownloader();
-    const reader = new StrictHttpsReader({
-      downloader,
-      ...(timeoutMs === undefined ? {} : { timeoutMs }),
-    });
+      const downloader = new CapturingDownloader();
+      const reader = new StrictHttpsReader({
+        downloader,
+        ...(configuredTimeoutMs === undefined ? {} : { timeoutMs: configuredTimeoutMs }),
+      });
 
-    await expect(reader.read("v1/latest.json", 100)).rejects.toMatchObject({
-      code: "CATALOGUE_SNAPSHOT_UNAVAILABLE",
-      exitCode: 4,
-    });
-    expect(downloader.requests).toHaveLength(1);
-    expect(downloader.requests[0]?.limits.timeoutMs).toBe(expected);
-  });
+      await expect(reader.read("v1/latest.json", 100, callTimeoutMs)).rejects.toMatchObject({
+        code: "CATALOGUE_SNAPSHOT_UNAVAILABLE",
+        exitCode: 4,
+      });
+      expect(downloader.requests).toHaveLength(1);
+      expect(downloader.requests[0]?.limits.timeoutMs).toBe(expected);
+    },
+  );
 
   it("returns exact bytes from a safe path beneath the configured base pathname", async () => {
     const expected = Uint8Array.from([0, 1, 2, 127, 128, 255]);

@@ -107,6 +107,13 @@ Before publication, the workflow compares the candidate count with the previousl
 8. Atomically publish the validated snapshot and manifest into the metadata cache.
 9. Release the lock and render the snapshot.
 
+Immediately before the manifest fetch, the client starts one monotonic 8.5-second remote-operation
+budget. The manifest consumes part of that budget and the snapshot receives only the remaining
+time. The strict reader still caps every individual request at its configured per-request ceiling,
+which defaults to 9.5 seconds, so a shorter explicit reader timeout remains effective. If no
+operation time remains, the client fails before starting another request. This leaves 1.5 seconds
+of headroom for typed error propagation and cleanup within the under-ten-second observable bound.
+
 No records are emitted before complete validation, so an integrity failure cannot produce trusted-looking partial output. Concurrent invocations share the cache lock; after the first process publishes, waiting processes reuse that snapshot instead of downloading it again.
 
 The default mode never falls back to direct OPSI pagination. This prevents an agent command from unexpectedly changing from seconds to minutes.
@@ -141,7 +148,7 @@ A snapshot is accepted only when the local clock is not more than 24 hours after
 
 Failures are typed and actionable:
 
-- `CATALOGUE_SNAPSHOT_UNAVAILABLE`: manifest or snapshot could not be retrieved within the short timeout;
+- `CATALOGUE_SNAPSHOT_UNAVAILABLE`: the manifest/snapshot operation exhausted its shared deadline or a read failed;
 - `CATALOGUE_SNAPSHOT_STALE`: `generatedAt` is more than 24 hours old;
 - `CATALOGUE_SNAPSHOT_INVALID`: schema, count, ordering, URL, size, or timestamp validation failed;
 - `CATALOGUE_SNAPSHOT_INTEGRITY`: byte length or SHA-256 did not match the manifest;
@@ -158,7 +165,7 @@ The implementation applies these controls:
 - one compile-time HTTPS manifest origin;
 - safe resolution of a relative snapshot path under the expected versioned prefix;
 - redirect validation and rejection of HTTPS downgrade, credentials, fragments, private addresses, and unexpected origins;
-- short manifest and snapshot timeouts;
+- one shared manifest/snapshot operation deadline plus per-request timeout ceilings;
 - strict manifest and snapshot byte caps;
 - strict runtime schemas with unknown-field rejection;
 - SHA-256 and exact byte-length verification before cache publication;
@@ -213,7 +220,7 @@ Before assembling a new Pages artifact, the workflow retrieves and validates the
 - stale remote and stale offline cache fail;
 - malformed manifest, unsafe path, redirect, oversized body, digest mismatch, count mismatch, timestamp mismatch, duplicate IDs, and incorrect ordering fail;
 - concurrent refreshes coalesce through the cache lock;
-- network timeout fails within the configured bound;
+- a delayed manifest followed by a hanging snapshot fails within the shared observable bound;
 - no failure path invokes live OPSI pagination.
 
 ### CLI tests
@@ -232,7 +239,7 @@ All automated tests use controlled fixtures. Normal tests never contact OPSI or 
 
 - A warm-cache `dataset list` completes locally in under 250 ms in the performance fixture.
 - A cold invocation makes at most one manifest and one snapshot request.
-- Snapshot networking uses a 9.5-second deadline so observable failure remains under ten seconds.
+- Snapshot networking shares one 8.5-second manifest/snapshot operation budget; the strict reader's 9.5-second default remains a per-request ceiling, and observable failure remains under ten seconds.
 - The compact snapshot remains below the configured maximum size.
 - Normal `dataset list` never calls OPSI directly.
 - No accepted snapshot is more than 24 hours old according to `generatedAt`.

@@ -16,7 +16,9 @@ to `id`, `title`, and `name`, then deploys a versioned static manifest and immut
 GitHub Pages. The CLI first validates a fresh local cache; on a cache miss it reads the fixed
 HTTPS manifest and its one referenced snapshot, verifies the complete artifact, and atomically
 caches it before rendering. Freshness is measured only from `generatedAt` and is capped at 24
-hours. `--refresh` checks the static publication, while `--live` alone enters the direct,
+hours. One monotonic 8.5-second remote-operation budget spans both the manifest and snapshot
+reads; each read also retains the strict reader's configured per-request ceiling (9.5 seconds by
+default). `--refresh` checks the static publication, while `--live` alone enters the direct,
 paginated provider flow. No snapshot failure silently changes modes.
 
 This is a static trust boundary, not an application server. GitHub Pages availability and the

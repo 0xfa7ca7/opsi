@@ -14,8 +14,11 @@ Downloads use bounded time/bytes/redirects, exclusive temporary files, hashes, a
 
 The default dataset list trusts no static bytes merely because GitHub Pages served them. It uses
 one compile-time HTTPS origin, accepts only safe relative paths below the versioned snapshot
-prefix, restricts redirects to that origin, and applies a 9.5-second network deadline so typed
-failure propagation and cleanup remain within the under-ten-second observable bound. Separate
+prefix, and restricts redirects to that origin. The snapshot client applies one monotonic
+8.5-second remote-operation deadline across the manifest and snapshot reads, leaving 1.5 seconds
+of headroom for typed failure propagation and cleanup within the under-ten-second observable
+bound. Each individual read is also capped by the strict reader's configured per-request
+ceiling, which defaults to 9.5 seconds; a shorter explicit ceiling remains effective. Separate
 manifest and snapshot size limits also apply. The manifest and snapshot pass strict schemas
 with unknown-key rejection; the client verifies schema version, generation timestamp, count,
 ordering, unique IDs, exact byte length, and SHA-256 before emitting a record or publishing the

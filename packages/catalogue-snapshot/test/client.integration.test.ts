@@ -1,13 +1,17 @@
 import { createHash } from "node:crypto";
+import { once } from "node:events";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { createServer, type RequestListener, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { performance } from "node:perf_hooks";
 import { Readable } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CATALOGUE_MAX_AGE_MS,
   CatalogueSnapshotClient,
   ContentCacheCatalogueSnapshotStore,
+  StrictHttpsReader,
   serializeSnapshot,
   type CatalogueManifest,
   type CatalogueSnapshot,
@@ -16,11 +20,31 @@ import { ContentCache, canonicalCacheKey, type MetadataValidators } from "@opsi/
 
 const NOW = new Date("2026-07-13T12:00:00.000Z");
 const roots: string[] = [];
+const servers: Server[] = [];
 
 afterEach(async () => {
   vi.useRealTimers();
-  await Promise.all(roots.splice(0).map((path) => rm(path, { recursive: true, force: true })));
+  await Promise.all([
+    ...roots.splice(0).map((path) => rm(path, { recursive: true, force: true })),
+    ...servers.splice(0).map(
+      (server) =>
+        new Promise<void>((resolve, reject) => {
+          server.close((error) => (error === undefined ? resolve() : reject(error)));
+          server.closeAllConnections();
+        }),
+    ),
+  ]);
 });
+
+async function listen(handler: RequestListener): Promise<string> {
+  const server = createServer(handler);
+  servers.push(server);
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (address === null || typeof address === "string") throw new Error("listen failed");
+  return `http://127.0.0.1:${address.port}/`;
+}
 
 async function cacheRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "opsi-catalogue-client-"));
@@ -73,12 +97,16 @@ function expiryFor(generatedAt: string): string {
 type ReadResponse = Uint8Array | Error | (() => Promise<Uint8Array>);
 
 class FakeReader {
-  readonly calls: { readonly path: string; readonly maxBytes: number }[] = [];
+  readonly calls: {
+    readonly path: string;
+    readonly maxBytes: number;
+    readonly timeoutMs?: number;
+  }[] = [];
 
   constructor(private readonly responses: ReadonlyMap<string, ReadResponse>) {}
 
-  async read(path: string, maxBytes: number): Promise<Uint8Array> {
-    this.calls.push({ path, maxBytes });
+  async read(path: string, maxBytes: number, timeoutMs?: number): Promise<Uint8Array> {
+    this.calls.push({ path, maxBytes, ...(timeoutMs === undefined ? {} : { timeoutMs }) });
     const response = this.responses.get(path);
     if (response === undefined) throw new Error(`Unexpected remote path: ${path}`);
     if (response instanceof Error) throw response;
@@ -211,6 +239,12 @@ describe("CatalogueSnapshotClient", () => {
       "v1/latest.json",
       remote.manifest.snapshotPath,
     ]);
+    const manifestTimeout = reader.calls[0]?.timeoutMs;
+    const snapshotTimeout = reader.calls[1]?.timeoutMs;
+    expect(manifestTimeout).toBeTypeOf("number");
+    expect(manifestTimeout).toBeLessThanOrEqual(8_500);
+    expect(snapshotTimeout).toBeTypeOf("number");
+    expect(snapshotTimeout).toBeLessThanOrEqual(manifestTimeout ?? 0);
 
     const record = await contentCache.getMetadataRecord<{
       readonly manifest: CatalogueManifest;
@@ -225,6 +259,37 @@ describe("CatalogueSnapshotClient", () => {
       Buffer.from(remote.bytes),
     );
   });
+
+  it("shares one under-ten-second deadline across delayed manifest and hanging snapshot reads", async () => {
+    const remote = fixture();
+    const requests: string[] = [];
+    const origin = await listen((request, response) => {
+      requests.push(request.url ?? "");
+      if (request.url === "/v1/latest.json") {
+        setTimeout(() => response.end(jsonBytes(remote.manifest)), 1_500);
+      } else if (request.url !== `/${remote.manifest.snapshotPath}`) {
+        response.writeHead(404).end();
+      }
+    });
+    const catalogueClient = new CatalogueSnapshotClient({
+      store: new ContentCacheCatalogueSnapshotStore(await cache()),
+      reader: new StrictHttpsReader({
+        baseUrl: origin,
+        testOnlyDownloaderOptions: { allowInsecureHttp: true, allowPrivateNetwork: true },
+      }),
+      now: () => NOW,
+    });
+    const started = performance.now();
+
+    await expect(catalogueClient.list()).rejects.toMatchObject({
+      code: "CATALOGUE_SNAPSHOT_UNAVAILABLE",
+      exitCode: 4,
+    });
+    const elapsed = performance.now() - started;
+
+    expect(requests).toEqual(["/v1/latest.json", `/${remote.manifest.snapshotPath}`]);
+    expect(elapsed).toBeLessThan(10_000);
+  }, 12_500);
 
   it("sets cache TTL to only the freshness remaining from generatedAt", async () => {
     vi.useFakeTimers({ now: NOW });
