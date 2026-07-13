@@ -95,7 +95,11 @@ export class StrictHttpsReader {
         url: url.toString(),
         destination: join(directory, "payload"),
         allowedOrigins: [this.base.origin],
-        limits: { maxBytes, timeoutMs: this.timeoutMs },
+        limits: {
+          maxBytes,
+          timeoutMs: this.timeoutMs,
+          ...(allowNotFound ? { maxRedirects: 0 } : {}),
+        },
         ...(this.testOnlyDownloaderOptions.allowInsecureHttp === undefined
           ? {}
           : { allowInsecureHttp: this.testOnlyDownloaderOptions.allowInsecureHttp }),

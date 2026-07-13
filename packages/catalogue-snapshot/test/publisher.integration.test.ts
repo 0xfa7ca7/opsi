@@ -85,6 +85,43 @@ describe("catalogue publisher", () => {
     ]);
   });
 
+  it("rejects a schema-valid empty prior index instead of treating it as first publication", async () => {
+    const previousBaseUrl = await previousSite({
+      index: { schemaVersion: CATALOGUE_SCHEMA_VERSION, snapshots: [] },
+      snapshots: new Map(),
+    });
+    const provider = await controlledProvider(2);
+    const { output, runtime } = await fixtureRuntime(provider);
+
+    await expect(
+      runPublisher(["--output", output, "--previous-base-url", previousBaseUrl], runtime),
+    ).rejects.toMatchObject({
+      code: "CATALOGUE_SNAPSHOT_INVALID",
+      context: { field: "snapshots" },
+    });
+    await expect(access(output)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("rejects a same-origin index redirect to a 404 without following it", async () => {
+    let redirectedRequests = 0;
+    const previousBaseUrl = await listen((request, response) => {
+      if (request.url === "/v1/index.json") {
+        response.writeHead(302, { location: "/missing-index.json" }).end();
+      } else {
+        redirectedRequests += 1;
+        response.writeHead(404).end();
+      }
+    });
+    const provider = await controlledProvider(2);
+    const { output, runtime } = await fixtureRuntime(provider);
+
+    await expect(
+      runPublisher(["--output", output, "--previous-base-url", previousBaseUrl], runtime),
+    ).rejects.toMatchObject({ code: "CATALOGUE_SNAPSHOT_UNAVAILABLE" });
+    expect(redirectedRequests).toBe(0);
+    await expect(access(output)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("fails closed on non-404 prior retrieval failures", async () => {
     const previousBaseUrl = await listen((_request, response) => response.writeHead(503).end());
     const provider = await controlledProvider(2);
@@ -141,6 +178,41 @@ describe("catalogue publisher", () => {
         second.runtime,
       ),
     ).resolves.toBeUndefined();
+  });
+
+  it("accepts an expired nonempty prior index while retaining its newest count guard", async () => {
+    const expired = buildPublication(snapshot("2026-07-11T11:59:59.999Z", 100));
+    const previousBaseUrl = await previousSite({
+      index: { schemaVersion: CATALOGUE_SCHEMA_VERSION, snapshots: [expired.manifest] },
+      snapshots: new Map(),
+    });
+    const provider = await controlledProvider(2);
+    const rejected = await fixtureRuntime(provider);
+
+    await expect(
+      runPublisher(
+        ["--output", rejected.output, "--previous-base-url", previousBaseUrl],
+        rejected.runtime,
+      ),
+    ).rejects.toMatchObject({ code: "CATALOGUE_COUNT_REDUCTION" });
+    await expect(access(rejected.output)).rejects.toMatchObject({ code: "ENOENT" });
+
+    const accepted = await fixtureRuntime(provider);
+    await runPublisher(
+      [
+        "--output",
+        accepted.output,
+        "--previous-base-url",
+        previousBaseUrl,
+        "--allow-large-reduction",
+      ],
+      accepted.runtime,
+    );
+    expect(await listFiles(join(accepted.output, "v1"))).toEqual([
+      "index.json",
+      "latest.json",
+      "snapshots/2026-07-13T12-00-00.000Z.json",
+    ]);
   });
 });
 

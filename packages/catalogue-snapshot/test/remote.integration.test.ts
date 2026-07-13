@@ -116,6 +116,29 @@ describe("StrictHttpsReader", () => {
     expect(targetRequests).toBe(0);
   });
 
+  it("disallows redirects only for optional reads and preserves normal same-origin redirects", async () => {
+    let targetRequests = 0;
+    const origin = await listen((request, response) => {
+      if (request.url === "/catalogue/v1/index.json") {
+        response.writeHead(302, { location: "/catalogue/index-target.json" }).end();
+      } else {
+        targetRequests += 1;
+        response.end("retained-reader-behavior");
+      }
+    });
+    const reader = localReader(`${origin}/catalogue/`);
+
+    await expect(reader.readOptional("v1/index.json", 100)).rejects.toMatchObject({
+      code: "CATALOGUE_SNAPSHOT_UNAVAILABLE",
+    });
+    expect(targetRequests).toBe(0);
+
+    await expect(reader.read("v1/index.json", 100)).resolves.toEqual(
+      new TextEncoder().encode("retained-reader-behavior"),
+    );
+    expect(targetRequests).toBe(1);
+  });
+
   it("leaves malformed JSON for the existing caller-facing parser", async () => {
     const origin = await listen((_request, response) => response.end('{"schemaVersion":'));
     const bytes = await localReader(`${origin}/catalogue/`).read("v1/latest.json", 100);

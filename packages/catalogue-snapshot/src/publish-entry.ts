@@ -44,6 +44,9 @@ export async function runPublisher(
 
   const indexBytes = await reader.readOptional("v1/index.json", CATALOGUE_MAX_MANIFEST_BYTES);
   const priorIndex = indexBytes === undefined ? undefined : parseIndexBytes(indexBytes);
+  if (priorIndex !== undefined && priorIndex.snapshots.length === 0) {
+    throw snapshotInvalid("snapshots");
+  }
   const retained = retainedManifests(priorIndex, now);
   const retainedArtifacts = await Promise.all(
     retained.map(async (manifest) => {
