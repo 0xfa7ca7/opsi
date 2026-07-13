@@ -61,6 +61,21 @@ importers:
         specifier: 1.5.4-r.1
         version: 1.5.4-r.1
 
+  packages/catalogue-snapshot:
+    dependencies:
+      '@opsi/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@opsi/provider-opsi':
+        specifier: workspace:*
+        version: link:../providers/opsi
+      '@opsi/storage':
+        specifier: workspace:*
+        version: link:../storage
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+
   packages/config:
     dependencies:
       '@opsi/domain':

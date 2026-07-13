@@ -1,0 +1,25 @@
+{
+  "name": "@opsi/catalogue-snapshot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opsi/domain": "workspace:*",
+    "@opsi/provider-opsi": "workspace:*",
+    "@opsi/storage": "workspace:*",
+    "zod": "4.4.3"
+  }
+}

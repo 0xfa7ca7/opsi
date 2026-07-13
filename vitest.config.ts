@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 const workspacePackage = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
 const workspaceResolve = {
   alias: {
+    "@opsi/catalogue-snapshot": workspacePackage("./packages/catalogue-snapshot/src/index.ts"),
     "@opsi/config": workspacePackage("./packages/config/src/index.ts"),
     "@opsi/core": workspacePackage("./packages/core/src/index.ts"),
     "@opsi/domain": workspacePackage("./packages/domain/src/index.ts"),
