@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Readable } from "node:stream";
+import { setTimeout as delay } from "node:timers/promises";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CATALOGUE_MAX_AGE_MS,
@@ -11,7 +13,7 @@ import {
   type CatalogueManifest,
   type CatalogueSnapshot,
 } from "@opsi/catalogue-snapshot";
-import { ContentCache } from "@opsi/storage";
+import { ContentCache, canonicalCacheKey, type MetadataValidators } from "@opsi/storage";
 
 const NOW = new Date("2026-07-13T12:00:00.000Z");
 const roots: string[] = [];
@@ -21,10 +23,14 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map((path) => rm(path, { recursive: true, force: true })));
 });
 
-async function cache(): Promise<ContentCache> {
+async function cacheRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "opsi-catalogue-client-"));
   roots.push(root);
-  return new ContentCache(root);
+  return root;
+}
+
+async function cache(): Promise<ContentCache> {
+  return new ContentCache(await cacheRoot());
 }
 
 function snapshot(generatedAt = NOW.toISOString()): CatalogueSnapshot {
@@ -81,8 +87,47 @@ function client(
   store: ContentCacheCatalogueSnapshotStore,
   reader: FakeReader,
   offline = false,
+  now: () => Date = () => NOW,
 ): CatalogueSnapshotClient {
-  return new CatalogueSnapshotClient({ store, reader, offline, now: () => NOW });
+  return new CatalogueSnapshotClient({ store, reader, offline, now });
+}
+
+class MetadataBarrierCache extends ContentCache {
+  private armed = false;
+  private releaseMetadata!: () => void;
+  private metadataReachedResolve!: () => void;
+  private metadataBarrier = Promise.resolve();
+  metadataReached = Promise.resolve();
+
+  armMetadataBarrier(): void {
+    this.armed = true;
+    this.metadataReached = new Promise<void>((resolve) => {
+      this.metadataReachedResolve = resolve;
+    });
+    this.metadataBarrier = new Promise<void>((resolve) => {
+      this.releaseMetadata = resolve;
+    });
+  }
+
+  release(): void {
+    this.releaseMetadata();
+  }
+
+  override async putMetadata<T>(
+    key: string,
+    schemaVersion: string,
+    value: T,
+    objectSha256?: string,
+    ttlMs?: number,
+    validators: MetadataValidators = {},
+  ): Promise<void> {
+    if (this.armed) {
+      this.armed = false;
+      this.metadataReachedResolve();
+      await this.metadataBarrier;
+    }
+    await super.putMetadata(key, schemaVersion, value, objectSha256, ttlMs, validators);
+  }
 }
 
 describe("CatalogueSnapshotClient", () => {
@@ -162,6 +207,72 @@ describe("CatalogueSnapshotClient", () => {
     );
   });
 
+  it("rechecks freshness after snapshot download and rejects a boundary crossing", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const generatedAt = new Date(NOW.getTime() - CATALOGUE_MAX_AGE_MS + 1_000).toISOString();
+    const remote = fixture(snapshot(generatedAt));
+    let currentNow = NOW;
+    const reader = new FakeReader(
+      new Map([
+        ["v1/latest.json", jsonBytes(remote.manifest)],
+        [
+          remote.manifest.snapshotPath,
+          async () => {
+            currentNow = new Date(NOW.getTime() + 1_001);
+            vi.setSystemTime(currentNow);
+            return remote.bytes;
+          },
+        ],
+      ]),
+    );
+
+    await expect(
+      client(
+        new ContentCacheCatalogueSnapshotStore(await cache()),
+        reader,
+        false,
+        () => currentNow,
+      ).list(),
+    ).rejects.toMatchObject({ code: "CATALOGUE_SNAPSHOT_STALE", exitCode: 4 });
+  });
+
+  it("uses the post-download clock when calculating the remaining cache TTL", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const remote = fixture();
+    const later = new Date(NOW.getTime() + 6 * 60 * 60 * 1_000);
+    let currentNow = NOW;
+    const contentCache = await cache();
+    const reader = new FakeReader(
+      new Map([
+        ["v1/latest.json", jsonBytes(remote.manifest)],
+        [
+          remote.manifest.snapshotPath,
+          async () => {
+            currentNow = later;
+            vi.setSystemTime(later);
+            return remote.bytes;
+          },
+        ],
+      ]),
+    );
+
+    await client(
+      new ContentCacheCatalogueSnapshotStore(contentCache),
+      reader,
+      false,
+      () => currentNow,
+    ).list();
+
+    const record = await contentCache.getMetadataRecord(
+      "catalogue-snapshot:v1",
+      "catalogue-snapshot-cache-v1",
+      true,
+    );
+    expect(record?.expiresAt).toBe(
+      new Date(Date.parse(remote.manifest.generatedAt) + CATALOGUE_MAX_AGE_MS).toISOString(),
+    );
+  });
+
   it("refreshes the manifest but revalidates and reuses bytes when its digest is unchanged", async () => {
     vi.useFakeTimers({ now: NOW });
     const contentCache = await cache();
@@ -227,6 +338,35 @@ describe("CatalogueSnapshotClient", () => {
 
     expect(await readdir((await contentCache.layout()).locks)).toEqual([]);
     await expect(store.withLock(async () => "recovered")).resolves.toBe("recovered");
+  });
+
+  it("keeps object reuse and metadata publication atomic against pruning", async () => {
+    const contentCache = new MetadataBarrierCache(await cacheRoot());
+    const store = new ContentCacheCatalogueSnapshotStore(contentCache);
+    const remote = fixture();
+    await contentCache.putObject(Readable.from([remote.bytes]));
+    contentCache.armMetadataBarrier();
+
+    const publication = store.write(remote.manifest, remote.bytes, CATALOGUE_MAX_AGE_MS);
+    await contentCache.metadataReached;
+    const locksDuringMetadata = await readdir((await contentCache.layout()).locks);
+    const pruning = contentCache.prune();
+    const pruneState = await Promise.race([
+      pruning.then(() => "completed" as const),
+      delay(75).then(() => "blocked" as const),
+    ]);
+    contentCache.release();
+    const [publicationResult] = await Promise.allSettled([publication, pruning]);
+
+    expect(locksDuringMetadata).toContain(`${canonicalCacheKey("cache-publication")}.lock`);
+    expect(pruneState).toBe("blocked");
+    expect(publicationResult).toMatchObject({ status: "fulfilled" });
+    await expect(
+      contentCache.getMetadata("catalogue-snapshot:v1", "catalogue-snapshot-cache-v1"),
+    ).resolves.toBeDefined();
+    await expect(contentCache.getObject(remote.manifest.sha256)).resolves.toMatchObject({
+      sha256: remote.manifest.sha256,
+    });
   });
 
   it("returns only a valid fresh cache in offline mode", async () => {
@@ -404,8 +544,7 @@ describe("CatalogueSnapshotClient", () => {
     ).rejects.toMatchObject({ code: changed.code, exitCode: 4 });
   });
 
-  it("rejects malformed manifest content without invoking a live provider", async () => {
-    const liveProvider = { list: vi.fn() };
+  it("rejects malformed manifest content before requesting snapshot bytes", async () => {
     const reader = new FakeReader(
       new Map([["v1/latest.json", new TextEncoder().encode('{"schemaVersion":')]]),
     );
@@ -413,7 +552,6 @@ describe("CatalogueSnapshotClient", () => {
     await expect(
       client(new ContentCacheCatalogueSnapshotStore(await cache()), reader).list(),
     ).rejects.toMatchObject({ code: "CATALOGUE_SNAPSHOT_INVALID", exitCode: 4 });
-    expect(liveProvider.list).not.toHaveBeenCalled();
     expect(reader.calls.map(({ path }) => path)).toEqual(["v1/latest.json"]);
   });
 });

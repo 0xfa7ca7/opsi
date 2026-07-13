@@ -76,14 +76,6 @@ export class ContentCacheCatalogueSnapshotStore implements CatalogueSnapshotStor
     const metadata: CatalogueSnapshotCacheMetadata = { manifest };
     try {
       await this.cache.getObject(manifest.sha256);
-      await this.cache.putMetadata(
-        CATALOGUE_SNAPSHOT_CACHE_KEY,
-        CATALOGUE_SNAPSHOT_CACHE_SCHEMA,
-        metadata,
-        manifest.sha256,
-        ttlMs,
-      );
-      return;
     } catch (error) {
       if (!(error instanceof OpsiError)) throw error;
       if (error.code === "CACHE_CORRUPT") {
@@ -94,6 +86,8 @@ export class ContentCacheCatalogueSnapshotStore implements CatalogueSnapshotStor
       }
     }
 
+    // Even when the object already exists, publish through ContentCache's
+    // cache-publication lock so pruning cannot unlink it before metadata lands.
     await this.cache.putObjectWithMetadata(
       CATALOGUE_SNAPSHOT_CACHE_KEY,
       CATALOGUE_SNAPSHOT_CACHE_SCHEMA,

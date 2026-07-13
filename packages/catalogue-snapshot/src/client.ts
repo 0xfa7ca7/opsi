@@ -88,11 +88,12 @@ export class CatalogueSnapshotClient {
 
       const bytes = await this.reader.read(manifest.snapshotPath, CATALOGUE_MAX_SNAPSHOT_BYTES);
       const snapshot = parseCatalogueSnapshot(bytes, manifest);
-      assertSnapshotFresh(snapshot.generatedAt, remoteNow);
+      const snapshotNow = this.now();
+      assertSnapshotFresh(snapshot.generatedAt, snapshotNow);
       await this.options.store.write(
         manifest,
         bytes,
-        freshnessRemaining(snapshot.generatedAt, remoteNow),
+        freshnessRemaining(snapshot.generatedAt, snapshotNow),
       );
       return remoteResult(snapshot.datasets, snapshot.generatedAt);
     });
