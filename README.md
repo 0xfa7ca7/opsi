@@ -17,6 +17,7 @@ DuckDB is an optional native dependency so catalogue-only commands still install
 
 ```sh
 opsi search promet --json --limit 5
+opsi dataset list --json
 opsi dataset show DATASET_ID
 opsi download opsi:resource:RESOURCE_ID --output ./data
 opsi validate ./data.csv --json

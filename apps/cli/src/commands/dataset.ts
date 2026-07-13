@@ -5,12 +5,59 @@ import type { CliContext } from "../context.js";
 import { registerDatasetOpenCommand } from "./open.js";
 import { manifestCommand } from "../command-manifest.js";
 
+const DATASET_LIST_FIELDS = ["id", "title", "name"] as const;
+
+function datasetListPaginationError(): OpsiError {
+  return new OpsiError({
+    code: "DATASET_LIST_PAGINATION_INVALID",
+    message: "The provider returned a non-advancing dataset list page.",
+    exitCode: EXIT_CODES.PROVIDER_FAILURE,
+    suggestion: "Retry later or report the provider's pagination response.",
+  });
+}
+
 export function registerDatasetCommand(
   program: Command,
   context: CliContext,
   client: OpsiClient,
 ): void {
   registerDatasetOpenCommand(program, context, client);
+  manifestCommand(program, "dataset list").action(async () => {
+    const buffered = [];
+    let offset = 0;
+    let total = 0;
+    let count = 0;
+    let pages = 0;
+    let emittedPage = false;
+    while (true) {
+      const page = await client.search({ limit: 300, offset });
+      pages += 1;
+      if (pages === 1) total = page.total;
+      if (page.nextOffset !== undefined && page.nextOffset <= offset)
+        throw datasetListPaginationError();
+      const items = page.items.map((summary) => {
+        const rawName = summary.providerMetadata?.raw["name"];
+        return { ...summary, name: typeof rawName === "string" ? rawName : undefined };
+      });
+      count += items.length;
+      if (context.renderer?.streamsPages === true) {
+        if (items.length > 0) {
+          context.renderer.writePage(items, {
+            firstPage: !emittedPage,
+            defaultFields: DATASET_LIST_FIELDS,
+          });
+          emittedPage = true;
+        }
+      } else {
+        buffered.push(...items);
+      }
+      if (page.nextOffset === undefined) break;
+      offset = page.nextOffset;
+    }
+    if (context.renderer?.streamsPages !== true) {
+      context.renderer?.write(buffered, { total, count, pages }, DATASET_LIST_FIELDS);
+    }
+  });
   manifestCommand(program, "dataset show").action(async (id: string) => {
     context.renderer?.write(await client.datasets.get(datasetId(id)));
   });

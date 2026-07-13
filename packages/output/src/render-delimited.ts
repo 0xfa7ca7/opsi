@@ -23,11 +23,17 @@ function quoteCell(value: string, delimiter: "," | "\t"): string {
     : value;
 }
 
-export function renderDelimited(rows: readonly OutputRow[], delimiter: "," | "\t"): string {
+export function renderDelimited(
+  rows: readonly OutputRow[],
+  delimiter: "," | "\t",
+  includeHeader = true,
+): string {
   if (rows.length === 0) return "";
   const columns = columnsFor(rows);
   const lines = [
-    columns.map((column) => quoteCell(column, delimiter)).join(delimiter),
+    ...(includeHeader
+      ? [columns.map((column) => quoteCell(column, delimiter)).join(delimiter)]
+      : []),
     ...rows.map((row) =>
       columns.map((column) => quoteCell(cellText(row[column]), delimiter)).join(delimiter),
     ),

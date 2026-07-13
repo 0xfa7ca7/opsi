@@ -1,6 +1,6 @@
 import { renderDelimited, type OutputRow } from "./render-delimited.js";
 import { renderJson, renderNdjson } from "./render-json.js";
-import { renderTable } from "./render-table.js";
+import { renderTable, tableLayoutFor, type TableLayout } from "./render-table.js";
 
 export { ProgressReporter } from "./progress.js";
 export type { ProgressReporterOptions, WritableOutput } from "./progress.js";
@@ -17,6 +17,11 @@ export interface RendererOptions {
   readonly format: OutputFormat;
   readonly stdout: { write(chunk: string): unknown };
   readonly fields?: readonly string[];
+}
+
+export interface RendererPageOptions {
+  readonly firstPage: boolean;
+  readonly defaultFields?: readonly string[];
 }
 
 function projectRecord(value: unknown, fields: readonly string[]): unknown {
@@ -38,12 +43,33 @@ function rowsFrom(data: unknown): readonly OutputRow[] {
   return [{ value: data }];
 }
 
+function prepareOutput(
+  data: unknown,
+  fields: readonly string[] | undefined,
+): { readonly projected: unknown; readonly rows: readonly OutputRow[] } {
+  const projected = project(data, fields);
+  return { projected, rows: rowsFrom(projected) };
+}
+
 export class Renderer {
+  private tablePageLayout: TableLayout | undefined;
+
   constructor(private readonly options: RendererOptions) {}
 
-  render(data: unknown, meta: Readonly<Record<string, unknown>> = {}): string {
-    const projected = project(data, this.options.fields);
-    const rows = rowsFrom(projected);
+  get format(): OutputFormat {
+    return this.options.format;
+  }
+
+  get streamsPages(): boolean {
+    return this.options.format !== "json";
+  }
+
+  render(
+    data: unknown,
+    meta: Readonly<Record<string, unknown>> = {},
+    defaultFields?: readonly string[],
+  ): string {
+    const { projected, rows } = prepareOutput(data, this.options.fields ?? defaultFields);
     switch (this.options.format) {
       case "json":
         return renderJson({ data: projected, meta });
@@ -58,7 +84,37 @@ export class Renderer {
     }
   }
 
-  write(data: unknown, meta: Readonly<Record<string, unknown>> = {}): void {
-    this.options.stdout.write(this.render(data, meta));
+  write(
+    data: unknown,
+    meta: Readonly<Record<string, unknown>> = {},
+    defaultFields?: readonly string[],
+  ): void {
+    this.options.stdout.write(this.render(data, meta, defaultFields));
+  }
+
+  writePage(data: unknown, options: RendererPageOptions): void {
+    if (!this.streamsPages) {
+      throw new Error("JSON output must be written as one buffered document");
+    }
+
+    const { rows } = prepareOutput(data, this.options.fields ?? options.defaultFields);
+    switch (this.options.format) {
+      case "json":
+        return;
+      case "ndjson":
+        this.options.stdout.write(renderNdjson(rows));
+        return;
+      case "csv":
+        this.options.stdout.write(renderDelimited(rows, ",", options.firstPage));
+        return;
+      case "tsv":
+        this.options.stdout.write(renderDelimited(rows, "\t", options.firstPage));
+        return;
+      case "human":
+        if (options.firstPage || this.tablePageLayout === undefined) {
+          this.tablePageLayout = tableLayoutFor(rows);
+        }
+        this.options.stdout.write(renderTable(rows, options.firstPage, this.tablePageLayout));
+    }
   }
 }

@@ -4,10 +4,12 @@ import { datasetId, providerId, resourceId } from "@opsi/domain";
 import type { OpsiClient } from "@opsi/core";
 import { Renderer } from "@opsi/output";
 import {
+  COMMAND_MANIFEST,
   GLOBAL_OPTION_MANIFEST,
   registerCommandManifest,
   registerGlobalOptions,
 } from "../src/command-manifest.js";
+import { registerDatasetCommand } from "../src/commands/dataset.js";
 import { registerSearchCommand } from "../src/commands/search.js";
 import { registerDownloadCommand } from "../src/commands/download.js";
 
@@ -22,7 +24,31 @@ function context(writes: string[] = []) {
   };
 }
 
+function datasetSummary(id: string, title: string, name: unknown) {
+  return {
+    id: datasetId(id),
+    providerId: providerId("opsi"),
+    title,
+    description: `${title} description`,
+    providerMetadata: { raw: { name } },
+  };
+}
+
 describe("final command contracts", () => {
+  it("registers dataset list in the normalized manifest and dataset help", () => {
+    expect(COMMAND_MANIFEST).toContainEqual({
+      path: "dataset list",
+      description: "List all datasets",
+      arguments: [],
+      options: [],
+    });
+    const program = new Command();
+    registerCommandManifest(program);
+    const dataset = program.commands.find((command) => command.name() === "dataset");
+    expect(dataset?.commands.map((command) => command.name())).toContain("list");
+    expect(dataset?.helpInformation()).toContain("list");
+  });
+
   it("declares --fields globally and --all/selectors only in the normalized manifest", () => {
     expect(GLOBAL_OPTION_MANIFEST).toContainEqual(
       expect.objectContaining({ flags: "--fields <field>" }),
@@ -76,6 +102,137 @@ describe("final command contracts", () => {
       code: "SEARCH_PAGINATION_INVALID",
       exitCode: 4,
       suggestion: expect.any(String),
+    });
+  });
+
+  it("lists every dataset using actual provider offsets and buffers one JSON envelope", async () => {
+    const writes: string[] = [];
+    const search = vi.fn(async ({ offset }: { limit: number; offset: number }) =>
+      offset === 0
+        ? {
+            items: [datasetSummary("d0", "First", "first-slug")],
+            total: 2,
+            limit: 1,
+            offset: 0,
+            nextOffset: 37,
+          }
+        : {
+            items: [datasetSummary("d37", "Second", 42)],
+            total: 2,
+            limit: 1,
+            offset: 37,
+          },
+    );
+    const program = new Command();
+    registerCommandManifest(program);
+    registerDatasetCommand(program, context(writes), { search } as unknown as OpsiClient);
+
+    await program.parseAsync(["dataset", "list"], { from: "user" });
+
+    expect(search.mock.calls.map(([query]) => query)).toEqual([
+      { limit: 300, offset: 0 },
+      { limit: 300, offset: 37 },
+    ]);
+    expect(writes).toHaveLength(1);
+    expect(JSON.parse(writes[0] ?? "")).toEqual({
+      schemaVersion: "1",
+      data: [
+        { id: "d0", title: "First", name: "first-slug" },
+        { id: "d37", title: "Second", name: null },
+      ],
+      meta: { total: 2, count: 2, pages: 2 },
+    });
+  });
+
+  it("streams listed pages before requesting the next page and honors fields overrides", async () => {
+    const events: string[] = [];
+    const renderer = new Renderer({
+      format: "ndjson",
+      fields: ["name", "description"],
+      stdout: { write: (chunk) => void events.push(`write:${chunk}`) },
+    });
+    const search = vi.fn(async ({ offset }: { limit: number; offset: number }) => {
+      events.push(`search:${offset}`);
+      return offset === 0
+        ? {
+            items: [datasetSummary("d0", "First", "first-slug")],
+            total: 2,
+            limit: 1,
+            offset: 0,
+            nextOffset: 9,
+          }
+        : {
+            items: [datasetSummary("d9", "Second", "second-slug")],
+            total: 2,
+            limit: 1,
+            offset: 9,
+          };
+    });
+    const program = new Command();
+    registerCommandManifest(program);
+    registerDatasetCommand(program, { ...context(), renderer }, {
+      search,
+    } as unknown as OpsiClient);
+
+    await program.parseAsync(["dataset", "list"], { from: "user" });
+
+    expect(events).toEqual([
+      "search:0",
+      'write:{"name":"first-slug","description":"First description"}\n',
+      "search:9",
+      'write:{"name":"second-slug","description":"Second description"}\n',
+    ]);
+  });
+
+  it.each([
+    ["csv" as const, "id,title,name\nd9,Second,second-slug\n"],
+    ["tsv" as const, "id\ttitle\tname\nd9\tSecond\tsecond-slug\n"],
+    ["human" as const, "id  title   name       \nd9  Second  second-slug\n"],
+  ])("emits one %s header when an advancing empty page precedes data", async (format, expected) => {
+    const writes: string[] = [];
+    const renderer = new Renderer({
+      format,
+      stdout: { write: (chunk) => void writes.push(chunk) },
+    });
+    const search = vi.fn(async ({ offset }: { limit: number; offset: number }) =>
+      offset === 0
+        ? { items: [], total: 1, limit: 1, offset: 0, nextOffset: 9 }
+        : {
+            items: [datasetSummary("d9", "Second", "second-slug")],
+            total: 1,
+            limit: 1,
+            offset: 9,
+          },
+    );
+    const program = new Command();
+    registerCommandManifest(program);
+    registerDatasetCommand(program, { ...context(), renderer }, {
+      search,
+    } as unknown as OpsiClient);
+
+    await program.parseAsync(["dataset", "list"], { from: "user" });
+
+    expect(writes.join("")).toBe(expected);
+    expect(writes).toHaveLength(1);
+  });
+
+  it("rejects non-advancing dataset list pagination", async () => {
+    const program = new Command();
+    registerCommandManifest(program);
+    registerDatasetCommand(program, context(), {
+      search: vi.fn(async () => ({
+        items: [],
+        total: 2,
+        limit: 1,
+        offset: 0,
+        nextOffset: 0,
+      })),
+    } as unknown as OpsiClient);
+
+    await expect(program.parseAsync(["dataset", "list"], { from: "user" })).rejects.toMatchObject({
+      code: "DATASET_LIST_PAGINATION_INVALID",
+      exitCode: 4,
+      suggestion: expect.stringContaining("provider"),
     });
   });
 

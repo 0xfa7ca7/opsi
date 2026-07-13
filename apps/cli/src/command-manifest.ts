@@ -104,6 +104,7 @@ export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
       option("--all", "retrieve every result page", { conflicts: ["limit"] }),
     ],
   ),
+  leaf("dataset list", "List all datasets"),
   leaf("dataset show", "Show dataset details", [argument("<id>", "dataset identifier")]),
   leaf("dataset resources", "List resources embedded in a dataset", [
     argument("<id>", "dataset identifier"),
