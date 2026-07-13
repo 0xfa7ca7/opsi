@@ -24,8 +24,10 @@ const CATALOGUE_VALIDATION_CODES = new Set([
   "CATALOGUE_SNAPSHOT_STALE",
 ]);
 const URL_SCHEME = /^[A-Za-z][A-Za-z\d+.-]*:/u;
-const URL_STRIPPED_CONTROL = /[\u0009\u000a\u000d]/u;
-const URL_TRIMMABLE_EDGE = /^[\u0000-\u0020]|[\u0000-\u0020]$/u;
+const ASCII_TAB = 0x09;
+const ASCII_LF = 0x0a;
+const ASCII_CR = 0x0d;
+const ASCII_SPACE = 0x20;
 
 export class StrictHttpsReader {
   private readonly base: URL;
@@ -112,8 +114,8 @@ function catalogueBaseUrl(raw: string, allowInsecureHttp: boolean): URL {
 }
 
 function resolveRelativePath(base: URL, relativePath: string): URL {
-  if (URL_STRIPPED_CONTROL.test(relativePath)) throw invalidPath("relativePath");
-  if (URL_TRIMMABLE_EDGE.test(relativePath)) throw invalidPath("relativePath");
+  if (containsUrlStrippedControl(relativePath)) throw invalidPath("relativePath");
+  if (hasUrlTrimmableEdge(relativePath)) throw invalidPath("relativePath");
   if (
     relativePath.length === 0 ||
     URL_SCHEME.test(relativePath) ||
@@ -155,6 +157,19 @@ function resolveRelativePath(base: URL, relativePath: string): URL {
     throw invalidPath("relativePath");
   }
   return resolved;
+}
+
+function containsUrlStrippedControl(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code === ASCII_TAB || code === ASCII_LF || code === ASCII_CR) return true;
+  }
+  return false;
+}
+
+function hasUrlTrimmableEdge(value: string): boolean {
+  if (value.length === 0) return false;
+  return value.charCodeAt(0) <= ASCII_SPACE || value.charCodeAt(value.length - 1) <= ASCII_SPACE;
 }
 
 function isCatalogueValidationError(error: unknown): error is OpsiError {
