@@ -48,6 +48,7 @@ export default defineConfig({
           ...defaultProject,
           name: "integration",
           include: [
+            "apps/cli/test/**/*.integration.test.ts",
             "packages/**/*.integration.test.ts",
             "packages/storage/test/**/*.test.ts",
             "packages/data-engine/test/**/*.test.ts",

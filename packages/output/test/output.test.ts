@@ -38,6 +38,16 @@ it("projects manifest-selected fields in the requested deterministic order for e
   ).toBe("title,id\nDataset,d\n");
 });
 
+it("exposes the configured field projection without allowing mutation", () => {
+  const selected = ["title", "id"];
+  const renderer = new Renderer({ format: "json", stdout: { write() {} }, fields: selected });
+
+  expect(renderer.fields).toEqual(["title", "id"]);
+  expect(renderer.fields).not.toBe(selected);
+  selected.push("name");
+  expect(renderer.fields).toEqual(["title", "id"]);
+});
+
 describe("incremental renderer pages", () => {
   it("uses command-default fields when global fields are absent", () => {
     const writes: string[] = [];

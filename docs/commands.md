@@ -16,7 +16,11 @@ Syntax: `opsi dataset show <id>`. Returns complete normalized dataset metadata a
 
 ### `dataset list`
 
-Syntax: `opsi dataset list`. Retrieves every dataset using advancing 300-row provider pages. The default fields are `id`, human-readable `title`, and provider slug `name`; global `--fields` overrides that selection. Human, NDJSON, CSV, and TSV output streams completed pages, while JSON emits one envelope with `total`, `count`, and `pages` metadata. Invalid provider pagination exits 4. Example: `opsi dataset list --fields id,title,name --json`.
+Syntax: `opsi dataset list [--refresh|--live]`. By default, this reads the centrally published catalogue snapshot, using a valid local cache when available and otherwise downloading the current snapshot. Snapshots must be no more than 24 hours old. Snapshot mode supports exactly the fields `id`, human-readable `title`, and provider slug `name`; global `--fields` can select and reorder those fields. JSON metadata includes `total`, `count`, `source` (`snapshot-cache` or `snapshot-remote`), `generatedAt`, and `stale: false`.
+
+`--refresh` bypasses a fresh local snapshot and checks the published snapshot, but never queries OPSI directly. Snapshot validation or retrieval failures are returned without a silent live fallback. In offline mode, normal listing succeeds only with a valid cached snapshot that is no more than 24 hours old; missing, invalid, and stale snapshots fail without network access.
+
+`--live` is the explicit, slower direct-OPSI mode. It uses advancing 300-row provider pages, conflicts with `--refresh`, and is rejected in offline mode. Only live human, NDJSON, CSV, and TSV output streams each provider page as it arrives; live JSON buffers one envelope with `total`, `count`, `pages`, and `source: "live"`. Invalid live pagination exits 4. Examples: `opsi dataset list --fields name,id --json`, `opsi dataset list --refresh --json`, and `opsi dataset list --live --ndjson`.
 
 ### `dataset resources`
 

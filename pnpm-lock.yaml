@@ -56,6 +56,10 @@ importers:
       undici:
         specifier: 8.7.0
         version: 8.7.0
+    devDependencies:
+      '@opsi/catalogue-snapshot':
+        specifier: file:../../packages/catalogue-snapshot
+        version: file:packages/catalogue-snapshot
     optionalDependencies:
       '@duckdb/node-api':
         specifier: 1.5.4-r.1
@@ -565,6 +569,9 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
+
+  '@opsi/catalogue-snapshot@file:packages/catalogue-snapshot':
+    resolution: {directory: packages/catalogue-snapshot, type: directory}
 
   '@oxc-project/types@0.139.0':
     resolution: {integrity: sha512-r9gHphtCs+1M7J0pw6Sn/hh/Wpa/iQrOOkrNAlVLF/gHq+/CJmHIWKKUUhdWjcD6CIa8idarspCsASiXCXvFUw==}
@@ -2647,6 +2654,13 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
+
+  '@opsi/catalogue-snapshot@file:packages/catalogue-snapshot':
+    dependencies:
+      '@opsi/domain': link:packages/domain
+      '@opsi/provider-opsi': link:packages/providers/opsi
+      '@opsi/storage': link:packages/storage
+      zod: 4.4.3
 
   '@oxc-project/types@0.139.0': {}
 

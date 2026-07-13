@@ -3,6 +3,12 @@ import { OpsiClient, ProviderRegistry } from "@opsi/core";
 import { OpsiProvider, OpsiTransport, RequestScheduler } from "@opsi/provider-opsi";
 import { LocalProvider } from "@opsi/provider-local";
 import { ContentCache, ProvenanceStore } from "@opsi/storage";
+import {
+  CatalogueSnapshotClient,
+  ContentCacheCatalogueSnapshotStore,
+  DEFAULT_CATALOGUE_BASE_URL,
+  StrictHttpsReader,
+} from "@opsi/catalogue-snapshot";
 import { registerDatasetCommand } from "./commands/dataset.js";
 import { registerProvidersCommand } from "./commands/providers.js";
 import { registerResourceCommand } from "./commands/resource.js";
@@ -26,10 +32,9 @@ function requestInterval(value: string | undefined): number | undefined {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
-function createClient(context: CliContext): OpsiClient {
+function createClient(context: CliContext, cache: ContentCache): OpsiClient {
   const intervalMs = requestInterval(context.io.env?.OPSI_REQUEST_INTERVAL_MS);
   const configuration = context.configuration;
-  const cache = new ContentCache(configuration?.paths.cacheDir ?? ".opsi-cache");
   const provider = new OpsiProvider(
     new OpsiTransport({
       ...(context.io.env?.OPSI_BASE_URL === undefined
@@ -66,7 +71,14 @@ function createClient(context: CliContext): OpsiClient {
   });
 }
 
-export function createProgram(context: CliContext): Command {
+export interface ProgramDependencies {
+  readonly catalogue?: Pick<CatalogueSnapshotClient, "list">;
+}
+
+export function createProgram(
+  context: CliContext,
+  dependencies: ProgramDependencies = {},
+): Command {
   const program = new Command();
   program
     .name("opsi")
@@ -81,9 +93,19 @@ export function createProgram(context: CliContext): Command {
     .action(() => program.help({ error: true }));
   addGlobalOptions(program);
   registerCommandManifest(program);
-  const client = createClient(context);
+  const cache = new ContentCache(context.configuration?.paths.cacheDir ?? ".opsi-cache");
+  const client = createClient(context, cache);
+  const catalogue =
+    dependencies.catalogue ??
+    new CatalogueSnapshotClient({
+      store: new ContentCacheCatalogueSnapshotStore(cache),
+      reader: new StrictHttpsReader({
+        baseUrl: DEFAULT_CATALOGUE_BASE_URL,
+      }),
+      offline: context.configuration?.offline ?? false,
+    });
   registerSearchCommand(program, context, client);
-  registerDatasetCommand(program, context, client);
+  registerDatasetCommand(program, context, client, catalogue);
   registerResourceCommand(program, context, client);
   registerProvidersCommand(program, context, client);
   registerDownloadCommand(program, context, client);
