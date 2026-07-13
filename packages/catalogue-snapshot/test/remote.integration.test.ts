@@ -125,6 +125,22 @@ describe("StrictHttpsReader", () => {
     );
   });
 
+  it("rejects a same-origin absolute URL before a request", async () => {
+    let requests = 0;
+    const origin = await listen((_request, response) => {
+      requests += 1;
+      response.end("unexpected");
+    });
+
+    await expect(
+      localReader(`${origin}/catalogue/`).read(`${origin}/catalogue/v1/latest.json`, 100),
+    ).rejects.toMatchObject({
+      code: "CATALOGUE_SNAPSHOT_INVALID",
+      context: { field: "relativePath" },
+    });
+    expect(requests).toBe(0);
+  });
+
   it.each([
     "https://example.com/snapshot.json",
     "https://user:secret@example.com/snapshot.json",

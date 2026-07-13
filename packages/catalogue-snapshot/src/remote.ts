@@ -23,6 +23,7 @@ const CATALOGUE_VALIDATION_CODES = new Set([
   "CATALOGUE_SNAPSHOT_INTEGRITY",
   "CATALOGUE_SNAPSHOT_STALE",
 ]);
+const URL_SCHEME = /^[A-Za-z][A-Za-z\d+.-]*:/u;
 
 export class StrictHttpsReader {
   private readonly base: URL;
@@ -81,7 +82,9 @@ export class StrictHttpsReader {
       if (isCatalogueValidationError(error)) throw error;
       throw unavailable();
     } finally {
-      if (directory !== undefined) await rm(directory, { recursive: true, force: true });
+      if (directory !== undefined) {
+        await rm(directory, { recursive: true, force: true }).catch(() => undefined);
+      }
     }
   }
 }
@@ -109,6 +112,7 @@ function catalogueBaseUrl(raw: string, allowInsecureHttp: boolean): URL {
 function resolveRelativePath(base: URL, relativePath: string): URL {
   if (
     relativePath.length === 0 ||
+    URL_SCHEME.test(relativePath) ||
     relativePath.startsWith("/") ||
     relativePath.includes("\\") ||
     relativePath.includes("?") ||
