@@ -205,6 +205,44 @@ describe("Downloader", () => {
     await once(server, "close");
   });
 
+  it("enforces the allowed origin before following redirects", async () => {
+    let targetRequests = 0;
+    const target = await listen((_request, response) => {
+      targetRequests += 1;
+      response.end("forbidden");
+    });
+    const source = await listen((request, response) => {
+      if (request.url === "/cross-origin") {
+        response.writeHead(302, { location: `${target}/snapshot.json` }).end();
+        return;
+      }
+      if (request.url === "/same-origin") {
+        response.writeHead(302, { location: "/snapshot.json" }).end();
+        return;
+      }
+      response.end("allowed");
+    });
+
+    await expect(
+      new Downloader().download({
+        ...localOptions(`${source}/cross-origin`, await destination("cross-origin.json")),
+        allowedOrigins: [source],
+      }),
+    ).rejects.toMatchObject({
+      code: "DOWNLOAD_ORIGIN_FORBIDDEN",
+      exitCode: 4,
+      context: { origin: new URL(target).origin },
+    });
+    expect(targetRequests).toBe(0);
+
+    await expect(
+      new Downloader().download({
+        ...localOptions(`${source}/same-origin`, await destination("same-origin.json")),
+        allowedOrigins: [`${source}/ignored/path`],
+      }),
+    ).resolves.toMatchObject({ bytes: 7, finalUrl: `${source}/snapshot.json` });
+  });
+
   it.each(["../secret", "..\\secret", "CON", "nul.txt", "hello:ads", "trail. ", "\u0000bad"])(
     "sanitizes remote filename %j",
     (name) => {

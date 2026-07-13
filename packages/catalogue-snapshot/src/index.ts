@@ -18,3 +18,5 @@ export type {
 } from "./contracts.js";
 export { generateCatalogueSnapshot } from "./generator.js";
 export type { GenerateCatalogueSnapshotOptions } from "./generator.js";
+export { DEFAULT_CATALOGUE_BASE_URL, StrictHttpsReader } from "./remote.js";
+export type { StrictHttpsReaderOptions } from "./remote.js";
