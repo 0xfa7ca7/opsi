@@ -88,6 +88,25 @@ describe("ContentCache", () => {
     await expect(cache.getMetadata("conditional", "v1")).resolves.toEqual({ data: 1 });
   });
 
+  it("publishes object metadata with an exact absolute expiry", async () => {
+    const cache = new ContentCache(await root());
+    const expiresAt = "2026-07-14T12:00:00.000Z";
+
+    const object = await cache.putObjectWithMetadataExpiresAt(
+      "absolute-expiry",
+      "v1",
+      Readable.from(["hello"]),
+      { ok: true },
+      expiresAt,
+    );
+
+    await expect(cache.getMetadataRecord("absolute-expiry", "v1", true)).resolves.toMatchObject({
+      objectSha256: object.sha256,
+      expiresAt,
+      value: { ok: true },
+    });
+  });
+
   it("lets two child processes race the same object and metadata key without partial state", async () => {
     const directory = await root();
     const helper = join(process.cwd(), "packages/storage/test/fixtures/cache-publisher.mjs");

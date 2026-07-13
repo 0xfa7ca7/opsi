@@ -54,6 +54,16 @@ function corrupt(message: string, cause?: unknown): OpsiError {
     ...(cause === undefined ? {} : { cause }),
   });
 }
+function absoluteExpiry(value: string): string {
+  const timestamp = typeof value === "string" ? Date.parse(value) : Number.NaN;
+  if (Number.isNaN(timestamp))
+    throw new OpsiError({
+      code: "CACHE_METADATA_EXPIRY_INVALID",
+      message: "Cache metadata expiry must be a valid timestamp.",
+      exitCode: EXIT_CODES.INVALID_INPUT,
+    });
+  return new Date(timestamp).toISOString();
+}
 function parseMetadataRecord<T>(text: string): MetadataRecord<T> {
   let value: unknown;
   try {
@@ -298,6 +308,32 @@ export class ContentCache implements MetadataCache {
       await lock.release();
     }
   }
+  async putObjectWithMetadataExpiresAt<T>(
+    key: string,
+    schemaVersion: string,
+    input: Readable | AsyncIterable<Uint8Array | string>,
+    value: T | ((object: CacheObject) => T),
+    expiresAt: string,
+    validators: MetadataValidators = {},
+  ): Promise<CacheObject> {
+    const normalizedExpiresAt = absoluteExpiry(expiresAt);
+    const layout = await this.layout();
+    const lock = await CacheLock.acquire(layout.locks, "cache-publication");
+    try {
+      const object = await this.putObject(input);
+      await this.putMetadataWithExpiresAt(
+        key,
+        schemaVersion,
+        typeof value === "function" ? (value as (object: CacheObject) => T)(object) : value,
+        object.sha256,
+        normalizedExpiresAt,
+        validators,
+      );
+      return object;
+    } finally {
+      await lock.release();
+    }
+  }
   async putMetadata<T>(
     key: string,
     schemaVersion: string,
@@ -305,6 +341,40 @@ export class ContentCache implements MetadataCache {
     objectSha256?: string,
     ttlMs?: number,
     validators: MetadataValidators = {},
+  ): Promise<void> {
+    return this.publishMetadata(
+      key,
+      schemaVersion,
+      value,
+      objectSha256,
+      ttlMs === undefined ? {} : { ttlMs },
+      validators,
+    );
+  }
+  async putMetadataWithExpiresAt<T>(
+    key: string,
+    schemaVersion: string,
+    value: T,
+    objectSha256: string | undefined,
+    expiresAt: string,
+    validators: MetadataValidators = {},
+  ): Promise<void> {
+    return this.publishMetadata(
+      key,
+      schemaVersion,
+      value,
+      objectSha256,
+      { expiresAt: absoluteExpiry(expiresAt) },
+      validators,
+    );
+  }
+  private async publishMetadata<T>(
+    key: string,
+    schemaVersion: string,
+    value: T,
+    objectSha256: string | undefined,
+    expiration: { readonly ttlMs?: number; readonly expiresAt?: string },
+    validators: MetadataValidators,
   ): Promise<void> {
     const layout = await this.layout();
     if (objectSha256 !== undefined) await this.getObject(objectSha256);
@@ -317,7 +387,11 @@ export class ContentCache implements MetadataCache {
         value,
         createdAt: new Date(now).toISOString(),
         ...(objectSha256 === undefined ? {} : { objectSha256 }),
-        ...(ttlMs === undefined ? {} : { expiresAt: new Date(now + ttlMs).toISOString() }),
+        ...(expiration.expiresAt !== undefined
+          ? { expiresAt: expiration.expiresAt }
+          : expiration.ttlMs === undefined
+            ? {}
+            : { expiresAt: new Date(now + expiration.ttlMs).toISOString() }),
         ...(validators.etag === undefined ? {} : { etag: validators.etag }),
         ...(validators.lastModified === undefined ? {} : { lastModified: validators.lastModified }),
         ...(validators.source === undefined ? {} : { source: validators.source }),

@@ -81,8 +81,9 @@ export class CatalogueSnapshotClient {
         await this.options.store.write(
           manifest,
           rechecked.value.bytes,
-          freshnessRemaining(manifest.generatedAt, remoteNow),
+          snapshotExpiresAt(manifest.generatedAt),
         );
+        assertSnapshotFresh(snapshot.generatedAt, this.now());
         return remoteResult(snapshot.datasets, snapshot.generatedAt);
       }
 
@@ -90,11 +91,8 @@ export class CatalogueSnapshotClient {
       const snapshot = parseCatalogueSnapshot(bytes, manifest);
       const snapshotNow = this.now();
       assertSnapshotFresh(snapshot.generatedAt, snapshotNow);
-      await this.options.store.write(
-        manifest,
-        bytes,
-        freshnessRemaining(snapshot.generatedAt, snapshotNow),
-      );
+      await this.options.store.write(manifest, bytes, snapshotExpiresAt(snapshot.generatedAt));
+      assertSnapshotFresh(snapshot.generatedAt, this.now());
       return remoteResult(snapshot.datasets, snapshot.generatedAt);
     });
   }
@@ -148,8 +146,8 @@ function remoteResult(
   return { datasets, generatedAt, source: "snapshot-remote" };
 }
 
-function freshnessRemaining(generatedAt: string, now: Date): number {
-  return Math.max(0, Date.parse(generatedAt) + CATALOGUE_MAX_AGE_MS - now.getTime());
+function snapshotExpiresAt(generatedAt: string): string {
+  return new Date(Date.parse(generatedAt) + CATALOGUE_MAX_AGE_MS).toISOString();
 }
 
 function unavailable(): OpsiError {

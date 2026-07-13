@@ -21,7 +21,7 @@ export interface StoredCatalogueSnapshot {
 
 export interface CatalogueSnapshotStore {
   read(): Promise<StoredCatalogueSnapshot | undefined>;
-  write(manifest: CatalogueManifest, bytes: Uint8Array, ttlMs: number): Promise<void>;
+  write(manifest: CatalogueManifest, bytes: Uint8Array, expiresAt: string): Promise<void>;
   withLock<T>(operation: () => Promise<T>): Promise<T>;
 }
 
@@ -68,10 +68,13 @@ export class ContentCacheCatalogueSnapshotStore implements CatalogueSnapshotStor
     return { manifest, snapshot, bytes };
   }
 
-  async write(manifestValue: CatalogueManifest, bytes: Uint8Array, ttlMs: number): Promise<void> {
+  async write(
+    manifestValue: CatalogueManifest,
+    bytes: Uint8Array,
+    expiresAt: string,
+  ): Promise<void> {
     const manifest = parseCatalogueManifest(manifestValue);
     parseCatalogueSnapshot(bytes, manifest);
-    if (!Number.isSafeInteger(ttlMs) || ttlMs < 0) throw invalidTtl();
 
     const metadata: CatalogueSnapshotCacheMetadata = { manifest };
     try {
@@ -88,12 +91,12 @@ export class ContentCacheCatalogueSnapshotStore implements CatalogueSnapshotStor
 
     // Even when the object already exists, publish through ContentCache's
     // cache-publication lock so pruning cannot unlink it before metadata lands.
-    await this.cache.putObjectWithMetadata(
+    await this.cache.putObjectWithMetadataExpiresAt(
       CATALOGUE_SNAPSHOT_CACHE_KEY,
       CATALOGUE_SNAPSHOT_CACHE_SCHEMA,
       Readable.from([bytes]),
       metadata,
-      ttlMs,
+      expiresAt,
     );
   }
 
@@ -115,14 +118,5 @@ function corruptCache(): OpsiError {
     code: "CACHE_CORRUPT",
     message: "Cached catalogue snapshot metadata is invalid.",
     exitCode: EXIT_CODES.INTEGRITY_FAILURE,
-  });
-}
-
-function invalidTtl(): OpsiError {
-  return new OpsiError({
-    code: "CATALOGUE_SNAPSHOT_INVALID",
-    message: "Catalogue snapshot validation failed.",
-    exitCode: EXIT_CODES.PROVIDER_FAILURE,
-    context: { field: "ttlMs" },
   });
 }
