@@ -31,7 +31,7 @@ This work does not add a dynamic application server, silently launch background 
 
 A dedicated GitHub Actions workflow in this repository runs every six hours and through `workflow_dispatch`. It is separate from the pull-request quality pipeline and publishes a static catalogue through GitHub Pages. Running four times per day provides multiple retry opportunities before the 24-hour freshness boundary.
 
-The generator uses the same OPSI provider contracts and mapping code as the CLI. It traverses the live gateway serially with the proven 300-record page size, projects each record to `id`, `title`, and `name`, sorts deterministically by `name` and then `id`, and validates the complete collection before publishing.
+The generator uses the same OPSI provider contracts and mapping code as the CLI. It traverses the live gateway serially with the proven 300-record page size, projects each record to `id`, `title`, and `name`, sorts deterministically by `name` and then `id` using Unicode code-unit comparison, and validates the complete collection before publishing. This ordering is independent of the process locale.
 
 Each successful run publishes:
 
@@ -85,7 +85,7 @@ The publisher and CLI require:
 - `count` equal to the dataset array length and manifest count;
 - non-empty `id`, `title`, and `name` strings;
 - unique dataset IDs;
-- deterministic `name`, then `id` order;
+- deterministic, locale-independent Unicode code-unit `name`, then `id` order;
 - actual bytes and SHA-256 matching the manifest;
 - a configured maximum manifest and snapshot size.
 
@@ -172,7 +172,7 @@ The implementation applies these controls:
 - atomic file publication and the existing cache locking model;
 - terminal sanitation through the existing renderer;
 - no API key in snapshot URLs, cache metadata, logs, or artifacts;
-- minimum GitHub workflow permissions;
+- minimum GitHub workflow permissions (`contents: read` and `pages: read` for generation, Pages/OIDC writes only for deployment, and `contents: read` for verification);
 - third-party GitHub Actions pinned to immutable commit SHAs;
 - deterministic generator dependencies installed from the lockfile;
 - post-deployment retrieval and validation from the public endpoint.

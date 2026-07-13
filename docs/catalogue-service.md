@@ -28,8 +28,9 @@ Before the first run, a repository administrator must open **Settings → Pages*
 **GitHub Actions** as the build and deployment source. GitHub documents this setup in
 [Using custom workflows with GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 The workflow deploys through the `github-pages` environment. Keep `pages: write` and
-`id-token: write` confined to its `deploy` job; the generation and verification jobs need only
-`contents: read`.
+`id-token: write` confined to its `deploy` job. The generation job needs `contents: read` for
+checkout and `pages: read` because the pinned `actions/configure-pages` action reads the Pages
+configuration; verification needs only `contents: read`.
 
 Run **Actions → Catalogue snapshot → Run workflow** once after enablement. A successful run
 must complete `generate`, `deploy`, and `verify`; confirm that `v1/latest.json` is reachable at

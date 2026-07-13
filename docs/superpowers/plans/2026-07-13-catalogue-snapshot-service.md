@@ -122,7 +122,7 @@ export interface CatalogueIndex {
 }
 ```
 
-All parser failures must throw `OpsiError` with `CATALOGUE_SNAPSHOT_INVALID`, exit code 4, and context that identifies only the failed field, never raw remote content. `parseCatalogueSnapshot` validates internal invariants without a manifest and additionally validates bytes, digest, count, and timestamp against the manifest when one is supplied. Integrity mismatch must throw `CATALOGUE_SNAPSHOT_INTEGRITY`. Staleness must throw `CATALOGUE_SNAPSHOT_STALE`. Serialize snapshots as one UTF-8 JSON line with a trailing newline so byte length and digest are deterministic.
+All parser failures must throw `OpsiError` with `CATALOGUE_SNAPSHOT_INVALID`, exit code 4, actionable retry/service-status/explicit-`--live` remediation, and context that identifies only the failed field, never raw remote content. `parseCatalogueSnapshot` validates internal invariants without a manifest and additionally validates bytes, digest, count, and timestamp against the manifest when one is supplied. Integrity mismatch must throw `CATALOGUE_SNAPSHOT_INTEGRITY`. Staleness must throw `CATALOGUE_SNAPSHOT_STALE`. Serialize snapshots as one UTF-8 JSON line with a trailing newline so byte length and digest are deterministic.
 
 - [ ] **Step 4: Run the contract test and verify it passes**
 
@@ -148,7 +148,7 @@ Expected: FAIL because `generateCatalogueSnapshot` is not exported.
 
 - [ ] **Step 7: Implement deterministic serial generation**
 
-Implement `generateCatalogueSnapshot(provider, options)` with `DATASET_PAGE_SIZE = 300`. Advance only through the provider's returned `nextOffset`, require the first-page total to equal final record count, reject changing totals, map `providerMetadata.raw.name`, sort with `left.name.localeCompare(right.name) || left.id.localeCompare(right.id)`, then pass the result through the strict snapshot parser before returning it. Do not add concurrency or a larger page-size option.
+Implement `generateCatalogueSnapshot(provider, options)` with `DATASET_PAGE_SIZE = 300`. Advance only through the provider's returned `nextOffset`, require the first-page total to equal final record count, reject changing totals, map `providerMetadata.raw.name`, and sort using one shared locale-independent Unicode code-unit comparator (`left < right ? -1 : left > right ? 1 : 0`) for `name` and then `id`. Use the same comparator in snapshot validation, then pass the result through the strict snapshot parser before returning it. Do not add concurrency or a larger page-size option.
 
 - [ ] **Step 8: Register the Vitest alias and run package tests**
 
@@ -218,7 +218,7 @@ new StrictHttpsReader({
 
 - [ ] **Step 6: Implement the strict remote reader**
 
-`StrictHttpsReader.read(relativePath, maxBytes, timeoutMs?)` must resolve only relative paths beneath the configured base pathname, reject credentials/query/fragment/traversal, use `Downloader` with `allowedOrigins: [base.origin]`, read the completed regular file, and delete its temporary directory in `finally`. The optional per-call timeout is capped by the reader's configured per-request ceiling, which defaults to 9.5 seconds; explicit configured values remain unchanged for standalone reads, and a shorter per-call value remains effective. Map retrieval failures to `CATALOGUE_SNAPSHOT_UNAVAILABLE` while preserving already typed snapshot validation errors.
+`StrictHttpsReader.read(relativePath, maxBytes, timeoutMs?)` must resolve only relative paths beneath the configured base pathname, reject credentials/query/fragment/traversal, use `Downloader` with `allowedOrigins: [base.origin]`, read the completed regular file, and delete its temporary directory in `finally`. The optional per-call timeout is capped by the reader's configured per-request ceiling, which defaults to 9.5 seconds; explicit configured values remain unchanged for standalone reads, and a shorter per-call value remains effective. Map downloader byte-limit failures specifically to `CATALOGUE_SNAPSHOT_INVALID` with field `bytes`; map other retrieval failures to `CATALOGUE_SNAPSHOT_UNAVAILABLE` while preserving already typed snapshot validation errors.
 
 - [ ] **Step 7: Run remote-reader tests**
 
@@ -531,6 +531,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pages: read
     outputs:
       sha256: ${{ steps.snapshot.outputs.sha256 }}
       generated-at: ${{ steps.snapshot.outputs.generated-at }}

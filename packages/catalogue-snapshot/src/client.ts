@@ -1,5 +1,5 @@
 import { performance } from "node:perf_hooks";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { OpsiError } from "@opsi/domain";
 import {
   CATALOGUE_MAX_AGE_MS,
   CATALOGUE_MAX_MANIFEST_BYTES,
@@ -11,6 +11,7 @@ import {
   type CatalogueManifest,
 } from "./contracts.js";
 import { StrictHttpsReader } from "./remote.js";
+import { snapshotInvalid, snapshotUnavailable } from "./errors.js";
 import type { CatalogueSnapshotStore, StoredCatalogueSnapshot } from "./store.js";
 
 const CATALOGUE_REMOTE_OPERATION_TIMEOUT_MS = 8_500;
@@ -62,7 +63,7 @@ export class CatalogueSnapshotClient {
     }
     if (this.offline) {
       if (cached.state === "stale") throw cached.error;
-      throw unavailable();
+      throw snapshotUnavailable();
     }
 
     return this.options.store.withLock(async () => {
@@ -131,13 +132,13 @@ export class CatalogueSnapshotClient {
       CATALOGUE_MAX_MANIFEST_BYTES,
       remainingRemoteTimeoutMs(remoteDeadline),
     );
-    if (bytes.byteLength > CATALOGUE_MAX_MANIFEST_BYTES) throw invalid("bytes");
+    if (bytes.byteLength > CATALOGUE_MAX_MANIFEST_BYTES) throw snapshotInvalid("bytes");
 
     let value: unknown;
     try {
       value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
     } catch {
-      throw invalid("manifest");
+      throw snapshotInvalid("manifest");
     }
     return parseCatalogueManifest(value);
   }
@@ -164,23 +165,6 @@ function snapshotExpiresAt(generatedAt: string): string {
 
 function remainingRemoteTimeoutMs(deadline: number): number {
   const remaining = Math.floor(deadline - performance.now());
-  if (remaining <= 0) throw unavailable();
+  if (remaining <= 0) throw snapshotUnavailable();
   return remaining;
-}
-
-function unavailable(): OpsiError {
-  return new OpsiError({
-    code: "CATALOGUE_SNAPSHOT_UNAVAILABLE",
-    message: "The catalogue snapshot is unavailable.",
-    exitCode: EXIT_CODES.PROVIDER_FAILURE,
-  });
-}
-
-function invalid(field: string): OpsiError {
-  return new OpsiError({
-    code: "CATALOGUE_SNAPSHOT_INVALID",
-    message: "Catalogue snapshot validation failed.",
-    exitCode: EXIT_CODES.PROVIDER_FAILURE,
-    context: { field },
-  });
 }

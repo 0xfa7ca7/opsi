@@ -17,6 +17,7 @@ import {
 import { generateCatalogueSnapshot } from "./generator.js";
 import { assertSafeCount, buildPublication, retainedManifests } from "./publication.js";
 import { StrictHttpsReader } from "./remote.js";
+import { snapshotInvalid } from "./errors.js";
 
 export interface PublisherRuntime {
   readonly now?: () => Date;
@@ -164,15 +165,6 @@ function compareManifests(
 
 async function writeJson(path: string, value: unknown): Promise<void> {
   await writeFile(path, `${JSON.stringify(value)}\n`, { encoding: "utf8", mode: 0o600 });
-}
-
-function snapshotInvalid(field: string): OpsiError {
-  return new OpsiError({
-    code: "CATALOGUE_SNAPSHOT_INVALID",
-    message: "Catalogue snapshot validation failed.",
-    exitCode: EXIT_CODES.PROVIDER_FAILURE,
-    context: { field },
-  });
 }
 
 function invalidInput(field: string): OpsiError {

@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pages: read
     outputs:
       sha256: ${{ steps.snapshot.outputs.sha256 }}
       generated-at: ${{ steps.snapshot.outputs.generated-at }}

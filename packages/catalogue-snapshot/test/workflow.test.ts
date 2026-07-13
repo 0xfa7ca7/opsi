@@ -28,7 +28,9 @@ describe("catalogue snapshot workflow", () => {
     const verify = jobBlock(workflow, "verify");
 
     expect(jobNames(workflow)).toEqual(["generate", "deploy", "verify"]);
-    expect(jobSettingBlock(generate, "permissions")).toBe("      contents: read\n");
+    expect(jobSettingBlock(generate, "permissions")).toBe(
+      "      contents: read\n      pages: read\n",
+    );
     expect(jobSettingBlock(deploy, "permissions")).toBe(
       "      pages: write\n      id-token: write\n",
     );

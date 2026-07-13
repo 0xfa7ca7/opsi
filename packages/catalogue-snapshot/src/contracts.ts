@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import { z } from "zod";
+import { snapshotIntegrity, snapshotInvalid, snapshotStale } from "./errors.js";
+import { compareCatalogueDatasets } from "./ordering.js";
 
 export const CATALOGUE_SCHEMA_VERSION = "1" as const;
 export const CATALOGUE_MAX_AGE_MS = 24 * 60 * 60 * 1_000;
@@ -81,12 +82,7 @@ const snapshotSchema = z
       seenIds.add(dataset.id);
 
       const previous = snapshot.datasets[index - 1];
-      if (
-        previous !== undefined &&
-        (previous.name.localeCompare(dataset.name) > 0 ||
-          (previous.name.localeCompare(dataset.name) === 0 &&
-            previous.id.localeCompare(dataset.id) > 0))
-      ) {
+      if (previous !== undefined && compareCatalogueDatasets(previous, dataset) > 0) {
         context.addIssue({
           code: "custom",
           path: ["datasets", index],
@@ -110,17 +106,17 @@ export function parseCatalogueSnapshot(
   manifest?: CatalogueManifest,
 ): CatalogueSnapshot {
   if (bytes.byteLength > CATALOGUE_MAX_SNAPSHOT_BYTES) {
-    throw invalid("bytes");
+    throw snapshotInvalid("bytes");
   }
 
   const parsedManifest = manifest === undefined ? undefined : parseCatalogueManifest(manifest);
   if (parsedManifest !== undefined) {
     if (bytes.byteLength !== parsedManifest.bytes) {
-      throw integrity("bytes");
+      throw snapshotIntegrity("bytes");
     }
     const digest = createHash("sha256").update(bytes).digest("hex");
     if (digest !== parsedManifest.sha256) {
-      throw integrity("sha256");
+      throw snapshotIntegrity("sha256");
     }
   }
 
@@ -129,16 +125,16 @@ export function parseCatalogueSnapshot(
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     value = JSON.parse(text) as unknown;
   } catch {
-    throw invalid("snapshot");
+    throw snapshotInvalid("snapshot");
   }
 
   const snapshot = parseSchema(snapshotSchema, value, "snapshot") as CatalogueSnapshot;
   if (parsedManifest !== undefined) {
     if (snapshot.count !== parsedManifest.count) {
-      throw invalid("count");
+      throw snapshotInvalid("count");
     }
     if (snapshot.generatedAt !== parsedManifest.generatedAt) {
-      throw invalid("generatedAt");
+      throw snapshotInvalid("generatedAt");
     }
   }
   return snapshot;
@@ -151,21 +147,16 @@ export function parseCatalogueIndex(value: unknown): CatalogueIndex {
 export function assertSnapshotFresh(generatedAt: string, now: Date = new Date()): void {
   const parsedTimestamp = utcTimestampSchema.safeParse(generatedAt);
   if (!parsedTimestamp.success || Number.isNaN(now.getTime())) {
-    throw invalid("generatedAt");
+    throw snapshotInvalid("generatedAt");
   }
 
   const generatedTime = Date.parse(parsedTimestamp.data);
   const age = now.getTime() - generatedTime;
   if (age < -CATALOGUE_FUTURE_TOLERANCE_MS) {
-    throw invalid("generatedAt");
+    throw snapshotInvalid("generatedAt");
   }
   if (age > CATALOGUE_MAX_AGE_MS) {
-    throw new OpsiError({
-      code: "CATALOGUE_SNAPSHOT_STALE",
-      message: "The catalogue snapshot is older than 24 hours.",
-      exitCode: EXIT_CODES.PROVIDER_FAILURE,
-      context: { field: "generatedAt" },
-    });
+    throw snapshotStale();
   }
 }
 
@@ -178,7 +169,7 @@ export function serializeSnapshot(snapshot: CatalogueSnapshot): Uint8Array {
 function parseSchema(schema: z.ZodType, value: unknown, fallbackField: string): unknown {
   const parsed = schema.safeParse(value);
   if (!parsed.success) {
-    throw invalid(issueField(parsed.error, fallbackField));
+    throw snapshotInvalid(issueField(parsed.error, fallbackField));
   }
   return parsed.data;
 }
@@ -192,22 +183,4 @@ function issueField(error: z.ZodError, fallbackField: string): string {
     path.push(issue.keys[0]);
   }
   return path.length === 0 ? fallbackField : path.join(".");
-}
-
-function invalid(field: string): OpsiError {
-  return new OpsiError({
-    code: "CATALOGUE_SNAPSHOT_INVALID",
-    message: "Catalogue snapshot validation failed.",
-    exitCode: EXIT_CODES.PROVIDER_FAILURE,
-    context: { field },
-  });
-}
-
-function integrity(field: string): OpsiError {
-  return new OpsiError({
-    code: "CATALOGUE_SNAPSHOT_INTEGRITY",
-    message: "Catalogue snapshot integrity validation failed.",
-    exitCode: EXIT_CODES.PROVIDER_FAILURE,
-    context: { field },
-  });
 }

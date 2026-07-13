@@ -33,9 +33,11 @@ controls and is unavailable offline.
 
 GitHub Actions is the trusted publisher and GitHub Pages is the static transport, so their
 availability affects cold and refresh requests; this project makes no hard uptime-SLA claim for
-either service. Publication uses least-privilege workflow permissions, pinned third-party
-actions, a prior-count reduction guard, immutable snapshot retention, and post-deployment
-digest/schema verification. Operational response is documented in the
+either service. Publication uses least-privilege workflow permissions: generation has
+`contents: read` plus the `pages: read` required by the pinned Pages configuration action,
+Pages/OIDC writes remain isolated to deployment, and verification has `contents: read`. Pinned
+third-party actions, a prior-count reduction guard, immutable snapshot retention, and
+post-deployment digest/schema verification provide additional controls. Operational response is documented in the
 [catalogue service operations guide](catalogue-service.md).
 
 ## Query and format isolation

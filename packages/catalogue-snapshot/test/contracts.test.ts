@@ -40,6 +40,7 @@ function expectInvalid(call: () => unknown, field: string): void {
     expect.objectContaining({
       code: "CATALOGUE_SNAPSHOT_INVALID",
       exitCode: 4,
+      suggestion: expect.stringMatching(/Retry.*service status.*--live/u),
       context: { field },
     }),
   );
@@ -174,6 +175,23 @@ describe("catalogue snapshot version 1 contracts", () => {
     );
   });
 
+  it("validates Unicode code-unit ordering instead of locale-sensitive collation", () => {
+    expect(() =>
+      snapshotWithDatasets([
+        { id: "a", title: "Dataset C cedilla", name: "Ç" },
+        { id: "b", title: "Dataset C acute", name: "Ć" },
+      ]),
+    ).not.toThrow();
+    expectInvalid(
+      () =>
+        snapshotWithDatasets([
+          { id: "b", title: "Dataset C acute", name: "Ć" },
+          { id: "a", title: "Dataset C cedilla", name: "Ç" },
+        ]),
+      "datasets.1",
+    );
+  });
+
   it.each([
     ["byte length", { ...validManifest, bytes: validManifest.bytes + 1 }],
     ["digest", { ...validManifest, sha256: "0".repeat(64) }],
@@ -182,6 +200,7 @@ describe("catalogue snapshot version 1 contracts", () => {
       expect.objectContaining({
         code: "CATALOGUE_SNAPSHOT_INTEGRITY",
         exitCode: 4,
+        suggestion: expect.stringMatching(/Retry.*service status.*--live/u),
         context: { field: _name === "digest" ? "sha256" : "bytes" },
       }),
     );
@@ -236,7 +255,13 @@ describe("catalogue snapshot freshness", () => {
   it("rejects a snapshot older than 24 hours", () => {
     expect(() =>
       assertSnapshotFresh(new Date(now.getTime() - CATALOGUE_MAX_AGE_MS - 1).toISOString(), now),
-    ).toThrowError(expect.objectContaining({ code: "CATALOGUE_SNAPSHOT_STALE", exitCode: 4 }));
+    ).toThrowError(
+      expect.objectContaining({
+        code: "CATALOGUE_SNAPSHOT_STALE",
+        exitCode: 4,
+        suggestion: expect.stringMatching(/Retry.*service status.*--live/u),
+      }),
+    );
   });
 
   it("accepts a timestamp exactly five minutes in the future", () => {

@@ -5,6 +5,8 @@ import {
   type CatalogueDataset,
   type CatalogueSnapshot,
 } from "./contracts.js";
+import { snapshotInvalid } from "./errors.js";
+import { compareCatalogueDatasets } from "./ordering.js";
 
 const DATASET_PAGE_SIZE = 300;
 
@@ -47,9 +49,7 @@ export async function generateCatalogueSnapshot(
     throw paginationInvalid("total");
   }
 
-  datasets.sort(
-    (left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id),
-  );
+  datasets.sort(compareCatalogueDatasets);
   const snapshot: CatalogueSnapshot = {
     schemaVersion: CATALOGUE_SCHEMA_VERSION,
     generatedAt: options.generatedAt,
@@ -58,15 +58,6 @@ export async function generateCatalogueSnapshot(
   };
   const bytes = new TextEncoder().encode(`${JSON.stringify(snapshot)}\n`);
   return parseCatalogueSnapshot(bytes);
-}
-
-function snapshotInvalid(field: string): OpsiError {
-  return new OpsiError({
-    code: "CATALOGUE_SNAPSHOT_INVALID",
-    message: "Catalogue snapshot validation failed.",
-    exitCode: EXIT_CODES.PROVIDER_FAILURE,
-    context: { field },
-  });
 }
 
 function paginationInvalid(field: string): OpsiError {

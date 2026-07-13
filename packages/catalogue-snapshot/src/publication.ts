@@ -9,6 +9,7 @@ import {
   type CatalogueManifest,
   type CatalogueSnapshot,
 } from "./contracts.js";
+import { snapshotInvalid } from "./errors.js";
 
 const RETENTION_MS = 48 * 60 * 60 * 1_000;
 
@@ -51,14 +52,15 @@ export function retainedManifests(
   if (index === undefined) return [];
   const parsed = parseCatalogueIndex(index);
   const cutoff = now.getTime() - RETENTION_MS;
-  if (Number.isNaN(cutoff)) throw invalid("now");
+  if (Number.isNaN(cutoff)) throw snapshotInvalid("now");
 
   const retained = parsed.snapshots.filter(
     (manifest) => Date.parse(manifest.generatedAt) >= cutoff,
   );
   const paths = new Set<string>();
   for (const [position, manifest] of retained.entries()) {
-    if (paths.has(manifest.snapshotPath)) throw invalid(`snapshots.${position}.snapshotPath`);
+    if (paths.has(manifest.snapshotPath))
+      throw snapshotInvalid(`snapshots.${position}.snapshotPath`);
     paths.add(manifest.snapshotPath);
   }
   return retained.toSorted(
@@ -70,13 +72,4 @@ export function retainedManifests(
 
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
-}
-
-function invalid(field: string): OpsiError {
-  return new OpsiError({
-    code: "CATALOGUE_SNAPSHOT_INVALID",
-    message: "Catalogue snapshot validation failed.",
-    exitCode: EXIT_CODES.PROVIDER_FAILURE,
-    context: { field },
-  });
 }

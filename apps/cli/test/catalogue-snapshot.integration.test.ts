@@ -1,11 +1,12 @@
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { CatalogueSnapshotClient } from "@opsi/catalogue-snapshot";
+import { parseCatalogueSnapshot, type CatalogueSnapshotClient } from "@opsi/catalogue-snapshot";
 import type { OutputFormat } from "@opsi/output";
 import { Renderer } from "@opsi/output";
 import type { CliContext } from "../src/context.js";
 import { createProgram } from "../src/program.js";
+import { handleRuntimeError } from "../src/errors.js";
 
 const result = {
   datasets: [
@@ -33,11 +34,17 @@ function fixture(
     readonly baseUrl?: string;
     readonly fields?: readonly string[];
     readonly offline?: boolean;
+    readonly listError?: unknown;
   } = {},
 ) {
   const stdout: string[] = [];
   const stderr: string[] = [];
-  const catalogue = { list: vi.fn(async () => result) };
+  const catalogue = {
+    list: vi.fn(async () => {
+      if (options.listError !== undefined) throw options.listError;
+      return result;
+    }),
+  };
   const renderer = new Renderer({
     format,
     stdout: { write: (chunk) => void stdout.push(chunk) },
@@ -114,6 +121,29 @@ describe("snapshot-backed dataset list", () => {
     });
   });
 
+  it("preserves actionable snapshot suggestions in structured JSON errors", async () => {
+    let snapshotError: unknown;
+    try {
+      parseCatalogueSnapshot(new TextEncoder().encode("not-json"));
+    } catch (error) {
+      snapshotError = error;
+    }
+    const value = fixture("json", { listError: snapshotError });
+
+    const error = await value.program
+      .parseAsync(["dataset", "list"], { from: "user" })
+      .catch((cause: unknown) => cause);
+    expect(handleRuntimeError(error, fixtureIo(value), { format: "json" })).toBe(4);
+
+    expect(JSON.parse(value.stdout.join(""))).toMatchObject({
+      error: {
+        code: "CATALOGUE_SNAPSHOT_INVALID",
+        exitCode: 4,
+        suggestion: expect.stringMatching(/Retry.*service status.*--live/u),
+      },
+    });
+  });
+
   it("preserves supported field order", async () => {
     const value = fixture("csv", { fields: ["name", "id"] });
 
@@ -176,3 +206,11 @@ describe("snapshot-backed dataset list", () => {
     expect(value.catalogue.list).toHaveBeenCalledOnce();
   });
 });
+
+function fixtureIo(value: { readonly stdout: string[]; readonly stderr: string[] }) {
+  return {
+    stdout: { write: (chunk: string) => void value.stdout.push(chunk) },
+    stderr: { write: (chunk: string) => void value.stderr.push(chunk) },
+    env: {},
+  };
+}

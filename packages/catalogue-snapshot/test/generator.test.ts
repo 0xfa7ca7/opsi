@@ -40,6 +40,35 @@ describe("generateCatalogueSnapshot", () => {
     });
   });
 
+  it("sorts Unicode names and IDs by code unit without calling localeCompare", async () => {
+    const localeCompare = vi.spyOn(String.prototype, "localeCompare").mockImplementation(() => {
+      throw new Error("locale-sensitive comparison must not be used");
+    });
+    const { provider } = providerForPages(
+      new Map([
+        [
+          0,
+          page(0, 4, [
+            dataset("Ć", "C acute ID", "same"),
+            dataset("b", "C acute", "Ć"),
+            dataset("Ç", "C cedilla ID", "same"),
+            dataset("a", "C cedilla", "Ç"),
+          ]),
+        ],
+      ]),
+    );
+
+    const snapshot = await generateCatalogueSnapshot(provider, { generatedAt });
+
+    expect(snapshot.datasets.map(({ name, id }) => [name, id])).toEqual([
+      ["same", "Ç"],
+      ["same", "Ć"],
+      ["Ç", "a"],
+      ["Ć", "b"],
+    ]);
+    expect(localeCompare).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["missing", undefined],
     ["non-string", 42],

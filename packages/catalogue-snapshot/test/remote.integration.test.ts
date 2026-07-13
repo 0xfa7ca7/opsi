@@ -102,12 +102,14 @@ describe("StrictHttpsReader", () => {
   it.each([
     ["manifest", "v1/latest.json"],
     ["snapshot", "v1/snapshots/example.json"],
-  ])("maps %s byte-cap overflow to unavailable", async (_kind, relativePath) => {
+  ])("maps %s byte-cap overflow to an invalid bytes error", async (_kind, relativePath) => {
     const origin = await listen((_request, response) => response.end("123456"));
 
     await expect(localReader(`${origin}/catalogue/`).read(relativePath, 5)).rejects.toMatchObject({
-      code: "CATALOGUE_SNAPSHOT_UNAVAILABLE",
+      code: "CATALOGUE_SNAPSHOT_INVALID",
       exitCode: 4,
+      suggestion: expect.stringMatching(/Retry.*service status.*--live/u),
+      context: { field: "bytes" },
     });
   });
 
@@ -122,6 +124,9 @@ describe("StrictHttpsReader", () => {
       .catch((cause: unknown) => cause);
 
     expect(error).toMatchObject({ code: "CATALOGUE_SNAPSHOT_UNAVAILABLE", exitCode: 4 });
+    expect(error).toMatchObject({
+      suggestion: expect.stringMatching(/Retry.*service status.*--live/u),
+    });
     expect(String(error)).not.toContain(secretBody);
     expect(JSON.stringify(error)).not.toContain(secretBody);
   });

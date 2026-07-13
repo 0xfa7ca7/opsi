@@ -12,6 +12,7 @@ import {
   type CatalogueManifest,
 } from "./contracts.js";
 import { StrictHttpsReader } from "./remote.js";
+import { snapshotInvalid } from "./errors.js";
 
 export interface VerifierRuntime {
   readonly createReader?: (baseUrl: string) => StrictHttpsReader;
@@ -86,12 +87,7 @@ function parseManifestBytes(bytes: Uint8Array): CatalogueManifest {
     return parseCatalogueManifest(JSON.parse(text) as unknown);
   } catch (error) {
     if (error instanceof OpsiError) throw error;
-    throw new OpsiError({
-      code: "CATALOGUE_SNAPSHOT_INVALID",
-      message: "Catalogue snapshot validation failed.",
-      exitCode: EXIT_CODES.PROVIDER_FAILURE,
-      context: { field: "manifest" },
-    });
+    throw snapshotInvalid("manifest");
   }
 }
 

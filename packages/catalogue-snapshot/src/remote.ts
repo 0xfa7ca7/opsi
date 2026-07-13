@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import { Downloader } from "@opsi/storage";
+import { snapshotInvalid, snapshotUnavailable } from "./errors.js";
 
 export const DEFAULT_CATALOGUE_BASE_URL = "https://0xfa7ca7.github.io/opsi/";
 const DEFAULT_CATALOGUE_TIMEOUT_MS = 9_500;
@@ -127,7 +128,10 @@ export class StrictHttpsReader {
     } catch (error) {
       if (allowNotFound && isHttpNotFound(error)) return undefined;
       if (isCatalogueValidationError(error)) throw error;
-      throw unavailable();
+      if (error instanceof OpsiError && error.code === "DOWNLOAD_TOO_LARGE") {
+        throw snapshotInvalid("bytes");
+      }
+      throw snapshotUnavailable();
     } finally {
       if (directory !== undefined) {
         await rm(directory, { recursive: true, force: true }).catch(() => undefined);
@@ -239,14 +243,6 @@ function isHttpNotFound(error: unknown): error is OpsiError {
   );
 }
 
-function unavailable(): OpsiError {
-  return new OpsiError({
-    code: "CATALOGUE_SNAPSHOT_UNAVAILABLE",
-    message: "The catalogue snapshot is unavailable.",
-    exitCode: EXIT_CODES.PROVIDER_FAILURE,
-  });
-}
-
 function invalidBaseUrl(): OpsiError {
   return new OpsiError({
     code: "INVALID_CATALOGUE_BASE_URL",
@@ -256,10 +252,5 @@ function invalidBaseUrl(): OpsiError {
 }
 
 function invalidPath(field: string): OpsiError {
-  return new OpsiError({
-    code: "CATALOGUE_SNAPSHOT_INVALID",
-    message: "Catalogue snapshot validation failed.",
-    exitCode: EXIT_CODES.PROVIDER_FAILURE,
-    context: { field },
-  });
+  return snapshotInvalid(field);
 }
