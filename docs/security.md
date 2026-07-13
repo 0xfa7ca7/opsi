@@ -14,9 +14,10 @@ Downloads use bounded time/bytes/redirects, exclusive temporary files, hashes, a
 
 The default dataset list trusts no static bytes merely because GitHub Pages served them. It uses
 one compile-time HTTPS origin, accepts only safe relative paths below the versioned snapshot
-prefix, restricts redirects to that origin, and applies a hard ten-second network timeout plus
-separate manifest and snapshot size limits. The manifest and snapshot pass strict schemas with
-unknown-key rejection; the client verifies schema version, generation timestamp, count,
+prefix, restricts redirects to that origin, and applies a 9.5-second network deadline so typed
+failure propagation and cleanup remain within the under-ten-second observable bound. Separate
+manifest and snapshot size limits also apply. The manifest and snapshot pass strict schemas
+with unknown-key rejection; the client verifies schema version, generation timestamp, count,
 ordering, unique IDs, exact byte length, and SHA-256 before emitting a record or publishing the
 cache atomically. The npm package includes neither a fallback snapshot nor mutable service
 metadata.

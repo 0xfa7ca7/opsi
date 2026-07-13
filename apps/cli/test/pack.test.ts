@@ -27,6 +27,12 @@ const EXPECTED_FILES = [
   "package.json",
 ] as const;
 
+const PUBLIC_DECLARATION_FILES = [
+  "dist/main.d.ts",
+  "dist/query-worker.d.ts",
+  "dist/sdk.d.ts",
+] as const;
+
 async function tarText(path: string): Promise<string> {
   return (
     await execute("tar", ["-xOf", tarball, `package/${path}`], {
@@ -194,6 +200,13 @@ afterAll(async () => {
 describe("canonical npm tarball", () => {
   it("contains only the public runtime, SDK, and package documentation", async () => {
     const paths = files.map((file) => file.path).sort();
+    expect(
+      paths.filter(
+        (path) =>
+          path.endsWith(".d.ts") &&
+          !PUBLIC_DECLARATION_FILES.some((publicPath) => path === publicPath),
+      ),
+    ).toEqual([]);
     expect(paths).toEqual([...EXPECTED_FILES].sort());
     expect(
       paths.filter(

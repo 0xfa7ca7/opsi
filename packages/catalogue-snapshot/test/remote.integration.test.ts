@@ -1,6 +1,7 @@
 import { once } from "node:events";
 import { createServer, type RequestListener, type Server } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
+import { Downloader, type DownloadInput } from "@opsi/storage";
 import {
   DEFAULT_CATALOGUE_BASE_URL,
   StrictHttpsReader,
@@ -46,6 +47,32 @@ describe("StrictHttpsReader", () => {
   it("uses the fixed production catalogue origin by default", () => {
     expect(DEFAULT_CATALOGUE_BASE_URL).toBe("https://0xfa7ca7.github.io/opsi/");
     expect(() => new StrictHttpsReader()).not.toThrow();
+  });
+
+  it.each([
+    ["default", undefined, 9_500],
+    ["explicit", 1_234, 1_234],
+  ])("forwards the %s snapshot network timeout", async (_kind, timeoutMs, expected) => {
+    class CapturingDownloader extends Downloader {
+      readonly requests: DownloadInput[] = [];
+
+      override async download(input: DownloadInput): Promise<never> {
+        this.requests.push(input);
+        throw new Error("captured timeout");
+      }
+    }
+    const downloader = new CapturingDownloader();
+    const reader = new StrictHttpsReader({
+      downloader,
+      ...(timeoutMs === undefined ? {} : { timeoutMs }),
+    });
+
+    await expect(reader.read("v1/latest.json", 100)).rejects.toMatchObject({
+      code: "CATALOGUE_SNAPSHOT_UNAVAILABLE",
+      exitCode: 4,
+    });
+    expect(downloader.requests).toHaveLength(1);
+    expect(downloader.requests[0]?.limits.timeoutMs).toBe(expected);
   });
 
   it("returns exact bytes from a safe path beneath the configured base pathname", async () => {

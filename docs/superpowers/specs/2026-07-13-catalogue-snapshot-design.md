@@ -232,7 +232,7 @@ All automated tests use controlled fixtures. Normal tests never contact OPSI or 
 
 - A warm-cache `dataset list` completes locally in under 250 ms in the performance fixture.
 - A cold invocation makes at most one manifest and one snapshot request.
-- Snapshot networking has a hard ten-second timeout.
+- Snapshot networking uses a 9.5-second deadline so observable failure remains under ten seconds.
 - The compact snapshot remains below the configured maximum size.
 - Normal `dataset list` never calls OPSI directly.
 - No accepted snapshot is more than 24 hours old according to `generatedAt`.

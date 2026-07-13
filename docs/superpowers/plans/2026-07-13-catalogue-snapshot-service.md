@@ -12,7 +12,7 @@
 
 - Snapshot freshness is measured from `generatedAt` and must never exceed 24 hours.
 - The publisher runs every six hours and uses serial 300-row OPSI pages.
-- Normal `dataset list` makes no OPSI request and has a hard ten-second snapshot-network timeout.
+- Normal `dataset list` makes no OPSI request and has an under-ten-second observable snapshot-network failure bound.
 - Snapshot mode contains and supports only `id`, `title`, and `name`.
 - Missing, stale, malformed, oversized, or integrity-invalid snapshots fail quickly with exit category 4.
 - `--live` is the only mode allowed to execute direct OPSI pagination.
@@ -212,7 +212,7 @@ Use local HTTP fixture servers with injected `Downloader` policy allowances only
 export const DEFAULT_CATALOGUE_BASE_URL = "https://0xfa7ca7.github.io/opsi/";
 new StrictHttpsReader({
   baseUrl: DEFAULT_CATALOGUE_BASE_URL,
-  timeoutMs: 10_000,
+  timeoutMs: 9_500,
 });
 ```
 
@@ -675,7 +675,7 @@ Expected: all suites pass with no live OPSI or GitHub request from the test comm
 
 - [ ] **Step 5: Run controlled performance and failure smoke checks**
 
-Using the integration fixture, measure a warm cached `dataset list --json` five times and assert each run completes under 250 ms. Verify a cold fixture makes one manifest and one snapshot request. Verify a hanging fixture exits within the ten-second network bound. Record exact timings in the PR description rather than committing generated timing files.
+Using the integration fixture, measure a warm cached `dataset list --json` five times and assert each run completes under 250 ms. Verify a cold fixture makes one manifest and one snapshot request. Verify a hanging fixture exits within the under-ten-second observable bound. Record exact timings in the PR description rather than committing generated timing files.
 
 - [ ] **Step 6: Commit final regression and documentation changes**
 

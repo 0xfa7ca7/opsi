@@ -6,6 +6,7 @@ import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import { Downloader } from "@opsi/storage";
 
 export const DEFAULT_CATALOGUE_BASE_URL = "https://0xfa7ca7.github.io/opsi/";
+const DEFAULT_CATALOGUE_TIMEOUT_MS = 9_500;
 
 export interface StrictHttpsReaderOptions {
   readonly baseUrl?: string;
@@ -43,7 +44,7 @@ export class StrictHttpsReader {
       options.baseUrl ?? DEFAULT_CATALOGUE_BASE_URL,
       this.testOnlyDownloaderOptions.allowInsecureHttp ?? false,
     );
-    this.timeoutMs = options.timeoutMs ?? 10_000;
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_CATALOGUE_TIMEOUT_MS;
     if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs <= 0) {
       throw new OpsiError({
         code: "INVALID_CATALOGUE_TIMEOUT",
