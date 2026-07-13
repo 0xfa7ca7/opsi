@@ -195,6 +195,14 @@ describe("canonical npm tarball", () => {
   it("contains only the public runtime, SDK, and package documentation", async () => {
     const paths = files.map((file) => file.path).sort();
     expect(paths).toEqual([...EXPECTED_FILES].sort());
+    expect(
+      paths.filter(
+        (path) =>
+          /(?:^|\/)(?:latest|index)\.json$/u.test(path) ||
+          /(?:^|\/)v1\/snapshots\/[^/]+\.json$/u.test(path) ||
+          /(?:^|\/)catalogue-snapshot(?:\/|$)/u.test(path),
+      ),
+    ).toEqual([]);
     expect(paths.some((path) => /(?:test|fixture|\.tsbuildinfo)/iu.test(path))).toBe(false);
     expect(files.find((file) => file.path === "dist/main.js")?.mode & 0o111).toBeGreaterThan(0);
 
@@ -241,6 +249,10 @@ describe("canonical npm tarball", () => {
     if (process.platform !== "win32") await chmod(binary, 0o755);
     expect((await stat(binary)).isFile()).toBe(true);
     expect((await execute(binary, ["--version"], { cwd: root })).stdout).toMatch(/^0\.1\.0\n$/u);
+    const datasetListHelp = (await execute(binary, ["dataset", "list", "--help"], { cwd: root }))
+      .stdout;
+    expect(datasetListHelp).toContain("--refresh");
+    expect(datasetListHelp).toContain("--live");
     expect(
       JSON.parse((await execute(binary, ["doctor", "--json", "--offline"], { cwd: root })).stdout),
     ).toMatchObject({ data: { status: "pass" } });

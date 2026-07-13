@@ -10,6 +10,30 @@ Provider metadata, filenames, URLs, redirects, headers, tabular cells, spreadshe
 
 Downloads use bounded time/bytes/redirects, exclusive temporary files, hashes, atomic rename/link publication, and cleanup. Existing different files survive unless `--force`. Cache objects are content-addressed, locked, and verified. Provenance redacts URL credentials/query secrets and stores source/final redirect information, retrieval time, digest, size, provider/dataset/resource IDs, transformations, and override flags. Verification recomputes the artifact digest.
 
+## Catalogue snapshot trust boundary
+
+The default dataset list trusts no static bytes merely because GitHub Pages served them. It uses
+one compile-time HTTPS origin, accepts only safe relative paths below the versioned snapshot
+prefix, restricts redirects to that origin, and applies a hard ten-second network timeout plus
+separate manifest and snapshot size limits. The manifest and snapshot pass strict schemas with
+unknown-key rejection; the client verifies schema version, generation timestamp, count,
+ordering, unique IDs, exact byte length, and SHA-256 before emitting a record or publishing the
+cache atomically. The npm package includes neither a fallback snapshot nor mutable service
+metadata.
+
+Snapshot freshness is based on `generatedAt`, never download or cache time, and may not exceed
+24 hours. Offline mode accepts only a completely validated fresh cache. Missing, stale,
+malformed, oversized, or digest-invalid data fails closed, and normal mode never falls back to
+direct OPSI access. The explicit `--live` mode remains subject to the provider's normal network
+controls and is unavailable offline.
+
+GitHub Actions is the trusted publisher and GitHub Pages is the static transport, so their
+availability affects cold and refresh requests; this project makes no hard uptime-SLA claim for
+either service. Publication uses least-privilege workflow permissions, pinned third-party
+actions, a prior-count reduction guard, immutable snapshot retention, and post-deployment
+digest/schema verification. Operational response is documented in the
+[catalogue service operations guide](catalogue-service.md).
+
 ## Query and format isolation
 
 SQL policy uses DuckDB statement extraction/preparation, rejects multiple/diagnostic/mutating statements, stages input in an OPSI-owned database, reopens read-only, disables external access and extension auto-install/load, and runs in a killable worker. Limits cover SQL bytes, rows, deadline, 1GB memory, four threads, columns, cells, and output. XLSX shared strings/columns and all preview/export sizes are bounded. Formula-like strings are warned or prefixed by explicit spreadsheet-safe export.
