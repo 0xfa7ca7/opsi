@@ -148,6 +148,15 @@ describe("snapshot-backed dataset list", () => {
     expect(value.catalogue.list).not.toHaveBeenCalled();
   });
 
+  it("rejects explicit refresh mode while offline before reading the snapshot", async () => {
+    const value = fixture("json", { offline: true });
+
+    await expect(
+      value.program.parseAsync(["dataset", "list", "--refresh", "--offline"], { from: "user" }),
+    ).rejects.toMatchObject({ code: "CATALOGUE_REFRESH_OFFLINE", exitCode: 2 });
+    expect(value.catalogue.list).not.toHaveBeenCalled();
+  });
+
   it("does not search the provider in normal snapshot mode", async () => {
     const requests: string[] = [];
     const server = createServer((request, response) => {

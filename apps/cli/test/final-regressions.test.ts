@@ -165,6 +165,32 @@ describe("final command contracts", () => {
     expect(catalogue.list).not.toHaveBeenCalled();
   });
 
+  it("rejects --refresh when configuration is offline before contacting the snapshot client", async () => {
+    const search = vi.fn();
+    const catalogue = { list: vi.fn() };
+    const program = new Command();
+    registerGlobalOptions(program);
+    registerCommandManifest(program);
+    registerDatasetCommand(
+      program,
+      {
+        ...context(),
+        configuration: { offline: true },
+      } as unknown as ReturnType<typeof context>,
+      { search } as unknown as OpsiClient,
+      catalogue as Pick<CatalogueSnapshotClient, "list">,
+    );
+
+    await expect(
+      program.parseAsync(["dataset", "list", "--refresh", "--offline"], { from: "user" }),
+    ).rejects.toMatchObject({
+      code: "CATALOGUE_REFRESH_OFFLINE",
+      exitCode: 2,
+    });
+    expect(search).not.toHaveBeenCalled();
+    expect(catalogue.list).not.toHaveBeenCalled();
+  });
+
   it("rejects snapshot fields that require live provider data", async () => {
     const renderer = new Renderer({
       format: "json",

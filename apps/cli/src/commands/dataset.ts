@@ -31,6 +31,15 @@ function liveOfflineError(): OpsiError {
   });
 }
 
+function refreshOfflineError(): OpsiError {
+  return new OpsiError({
+    code: "CATALOGUE_REFRESH_OFFLINE",
+    message: "Catalogue snapshot refresh is unavailable in offline mode.",
+    exitCode: EXIT_CODES.INVALID_INPUT,
+    suggestion: "Remove --refresh to use a fresh cached catalogue snapshot.",
+  });
+}
+
 function unsupportedSnapshotFields(fields: readonly string[]): OpsiError {
   return new OpsiError({
     code: "CATALOGUE_SNAPSHOT_FIELD_UNSUPPORTED",
@@ -114,6 +123,9 @@ export function registerDatasetCommand(
       if (context.configuration?.offline === true) throw liveOfflineError();
       await listLiveDatasets(context, client);
       return;
+    }
+    if (options.refresh === true && context.configuration?.offline === true) {
+      throw refreshOfflineError();
     }
     if (catalogue === undefined) {
       throw new Error("Catalogue snapshot client is not configured.");
