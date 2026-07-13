@@ -37,6 +37,7 @@ Each successful run publishes:
 
 - an immutable snapshot at `v1/snapshots/{generatedAt}.json`;
 - a mutable `v1/latest.json` manifest pointing to that immutable snapshot;
+- a mutable `v1/index.json` retention index listing immutable snapshots from the previous 48 hours;
 - deployment metadata needed for a post-publication smoke check.
 
 The Pages deployment retains immutable snapshots for at least 48 hours before pruning them. This exceeds the 24-hour client freshness window and prevents a CDN-cached prior manifest from becoming a broken pointer during deployment. Retention beyond 48 hours is not part of the CLI contract.
@@ -190,7 +191,7 @@ The scheduled workflow has two jobs:
 
 The workflow uses `concurrency` to prevent overlapping publications. Failed generation never replaces the current Pages deployment. GitHub Actions failure notifications provide the initial operational alert; the public verification job makes deployment or CDN failures visible in the same run.
 
-Before assembling a new Pages artifact, the workflow retrieves and validates the currently published manifest and referenced snapshot when available. It carries forward all valid immutable snapshots generated within the previous 48 hours, adds the new snapshot, and then atomically deploys the complete site artifact. An unavailable prior deployment does not block the first publication; an invalid prior artifact is never carried forward.
+Before assembling a new Pages artifact, the workflow retrieves and validates the currently published retention index and every referenced snapshot generated within the previous 48 hours. It carries those valid immutable snapshots forward, adds the new snapshot, writes a new index and latest manifest, and then atomically deploys the complete site artifact. A `404` retention index is treated as the first publication. Any other retrieval failure or invalid prior index/snapshot aborts publication so a partial deployment cannot break retained immutable URLs. The CLI does not consume the retention index.
 
 ## Testing
 
