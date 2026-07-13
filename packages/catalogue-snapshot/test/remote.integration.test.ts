@@ -168,6 +168,29 @@ describe("StrictHttpsReader", () => {
   });
 
   it.each([
+    [
+      "tab-disguised scheme",
+      (origin: string) => `${origin.replace("http://", "ht\ttp://")}/catalogue/v1/latest.json`,
+    ],
+    ["LF-disguised traversal segment", () => "v1/snapshots/\n../latest.json"],
+    ["CR-disguised traversal separator", () => "v1/snapshots/..\r/latest.json"],
+  ])("rejects a %s before URL parser control removal", async (_kind, candidate) => {
+    let requests = 0;
+    const origin = await listen((_request, response) => {
+      requests += 1;
+      response.end("unexpected");
+    });
+
+    await expect(
+      localReader(`${origin}/catalogue/`).read(candidate(origin), 100),
+    ).rejects.toMatchObject({
+      code: "CATALOGUE_SNAPSHOT_INVALID",
+      context: { field: "relativePath" },
+    });
+    expect(requests).toBe(0);
+  });
+
+  it.each([
     "https://example.com/snapshot.json",
     "https://user:secret@example.com/snapshot.json",
     "//example.com/snapshot.json",
