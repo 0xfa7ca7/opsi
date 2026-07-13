@@ -142,6 +142,32 @@ describe("StrictHttpsReader", () => {
   });
 
   it.each([
+    ["space-prefixed absolute URL", (origin: string) => ` ${origin}/catalogue/v1/latest.json`],
+    [
+      "space-prefixed network path",
+      (origin: string) => ` //${new URL(origin).host}/catalogue/v1/latest.json`,
+    ],
+    ["space-prefixed root path", () => " /catalogue/v1/latest.json"],
+    ["control-prefixed absolute URL", (origin: string) => `\t${origin}/catalogue/v1/latest.json`],
+    ["space-suffixed relative path", () => "v1/latest.json "],
+    ["control-suffixed relative path", () => "v1/latest.json\u001f"],
+  ])("rejects a %s before URL parser trimming", async (_kind, candidate) => {
+    let requests = 0;
+    const origin = await listen((_request, response) => {
+      requests += 1;
+      response.end("unexpected");
+    });
+
+    await expect(
+      localReader(`${origin}/catalogue/`).read(candidate(origin), 100),
+    ).rejects.toMatchObject({
+      code: "CATALOGUE_SNAPSHOT_INVALID",
+      context: { field: "relativePath" },
+    });
+    expect(requests).toBe(0);
+  });
+
+  it.each([
     "https://example.com/snapshot.json",
     "https://user:secret@example.com/snapshot.json",
     "//example.com/snapshot.json",

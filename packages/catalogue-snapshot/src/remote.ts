@@ -24,6 +24,7 @@ const CATALOGUE_VALIDATION_CODES = new Set([
   "CATALOGUE_SNAPSHOT_STALE",
 ]);
 const URL_SCHEME = /^[A-Za-z][A-Za-z\d+.-]*:/u;
+const URL_TRIMMABLE_EDGE = /^[\u0000-\u0020]|[\u0000-\u0020]$/u;
 
 export class StrictHttpsReader {
   private readonly base: URL;
@@ -110,6 +111,7 @@ function catalogueBaseUrl(raw: string, allowInsecureHttp: boolean): URL {
 }
 
 function resolveRelativePath(base: URL, relativePath: string): URL {
+  if (URL_TRIMMABLE_EDGE.test(relativePath)) throw invalidPath("relativePath");
   if (
     relativePath.length === 0 ||
     URL_SCHEME.test(relativePath) ||
