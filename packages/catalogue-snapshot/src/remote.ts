@@ -56,6 +56,36 @@ export class StrictHttpsReader {
 
   async read(relativePath: string, maxBytes: number): Promise<Uint8Array> {
     const url = resolveRelativePath(this.base, relativePath);
+    return this.readUrl(url, maxBytes);
+  }
+
+  async readOptional(relativePath: string, maxBytes: number): Promise<Uint8Array | undefined> {
+    const url = resolveRelativePath(this.base, relativePath);
+    return this.readUrl(url, maxBytes, true);
+  }
+
+  async readCacheBusted(
+    relativePath: string,
+    maxBytes: number,
+    cacheBust: string,
+  ): Promise<Uint8Array> {
+    const url = resolveRelativePath(this.base, relativePath);
+    if (!/^[A-Za-z0-9._-]+$/u.test(cacheBust)) throw invalidPath("cacheBust");
+    url.searchParams.set("cacheBust", cacheBust);
+    return this.readUrl(url, maxBytes);
+  }
+
+  private async readUrl(url: URL, maxBytes: number): Promise<Uint8Array>;
+  private async readUrl(
+    url: URL,
+    maxBytes: number,
+    allowNotFound: true,
+  ): Promise<Uint8Array | undefined>;
+  private async readUrl(
+    url: URL,
+    maxBytes: number,
+    allowNotFound = false,
+  ): Promise<Uint8Array | undefined> {
     if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) throw invalidPath("maxBytes");
 
     let directory: string | undefined;
@@ -83,6 +113,7 @@ export class StrictHttpsReader {
         await handle.close();
       }
     } catch (error) {
+      if (allowNotFound && isHttpNotFound(error)) return undefined;
       if (isCatalogueValidationError(error)) throw error;
       throw unavailable();
     } finally {
@@ -174,6 +205,14 @@ function hasUrlTrimmableEdge(value: string): boolean {
 
 function isCatalogueValidationError(error: unknown): error is OpsiError {
   return error instanceof OpsiError && CATALOGUE_VALIDATION_CODES.has(error.code);
+}
+
+function isHttpNotFound(error: unknown): error is OpsiError {
+  return (
+    error instanceof OpsiError &&
+    error.code === "DOWNLOAD_HTTP_ERROR" &&
+    error.message === "The download returned HTTP 404."
+  );
 }
 
 function unavailable(): OpsiError {

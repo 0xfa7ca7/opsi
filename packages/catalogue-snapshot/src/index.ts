@@ -32,3 +32,5 @@ export type {
   CatalogueListResult,
   CatalogueSnapshotClientOptions,
 } from "./client.js";
+export { assertSafeCount, buildPublication, retainedManifests } from "./publication.js";
+export type { CataloguePublication } from "./publication.js";
