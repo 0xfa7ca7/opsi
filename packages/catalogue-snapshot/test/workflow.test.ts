@@ -39,6 +39,61 @@ describe("catalogue snapshot workflow", () => {
     expect(deploy).toContain("      url: ${{ steps.deployment.outputs.page_url }}");
   });
 
+  it("wires the manual large-reduction input into the snapshot step", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    const dispatch = indentedBlock(topLevelBlock(workflow, "on"), "  workflow_dispatch:\n", 2);
+    const inputs = indentedBlock(dispatch, "    inputs:\n", 4);
+    const allowLargeReduction = indentedBlock(inputs, "      allow_large_reduction:\n", 6);
+    const snapshot = jobStepBlock(jobBlock(workflow, "generate"), "snapshot");
+
+    expect(yamlValue(allowLargeReduction, "type")).toBe("boolean");
+    expect(yamlValue(allowLargeReduction, "required")).toBe("false");
+    expect(yamlValue(allowLargeReduction, "default")).toBe("false");
+    expect(expressionValue(snapshot, "ALLOW_LARGE_REDUCTION")).toBe(
+      "${{inputs.allow_large_reduction||false}}",
+    );
+  });
+
+  it("exports validated generation metadata with fixed output keys", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    const generate = jobBlock(workflow, "generate");
+    const outputs = jobSettingBlock(generate, "outputs");
+    const snapshot = jobStepBlock(generate, "snapshot");
+
+    expect(expressionValue(outputs, "sha256")).toBe("${{steps.snapshot.outputs.sha256}}");
+    expect(expressionValue(outputs, "generated-at")).toBe(
+      "${{steps.snapshot.outputs.generated-at}}",
+    );
+    expect(snapshot).toMatch(/readFileSync\(\s*"site\/deployment\.json"\s*,\s*"utf8"\s*\)/u);
+    expect(snapshot).toMatch(/\/\^\[a-f0-9\]\{64\}\$\/\.test\(\s*value\.sha256\s*\)/u);
+    expect(snapshot).toMatch(/Number\.isNaN\(\s*Date\.parse\(\s*value\.generatedAt\s*\)\s*\)/u);
+    expect(snapshot).toMatch(
+      /process\.stdout\.write\(\s*`sha256=\$\{value\.sha256\}\\ngenerated-at=\$\{value\.generatedAt\}\\n`\s*\)/u,
+    );
+    expect(snapshot).toMatch(/'\s*>>\s*"\$GITHUB_OUTPUT"/u);
+  });
+
+  it("exports the deployed Pages URL", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    const outputs = jobSettingBlock(jobBlock(workflow, "deploy"), "outputs");
+
+    expect(expressionValue(outputs, "page-url")).toBe("${{steps.deployment.outputs.page_url}}");
+  });
+
+  it("verifies the public site against the generated deployment metadata", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    const verify = jobBlock(workflow, "verify").replaceAll(/\s+/gu, " ");
+
+    expect(verify).toMatch(/run:\s*node packages\/catalogue-snapshot\/dist\/verify-entry\.js/u);
+    expect(verify).toMatch(/--base-url\s+"\$\{\{\s*needs\.deploy\.outputs\.page-url\s*\}\}"/u);
+    expect(verify).toMatch(
+      /--expected-sha256\s+"\$\{\{\s*needs\.generate\.outputs\.sha256\s*\}\}"/u,
+    );
+    expect(verify).toMatch(
+      /--expected-generated-at\s+"\$\{\{\s*needs\.generate\.outputs\.generated-at\s*\}\}"/u,
+    );
+  });
+
   it("pins every action to an immutable 40-character commit", async () => {
     const workflow = await readFile(workflowPath, "utf8");
     const actions = [...workflow.matchAll(/^\s+- (?:id: [^\n]+\n\s+)?uses: ([^\s]+)$/gmu)].map(
@@ -74,6 +129,24 @@ function jobBlock(workflow: string, name: string): string {
 
 function jobSettingBlock(job: string, name: string): string {
   return indentedBlock(job, `    ${name}:\n`, 4);
+}
+
+function jobStepBlock(job: string, id: string): string {
+  return indentedBlock(job, `      - id: ${id}\n`, 6);
+}
+
+function yamlValue(source: string, name: string): string | undefined {
+  const prefix = `${name}:`;
+  return source
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.startsWith(prefix))
+    ?.slice(prefix.length)
+    .trim();
+}
+
+function expressionValue(source: string, name: string): string | undefined {
+  return yamlValue(source, name)?.replaceAll(/\s+/gu, "");
 }
 
 function indentedBlock(source: string, marker: string, indent: number): string {
