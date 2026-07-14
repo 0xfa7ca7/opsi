@@ -512,14 +512,11 @@ describe("CatalogueSnapshotClient", () => {
     const contentCache = new MetadataBarrierCache(await cacheRoot());
     const store = new ContentCacheCatalogueSnapshotStore(contentCache);
     const remote = fixture();
+    const expiresAt = new Date(Date.now() + CATALOGUE_MAX_AGE_MS).toISOString();
     await contentCache.putObject(Readable.from([remote.bytes]));
     contentCache.armMetadataBarrier();
 
-    const publication = store.write(
-      remote.manifest,
-      remote.bytes,
-      expiryFor(remote.manifest.generatedAt),
-    );
+    const publication = store.write(remote.manifest, remote.bytes, expiresAt);
     await contentCache.metadataReached;
     const locksDuringMetadata = await readdir((await contentCache.layout()).locks);
     const pruning = contentCache.prune();
