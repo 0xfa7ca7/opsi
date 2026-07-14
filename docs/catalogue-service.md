@@ -45,17 +45,22 @@ ssh-keygen -t ed25519 -C "opsi catalogue publisher" -N "" -f ./catalogue-deploy-
 ```
 
 Add `catalogue-deploy-key.pub` in the public repository under **Settings → Deploy keys → Add
-deploy key**, select **Allow write access**, and add the private file as the repository Actions
-secret `CATALOGUE_DEPLOY_KEY` in the private `0xfa7ca7/opsi` repository. Delete both local files
-after the secret is set. The public half must be registered only on `0xfa7ca7.github.io`; the
-private half must exist only in the private repository secret and must never appear in logs.
+deploy key** and select **Allow write access**. In the private `0xfa7ca7/opsi` repository, create
+the `catalogue-production` environment, configure its deployment branches and tags to allow only
+the trusted default branch (`master`), and add the private file as that environment's
+`CATALOGUE_DEPLOY_KEY` secret. Do not create a repository-level secret with this name. Delete both
+local files after the environment secret is set. The public half must be registered only on
+`0xfa7ca7.github.io`; the private half must exist only in the protected environment secret and
+must never appear in logs. The `deploy` job names `catalogue-production`, so a feature-ref manual
+dispatch cannot access the credential or publish.
 See GitHub's [deploy-key guidance](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys)
 and [Actions secret guidance](https://docs.github.com/en/actions/how-tos/security-for-github-actions/security-guides/using-secrets-in-github-actions).
 
 To rotate the credential, generate a new pair, add the new public half as a second write-enabled
-deploy key, replace `CATALOGUE_DEPLOY_KEY` with the new private half, and run the workflow
-manually. Remove the old public deploy key only after `generate`, `deploy`, and `verify` succeed,
-then securely delete the replacement private file from the trusted machine.
+deploy key, replace the `catalogue-production` environment's `CATALOGUE_DEPLOY_KEY` secret with
+the new private half, and run the workflow from `master`. Remove the old public deploy key only
+after `generate`, `deploy`, and `verify` succeed, then securely delete the replacement private
+file from the trusted machine.
 
 ## Enable branch-based GitHub Pages
 
@@ -92,9 +97,10 @@ Start with the failed job in the workflow run:
 - `generate`: inspect dependency/build errors, live OPSI traversal failures, invalid retained
   index or snapshot errors, and `CATALOGUE_COUNT_REDUCTION`. A failed generation does not
   change the public `gh-pages` branch.
-- `deploy`: confirm `CATALOGUE_DEPLOY_KEY` is present in the private repository, its public half
-  remains a write-enabled deploy key on `0xfa7ca7.github.io`, and branch rules do not reject the
-  force-push. A missing or malformed key and a rejected SSH push fail the job. Do not replace the
+- `deploy`: confirm `CATALOGUE_DEPLOY_KEY` is present in the `catalogue-production` environment,
+  that environment allows only `master`, its public half remains a write-enabled deploy key on
+  `0xfa7ca7.github.io`, and branch rules do not reject the force-push. A disallowed workflow ref,
+  missing or malformed key, or rejected SSH push fails the job. Do not replace the
   repository-scoped key with a personal access token or broaden workflow permissions.
 - `verify`: open the deployment URL and inspect `v1/latest.json` plus its referenced immutable
   snapshot. After the push, the workflow runs the strict verifier up to 12 times at 10-second

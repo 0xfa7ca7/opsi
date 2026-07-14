@@ -34,6 +34,7 @@ describe("catalogue snapshot workflow", () => {
     expect(jobSettingBlock(generate, "permissions")).toBe("      contents: read\n");
     expect(jobSettingBlock(deploy, "permissions")).toBe("      contents: read\n");
     expect(jobSettingBlock(verify, "permissions")).toBe("      contents: read\n");
+    expect(jobSettingBlock(deploy, "environment").trim()).toBe("name: catalogue-production");
     expect(deploy).toContain("    needs: generate");
     expect(verify).toContain("    needs: [generate, deploy]");
     expect(workflow).not.toContain("pages: write");

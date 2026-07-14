@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Keep `0xfa7ca7/opsi` private and publish no source code to the data repository.
-- Store only the deploy-key private half in the `CATALOGUE_DEPLOY_KEY` Actions secret.
+- Store only the deploy-key private half in the `CATALOGUE_DEPLOY_KEY` secret of the `catalogue-production` environment, whose custom deployment-branch policy allows only `master`.
 - Keep the six-hour schedule, 24-hour client freshness limit, and 48-hour artifact retention.
 - Do not use a personal access token or an unpinned third-party deployment action.
 - The deployment is successful only after the public digest and generation timestamp match.
@@ -28,7 +28,7 @@
 - Consumes: `.github/workflows/catalogue-snapshot.yml`, `DEFAULT_CATALOGUE_BASE_URL`
 - Produces: executable contracts for the public repository, branch, endpoint, secret, and build selectors
 
-- [ ] **Step 1: Write failing assertions** for `https://0xfa7ca7.github.io/opsi/`, `git@github.com:0xfa7ca7/0xfa7ca7.github.io.git`, the generated `opsi/` directory, `gh-pages`, and `secrets.CATALOGUE_DEPLOY_KEY`, while retaining the per-job `@opsi/catalogue-snapshot...` build assertions.
+- [ ] **Step 1: Write failing assertions** for `https://0xfa7ca7.github.io/opsi/`, `git@github.com:0xfa7ca7/0xfa7ca7.github.io.git`, the generated `opsi/` directory, `gh-pages`, the `catalogue-production` environment, and `secrets.CATALOGUE_DEPLOY_KEY`, while retaining the per-job `@opsi/catalogue-snapshot...` build assertions.
 - [ ] **Step 2: Run** `pnpm exec vitest run --project unit packages/catalogue-snapshot/test/workflow.test.ts packages/catalogue-snapshot/test/remote.integration.test.ts` **and confirm failure** because the old Pages endpoint and deployment action remain.
 - [ ] **Step 3: Commit only after Tasks 2 and 3 make these contracts pass.**
 
@@ -67,14 +67,14 @@
 
 **Files:**
 - External: public repository `0xfa7ca7/0xfa7ca7.github.io`
-- External: private repository Actions secret `CATALOGUE_DEPLOY_KEY`
+- External: private repository environment `catalogue-production` and its `CATALOGUE_DEPLOY_KEY` secret
 
 **Interfaces:**
-- Consumes: the trusted workflow on the feature branch, repository-scoped deploy key
+- Consumes: the trusted default-branch workflow and `catalogue-production` environment-scoped deploy key
 - Produces: public `v1/latest.json` and immutable snapshot URL
 
 - [ ] **Step 1: Create** the public data-only user-site repository with no source checkout or reusable credential.
-- [ ] **Step 2: Generate** a new Ed25519 key pair, add its public half as a write-enabled deploy key on `0xfa7ca7.github.io`, set its private half as `CATALOGUE_DEPLOY_KEY` on `opsi`, and securely remove the local private key.
+- [ ] **Step 2: Create** the `catalogue-production` environment with a custom deployment-branch policy allowing only `master`; generate a new Ed25519 key pair, add its public half as a write-enabled deploy key on `0xfa7ca7.github.io`, set its private half as that environment's `CATALOGUE_DEPLOY_KEY` secret, remove any repository-level secret of the same name, and securely remove the local private key.
 - [ ] **Step 3: Push an initial generated site** through the trusted workflow, then configure Pages from `gh-pages` at `/` and rerun if initial Pages provisioning requires the branch first.
 - [ ] **Step 4: Confirm** the publication workflow is green and `v1/latest.json` is younger than 24 hours with a matching referenced snapshot digest.
 - [ ] **Step 5: Mark the source PR ready** after all required checks pass; do not merge it automatically.

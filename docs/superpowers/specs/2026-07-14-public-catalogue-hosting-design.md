@@ -14,10 +14,12 @@ repository `0xfa7ca7/0xfa7ca7.github.io` on its `gh-pages` branch. GitHub Pages 
 the existing production URL, `https://0xfa7ca7.github.io/opsi/`.
 
 The private workflow authenticates to the public repository with an Ed25519 deploy key whose
-write permission is scoped to `0xfa7ca7.github.io`. Its private half is stored as the private source
-repository's `CATALOGUE_DEPLOY_KEY` Actions secret; the public half is registered only as a deploy
-key on the data repository. The workflow does not use a personal access token, copy source code,
-or expose the key in logs.
+write permission is scoped to `0xfa7ca7.github.io`. Its private half is stored as the
+`CATALOGUE_DEPLOY_KEY` secret in the private source repository's `catalogue-production`
+environment; that environment's deployment-branch policy permits only the trusted default
+branch. The public half is registered only as a deploy key on the data repository. The workflow
+does not use a personal access token, copy source code, expose the key in logs, or grant a
+feature-ref dispatch access to the deployment credential.
 
 ## Publication flow
 

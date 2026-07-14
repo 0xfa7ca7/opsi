@@ -42,9 +42,11 @@ The command manifest owns every user-facing path, description, argument, option,
 The public npm package contains the bundled snapshot client but no `latest.json`, retention
 index, snapshot payload, or private `catalogue-snapshot` source package. Versioned publication
 bytes remain external so installed clients apply the freshness and integrity policy at use time.
-The public user-site repository likewise contains generated catalogue artifacts only; source,
-scheduling, validation, and the private `CATALOGUE_DEPLOY_KEY` Actions secret remain confined to
-the private source repository.
+The public user-site repository likewise contains generated catalogue artifacts only. Source,
+scheduling, and validation remain confined to the private source repository. The private
+`CATALOGUE_DEPLOY_KEY` is an environment secret in `catalogue-production`, whose deployment
+branch policy permits only the trusted default branch, so a feature-ref workflow dispatch cannot
+access the publishing credential.
 
 ## Extension checklist
 
