@@ -9,12 +9,12 @@ repository public would expose more than the catalogue data and is not required.
 ## Architecture
 
 Keep generation, validation, scheduling, and deployment control in the private `0xfa7ca7/opsi`
-repository. Publish only the generated `site/` tree to a separate public
-`0xfa7ca7/opsi-catalogue` repository on its `gh-pages` branch. GitHub Pages serves that branch at
-`https://0xfa7ca7.github.io/opsi-catalogue/`.
+repository. Publish only the generated site beneath `opsi/` in the separate public user-site
+repository `0xfa7ca7/0xfa7ca7.github.io` on its `gh-pages` branch. GitHub Pages serves that tree at
+the existing production URL, `https://0xfa7ca7.github.io/opsi/`.
 
 The private workflow authenticates to the public repository with an Ed25519 deploy key whose
-write permission is scoped to `opsi-catalogue`. Its private half is stored as the private source
+write permission is scoped to `0xfa7ca7.github.io`. Its private half is stored as the private source
 repository's `CATALOGUE_DEPLOY_KEY` Actions secret; the public half is registered only as a deploy
 key on the data repository. The workflow does not use a personal access token, copy source code,
 or expose the key in logs.
@@ -24,7 +24,7 @@ or expose the key in logs.
 The existing scheduled workflow continues to run every six hours and may also be dispatched
 manually. It builds the workspace dependency closure, traverses the live OPSI catalogue,
 validates the candidate against the prior public snapshot, and stages the complete site. A
-deployment job creates a single deterministic commit from the staged files and force-pushes it
+deployment job wraps the staged files beneath `opsi/`, creates a single deterministic commit, and force-pushes it
 to the data repository's `gh-pages` branch. The job then waits for Pages to serve the exact
 generated digest and timestamp before succeeding.
 
@@ -34,8 +34,8 @@ by recently cached manifests. A failed generation or validation never changes th
 
 ## Client and freshness behavior
 
-`DEFAULT_CATALOGUE_BASE_URL` changes to
-`https://0xfa7ca7.github.io/opsi-catalogue/`. The manifest and snapshot schemas, strict HTTPS
+`DEFAULT_CATALOGUE_BASE_URL` remains
+`https://0xfa7ca7.github.io/opsi/`. The manifest and snapshot schemas, strict HTTPS
 reader, integrity checks, 8.5-second shared read deadline, 24-hour maximum age, local content
 cache, `--refresh`, and explicit `--live` escape hatch remain unchanged. A successful default
 `opsi dataset list` therefore requires at most two small public requests on a cold cache and no
@@ -52,7 +52,7 @@ repository without access to the private source repository.
 ## Verification
 
 Static workflow tests pin the public repository, branch, endpoint, secret name, and dependency
-closure build in every relevant job. Unit and integration tests assert the new default endpoint.
+closure build in every relevant job. Unit and integration tests assert that the existing default endpoint remains stable.
 End-to-end completion requires a green source CI run, a green catalogue publication run, a
 public manifest younger than 24 hours whose referenced bytes match its SHA-256, and successful
 local `opsi dataset list --refresh` followed by an offline cached list.
