@@ -19,6 +19,7 @@ export interface DownloadInput {
   readonly url: string;
   readonly destination: string;
   readonly limits: DownloadLimits;
+  readonly allowedOrigins?: readonly string[];
   readonly allowInsecureHttp?: boolean;
   readonly allowPrivateNetwork?: boolean;
   readonly force?: boolean;
@@ -64,15 +65,9 @@ function policyError(error: unknown): OpsiError | undefined {
   }
   return undefined;
 }
-function validateUrl(
-  raw: string,
-  allowInsecureHttp: boolean,
-  allowPrivateNetwork: boolean,
-  previous?: URL,
-): URL {
-  let url: URL;
+function parseUrl(raw: string, base?: URL): URL {
   try {
-    url = new URL(raw);
+    return new URL(raw, base);
   } catch (error) {
     throw failure(
       "INVALID_DOWNLOAD_URL",
@@ -81,6 +76,13 @@ function validateUrl(
       error,
     );
   }
+}
+function validateUrl(
+  url: URL,
+  allowInsecureHttp: boolean,
+  allowPrivateNetwork: boolean,
+  previous?: URL,
+): URL {
   if (url.username !== "" || url.password !== "" || url.hash !== "")
     throw failure(
       "INVALID_DOWNLOAD_URL",
@@ -110,6 +112,16 @@ function validateUrl(
       EXIT_CODES.INVALID_INPUT,
     );
   return url;
+}
+function validateAllowedOrigin(url: URL, allowedOrigins: ReadonlySet<string> | undefined): void {
+  if (allowedOrigins !== undefined && !allowedOrigins.has(url.origin)) {
+    throw new OpsiError({
+      code: "DOWNLOAD_ORIGIN_FORBIDDEN",
+      message: "The download origin is not allowed.",
+      exitCode: EXIT_CODES.PROVIDER_FAILURE,
+      context: { origin: url.origin },
+    });
+  }
 }
 function headersRecord(
   headers: Record<string, string | string[] | undefined>,
@@ -173,7 +185,13 @@ export class Downloader {
     const allowHttp = input.allowInsecureHttp ?? false;
     const allowPrivate = input.allowPrivateNetwork ?? false;
     const maxRedirects = input.limits.maxRedirects ?? 5;
-    let url = validateUrl(input.url, allowHttp, allowPrivate);
+    const allowedOrigins =
+      input.allowedOrigins === undefined
+        ? undefined
+        : new Set(input.allowedOrigins.map((value) => new URL(value).origin));
+    let url = parseUrl(input.url);
+    validateAllowedOrigin(url, allowedOrigins);
+    url = validateUrl(url, allowHttp, allowPrivate);
     const chain: string[] = [];
     let headers: Record<string, string> = {
       ...Object.fromEntries(
@@ -220,7 +238,9 @@ export class Downloader {
           "The download exceeded the redirect limit.",
           EXIT_CODES.INVALID_INPUT,
         );
-      const next = validateUrl(new URL(location, url).toString(), allowHttp, allowPrivate, url);
+      const next = parseUrl(location, url);
+      validateAllowedOrigin(next, allowedOrigins);
+      validateUrl(next, allowHttp, allowPrivate, url);
       if (next.origin !== url.origin)
         headers = Object.fromEntries(
           Object.entries(headers).filter(([key]) => !SENSITIVE_HEADERS.has(key.toLowerCase())),

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 const workspacePackage = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
 const workspaceResolve = {
   alias: {
+    "@opsi/catalogue-snapshot": workspacePackage("./packages/catalogue-snapshot/src/index.ts"),
     "@opsi/config": workspacePackage("./packages/config/src/index.ts"),
     "@opsi/core": workspacePackage("./packages/core/src/index.ts"),
     "@opsi/domain": workspacePackage("./packages/domain/src/index.ts"),
@@ -47,6 +48,7 @@ export default defineConfig({
           ...defaultProject,
           name: "integration",
           include: [
+            "apps/cli/test/**/*.integration.test.ts",
             "packages/**/*.integration.test.ts",
             "packages/storage/test/**/*.test.ts",
             "packages/data-engine/test/**/*.test.ts",

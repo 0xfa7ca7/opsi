@@ -205,6 +205,106 @@ describe("Downloader", () => {
     await once(server, "close");
   });
 
+  it("enforces the allowed origin before following redirects", async () => {
+    let targetRequests = 0;
+    const target = await listen((_request, response) => {
+      targetRequests += 1;
+      response.end("forbidden");
+    });
+    const source = await listen((request, response) => {
+      if (request.url === "/cross-origin") {
+        response.writeHead(302, { location: `${target}/snapshot.json` }).end();
+        return;
+      }
+      if (request.url === "/same-origin") {
+        response.writeHead(302, { location: "/snapshot.json" }).end();
+        return;
+      }
+      response.end("allowed");
+    });
+
+    await expect(
+      new Downloader().download({
+        ...localOptions(`${source}/cross-origin`, await destination("cross-origin.json")),
+        allowedOrigins: [source],
+      }),
+    ).rejects.toMatchObject({
+      code: "DOWNLOAD_ORIGIN_FORBIDDEN",
+      exitCode: 4,
+      context: { origin: new URL(target).origin },
+    });
+    expect(targetRequests).toBe(0);
+
+    await expect(
+      new Downloader().download({
+        ...localOptions(`${source}/same-origin`, await destination("same-origin.json")),
+        allowedOrigins: [`${source}/ignored/path`],
+      }),
+    ).resolves.toMatchObject({ bytes: 7, finalUrl: `${source}/snapshot.json` });
+  });
+
+  it.each([
+    ["insecure HTTP", "http://other.example/snapshot.json"],
+    ["private network", "https://127.0.0.1/snapshot.json"],
+    ["other origin", "https://other.example/snapshot.json"],
+  ])("checks the allowed origin before initial %s policy", async (_kind, url) => {
+    let dispatchers = 0;
+    const factory = {
+      create: () => {
+        dispatchers += 1;
+        throw new Error("dispatcher must not be opened");
+      },
+    } as unknown as SafeDispatcherFactory;
+
+    await expect(
+      new Downloader(factory).download({
+        url,
+        destination: await destination("initial-origin.json"),
+        allowedOrigins: ["https://allowed.example"],
+        limits: { maxBytes: 100, timeoutMs: 1_000 },
+      }),
+    ).rejects.toMatchObject({
+      code: "DOWNLOAD_ORIGIN_FORBIDDEN",
+      exitCode: 4,
+      context: { origin: new URL(url).origin },
+    });
+    expect(dispatchers).toBe(0);
+  });
+
+  it.each([
+    ["HTTPS downgrade", "http://other.example/snapshot.json"],
+    ["private network", "https://127.0.0.1/snapshot.json"],
+    ["other origin", "https://other.example/snapshot.json"],
+  ])("checks the allowed origin before redirect %s policy", async (_kind, location) => {
+    const mock = new MockAgent();
+    mock.disableNetConnect();
+    mock
+      .get("https://public.example")
+      .intercept({ method: "GET", path: "/start" })
+      .reply(302, "", { headers: { location } });
+    let dispatchers = 0;
+    const factory = {
+      create: () => {
+        dispatchers += 1;
+        return mock;
+      },
+    } as unknown as SafeDispatcherFactory;
+
+    await expect(
+      new Downloader(factory).download({
+        url: "https://public.example/start",
+        destination: await destination("redirect-origin.json"),
+        allowedOrigins: ["https://public.example"],
+        limits: { maxBytes: 100, timeoutMs: 1_000 },
+      }),
+    ).rejects.toMatchObject({
+      code: "DOWNLOAD_ORIGIN_FORBIDDEN",
+      exitCode: 4,
+      context: { origin: new URL(location).origin },
+    });
+    expect(dispatchers).toBe(1);
+  });
+
   it.each(["../secret", "..\\secret", "CON", "nul.txt", "hello:ads", "trail. ", "\u0000bad"])(
     "sanitizes remote filename %j",
     (name) => {

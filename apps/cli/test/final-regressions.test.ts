@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { datasetId, providerId, resourceId } from "@opsi/domain";
 import type { OpsiClient } from "@opsi/core";
 import { Renderer } from "@opsi/output";
+import type { CatalogueSnapshotClient } from "@opsi/catalogue-snapshot";
 import {
   COMMAND_MANIFEST,
   GLOBAL_OPTION_MANIFEST,
@@ -34,19 +35,185 @@ function datasetSummary(id: string, title: string, name: unknown) {
   };
 }
 
+function catalogueClient(
+  writes: string[],
+  result = {
+    datasets: [
+      { id: "d0", title: "First", name: "first-slug" },
+      { id: "d1", title: "Second", name: "second-slug" },
+    ],
+    generatedAt: "2026-07-13T08:00:00.000Z",
+    source: "snapshot-cache" as const,
+  },
+) {
+  const catalogue = { list: vi.fn(async () => result) };
+  const search = vi.fn();
+  const program = new Command();
+  registerCommandManifest(program);
+  registerDatasetCommand(
+    program,
+    context(writes),
+    { search } as unknown as OpsiClient,
+    catalogue as Pick<CatalogueSnapshotClient, "list">,
+  );
+  return { catalogue, search, program };
+}
+
 describe("final command contracts", () => {
   it("registers dataset list in the normalized manifest and dataset help", () => {
     expect(COMMAND_MANIFEST).toContainEqual({
       path: "dataset list",
       description: "List all datasets",
       arguments: [],
-      options: [],
+      options: [
+        {
+          flags: "--refresh",
+          description: "refresh the published catalogue snapshot",
+          conflicts: ["live"],
+        },
+        {
+          flags: "--live",
+          description: "query OPSI directly using paginated requests",
+          conflicts: ["refresh"],
+        },
+      ],
     });
     const program = new Command();
     registerCommandManifest(program);
     const dataset = program.commands.find((command) => command.name() === "dataset");
     expect(dataset?.commands.map((command) => command.name())).toContain("list");
     expect(dataset?.helpInformation()).toContain("list");
+  });
+
+  it.each([
+    ["default", ["dataset", "list"], false],
+    ["refresh", ["dataset", "list", "--refresh"], true],
+  ])("uses the catalogue snapshot in %s mode", async (_name, argv, refresh) => {
+    const writes: string[] = [];
+    const { catalogue, search, program } = catalogueClient(writes);
+
+    await program.parseAsync(argv, { from: "user" });
+
+    expect(catalogue.list).toHaveBeenCalledWith({ refresh });
+    expect(search).not.toHaveBeenCalled();
+    expect(JSON.parse(writes.join(""))).toEqual({
+      schemaVersion: "1",
+      data: [
+        { id: "d0", title: "First", name: "first-slug" },
+        { id: "d1", title: "Second", name: "second-slug" },
+      ],
+      meta: {
+        total: 2,
+        count: 2,
+        source: "snapshot-cache",
+        generatedAt: "2026-07-13T08:00:00.000Z",
+        stale: false,
+      },
+    });
+  });
+
+  it("uses provider pagination only for explicit --live dataset listing", async () => {
+    const writes: string[] = [];
+    const search = vi.fn(async () => ({
+      items: [datasetSummary("d0", "First", "first-slug")],
+      total: 1,
+      limit: 300,
+      offset: 0,
+    }));
+    const catalogue = { list: vi.fn() };
+    const program = new Command();
+    registerCommandManifest(program);
+    registerDatasetCommand(
+      program,
+      context(writes),
+      { search } as unknown as OpsiClient,
+      catalogue as Pick<CatalogueSnapshotClient, "list">,
+    );
+
+    await program.parseAsync(["dataset", "list", "--live"], { from: "user" });
+
+    expect(search).toHaveBeenCalledWith({ limit: 300, offset: 0 });
+    expect(catalogue.list).not.toHaveBeenCalled();
+    expect(JSON.parse(writes.join(""))).toMatchObject({
+      meta: { total: 1, count: 1, pages: 1, source: "live" },
+    });
+  });
+
+  it("rejects --live while offline without contacting either source", async () => {
+    const search = vi.fn();
+    const catalogue = { list: vi.fn() };
+    const program = new Command();
+    registerGlobalOptions(program);
+    registerCommandManifest(program);
+    registerDatasetCommand(
+      program,
+      {
+        ...context(),
+        configuration: { offline: true },
+      } as unknown as ReturnType<typeof context>,
+      { search } as unknown as OpsiClient,
+      catalogue as Pick<CatalogueSnapshotClient, "list">,
+    );
+
+    await expect(
+      program.parseAsync(["dataset", "list", "--live", "--offline"], { from: "user" }),
+    ).rejects.toMatchObject({
+      code: "CATALOGUE_LIVE_OFFLINE",
+      exitCode: 2,
+    });
+    expect(search).not.toHaveBeenCalled();
+    expect(catalogue.list).not.toHaveBeenCalled();
+  });
+
+  it("rejects --refresh when configuration is offline before contacting the snapshot client", async () => {
+    const search = vi.fn();
+    const catalogue = { list: vi.fn() };
+    const program = new Command();
+    registerGlobalOptions(program);
+    registerCommandManifest(program);
+    registerDatasetCommand(
+      program,
+      {
+        ...context(),
+        configuration: { offline: true },
+      } as unknown as ReturnType<typeof context>,
+      { search } as unknown as OpsiClient,
+      catalogue as Pick<CatalogueSnapshotClient, "list">,
+    );
+
+    await expect(
+      program.parseAsync(["dataset", "list", "--refresh", "--offline"], { from: "user" }),
+    ).rejects.toMatchObject({
+      code: "CATALOGUE_REFRESH_OFFLINE",
+      exitCode: 2,
+    });
+    expect(search).not.toHaveBeenCalled();
+    expect(catalogue.list).not.toHaveBeenCalled();
+  });
+
+  it("rejects snapshot fields that require live provider data", async () => {
+    const renderer = new Renderer({
+      format: "json",
+      fields: ["title", "providerId"],
+      stdout: { write() {} },
+    });
+    const catalogue = { list: vi.fn() };
+    const program = new Command();
+    registerCommandManifest(program);
+    registerDatasetCommand(
+      program,
+      { ...context(), renderer },
+      { search: vi.fn() } as unknown as OpsiClient,
+      catalogue as Pick<CatalogueSnapshotClient, "list">,
+    );
+
+    await expect(program.parseAsync(["dataset", "list"], { from: "user" })).rejects.toMatchObject({
+      code: "CATALOGUE_SNAPSHOT_FIELD_UNSUPPORTED",
+      exitCode: 2,
+      suggestion: expect.stringContaining("--live"),
+      context: { fields: ["providerId"] },
+    });
+    expect(catalogue.list).not.toHaveBeenCalled();
   });
 
   it("declares --fields globally and --all/selectors only in the normalized manifest", () => {
@@ -127,7 +294,7 @@ describe("final command contracts", () => {
     registerCommandManifest(program);
     registerDatasetCommand(program, context(writes), { search } as unknown as OpsiClient);
 
-    await program.parseAsync(["dataset", "list"], { from: "user" });
+    await program.parseAsync(["dataset", "list", "--live"], { from: "user" });
 
     expect(search.mock.calls.map(([query]) => query)).toEqual([
       { limit: 300, offset: 0 },
@@ -140,7 +307,7 @@ describe("final command contracts", () => {
         { id: "d0", title: "First", name: "first-slug" },
         { id: "d37", title: "Second", name: null },
       ],
-      meta: { total: 2, count: 2, pages: 2 },
+      meta: { total: 2, count: 2, pages: 2, source: "live" },
     });
   });
 
@@ -174,7 +341,7 @@ describe("final command contracts", () => {
       search,
     } as unknown as OpsiClient);
 
-    await program.parseAsync(["dataset", "list"], { from: "user" });
+    await program.parseAsync(["dataset", "list", "--live"], { from: "user" });
 
     expect(events).toEqual([
       "search:0",
@@ -210,7 +377,7 @@ describe("final command contracts", () => {
       search,
     } as unknown as OpsiClient);
 
-    await program.parseAsync(["dataset", "list"], { from: "user" });
+    await program.parseAsync(["dataset", "list", "--live"], { from: "user" });
 
     expect(writes.join("")).toBe(expected);
     expect(writes).toHaveLength(1);
@@ -229,7 +396,9 @@ describe("final command contracts", () => {
       })),
     } as unknown as OpsiClient);
 
-    await expect(program.parseAsync(["dataset", "list"], { from: "user" })).rejects.toMatchObject({
+    await expect(
+      program.parseAsync(["dataset", "list", "--live"], { from: "user" }),
+    ).rejects.toMatchObject({
       code: "DATASET_LIST_PAGINATION_INVALID",
       exitCode: 4,
       suggestion: expect.stringContaining("provider"),

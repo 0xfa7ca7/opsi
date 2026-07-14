@@ -10,10 +10,27 @@ Use Node.js `>=24.0.0` and npm compatible with that Node release. Required relea
 
 For a project-local installation run `npm install opsi` and invoke `npx opsi`; TypeScript/JavaScript consumers import `{ OpsiClient, ProviderRegistry }` from `opsi/sdk`. The SDK declarations intentionally require no private workspace, Zod, or DuckDB type package and compile when optional dependencies are omitted.
 
+## Catalogue availability and offline use
+
+`opsi dataset list` uses a compact static catalogue by default and supports the snapshot fields
+`id`, `title`, and `name`. The first online invocation needs GitHub Pages to serve a valid
+publication; subsequent invocations reuse its local cache while the snapshot remains no more
+than 24 hours old from `generatedAt`. `--refresh` checks the publication explicitly. The slower
+`--live` option bypasses the snapshot and queries OPSI directly; it is an explicit escape hatch,
+not an automatic fallback.
+
+For offline operation, populate the cache while online and then run
+`opsi dataset list --offline --json` or set `OPSI_OFFLINE=1`. Offline listing fails if that cache
+is missing, invalid, or stale, and `--refresh` and `--live` are rejected. GitHub Pages and the
+scheduled GitHub Actions publisher are availability dependencies for cold/refresh use, without
+a hard uptime SLA. Administrators should follow the
+[catalogue service operations guide](catalogue-service.md) to enable Pages, inspect publication
+failures, and verify the public artifact.
+
 ## Release verification
 
 Download `opsi-<version>.tgz` and `SHA256SUMS` from the GitHub Release, then run `sha256sum --check SHA256SUMS` (or a platform SHA-256 tool) before `npm install --global ./opsi-<version>.tgz`. The GitHub asset bytes are the CI-tested canonical tarball; npm trusted publishing publishes the identical digest with provenance. Confirm `opsi --version` matches the tag and `opsi doctor --json --offline` reports pass checks.
 
 ## Troubleshooting
 
-`DUCKDB_UNAVAILABLE` means npm omitted or could not select the native binding. Confirm the supported OS/architecture, Node 24, a glibc Linux distribution, and that install did not use `--omit=optional`; remove `node_modules`/lock as appropriate and reinstall. Catalogue/config/completion remain available meanwhile. Permission failures identify cache/temp paths; use `opsi config path`, verify ownership, or set `OPSI_CACHE_DIR`/`OPSI_DOWNLOAD_DIR`. Proxy/DNS failures appear only in online doctor/catalogue commands. OPSI CLI never needs an AI key and sends no telemetry.
+`DUCKDB_UNAVAILABLE` means npm omitted or could not select the native binding. Confirm the supported OS/architecture, Node 24, a glibc Linux distribution, and that install did not use `--omit=optional`; remove `node_modules`/lock as appropriate and reinstall. Catalogue/config/completion remain available meanwhile. Permission failures identify cache/temp paths; use `opsi config path`, verify ownership, or set `OPSI_CACHE_DIR`/`OPSI_DOWNLOAD_DIR`. Snapshot-unavailable or stale errors should be checked against cache freshness and the [service operations guide](catalogue-service.md); use `--live` only when direct current OPSI access is intended. Proxy/DNS failures appear only in online doctor/catalogue commands. OPSI CLI never needs an AI key and sends no telemetry.

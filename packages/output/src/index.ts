@@ -53,11 +53,21 @@ function prepareOutput(
 
 export class Renderer {
   private tablePageLayout: TableLayout | undefined;
+  private readonly options: RendererOptions;
 
-  constructor(private readonly options: RendererOptions) {}
+  constructor(options: RendererOptions) {
+    this.options = {
+      ...options,
+      ...(options.fields === undefined ? {} : { fields: [...options.fields] }),
+    };
+  }
 
   get format(): OutputFormat {
     return this.options.format;
+  }
+
+  get fields(): readonly string[] | undefined {
+    return this.options.fields === undefined ? undefined : [...this.options.fields];
   }
 
   get streamsPages(): boolean {

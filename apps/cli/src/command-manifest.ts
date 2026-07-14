@@ -104,7 +104,17 @@ export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
       option("--all", "retrieve every result page", { conflicts: ["limit"] }),
     ],
   ),
-  leaf("dataset list", "List all datasets"),
+  leaf(
+    "dataset list",
+    "List all datasets",
+    [],
+    [
+      option("--refresh", "refresh the published catalogue snapshot", { conflicts: ["live"] }),
+      option("--live", "query OPSI directly using paginated requests", {
+        conflicts: ["refresh"],
+      }),
+    ],
+  ),
   leaf("dataset show", "Show dataset details", [argument("<id>", "dataset identifier")]),
   leaf("dataset resources", "List resources embedded in a dataset", [
     argument("<id>", "dataset identifier"),

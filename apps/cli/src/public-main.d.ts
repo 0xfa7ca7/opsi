@@ -14,7 +14,23 @@ export interface CliContext {
   readonly renderer?: { write(data: unknown, meta?: Readonly<Record<string, unknown>>): void };
   readonly openUrl?: (url: string) => Promise<void>;
 }
-export declare function createProgram(context: CliContext): unknown;
+export interface ProgramDependencies {
+  readonly catalogue?: {
+    list(options?: { readonly refresh?: boolean }): Promise<{
+      readonly datasets: readonly {
+        readonly id: string;
+        readonly title: string;
+        readonly name: string;
+      }[];
+      readonly generatedAt: string;
+      readonly source: "snapshot-cache" | "snapshot-remote";
+    }>;
+  };
+}
+export declare function createProgram(
+  context: CliContext,
+  dependencies?: ProgramDependencies,
+): unknown;
 export declare function readPackageVersion(packageUrl?: URL): string;
 export declare const VERSION: string;
 export declare function runCli(

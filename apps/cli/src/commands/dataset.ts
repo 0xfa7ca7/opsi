@@ -1,4 +1,5 @@
 import type { OpsiClient } from "@opsi/core";
+import type { CatalogueSnapshotClient } from "@opsi/catalogue-snapshot";
 import { datasetId, EXIT_CODES, OpsiError, parseCanonicalReference } from "@opsi/domain";
 import type { Command } from "commander";
 import type { CliContext } from "../context.js";
@@ -6,6 +7,11 @@ import { registerDatasetOpenCommand } from "./open.js";
 import { manifestCommand } from "../command-manifest.js";
 
 const DATASET_LIST_FIELDS = ["id", "title", "name"] as const;
+
+interface DatasetListOptions {
+  readonly live?: boolean;
+  readonly refresh?: boolean;
+}
 
 function datasetListPaginationError(): OpsiError {
   return new OpsiError({
@@ -16,47 +22,115 @@ function datasetListPaginationError(): OpsiError {
   });
 }
 
+function liveOfflineError(): OpsiError {
+  return new OpsiError({
+    code: "CATALOGUE_LIVE_OFFLINE",
+    message: "Live dataset listing is unavailable in offline mode.",
+    exitCode: EXIT_CODES.INVALID_INPUT,
+    suggestion: "Remove --live to use a fresh cached catalogue snapshot.",
+  });
+}
+
+function refreshOfflineError(): OpsiError {
+  return new OpsiError({
+    code: "CATALOGUE_REFRESH_OFFLINE",
+    message: "Catalogue snapshot refresh is unavailable in offline mode.",
+    exitCode: EXIT_CODES.INVALID_INPUT,
+    suggestion: "Remove --refresh to use a fresh cached catalogue snapshot.",
+  });
+}
+
+function unsupportedSnapshotFields(fields: readonly string[]): OpsiError {
+  return new OpsiError({
+    code: "CATALOGUE_SNAPSHOT_FIELD_UNSUPPORTED",
+    message: "The catalogue snapshot does not contain every selected field.",
+    exitCode: EXIT_CODES.INVALID_INPUT,
+    suggestion: "Use only id, title, and name, or add --live to query OPSI directly.",
+    context: { fields },
+  });
+}
+
+async function listSnapshotDatasets(
+  context: CliContext,
+  catalogue: Pick<CatalogueSnapshotClient, "list">,
+  options: DatasetListOptions,
+): Promise<void> {
+  const unsupported = (context.renderer?.fields ?? []).filter(
+    (field) => !DATASET_LIST_FIELDS.includes(field as (typeof DATASET_LIST_FIELDS)[number]),
+  );
+  if (unsupported.length > 0) throw unsupportedSnapshotFields(unsupported);
+
+  const result = await catalogue.list({ refresh: options.refresh === true });
+  context.renderer?.write(
+    result.datasets,
+    {
+      total: result.datasets.length,
+      count: result.datasets.length,
+      source: result.source,
+      generatedAt: result.generatedAt,
+      stale: false,
+    },
+    DATASET_LIST_FIELDS,
+  );
+}
+
+async function listLiveDatasets(context: CliContext, client: OpsiClient): Promise<void> {
+  const buffered = [];
+  let offset = 0;
+  let total = 0;
+  let count = 0;
+  let pages = 0;
+  let emittedPage = false;
+  while (true) {
+    const page = await client.search({ limit: 300, offset });
+    pages += 1;
+    if (pages === 1) total = page.total;
+    if (page.nextOffset !== undefined && page.nextOffset <= offset)
+      throw datasetListPaginationError();
+    const items = page.items.map((summary) => {
+      const rawName = summary.providerMetadata?.raw["name"];
+      return { ...summary, name: typeof rawName === "string" ? rawName : undefined };
+    });
+    count += items.length;
+    if (context.renderer?.streamsPages === true) {
+      if (items.length > 0) {
+        context.renderer.writePage(items, {
+          firstPage: !emittedPage,
+          defaultFields: DATASET_LIST_FIELDS,
+        });
+        emittedPage = true;
+      }
+    } else {
+      buffered.push(...items);
+    }
+    if (page.nextOffset === undefined) break;
+    offset = page.nextOffset;
+  }
+  if (context.renderer?.streamsPages !== true) {
+    context.renderer?.write(buffered, { total, count, pages, source: "live" }, DATASET_LIST_FIELDS);
+  }
+}
+
 export function registerDatasetCommand(
   program: Command,
   context: CliContext,
   client: OpsiClient,
+  catalogue?: Pick<CatalogueSnapshotClient, "list">,
 ): void {
   registerDatasetOpenCommand(program, context, client);
-  manifestCommand(program, "dataset list").action(async () => {
-    const buffered = [];
-    let offset = 0;
-    let total = 0;
-    let count = 0;
-    let pages = 0;
-    let emittedPage = false;
-    while (true) {
-      const page = await client.search({ limit: 300, offset });
-      pages += 1;
-      if (pages === 1) total = page.total;
-      if (page.nextOffset !== undefined && page.nextOffset <= offset)
-        throw datasetListPaginationError();
-      const items = page.items.map((summary) => {
-        const rawName = summary.providerMetadata?.raw["name"];
-        return { ...summary, name: typeof rawName === "string" ? rawName : undefined };
-      });
-      count += items.length;
-      if (context.renderer?.streamsPages === true) {
-        if (items.length > 0) {
-          context.renderer.writePage(items, {
-            firstPage: !emittedPage,
-            defaultFields: DATASET_LIST_FIELDS,
-          });
-          emittedPage = true;
-        }
-      } else {
-        buffered.push(...items);
-      }
-      if (page.nextOffset === undefined) break;
-      offset = page.nextOffset;
+  manifestCommand(program, "dataset list").action(async (options: DatasetListOptions) => {
+    if (options.live === true) {
+      if (context.configuration?.offline === true) throw liveOfflineError();
+      await listLiveDatasets(context, client);
+      return;
     }
-    if (context.renderer?.streamsPages !== true) {
-      context.renderer?.write(buffered, { total, count, pages }, DATASET_LIST_FIELDS);
+    if (options.refresh === true && context.configuration?.offline === true) {
+      throw refreshOfflineError();
     }
+    if (catalogue === undefined) {
+      throw new Error("Catalogue snapshot client is not configured.");
+    }
+    await listSnapshotDatasets(context, catalogue, options);
   });
   manifestCommand(program, "dataset show").action(async (id: string) => {
     context.renderer?.write(await client.datasets.get(datasetId(id)));

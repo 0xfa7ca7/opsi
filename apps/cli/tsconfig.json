@@ -7,6 +7,7 @@
     "types": ["node"],
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
     "paths": {
+      "@opsi/catalogue-snapshot": ["../../packages/catalogue-snapshot/src/index.ts"],
       "@opsi/config": ["../../packages/config/src/index.ts"],
       "@opsi/core": ["../../packages/core/src/index.ts"],
       "@opsi/data-engine": ["../../packages/data-engine/src/index.ts"],
