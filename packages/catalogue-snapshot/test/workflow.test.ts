@@ -19,6 +19,9 @@ describe("catalogue snapshot workflow", () => {
     expect(generate).toContain("      ref: ${{ github.event.repository.default_branch }}");
     expect(verify).toContain("      ref: ${{ github.event.repository.default_branch }}");
     expect(workflow.match(/pnpm install --frozen-lockfile/gu)).toHaveLength(2);
+    const dependencyBuild = /- run: pnpm --filter @opsi\/catalogue-snapshot\.\.\. build/gu;
+    expect(generate.match(dependencyBuild)).toHaveLength(1);
+    expect(verify.match(dependencyBuild)).toHaveLength(1);
   });
 
   it("uses three jobs with exact least-privilege permissions", async () => {

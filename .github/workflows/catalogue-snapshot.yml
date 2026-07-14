@@ -33,7 +33,7 @@ jobs:
           node-version: 24
       - run: corepack enable && corepack prepare pnpm@11.11.0 --activate
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @opsi/catalogue-snapshot build
+      - run: pnpm --filter @opsi/catalogue-snapshot... build
       - id: snapshot
         env:
           ALLOW_LARGE_REDUCTION: ${{ inputs.allow_large_reduction || false }}
@@ -85,5 +85,5 @@ jobs:
           node-version: 24
       - run: corepack enable && corepack prepare pnpm@11.11.0 --activate
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @opsi/catalogue-snapshot build
+      - run: pnpm --filter @opsi/catalogue-snapshot... build
       - run: node packages/catalogue-snapshot/dist/verify-entry.js --base-url "${{ needs.deploy.outputs.page-url }}" --expected-sha256 "${{ needs.generate.outputs.sha256 }}" --expected-generated-at "${{ needs.generate.outputs.generated-at }}"
