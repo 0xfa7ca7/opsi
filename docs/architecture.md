@@ -11,22 +11,27 @@ The domain package has no infrastructure dependency. Core depends on domain port
 A catalogue request flows CLI → `OpsiClient` → `ProviderRegistry` → selected `DataProvider`; the provider validates upstream envelopes before mapping entities. A data request first resolves a local/canonical input, applies network policy where needed, stages content, invokes the selected handler, and returns domain-neutral rows/issues. Query adds an isolated worker and read-only DuckDB database. Output rendering is last so domain/core never knows terminal formats.
 
 Normal `dataset list` is the exception to the direct provider flow. A scheduled GitHub Actions
-publisher traverses OPSI every six hours, validates and deterministically projects the catalogue
-to `id`, `title`, and `name`, then deploys a versioned static manifest and immutable snapshot to
-GitHub Pages. The CLI first validates a fresh local cache; on a cache miss it reads the fixed
-HTTPS manifest and its one referenced snapshot, verifies the complete artifact, and atomically
-caches it before rendering. Freshness is measured only from `generatedAt` and is capped at 24
-hours. One monotonic 8.5-second remote-operation budget spans both the manifest and snapshot
-reads; each read also retains the strict reader's configured per-request ceiling (9.5 seconds by
-default). `--refresh` checks the static publication, while `--live` alone enters the direct,
-paginated provider flow. No snapshot failure silently changes modes.
+publisher in the private `0xfa7ca7/opsi` repository traverses OPSI every six hours, validates and
+deterministically projects the catalogue to `id`, `title`, and `name`, then uses a
+repository-scoped deploy key to force-push only the generated site beneath `opsi/` on the public,
+data-only `0xfa7ca7/0xfa7ca7.github.io` repository's `gh-pages` branch. Branch-based GitHub Pages
+serves those files at the fixed `https://0xfa7ca7.github.io/opsi/` base URL. A push is not
+considered a successful publication until bounded strict verification observes that run's exact
+digest and generation timestamp at the public endpoint. The CLI first validates a fresh local
+cache; on a cache miss it reads the HTTPS manifest and its one referenced snapshot, verifies the
+complete artifact, and atomically caches it before rendering. Freshness is measured only from
+`generatedAt` and is capped at 24 hours. One monotonic 8.5-second remote-operation budget spans
+both reads; each read also retains the strict reader's configured per-request ceiling (9.5
+seconds by default). `--refresh` checks the static publication, while `--live` alone enters the
+direct, paginated provider flow. No snapshot failure silently changes modes.
 
 This is a static trust boundary, not an application server. GitHub Pages availability and the
 scheduled GitHub Actions publication are external dependencies and do not provide a hard uptime
 guarantee for this project. A valid fresh local cache permits offline use during an outage;
 missing, invalid, or stale cache state fails closed. See the
 [catalogue service operations guide](catalogue-service.md) for the six-hour publication,
-48-hour immutable retention, Pages enablement, and recovery procedure.
+48-hour immutable retention, branch-based Pages setup, deploy-key rotation, public verification,
+and recovery procedure.
 
 ## Public and private boundaries
 
@@ -37,6 +42,11 @@ The command manifest owns every user-facing path, description, argument, option,
 The public npm package contains the bundled snapshot client but no `latest.json`, retention
 index, snapshot payload, or private `catalogue-snapshot` source package. Versioned publication
 bytes remain external so installed clients apply the freshness and integrity policy at use time.
+The public user-site repository likewise contains generated catalogue artifacts only. Source,
+scheduling, and validation remain confined to the private source repository. The private
+`CATALOGUE_DEPLOY_KEY` is an environment secret in `catalogue-production`, whose deployment
+branch policy permits only the trusted default branch, so a feature-ref workflow dispatch cannot
+access the publishing credential.
 
 ## Extension checklist
 

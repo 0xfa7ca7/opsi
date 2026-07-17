@@ -19,6 +19,9 @@ describe("catalogue snapshot workflow", () => {
     expect(generate).toContain("      ref: ${{ github.event.repository.default_branch }}");
     expect(verify).toContain("      ref: ${{ github.event.repository.default_branch }}");
     expect(workflow.match(/pnpm install --frozen-lockfile/gu)).toHaveLength(2);
+    const dependencyBuild = /- run: pnpm --filter @opsi\/catalogue-snapshot\.\.\. build/gu;
+    expect(generate.match(dependencyBuild)).toHaveLength(1);
+    expect(verify.match(dependencyBuild)).toHaveLength(1);
   });
 
   it("uses three jobs with exact least-privilege permissions", async () => {
@@ -28,17 +31,38 @@ describe("catalogue snapshot workflow", () => {
     const verify = jobBlock(workflow, "verify");
 
     expect(jobNames(workflow)).toEqual(["generate", "deploy", "verify"]);
-    expect(jobSettingBlock(generate, "permissions")).toBe(
-      "      contents: read\n      pages: read\n",
-    );
-    expect(jobSettingBlock(deploy, "permissions")).toBe(
-      "      pages: write\n      id-token: write\n",
-    );
+    expect(jobSettingBlock(generate, "permissions")).toBe("      contents: read\n");
+    expect(jobSettingBlock(deploy, "permissions")).toBe("      contents: read\n");
     expect(jobSettingBlock(verify, "permissions")).toBe("      contents: read\n");
+    expect(jobSettingBlock(deploy, "environment").trim()).toBe("name: catalogue-production");
     expect(deploy).toContain("    needs: generate");
     expect(verify).toContain("    needs: [generate, deploy]");
-    expect(deploy).toContain("      name: github-pages");
-    expect(deploy).toContain("      url: ${{ steps.deployment.outputs.page_url }}");
+    expect(workflow).not.toContain("pages: write");
+    expect(workflow).not.toContain("id-token: write");
+  });
+
+  it("publishes only the generated catalogue to the public user-site branch", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    const generate = jobBlock(workflow, "generate");
+    const deploy = jobBlock(workflow, "deploy");
+
+    expect(generate).toContain("          name: catalogue-site");
+    expect(generate).toContain("          path: site");
+    expect(generate).toContain("          retention-days: 2");
+    expect(deploy).toContain("          name: catalogue-site");
+    expect(deploy).toContain("          path: publish/opsi");
+    expect(deploy).toContain("CATALOGUE_DEPLOY_KEY: ${{ secrets.CATALOGUE_DEPLOY_KEY }}");
+    expect(deploy).toContain("git@github.com:0xfa7ca7/0xfa7ca7.github.io.git");
+    expect(deploy).toContain("git checkout --orphan gh-pages");
+    expect(deploy).toContain("git add --all -- opsi");
+    expect(deploy).toContain("git push --force origin HEAD:gh-pages");
+    expect(deploy).toContain(
+      "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl",
+    );
+    expect(deploy).not.toContain("ssh-keyscan");
+    expect(deploy).toContain('chmod 0600 "$KEY_FILE"');
+    expect(deploy).toContain('rm -f "$RUNNER_TEMP/catalogue-ssh/id_ed25519"');
+    expect(deploy).toContain("if: ${{ always() }}");
   });
 
   it("wires the manual large-reduction input into the snapshot step", async () => {
@@ -75,25 +99,21 @@ describe("catalogue snapshot workflow", () => {
     expect(snapshot).toMatch(/'\s*>>\s*"\$GITHUB_OUTPUT"/u);
   });
 
-  it("exports the deployed Pages URL", async () => {
-    const workflow = await readFile(workflowPath, "utf8");
-    const outputs = jobSettingBlock(jobBlock(workflow, "deploy"), "outputs");
-
-    expect(expressionValue(outputs, "page-url")).toBe("${{steps.deployment.outputs.page_url}}");
-  });
-
-  it("verifies the public site against the generated deployment metadata", async () => {
+  it("retries bounded verification of the public site against the generated metadata", async () => {
     const workflow = await readFile(workflowPath, "utf8");
     const verify = jobBlock(workflow, "verify").replaceAll(/\s+/gu, " ");
 
-    expect(verify).toMatch(/run:\s*node packages\/catalogue-snapshot\/dist\/verify-entry\.js/u);
-    expect(verify).toMatch(/--base-url\s+"\$\{\{\s*needs\.deploy\.outputs\.page-url\s*\}\}"/u);
+    expect(verify).toMatch(/node packages\/catalogue-snapshot\/dist\/verify-entry\.js/u);
+    expect(verify).toMatch(/for attempt in \$\(seq 1 12\)/u);
+    expect(verify).toMatch(/--base-url\s+"https:\/\/0xfa7ca7\.github\.io\/opsi\/"/u);
     expect(verify).toMatch(
       /--expected-sha256\s+"\$\{\{\s*needs\.generate\.outputs\.sha256\s*\}\}"/u,
     );
     expect(verify).toMatch(
       /--expected-generated-at\s+"\$\{\{\s*needs\.generate\.outputs\.generated-at\s*\}\}"/u,
     );
+    expect(verify).toMatch(/test "\$attempt" -eq 12/u);
+    expect(verify).toContain("sleep 10");
   });
 
   it("pins every action to an immutable 40-character commit", async () => {
@@ -105,9 +125,8 @@ describe("catalogue snapshot workflow", () => {
     expect(actions).toEqual([
       "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
       "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
-      "actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b",
-      "actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b",
-      "actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e",
+      "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+      "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
       "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
       "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
     ]);

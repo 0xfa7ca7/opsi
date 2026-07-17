@@ -20,7 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pages: read
     outputs:
       sha256: ${{ steps.snapshot.outputs.sha256 }}
       generated-at: ${{ steps.snapshot.outputs.generated-at }}
@@ -33,7 +32,7 @@ jobs:
           node-version: 24
       - run: corepack enable && corepack prepare pnpm@11.11.0 --activate
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @opsi/catalogue-snapshot build
+      - run: pnpm --filter @opsi/catalogue-snapshot... build
       - id: snapshot
         env:
           ALLOW_LARGE_REDUCTION: ${{ inputs.allow_large_reduction || false }}
@@ -51,25 +50,62 @@ jobs:
             if (Number.isNaN(Date.parse(value.generatedAt))) throw new Error("invalid generation timestamp");
             process.stdout.write(`sha256=${value.sha256}\ngenerated-at=${value.generatedAt}\n`);
           ' >> "$GITHUB_OUTPUT"
-      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
-      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
+          name: catalogue-site
           path: site
+          if-no-files-found: error
+          retention-days: 2
 
   deploy:
     needs: generate
     runs-on: ubuntu-latest
     permissions:
-      pages: write
-      id-token: write
+      contents: read
     environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    outputs:
-      page-url: ${{ steps.deployment.outputs.page_url }}
+      name: catalogue-production
     steps:
-      - id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: catalogue-site
+          path: publish/opsi
+      - name: Publish generated catalogue
+        shell: bash
+        env:
+          CATALOGUE_DEPLOY_KEY: ${{ secrets.CATALOGUE_DEPLOY_KEY }}
+          GENERATED_AT: ${{ needs.generate.outputs.generated-at }}
+          SHA256: ${{ needs.generate.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          test -n "$CATALOGUE_DEPLOY_KEY"
+
+          mkdir -p "$RUNNER_TEMP/catalogue-ssh"
+          KEY_FILE="$RUNNER_TEMP/catalogue-ssh/id_ed25519"
+          printf '%s\n' "$CATALOGUE_DEPLOY_KEY" > "$KEY_FILE"
+          chmod 0600 "$KEY_FILE"
+          ssh-keygen -y -f "$KEY_FILE" > /dev/null
+          printf '%s\n' \
+            'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' \
+            > "$RUNNER_TEMP/catalogue-ssh/known_hosts"
+          export GIT_SSH_COMMAND="ssh -i $KEY_FILE -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/catalogue-ssh/known_hosts"
+
+          git init publish
+          cd publish
+          git checkout --orphan gh-pages
+          git add --all -- opsi
+          export GIT_AUTHOR_DATE="$GENERATED_AT"
+          export GIT_COMMITTER_DATE="$GENERATED_AT"
+          git -c user.name='opsi catalogue publisher' \
+            -c user.email='opsi-catalogue@users.noreply.github.com' \
+            commit -m "Publish catalogue $SHA256"
+          git remote add origin git@github.com:0xfa7ca7/0xfa7ca7.github.io.git
+          git push --force origin HEAD:gh-pages
+      - name: Remove deploy key
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/catalogue-ssh/id_ed25519"
+          rm -f "$RUNNER_TEMP/catalogue-ssh/known_hosts"
 
   verify:
     needs: [generate, deploy]
@@ -85,5 +121,18 @@ jobs:
           node-version: 24
       - run: corepack enable && corepack prepare pnpm@11.11.0 --activate
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @opsi/catalogue-snapshot build
-      - run: node packages/catalogue-snapshot/dist/verify-entry.js --base-url "${{ needs.deploy.outputs.page-url }}" --expected-sha256 "${{ needs.generate.outputs.sha256 }}" --expected-generated-at "${{ needs.generate.outputs.generated-at }}"
+      - run: pnpm --filter @opsi/catalogue-snapshot... build
+      - shell: bash
+        run: |
+          for attempt in $(seq 1 12); do
+            if node packages/catalogue-snapshot/dist/verify-entry.js \
+              --base-url "https://0xfa7ca7.github.io/opsi/" \
+              --expected-sha256 "${{ needs.generate.outputs.sha256 }}" \
+              --expected-generated-at "${{ needs.generate.outputs.generated-at }}"; then
+              exit 0
+            fi
+            if test "$attempt" -eq 12; then
+              exit 1
+            fi
+            sleep 10
+          done
