@@ -53,6 +53,7 @@ async function compileSdkConsumer(directory: string): Promise<void> {
   type DuckDbCachePolicy,
   type DownloadRecord,
   type Field,
+  type NextAction,
   type ParsedCanonicalReference,
   type ProviderId,
   type Provenance,
@@ -60,6 +61,7 @@ async function compileSdkConsumer(directory: string): Promise<void> {
   type QueryCacheMetadata,
   type QueryCacheWarning,
   type ResourceId,
+  type ResourceAccessDescriptor,
   type SearchQuery,
   type ValidationIssue,
   type ValidationResult,
@@ -69,6 +71,14 @@ const providerId = 'opsi' as ProviderId;
 const datasetId = 'traffic' as DatasetId;
 const resourceId = 'traffic-csv' as ResourceId;
 const reference = 'opsi:resource:traffic-csv' as CanonicalReference;
+const nextAction: NextAction = { action: 'resource.preview', argv: ['resource', 'preview', reference] };
+const access: ResourceAccessDescriptor = {
+  input: reference,
+  kind: 'file',
+  operations: ['inspect', 'preview'],
+  limitations: [],
+  nextActions: [nextAction],
+};
 const field: Field = { name: 'count', type: 'integer', nullable: false, description: 'Vehicles' };
 const issue: ValidationIssue = {
   code: 'MISSING_VALUE',
@@ -164,7 +174,7 @@ const operations = [
   client.conversions.convert('/tmp/traffic.csv', { output: '/tmp/traffic.tsv', targetFormat: 'tsv' }).then((result) => result.provenancePath),
   client.query.execute('/tmp/traffic.csv', { sql: 'select * from data', limit: 5 }).then((result) => [result.source, result.durationMs, result.cache.status, result.warnings]),
 ];
-void [dataset.providerMetadata?.raw.source, validation.schema?.fields[0]?.nullable,
+void [access.kind, dataset.providerMetadata?.raw.source, validation.schema?.fields[0]?.nullable,
   download.provenance.transformations[0]?.operation, queryResult.rows[0]?.count,
   queryCache.status, queryWarning.code, operations];
 `,

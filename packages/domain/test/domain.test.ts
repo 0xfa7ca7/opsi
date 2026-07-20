@@ -124,3 +124,29 @@ it("serializes a stable typed error without its cause", () => {
     exitCode: 3,
   });
 });
+
+it("serializes safe recovery arguments without a shell command", () => {
+  const error = new OpsiError({
+    code: "ARCHIVE_ENTRY_REQUIRED",
+    message: "Select an archive entry.",
+    exitCode: EXIT_CODES.INVALID_INPUT,
+    nextActions: [
+      {
+        action: "resource.preview",
+        argv: [
+          "resource",
+          "preview",
+          "opsi:resource:r",
+          "--entry",
+          "data.csv",
+          "--json",
+        ],
+      },
+    ],
+  });
+
+  expect(error.toJSON()).toMatchObject({
+    nextActions: [{ action: "resource.preview", argv: expect.any(Array) }],
+  });
+  expect(JSON.stringify(error)).not.toContain("curl");
+});

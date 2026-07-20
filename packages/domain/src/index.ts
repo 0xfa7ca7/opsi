@@ -35,6 +35,9 @@ export type {
 export type {
   DataProvider,
   MetadataCache,
+  NextAction,
+  ResourceAccessDescriptor,
+  ResourceAccessOperation,
   ResolvedResource,
   ResolvedResourceKind,
   SearchFilters,
