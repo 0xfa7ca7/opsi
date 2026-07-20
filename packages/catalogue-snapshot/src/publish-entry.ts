@@ -176,13 +176,16 @@ function invalidInput(field: string): OpsiError {
   });
 }
 
+export function formatPublisherError(error: unknown): string {
+  if (error instanceof OpsiError) return `${JSON.stringify(error.toJSON())}\n`;
+  return `${error instanceof Error ? error.message : "Catalogue publication failed."}\n`;
+}
+
 async function main(): Promise<void> {
   try {
     await runPublisher(process.argv.slice(2));
   } catch (error) {
-    process.stderr.write(
-      `${error instanceof Error ? error.message : "Catalogue publication failed."}\n`,
-    );
+    process.stderr.write(formatPublisherError(error));
     process.exitCode = error instanceof OpsiError ? error.exitCode : 1;
   }
 }
