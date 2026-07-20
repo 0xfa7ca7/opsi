@@ -227,6 +227,11 @@ describe("agent skill rendering", () => {
 
     expect(frontmatter).toContain("generate installable Agent Skills");
     expect(content).toContain("Generate installable Agent Skills");
+    expect(content).toContain("### `agent setup`");
+    expect(content).toContain("opsi agent setup [options]");
+    for (const option of ["--agent <ids...>", "--all", "--copy", "--yes", "--dry-run"]) {
+      expect(content).toContain(option);
+    }
   });
 
   it("renders every owned command directly from manifest metadata", () => {

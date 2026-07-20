@@ -132,6 +132,7 @@ Run `opsi --help` or read the [complete command reference](docs/commands.md) for
 | Inspect local state           | `opsi cache info` / `opsi config list`                      |
 | Diagnose the installation     | `opsi doctor`                                               |
 | Generate shell completion     | `opsi completion <bash\|zsh\|fish>`                         |
+| Set up detected AI agents     | `opsi agent setup`                                          |
 
 `opsi dataset list` reads a compact, centrally published catalogue snapshot by default. Use `--refresh` to check for a current snapshot or `--live` to query OPSI directly. The command never silently falls back to a live query. See the [catalogue service guide](docs/catalogue-service.md) for details.
 
@@ -165,7 +166,15 @@ JSON responses use a stable `{ schemaVersion, data, meta, error? }` envelope. Qu
 
 ## Using opsi with agents
 
-The repository ships a complete repertoire of [Agent Skills](docs/skills.md): a main `opsi` orchestrator, shared safety guidance, and focused skills for every command area. Install all skills with a compatible skill installer:
+The repository ships a complete repertoire of [Agent Skills](docs/skills.md): a main `opsi` orchestrator, shared safety guidance, and focused skills for every command area. After installing the CLI, let OPSI detect supported agent hosts and install the complete repertoire globally:
+
+```sh
+opsi agent setup
+```
+
+Interactive setup prompts when more than one host is detected. For unattended setup, accept the detected hosts with `--yes`, target explicit installer IDs with `--agent codex claude-code`, or target every supported host with `--all`. Use `--dry-run` to preview the plan and `--copy` when symlinks are unsuitable. Setup uses the pinned installer shipped with OPSI, does not invoke `npx`, and does not create `.agents` or `skills-lock.json` in the current project.
+
+For a project-local installation, use a compatible Agent Skills installer directly:
 
 ```sh
 npx skills add https://github.com/0xfa7ca7/opsi
@@ -180,7 +189,7 @@ npx skills add https://github.com/0xfa7ca7/opsi/tree/main/skills/opsi-shared
 
 Compatible agent hosts select `opsi` automatically from your request. Depending on the host, you may also invoke the main orchestrator as `/opsi`, `@opsi`, or `$opsi`; these are agent-host forms, not shell commands. The skills use the installed CLI and do not add a model runtime or provider dependency to `opsi`.
 
-An installed CLI can generate the same repertoire locally:
+An installed CLI can also generate the same repertoire into a directory without installing it:
 
 ```sh
 opsi generate-skills
