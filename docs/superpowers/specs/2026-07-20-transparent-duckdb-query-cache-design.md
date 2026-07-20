@@ -138,6 +138,7 @@ The existing command syntax does not change. Configuration adds:
 - Entries use a 30-day sliding TTL by default.
 - Successful hits refresh `lastUsedAt` and `expiresAt`, but at most once per 24 hours.
 - The default derived-cache budget is 10 GB and is configurable.
+- The shared content-cache object ceiling is raised to at least the configured derived budget so one valid derived database can be retained; the downloader's independent 2 GiB network limit remains unchanged.
 - Only derived DuckDB objects and their metadata count toward this budget.
 - Raw cached downloads, provider metadata, catalogue snapshots, and provenance are never selected by derived-cache eviction.
 - Automatic eviction runs after a successful derived database publication.

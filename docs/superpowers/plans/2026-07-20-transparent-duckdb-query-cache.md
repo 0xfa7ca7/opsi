@@ -13,6 +13,7 @@
 - Keep `opsi query <input> --sql <statement>` backward compatible and automatic by default.
 - Default derived-cache policy is enabled, 30-day sliding TTL, and a derived-only `10GB` budget.
 - `maxBytes = "0B"` disables retention without disabling query execution.
+- Configure `ContentCache.maxObjectBytes` to at least the enabled derived budget; keep the downloader's separate 2 GiB limit unchanged.
 - Never evict raw downloads, provider metadata, catalogue snapshots, or provenance to satisfy the derived budget.
 - Never persist source paths, URLs, credentials, SQL, or result rows in derived metadata.
 - User SQL never reaches the writable staging connection.
@@ -125,11 +126,12 @@ git commit -m "feat(config): add DuckDB cache policy"
 - Produces: `ContentCache.metadataRecords(): Promise<readonly MetadataRecord[]>`
 - Produces: `ContentCache.materializeLink(sha256: string, destination: string): Promise<CacheObject>`
 - Produces: `ContentCache.deleteMetadata(key: string): Promise<void>` while keeping `delete()` as a compatibility alias
+- Makes `getObject()` and `verify()` consistently honor the instance's configured `maxObjectBytes` instead of the current module-level 2 GiB ceiling
 - Consumes: existing `getObject`, `layout`, `CacheLock`, `syncDirectory`, and `MetadataRecord`
 
 - [ ] **Step 1: Add failing storage tests**
 
-Cover strict metadata enumeration, a hard-link materialization with identical inode where supported, copy fallback on `EXDEV`, destination collision, digest verification, owner-only destination mode, and cleanup after injected failure:
+Cover strict metadata enumeration, a hard-link materialization with identical inode where supported, copy fallback on `EXDEV`, destination collision, digest verification, owner-only destination mode, configurable objects above 2 GiB through injected filesystem boundaries, cleanup after injected failure, and serialization against concurrent prune:
 
 ```ts
 const linked = await cache.materializeLink(object.sha256, join(root, "query.duckdb"));
@@ -146,16 +148,17 @@ Expected: FAIL because the new methods do not exist.
 
 - [ ] **Step 3: Implement metadata enumeration and link-first materialization**
 
-`metadataRecords()` must use the existing strict parser and reject malformed files. `materializeLink()` must call `getObject()` before publication, acquire the destination lock, create the destination with `link(object.path, destination)`, and fall back to the existing copy path only for `EXDEV`, `EPERM`, or `ENOTSUP`. It must reject symlink/non-regular destinations and synchronize the destination directory.
+`metadataRecords()` must use the existing strict parser and reject malformed files. `materializeLink()` must hold the global cache-publication lock across `getObject()` and link publication so prune cannot unlink the object between those operations, then acquire the destination lock, create the destination with `link(object.path, destination)`, and fall back to the existing copy path only for `EXDEV`, `EPERM`, or `ENOTSUP`. It must reject symlink/non-regular destinations and synchronize the destination directory. Move `maxObjectBytes` to an instance field and use it from put, get, materialize, and verify paths.
 
 Use this result contract:
 
 ```ts
 async materializeLink(sha256: string, destination: string): Promise<CacheObject> {
-  const object = await this.getObject(sha256);
   const resolved = resolve(destination);
+  const publicationLock = await CacheLock.acquire((await this.layout()).locks, "cache-publication");
   const lock = await CacheLock.acquire(dirname(resolved), `materialize:${resolved}`);
   try {
+    const object = await this.getObject(sha256);
     try {
       await link(object.path, resolved);
     } catch (error) {
@@ -168,6 +171,7 @@ async materializeLink(sha256: string, destination: string): Promise<CacheObject>
     return { ...object, path: resolved };
   } finally {
     await lock.release();
+    await publicationLock.release();
   }
 }
 ```
@@ -503,7 +507,7 @@ Expected: FAIL because query cache metadata and derived command fields are absen
 
 - [ ] **Step 4: Wire configuration and rendering**
 
-Pass parsed `duckdb.cache` policy through `createClient()`. Add `cache` to query renderer metadata. Route warnings through the existing sanitized stderr/quiet behavior without writing diagnostics to stdout.
+Pass parsed `duckdb.cache` policy through `createClient()` and construct `ContentCache` with `maxObjectBytes` equal to the greater of the existing 2 GiB object limit and the enabled derived budget. Add `cache` to query renderer metadata. Route warnings through the existing sanitized stderr/quiet behavior without writing diagnostics to stdout.
 
 - [ ] **Step 5: Compose cache maintenance**
 
