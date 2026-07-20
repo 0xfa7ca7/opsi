@@ -28,6 +28,9 @@ import { registerConfigCommand } from "./commands/config.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerCompletionCommand } from "./commands/completion.js";
 import { registerGenerateSkillsCommand } from "./commands/generate-skills.js";
+import { registerAgentCommand } from "./commands/agent.js";
+import type { AgentInstallerRunner } from "./agent-setup.js";
+import { SkillsAgentInstallerRunner } from "./agent-installer-runner.js";
 
 function requestInterval(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
@@ -90,6 +93,7 @@ function createClient(
 
 export interface ProgramDependencies {
   readonly catalogue?: Pick<CatalogueSnapshotClient, "list">;
+  readonly agentInstallerRunner?: AgentInstallerRunner;
 }
 
 export function createProgram(
@@ -138,5 +142,10 @@ export function createProgram(
   registerDoctorCommand(program, context, client);
   registerCompletionCommand(program, context);
   registerGenerateSkillsCommand(program, context);
+  registerAgentCommand(
+    program,
+    context,
+    dependencies.agentInstallerRunner ?? new SkillsAgentInstallerRunner(),
+  );
   return program;
 }

@@ -138,6 +138,7 @@ describe("complete command surface", () => {
         "doctor",
         "completion",
         "generate-skills",
+        "agent setup",
       ]),
     );
   });
@@ -171,6 +172,7 @@ describe("complete command surface", () => {
 
   it("keeps Commander metadata out of action-only command adapters", async () => {
     const adapters = [
+      "agent",
       "cache",
       "completion",
       "config",

@@ -244,6 +244,18 @@ export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
     [],
     [option("--output-dir <path>", "directory that receives generated skills")],
   ),
+  leaf(
+    "agent setup",
+    "Install OPSI Agent Skills for detected agent hosts",
+    [],
+    [
+      option("--agent <ids...>", "target explicit agent installer IDs"),
+      option("--all", "install for every supported agent", { conflicts: ["agent"] }),
+      option("--copy", "copy skills instead of creating symlinks"),
+      option("--yes", "accept detected agents without prompting"),
+      option("--dry-run", "show the setup plan without making changes"),
+    ],
+  ),
 ] as const;
 
 const GROUP_DESCRIPTIONS: Readonly<Record<string, string>> = {
@@ -253,6 +265,7 @@ const GROUP_DESCRIPTIONS: Readonly<Record<string, string>> = {
   cache: "Inspect and maintain the local cache",
   provenance: "Inspect and verify artifact provenance",
   config: "Inspect and update user configuration",
+  agent: "Set up AI agent integrations",
 };
 
 function parsePositive(value: string): number {
