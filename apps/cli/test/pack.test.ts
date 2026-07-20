@@ -261,7 +261,10 @@ describe("canonical npm tarball", () => {
     );
     if (process.platform !== "win32") await chmod(binary, 0o755);
     expect((await stat(binary)).isFile()).toBe(true);
-    expect((await execute(binary, ["--version"], { cwd: root })).stdout).toMatch(/^0\.1\.0\n$/u);
+    const metadata = JSON.parse(await tarText("package.json")) as { readonly version: string };
+    expect((await execute(binary, ["--version"], { cwd: root })).stdout).toBe(
+      `${metadata.version}\n`,
+    );
     const datasetListHelp = (await execute(binary, ["dataset", "list", "--help"], { cwd: root }))
       .stdout;
     expect(datasetListHelp).toContain("--refresh");

@@ -11,7 +11,7 @@ The domain package has no infrastructure dependency. Core depends on domain port
 A catalogue request flows CLI → `OpsiClient` → `ProviderRegistry` → selected `DataProvider`; the provider validates upstream envelopes before mapping entities. A data request first resolves a local/canonical input, applies network policy where needed, stages content, invokes the selected handler, and returns domain-neutral rows/issues. Query adds an isolated worker and read-only DuckDB database. Output rendering is last so domain/core never knows terminal formats.
 
 Normal `dataset list` is the exception to the direct provider flow. A scheduled GitHub Actions
-publisher in the private `0xfa7ca7/opsi` repository traverses OPSI every six hours, validates and
+publisher in the public `0xfa7ca7/opsi` source repository traverses OPSI every six hours, validates and
 deterministically projects the catalogue to `id`, `title`, and `name`, then uses a
 repository-scoped deploy key to force-push only the generated site beneath `opsi/` on the public,
 data-only `0xfa7ca7/0xfa7ca7.github.io` repository's `gh-pages` branch. Branch-based GitHub Pages
@@ -43,7 +43,7 @@ The public npm package contains the bundled snapshot client but no `latest.json`
 index, snapshot payload, or private `catalogue-snapshot` source package. Versioned publication
 bytes remain external so installed clients apply the freshness and integrity policy at use time.
 The public user-site repository likewise contains generated catalogue artifacts only. Source,
-scheduling, and validation remain confined to the private source repository. The private
+scheduling, and validation remain in the public source repository. The private
 `CATALOGUE_DEPLOY_KEY` is an environment secret in `catalogue-production`, whose deployment
 branch policy permits only the trusted default branch, so a feature-ref workflow dispatch cannot
 access the publishing credential.
