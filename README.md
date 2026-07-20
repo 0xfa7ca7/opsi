@@ -9,7 +9,7 @@ Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and downloa
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 > [!IMPORTANT]
-> `opsi` is under active development and has not yet been published to npm. Expect breaking changes before v1.0 and use the [source installation](#install-from-source) for now.
+> `opsi` is under active development. Expect breaking changes before v1.0.
 
 ## Contents
 
@@ -43,18 +43,12 @@ Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and downloa
 
 DuckDB is an optional native dependency. Catalogue, configuration, and completion commands remain available when a compatible binding cannot be installed; native data commands return `DUCKDB_UNAVAILABLE` with remediation guidance.
 
-### Install from source
+### Install from npm
 
-Until the first npm release, build and install the CLI from this repository:
+Install the supported release globally:
 
 ```sh
-git clone https://github.com/0xfa7ca7/opsi.git
-cd opsi
-corepack enable
-corepack prepare pnpm@11.11.0 --activate
-pnpm install --frozen-lockfile
-pnpm build
-npm install --global ./apps/cli
+npm install --global opsi
 ```
 
 Confirm the installation:
@@ -64,10 +58,20 @@ opsi --version
 opsi doctor --offline
 ```
 
-After the package is released, the recommended installation will be:
+For project-local use, run `npm install opsi` and invoke the CLI with `npx opsi`.
+
+### Install from source
+
+To build the current source checkout instead:
 
 ```sh
-npm install --global opsi
+git clone https://github.com/0xfa7ca7/opsi.git
+cd opsi
+corepack enable
+corepack prepare pnpm@11.11.0 --activate
+pnpm install --frozen-lockfile
+pnpm build
+npm install --global ./apps/cli
 ```
 
 See the [installation guide](docs/installation.md) for supported targets, release verification, and troubleshooting.

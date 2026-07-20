@@ -14,4 +14,4 @@ opsi convert ./downloads/data.csv --to parquet --output ./data.parquet
 opsi provenance verify ./data.parquet --json
 ```
 
-Import the dependency-clean public SDK with `import { OpsiClient, ProviderRegistry } from "opsi/sdk"`. Full command, configuration, provider/format extension, architecture, installation, security, recipe, and release references are maintained in the repository at `https://github.com/opsi-cli/opsi/tree/main/docs`.
+Import the dependency-clean public SDK with `import { OpsiClient, ProviderRegistry } from "opsi/sdk"`. Full command, configuration, provider/format extension, architecture, installation, security, recipe, and release references are maintained in the repository at `https://github.com/0xfa7ca7/opsi/tree/main/docs`.

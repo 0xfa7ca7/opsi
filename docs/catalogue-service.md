@@ -25,15 +25,15 @@ guaranteed.
 
 ## Public hosting and deploy key
 
-Generation, validation, scheduling, and deployment control remain in the private
-`0xfa7ca7/opsi` repository. The workflow publishes only generated files to the public,
+Generation, validation, scheduling, and deployment control remain in the public
+`0xfa7ca7/opsi` source repository. The workflow publishes only generated files to the public,
 data-only user-site repository `0xfa7ca7/0xfa7ca7.github.io`: its `gh-pages` branch contains
 the complete site beneath `opsi/`, which GitHub Pages serves at
 `https://0xfa7ca7.github.io/opsi/`. Do not copy the source checkout, a personal access token,
 or any long-lived credential into the public repository.
 
 Provision `0xfa7ca7/0xfa7ca7.github.io` as a **public** repository dedicated to generated data.
-Do not initialize it from the private source repository or add application source, workflow
+Do not initialize it from the source repository or add application source, workflow
 files, repository secrets, or a reusable credential. The publishing workflow creates and then
 replaces its `gh-pages` branch; `main` is not a publication source.
 
@@ -45,9 +45,9 @@ ssh-keygen -t ed25519 -C "opsi catalogue publisher" -N "" -f ./catalogue-deploy-
 ```
 
 Add `catalogue-deploy-key.pub` in the public repository under **Settings → Deploy keys → Add
-deploy key** and select **Allow write access**. In the private `0xfa7ca7/opsi` repository, create
+deploy key** and select **Allow write access**. In the public `0xfa7ca7/opsi` source repository, create
 the `catalogue-production` environment, configure its deployment branches and tags to allow only
-the trusted default branch (`master`), and add the private file as that environment's
+the trusted default branch (`main`), and add the private file as that environment's
 `CATALOGUE_DEPLOY_KEY` secret. Do not create a repository-level secret with this name. Delete both
 local files after the environment secret is set. The public half must be registered only on
 `0xfa7ca7.github.io`; the private half must exist only in the protected environment secret and
@@ -58,13 +58,13 @@ and [Actions secret guidance](https://docs.github.com/en/actions/how-tos/securit
 
 To rotate the credential, generate a new pair, add the new public half as a second write-enabled
 deploy key, replace the `catalogue-production` environment's `CATALOGUE_DEPLOY_KEY` secret with
-the new private half, and run the workflow from `master`. Remove the old public deploy key only
+the new private half, and run the workflow from `main`. Remove the old public deploy key only
 after `generate`, `deploy`, and `verify` succeed, then securely delete the replacement private
 file from the trusted machine.
 
 ## Enable branch-based GitHub Pages
 
-The private workflow uses the deploy key to force-push the generated `opsi/` tree to the public
+The source workflow uses the deploy key to force-push the generated `opsi/` tree to the public
 repository's `gh-pages` branch; it does not use GitHub Pages OIDC or a Pages deployment action.
 After the first push creates that branch, open the public repository's **Settings → Pages**, set
 **Source** to **Deploy from a branch**, select `gh-pages` and `/(root)`, and save. GitHub documents
@@ -72,7 +72,7 @@ the branch and root-folder choices in
 [Configuring a publishing source](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
 
 The first run may complete `deploy` but fail `verify` while Pages is not yet configured. After
-enabling Pages, rerun **Actions → Catalogue snapshot → Run workflow** from the private
+enabling Pages, rerun **Actions → Catalogue snapshot → Run workflow** from the source
 repository's trusted default branch. A successful run must complete `generate`, `deploy`, and
 `verify`.
 
@@ -98,7 +98,7 @@ Start with the failed job in the workflow run:
   index or snapshot errors, and `CATALOGUE_COUNT_REDUCTION`. A failed generation does not
   change the public `gh-pages` branch.
 - `deploy`: confirm `CATALOGUE_DEPLOY_KEY` is present in the `catalogue-production` environment,
-  that environment allows only `master`, its public half remains a write-enabled deploy key on
+  that environment allows only `main`, its public half remains a write-enabled deploy key on
   `0xfa7ca7.github.io`, and branch rules do not reject the force-push. A disallowed workflow ref,
   missing or malformed key, or rejected SSH push fails the job. Do not replace the
   repository-scoped key with a personal access token or broaden workflow permissions.

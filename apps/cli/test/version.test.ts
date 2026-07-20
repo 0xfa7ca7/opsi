@@ -16,10 +16,14 @@ const packageMetadata = JSON.parse(readFileSync(packageUrl, "utf8")) as {
   readonly version?: string;
   readonly private?: boolean;
   readonly engines?: { readonly node?: string };
+  readonly repository?: {
+    readonly type?: string;
+    readonly url?: string;
+  };
 };
 const changesetsConfig = JSON.parse(
   readFileSync(new URL("../../../.changeset/config.json", import.meta.url), "utf8"),
-) as { readonly access?: string };
+) as { readonly access?: string; readonly baseBranch?: string };
 const internalPackages = [
   new URL("../../../packages/domain/package.json", import.meta.url),
   new URL("../../../packages/testing/package.json", import.meta.url),
@@ -39,6 +43,17 @@ describe("public CLI package", () => {
     expect(packageMetadata.private).toBeUndefined();
     expect(changesetsConfig.access).toBe("public");
     expect(internalPackages.every((metadata) => metadata.private === true)).toBe(true);
+  });
+
+  it("binds releases to the canonical public repository", () => {
+    expect(packageMetadata.repository).toEqual({
+      type: "git",
+      url: "git+https://github.com/0xfa7ca7/opsi.git",
+    });
+  });
+
+  it("uses the repository default branch for Changesets", () => {
+    expect(changesetsConfig.baseBranch).toBe("main");
   });
 
   it("reads version metadata instead of duplicating the package version", () => {
