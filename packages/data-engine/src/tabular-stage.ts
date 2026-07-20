@@ -4,7 +4,7 @@ import type { DuckDBInstance, DuckDBTypeId, DuckDBConnection } from "@duckdb/nod
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import { detectFormat } from "./detect.js";
 import { sqlString } from "./sql-path.js";
-import type { DataInput, SupportedDataFormat, ValidationIssue } from "./types.js";
+import type { DataInput, FormatDetection, SupportedDataFormat, ValidationIssue } from "./types.js";
 import { scanXlsx } from "./xlsx.js";
 
 export interface StagedColumn {
@@ -90,6 +90,7 @@ async function xlsxAsNdjson(
 
 export async function stageTabularInput(options: {
   readonly input: DataInput;
+  readonly detection?: FormatDetection;
   readonly sheet?: string;
   readonly databasePath: string;
   readonly xlsxRowsPath: string;
@@ -98,7 +99,7 @@ export async function stageTabularInput(options: {
   readonly signal?: AbortSignal;
 }): Promise<TabularStage> {
   options.signal?.throwIfAborted();
-  const detection = await detectFormat(options.input);
+  const detection = options.detection ?? (await detectFormat(options.input));
   options.signal?.throwIfAborted();
   if (!supported(detection.format))
     throw new OpsiError({

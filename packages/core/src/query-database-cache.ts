@@ -1,0 +1,271 @@
+import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  detectFormat,
+  stageTabularInput,
+  verifyStagedDatabase,
+  type DataInput,
+  type DuckDbQueryRunner,
+  type PreparedQueryExecutionOptions,
+  type QueryResult,
+  type SupportedDataFormat,
+  type TabularStage,
+} from "@opsi/data-engine";
+import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import type { DerivedArtifactCache, DerivedArtifactIdentity } from "@opsi/storage";
+
+export const QUERY_STAGE_VERSION = "1";
+export const QUERY_STAGE_DUCKDB_VERSION = "1.5.4-r.1";
+
+export type QueryCacheStatus = "hit" | "miss" | "bypass";
+
+export interface QueryCacheMetadata {
+  readonly status: QueryCacheStatus;
+  readonly kind: "duckdb-stage";
+}
+
+export interface QueryCacheWarning {
+  readonly code: "QUERY_CACHE_BYPASS";
+  readonly message: string;
+}
+
+type PreparedRunner = Pick<DuckDbQueryRunner, "executePrepared">;
+type DerivedCache = Pick<
+  DerivedArtifactCache,
+  "key" | "list" | "materialize" | "publish" | "withBuildLock" | "policy"
+>;
+export type QueryDatabaseExecutionOptions = Omit<
+  PreparedQueryExecutionOptions,
+  "databasePath" | "invocationDirectory"
+> & { readonly sheet?: string };
+
+export interface QueryDatabaseCacheOptions {
+  readonly derived?: DerivedCache;
+  readonly runner: PreparedRunner;
+  readonly stage?: typeof stageTabularInput;
+  readonly verify?: typeof verifyStagedDatabase;
+  readonly makeTemporaryDirectory?: () => Promise<string>;
+  readonly removeTemporaryDirectory?: (path: string) => Promise<void>;
+}
+
+export interface QueryDatabaseResult extends QueryResult {
+  readonly cache: QueryCacheMetadata;
+  readonly warnings: readonly QueryCacheWarning[];
+}
+
+function inputPath(input: DataInput): string {
+  return typeof input === "string" ? input : input.path;
+}
+
+async function sourceDigest(input: DataInput, path: string): Promise<string> {
+  if (
+    typeof input !== "string" &&
+    input.sha256 !== undefined &&
+    /^[a-f\d]{64}$/u.test(input.sha256)
+  )
+    return input.sha256;
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(path)) hash.update(chunk as Uint8Array);
+  return hash.digest("hex");
+}
+
+function supported(format: string): format is SupportedDataFormat {
+  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet"].includes(format);
+}
+
+function cleanupFailure(failures: readonly unknown[], operationError: unknown): OpsiError {
+  return new OpsiError({
+    code: "QUERY_CLEANUP_FAILED",
+    message: "Query resources could not be fully cleaned up.",
+    exitCode: EXIT_CODES.QUERY_FAILURE,
+    context: { failureCount: failures.length },
+    cause: new AggregateError(
+      operationError === undefined ? failures : [operationError, ...failures],
+      "Query operation and cleanup failures",
+    ),
+  });
+}
+
+export class QueryDatabaseCache {
+  constructor(private readonly options: QueryDatabaseCacheOptions) {}
+
+  async execute(
+    source: DataInput,
+    options: QueryDatabaseExecutionOptions,
+  ): Promise<QueryDatabaseResult> {
+    let directory: string | undefined;
+    let stage: TabularStage | undefined;
+    let result: QueryResult | undefined;
+    let status: QueryCacheStatus = "bypass";
+    let operationError: unknown;
+    const warnings: QueryCacheWarning[] = [];
+    const warn = () => {
+      if (warnings.length === 0)
+        warnings.push({
+          code: "QUERY_CACHE_BYPASS",
+          message: "DuckDB stage caching was unavailable; the query used temporary staging.",
+        });
+    };
+    try {
+      directory = await (this.options.makeTemporaryDirectory?.() ??
+        mkdtemp(join(tmpdir(), "opsi-query-")));
+      const databasePath = join(directory, "data.duckdb");
+      const detection = await detectFormat(source);
+      if (!supported(detection.format))
+        throw new OpsiError({
+          code: "UNSUPPORTED_CONVERSION_FORMAT",
+          message: `The detected format '${detection.format}' cannot be converted.`,
+          exitCode: EXIT_CODES.UNSUPPORTED,
+          suggestion: "Use CSV, TSV, JSON, NDJSON, XLSX, or Parquet input.",
+          context: { format: detection.format },
+        });
+      const build = async (): Promise<void> => {
+        stage = await (this.options.stage ?? stageTabularInput)({
+          input: source,
+          detection,
+          databasePath,
+          xlsxRowsPath: join(directory as string, "xlsx.ndjson"),
+          xlsxSharedStringsByteLimit: 64 * 1024 * 1024,
+          preserveDatabaseOnClose: true,
+          ...(options.signal === undefined ? {} : { signal: options.signal }),
+          ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+        });
+        await stage.connection.run("CHECKPOINT");
+        await stage.close();
+        stage = undefined;
+        await (this.options.verify ?? verifyStagedDatabase)(databasePath);
+      };
+
+      const derived = this.options.derived;
+      const cacheEnabled =
+        derived !== undefined && derived.policy.enabled && derived.policy.maxBytes > 0;
+      if (!cacheEnabled) {
+        await build();
+      } else {
+        const identity: DerivedArtifactIdentity = {
+          kind: "duckdb-stage",
+          sourceSha256: await sourceDigest(source, detection.path),
+          format: detection.format,
+          ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+          stagingVersion: QUERY_STAGE_VERSION,
+          duckdbVersion: QUERY_STAGE_DUCKDB_VERSION,
+        };
+        let lookupFailed = false;
+        try {
+          const hit = await derived.materialize(identity, databasePath);
+          if (hit !== undefined) {
+            await (this.options.verify ?? verifyStagedDatabase)(databasePath);
+            status = "hit";
+          }
+        } catch {
+          warn();
+          try {
+            await (this.options.verify ?? verifyStagedDatabase)(databasePath);
+            status = "hit";
+          } catch {
+            lookupFailed = true;
+            await rm(databasePath, { force: true });
+          }
+        }
+        if (status !== "hit" && lookupFailed) {
+          await build();
+        } else if (status !== "hit") {
+          let stagingError: unknown;
+          try {
+            await derived.withBuildLock(identity, async () => {
+              try {
+                const hit = await derived.materialize(identity, databasePath);
+                if (hit !== undefined) {
+                  await (this.options.verify ?? verifyStagedDatabase)(databasePath);
+                  status = "hit";
+                  return;
+                }
+              } catch {
+                warn();
+                try {
+                  await (this.options.verify ?? verifyStagedDatabase)(databasePath);
+                  status = "hit";
+                  return;
+                } catch {
+                  await rm(databasePath, { force: true });
+                }
+              }
+              try {
+                await build();
+              } catch (error) {
+                stagingError = error;
+                throw error;
+              }
+              try {
+                const publication = await derived.publish(identity, databasePath);
+                status = publication.retained ? "miss" : "bypass";
+              } catch {
+                warn();
+                try {
+                  const key = derived.key(identity);
+                  status = (await derived.list()).some((entry) => entry.key === key)
+                    ? "miss"
+                    : "bypass";
+                } catch {
+                  status = "bypass";
+                }
+              }
+            });
+          } catch (error) {
+            if (stagingError !== undefined) throw stagingError;
+            warn();
+            await rm(databasePath, { force: true });
+            await build();
+            status = "bypass";
+          }
+        }
+      }
+
+      result = await this.options.runner.executePrepared({
+        databasePath,
+        invocationDirectory: directory,
+        sql: options.sql,
+        ...(options.rowLimit === undefined ? {} : { rowLimit: options.rowLimit }),
+        ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+        ...(options.maxSqlBytes === undefined ? {} : { maxSqlBytes: options.maxSqlBytes }),
+        ...(options.maxColumns === undefined ? {} : { maxColumns: options.maxColumns }),
+        ...(options.maxCellBytes === undefined ? {} : { maxCellBytes: options.maxCellBytes }),
+        ...(options.maxOutputBytes === undefined ? {} : { maxOutputBytes: options.maxOutputBytes }),
+        ...(options.memoryLimit === undefined ? {} : { memoryLimit: options.memoryLimit }),
+        ...(options.threads === undefined ? {} : { threads: options.threads }),
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      });
+    } catch (error) {
+      operationError = error;
+    } finally {
+      const failures: unknown[] = [];
+      if (stage !== undefined) {
+        try {
+          await stage.close();
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+      if (directory !== undefined) {
+        try {
+          await (this.options.removeTemporaryDirectory?.(directory) ??
+            rm(directory, { recursive: true, force: true }));
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+      if (failures.length > 0) operationError = cleanupFailure(failures, operationError);
+    }
+    if (operationError !== undefined) throw operationError;
+    if (result === undefined)
+      throw new OpsiError({
+        code: "QUERY_FAILED",
+        message: "The query completed without a result.",
+        exitCode: EXIT_CODES.QUERY_FAILURE,
+      });
+    return { ...result, cache: { status, kind: "duckdb-stage" }, warnings };
+  }
+}

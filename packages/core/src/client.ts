@@ -3,12 +3,13 @@ import { DatasetCatalog, ProviderCatalog, ResourceCatalog } from "./catalog.js";
 import { ProviderRegistry } from "./registry.js";
 import { CacheService } from "./cache.js";
 import { DownloadService, type DownloadServiceOptions } from "./downloads.js";
-import type { ContentCache } from "@opsi/storage";
+import { DerivedArtifactCache, type ContentCache, type DerivedArtifactPolicy } from "@opsi/storage";
 import { DataEngine } from "@opsi/data-engine";
 import { DataService } from "./data.js";
 import { ConversionService } from "./conversions.js";
 import { QueryService } from "./queries.js";
 import { DuckDbQueryRunner } from "@opsi/data-engine";
+import { QueryDatabaseCache } from "./query-database-cache.js";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -17,6 +18,7 @@ export interface OpsiClientOptions {
   readonly providerId: string;
   readonly downloads?: Omit<DownloadServiceOptions, "registry" | "providerId">;
   readonly cache?: ContentCache;
+  readonly duckdbCache?: DerivedArtifactPolicy;
   readonly cwd?: string;
   readonly queryWorkerPath?: string | URL;
 }
@@ -49,9 +51,14 @@ export class OpsiClient {
     this.data = new DataService(this, new DataEngine(), { cwd: options.cwd ?? process.cwd() });
     this.conversions = new ConversionService(this.data);
     const queryWorkerPath = options.queryWorkerPath ?? defaultQueryWorkerPath();
+    const runner = new DuckDbQueryRunner({ workerPath: queryWorkerPath });
+    const derived =
+      options.cache === undefined || options.duckdbCache === undefined
+        ? undefined
+        : new DerivedArtifactCache(options.cache, options.duckdbCache);
     this.query = new QueryService(
       this.data,
-      new DuckDbQueryRunner({ workerPath: queryWorkerPath }),
+      new QueryDatabaseCache({ runner, ...(derived === undefined ? {} : { derived }) }),
     );
     if (options.downloads !== undefined)
       this.downloads = new DownloadService({
