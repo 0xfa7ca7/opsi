@@ -16,6 +16,8 @@ export function registerConvertCommand(
         readonly to: SupportedDataFormat;
         readonly output: string;
         readonly sheet?: string;
+        readonly entry?: string;
+        readonly recordPath?: string;
         readonly force?: boolean;
         readonly spreadsheetSafe?: boolean;
         readonly allowInsecureHttp?: boolean;
@@ -26,6 +28,8 @@ export function registerConvertCommand(
         output: options.output,
         targetFormat: options.to,
         ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+        ...(options.entry === undefined ? {} : { entry: options.entry }),
+        ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
         force: options.force ?? false,
         spreadsheetSafe: options.spreadsheetSafe ?? false,
         allowInsecureHttp: options.allowInsecureHttp ?? false,

@@ -16,6 +16,8 @@ export function registerQueryCommand(
         readonly limit?: number;
         readonly timeoutMs?: number;
         readonly sheet?: string;
+        readonly entry?: string;
+        readonly recordPath?: string;
         readonly output?: string;
         readonly force?: boolean;
         readonly allowInsecureHttp?: boolean;
@@ -46,6 +48,8 @@ export function registerQueryCommand(
           ...(memoryLimit === undefined ? {} : { memoryLimit }),
           ...(threads === undefined ? {} : { threads }),
           ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+          ...(options.entry === undefined ? {} : { entry: options.entry }),
+          ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
           ...(options.output === undefined ? {} : { output: options.output }),
           force: options.force ?? false,
           allowInsecureHttp: options.allowInsecureHttp ?? false,

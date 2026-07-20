@@ -59,10 +59,16 @@ importers:
       undici:
         specifier: 8.7.0
         version: 8.7.0
+      unzipit:
+        specifier: 1.4.3
+        version: 1.4.3
     devDependencies:
       '@opsi/catalogue-snapshot':
         specifier: file:../../packages/catalogue-snapshot
         version: file:packages/catalogue-snapshot
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
     optionalDependencies:
       '@duckdb/node-api':
         specifier: 1.5.4-r.1

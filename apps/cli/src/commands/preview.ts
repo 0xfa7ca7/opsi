@@ -14,6 +14,8 @@ export function registerResourcePreviewCommand(
       options: {
         readonly limit?: number;
         readonly sheet?: string;
+        readonly entry?: string;
+        readonly recordPath?: string;
         readonly allowInsecureHttp?: boolean;
         readonly allowPrivateNetwork?: boolean;
       },
@@ -21,6 +23,8 @@ export function registerResourcePreviewCommand(
       const preview = await client.data.preview(input, {
         limit: options.limit ?? context.configuration?.preview.rowLimit ?? 20,
         ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+        ...(options.entry === undefined ? {} : { entry: options.entry }),
+        ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
         allowInsecureHttp: options.allowInsecureHttp ?? false,
         allowPrivateNetwork: options.allowPrivateNetwork ?? false,
       });

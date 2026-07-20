@@ -120,6 +120,7 @@ async function withArchive<T>(path: string, operation: (entries: Readonly<Record
 export async function inspectArchive(
   path: string,
   limits: ArchiveLimits = DEFAULT_ARCHIVE_LIMITS,
+  selected?: string,
 ): Promise<ArchiveInspection> {
   return withArchive(path, async (records) => {
     const values = Object.values(records).filter((entry) => !entry.isDirectory);
@@ -146,14 +147,21 @@ export async function inspectArchive(
         message: "The ZIP archive contains no supported data entry.",
         exitCode: EXIT_CODES.UNSUPPORTED,
       });
-    if (candidates.length > 1)
+    if (selected !== undefined && !candidates.includes(selected))
+      throw new OpsiError({
+        code: "ARCHIVE_ENTRY_NOT_FOUND",
+        message: "The selected ZIP archive entry is not a supported data entry.",
+        exitCode: EXIT_CODES.INVALID_INPUT,
+        context: { entry: selected, choices: candidates },
+      });
+    if (selected === undefined && candidates.length > 1)
       throw new OpsiError({
         code: "ARCHIVE_ENTRY_REQUIRED",
         message: "The ZIP archive contains multiple supported data entries.",
         exitCode: EXIT_CODES.INVALID_INPUT,
         context: { choices: candidates },
       });
-    return { entries, candidates, selectedEntry: candidates[0] as string };
+    return { entries, candidates, selectedEntry: selected ?? (candidates[0] as string) };
   });
 }
 

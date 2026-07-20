@@ -27,6 +27,13 @@ afterEach(async () => {
 });
 
 describe("safe ZIP data access", () => {
+  it("selects an explicit supported entry from an otherwise ambiguous archive", async () => {
+    const path = await archive({ "a.csv": "id\n1\n", "b.xml": "<r/>" });
+    await expect(inspectArchive(path, DEFAULT_ARCHIVE_LIMITS, "b.xml")).resolves.toMatchObject({
+      selectedEntry: "b.xml",
+      candidates: ["a.csv", "b.xml"],
+    });
+  });
   it("selects and extracts the only supported data entry", async () => {
     const path = await archive({ "README.txt": "notes", "data/rows.csv": "id\n1\n" });
     const inspection = await inspectArchive(path, DEFAULT_ARCHIVE_LIMITS);

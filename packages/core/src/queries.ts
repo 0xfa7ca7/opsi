@@ -19,6 +19,7 @@ export interface QueryServiceOptions extends DataResolutionOptions {
   readonly memoryLimit?: string;
   readonly threads?: number;
   readonly sheet?: string;
+  readonly recordPath?: string;
   readonly output?: string;
   readonly force?: boolean;
   readonly signal?: AbortSignal;
@@ -144,6 +145,7 @@ export class QueryService {
         ...(options.memoryLimit === undefined ? {} : { memoryLimit: options.memoryLimit }),
         ...(options.threads === undefined ? {} : { threads: options.threads }),
         ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+        ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       });
       const sourceName = resolve(sourcePath(source));
