@@ -16,7 +16,7 @@ The current registry assigns every command in `COMMAND_MANIFEST` to exactly one 
 
 The repository contains eleven skills: an orchestrator, a shared execution contract, and nine domain skills. A locally installed older repertoire can legitimately be stale and omit recently added domains such as WFS services; `opsi agent setup` and `opsi generate-skills` must therefore explain refresh and verification clearly.
 
-Baseline evaluation also exposed a defect in automatic setup: OPSI generated the repertoire in a temporary directory, let the pinned installer create symlinks by default, and then removed the temporary source. The resulting installation could contain dangling symlinks. Because the generated source is intentionally ephemeral, `agent setup` must install durable copies by default before cleanup. The existing `--copy` option remains accepted as an explicit, backward-compatible request for that safe behavior.
+Baseline evaluation also exposed a defect in automatic setup: OPSI generated the repertoire in a temporary directory, let the pinned installer create symlinks by default, and then removed the temporary source. The resulting installation could contain dangling symlinks. Because the generated source is intentionally ephemeral, `agent setup` always installs durable copies before cleanup. Copying is an internal invariant rather than a public mode choice.
 
 ## Chosen Approach
 

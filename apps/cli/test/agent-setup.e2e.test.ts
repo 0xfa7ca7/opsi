@@ -229,13 +229,14 @@ describe("agent setup", () => {
     expect(runner.run).not.toHaveBeenCalled();
   });
 
-  it("documents every public setup option in help", async () => {
+  it("documents public setup options without exposing the internal copy mode", async () => {
     const value = await fixture();
 
     await expect(runCli(["agent", "setup", "--help"], value.io)).resolves.toBe(0);
 
-    for (const option of ["--agent", "--all", "--copy", "--yes", "--dry-run"]) {
+    for (const option of ["--agent", "--all", "--yes", "--dry-run"]) {
       expect(value.stdout.join("")).toContain(option);
     }
+    expect(value.stdout.join("")).not.toContain("--copy");
   });
 });

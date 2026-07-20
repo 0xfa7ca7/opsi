@@ -10,7 +10,6 @@ export const AGENT_INSTALLER_VERSION = "skills@1.5.19" as const;
 export interface AgentSetupRequest {
   readonly agents?: readonly string[];
   readonly all?: boolean;
-  readonly copy?: boolean;
   readonly yes?: boolean;
   readonly dryRun?: boolean;
 }

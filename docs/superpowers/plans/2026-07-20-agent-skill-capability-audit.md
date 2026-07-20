@@ -26,9 +26,11 @@
 
 - Modify `apps/cli/src/agent-skills.ts`: add structured capability guides, improve trigger descriptions, and render user workflows.
 - Modify `apps/cli/src/agent-setup.ts`: make temporary-source installation durable by default.
+- Modify `apps/cli/src/commands/agent.ts`: remove the redundant public copy request forwarding.
 - Modify `apps/cli/test/agent-setup.test.ts`: cover default installer arguments and cleanup orchestration.
 - Modify `apps/cli/test/agent-setup.integration.test.ts`: reproduce dangling default symlinks with the real pinned installer and verify the fix.
-- Modify `apps/cli/src/command-manifest.ts`: describe the retained `--copy` compatibility flag accurately.
+- Modify `apps/cli/test/agent-setup.e2e.test.ts`: ensure public help does not expose the installer's internal copy mode.
+- Modify `apps/cli/src/command-manifest.ts`: remove the redundant public copy option.
 - Modify `apps/cli/test/agent-skills.test.ts`: enforce discovery metadata, capability IDs, workflow content, limits, and exact generated output.
 - Modify `skills/*/SKILL.md`: regenerate the eleven checked-in skills from the renderer.
 - Modify `docs/skills.md`: regenerate the public repertoire index with improved trigger descriptions.
@@ -71,10 +73,10 @@ Score one point for each of: canonical reference; inspect; layers; schema; repea
 Dispatch a fresh agent with this exact prompt:
 
 ```text
-Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `opsi --help`, subcommand help, and public docs. A user says their installed OPSI skills are stale and omit WFS. They also want to diagnose OPSI offline, inspect raw and derived cache state without deleting data, verify configuration paths and values, preview which agent hosts would receive refreshed skills, then perform an explicitly authorized refresh for Codex only. Give the exact commands, symlink-versus-copy choice, non-interactive safeguards, and post-install verification. Do not modify files.
+Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `opsi --help`, subcommand help, and public docs. A user says their installed OPSI skills are stale and omit WFS. They also want to diagnose OPSI offline, inspect raw and derived cache state without deleting data, verify configuration paths and values, preview which agent hosts would receive refreshed skills, then perform an explicitly authorized refresh for Codex only. Give the exact commands, durable-copy behavior, non-interactive safeguards, and post-install verification. Do not modify files.
 ```
 
-Score one point for each of: `doctor --offline`; providers; cache info/list/verify; raw-versus-derived distinction; no prune/clear without authorization; config path/list/get; `agent setup --dry-run`; explicit `--agent codex`; `--yes`; symlink default versus `--copy`; `generate-skills` distinction; refresh/post-install verification. Maximum: 13.
+Score one point for each of: `doctor --offline`; providers; cache info/list/verify; raw-versus-derived distinction; no prune/clear without authorization; config path/list/get; `agent setup --dry-run`; explicit `--agent codex`; `--yes`; durable-copy default; `generate-skills` distinction; refresh/post-install verification. Maximum: 13.
 
 - [ ] **Step 4: Write the baseline report**
 
@@ -127,8 +129,9 @@ git commit -m "test: record OPSI skill capability baseline"
 - Modify: `apps/cli/README.md`
 
 **Interfaces:**
-- Preserves: `AgentSetupRequest.copy`, the public `--copy` option, `setupAgents()`, and the pinned `skills@1.5.19` installer.
-- Changes: default real setup always passes `--copy`, so installed files survive temporary-source cleanup.
+- Preserves: `setupAgents()` and the pinned `skills@1.5.19` installer.
+- Removes: `AgentSetupRequest.copy` and the redundant public copy option.
+- Changes: every real setup passes the installer's internal `--copy`, so installed files survive temporary-source cleanup.
 
 - [ ] **Step 1: Record the root-cause evidence**
 
@@ -146,6 +149,8 @@ Keep the assertions that read representative installed `SKILL.md` files after `s
 
 Add a unit assertion in `apps/cli/test/agent-setup.test.ts` that a default `request: { agents: ["codex"] }` calls the runner with arguments containing `--copy`.
 
+Add public-surface assertions that normalized `agent setup` metadata and `agent setup --help` do not expose the installer's internal copy mode.
+
 - [ ] **Step 3: Run focused tests and verify RED**
 
 Run:
@@ -159,17 +164,18 @@ Expected: unit and integration assertions FAIL because default setup omits `--co
 
 - [ ] **Step 4: Implement the minimal durable-copy fix**
 
-Change `buildAgentInstallerArguments()` so every real installation includes `--copy` before `--yes`, regardless of whether `AgentSetupRequest.copy` was explicitly set. Remove its unused boolean parameter and update callers/tests. Retain the public request field and CLI option for backward compatibility.
+Change `buildAgentInstallerArguments()` so every real installation includes the installer's `--copy` before `--yes`. Remove its unused boolean parameter, `AgentSetupRequest.copy`, the command-adapter copy field and forwarding, and the public manifest option. Update callers and tests.
 
-Update the manifest option description to `copy skills into agent directories (default behavior)` and update both READMEs to state that setup uses durable copies because its generated source is temporary. Do not add a symlink mode or persistent generated cache.
+Update public documentation and regenerated diagnostics guidance to state that setup always uses durable copies because its generated source is temporary. Do not add a symlink mode or persistent generated cache.
 
 - [ ] **Step 5: Run focused tests and verify GREEN**
 
 Run:
 
 ```bash
-pnpm exec vitest run --project unit apps/cli/test/agent-setup.test.ts apps/cli/test/agent-setup.e2e.test.ts
+pnpm exec vitest run --project unit apps/cli/test/agent-setup.test.ts apps/cli/test/agent-skills.test.ts
 pnpm exec vitest run --project integration apps/cli/test/agent-setup.integration.test.ts
+pnpm exec vitest run --project cli-e2e apps/cli/test/agent-setup.e2e.test.ts
 git diff --check
 ```
 
@@ -178,7 +184,7 @@ Expected: focused tests PASS, installed skill files remain readable after cleanu
 - [ ] **Step 6: Commit the bug fix**
 
 ```bash
-git add apps/cli/src/agent-setup.ts apps/cli/src/command-manifest.ts apps/cli/test/agent-setup.test.ts apps/cli/test/agent-setup.integration.test.ts apps/cli/test/agent-setup.e2e.test.ts README.md apps/cli/README.md docs/superpowers/specs/2026-07-20-agent-skill-capability-audit-design.md docs/superpowers/plans/2026-07-20-agent-skill-capability-audit.md
+git add apps/cli/src/agent-setup.ts apps/cli/src/commands/agent.ts apps/cli/src/command-manifest.ts apps/cli/test/agent-setup.test.ts apps/cli/test/agent-setup.integration.test.ts apps/cli/test/agent-setup.e2e.test.ts apps/cli/test/agent-skills.test.ts README.md apps/cli/README.md docs/commands.md skills/opsi-diagnostics/SKILL.md docs/superpowers/specs/2026-07-20-agent-skill-capability-audit-design.md docs/superpowers/plans/2026-07-20-agent-skill-capability-audit.md
 git commit -m "fix: install durable OPSI agent skills by default"
 ```
 
@@ -415,7 +421,7 @@ git commit -m "feat: teach complete OPSI WFS workflows"
 
 - [ ] **Step 1: Add failing local-state and refresh assertions**
 
-Require `opsi-local-state` to expose exactly `cache-tiers`, `cache-mutations`, and `configuration`. Require `opsi-diagnostics` to expose exactly `environment-diagnostics`, `shell-integration`, `skill-generation`, and `agent-refresh`. Require generated guidance to distinguish raw downloads/catalogue data from rebuildable derived DuckDB stages; explain info/list/verify before prune/clear; preserve explicit authorization; keep secrets out of config; use `doctor --offline`; distinguish `generate-skills` from `agent setup`; explain detected hosts, `--agent`, `--all`, `--dry-run`, `--yes`, durable-copy default, the retained `--copy` flag, empty detection, rerunning setup to refresh, and post-install verification.
+Require `opsi-local-state` to expose exactly `cache-tiers`, `cache-mutations`, and `configuration`. Require `opsi-diagnostics` to expose exactly `environment-diagnostics`, `shell-integration`, `skill-generation`, and `agent-refresh`. Require generated guidance to distinguish raw downloads/catalogue data from rebuildable derived DuckDB stages; explain info/list/verify before prune/clear; preserve explicit authorization; keep secrets out of config; use `doctor --offline`; distinguish `generate-skills` from `agent setup`; explain detected hosts, `--agent`, `--all`, `--dry-run`, `--yes`, durable-copy default, empty detection, rerunning setup to refresh, and post-install verification.
 
 - [ ] **Step 2: Run the focused test and verify RED**
 

@@ -307,9 +307,21 @@ describe("agent skill rendering", () => {
     expect(content).toContain("Generate installable Agent Skills");
     expect(content).toContain("### `agent setup`");
     expect(content).toContain("opsi agent setup [options]");
-    for (const option of ["--agent <ids...>", "--all", "--copy", "--yes", "--dry-run"]) {
+    for (const option of ["--agent <ids...>", "--all", "--yes", "--dry-run"]) {
       expect(content).toContain(option);
     }
+    expect(content).not.toContain("--copy");
+  });
+
+  it("keeps the installer's copy mode out of public agent setup metadata", () => {
+    const setup = COMMAND_MANIFEST.find((entry) => entry.path === "agent setup");
+
+    expect(setup?.options.map((option) => option.flags)).toEqual([
+      "--agent <ids...>",
+      "--all",
+      "--yes",
+      "--dry-run",
+    ]);
   });
 
   it("renders every owned command directly from manifest metadata", () => {

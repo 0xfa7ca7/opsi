@@ -344,7 +344,6 @@ export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
     [
       option("--agent <ids...>", "target explicit agent installer IDs"),
       option("--all", "install for every supported agent", { conflicts: ["agent"] }),
-      option("--copy", "copy skills into agent directories (default behavior)"),
       option("--yes", "accept detected agents without prompting"),
       option("--dry-run", "show the setup plan without making changes"),
     ],

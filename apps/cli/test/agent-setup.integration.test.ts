@@ -89,7 +89,7 @@ describe("real pinned agent installer integration", () => {
         home: blockedHome,
         env: { ...process.env, HOME: blockedHome, NO_COLOR: "1" },
         version: "1.2.3",
-        request: { agents: ["codex"], copy: true },
+        request: { agents: ["codex"] },
         runner: new SkillsAgentInstallerRunner(),
         registry,
         interactive: false,
