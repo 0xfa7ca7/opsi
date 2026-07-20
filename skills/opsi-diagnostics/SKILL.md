@@ -12,6 +12,7 @@ Generate installable Agent Skills, diagnose the CLI environment, and expose prov
 ## Workflow
 
 - Use `opsi agent setup` to detect installed agent hosts and install the complete OPSI skill repertoire globally.
+- Setup copies generated skills before removing its temporary source, so completed installations remain durable.
 - Use `--dry-run` to inspect the installation plan, or `--agent` when the target host IDs are already known.
 - Run offline diagnostics first when network access is unavailable or unwanted.
 

@@ -311,6 +311,9 @@ describe("agent skill rendering", () => {
       expect(content).toContain(option);
     }
     expect(content).not.toContain("--copy");
+    expect(content).toContain(
+      "Setup copies generated skills before removing its temporary source, so completed installations remain durable.",
+    );
   });
 
   it("keeps the installer's copy mode out of public agent setup metadata", () => {
