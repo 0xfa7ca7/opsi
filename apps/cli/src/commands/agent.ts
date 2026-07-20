@@ -1,6 +1,8 @@
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import type { Command } from "commander";
+import { homedir } from "node:os";
 import { setupAgents, type AgentInstallerRunner } from "../agent-setup.js";
+import type { AgentHostRegistry } from "../agent-hosts.js";
 import { manifestCommand } from "../command-manifest.js";
 import type { CliContext } from "../context.js";
 
@@ -25,7 +27,9 @@ export function registerAgentCommand(
   program: Command,
   context: CliContext,
   runner: AgentInstallerRunner,
+  registry: AgentHostRegistry,
 ): void {
+  const confirm = context.io.confirm;
   manifestCommand(program, "agent setup").action(async (options: AgentSetupCommandOptions) => {
     const interactive =
       context.configuration?.output === "human" && context.io.stdin?.isTTY === true;
@@ -36,6 +40,7 @@ export function registerAgentCommand(
     }
     const result = await setupAgents({
       cwd: context.io.cwd ?? process.cwd(),
+      home: context.io.home ?? homedir(),
       env: context.io.env ?? process.env,
       version: context.version,
       request: {
@@ -46,7 +51,14 @@ export function registerAgentCommand(
         ...(options.dryRun === undefined ? {} : { dryRun: options.dryRun }),
       },
       runner,
+      registry,
       interactive,
+      ...(confirm === undefined
+        ? {}
+        : {
+            confirmDetectedAgents: (agents: readonly string[]) =>
+              confirm(`Install OPSI skills for detected agents: ${agents.join(", ")}?`),
+          }),
     });
     context.renderer?.write(result);
   });

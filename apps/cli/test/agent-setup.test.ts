@@ -7,8 +7,21 @@ import {
   setupAgents,
   type AgentInstallerRunner,
 } from "../src/agent-setup.js";
+import type { AgentHostRegistry } from "../src/agent-hosts.js";
 
 const temporaryDirectories: string[] = [];
+
+function registry(
+  options: {
+    readonly supported?: readonly string[];
+    readonly detected?: readonly string[];
+  } = {},
+): AgentHostRegistry {
+  return {
+    supportedAgentIds: options.supported ?? ["codex", "claude-code", "cursor"],
+    detect: vi.fn(async () => options.detected ?? ["codex"]),
+  };
+}
 
 async function temporaryDirectory(prefix = "opsi-agent-setup-test-"): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), prefix));
@@ -25,23 +38,9 @@ afterEach(async () => {
 });
 
 describe("agent setup argument construction", () => {
-  it("builds a global all-skills install that delegates agent detection", () => {
-    expect(buildAgentInstallerArguments("/tmp/source", {})).toEqual([
-      "add",
-      "/tmp/source",
-      "--global",
-      "--skill",
-      "*",
-    ]);
-  });
-
-  it("passes explicit agents and install-mode options as literal argv elements", () => {
+  it("passes only resolved agents to a non-prompting global install", () => {
     expect(
-      buildAgentInstallerArguments("/tmp/source with spaces", {
-        agents: ["codex", "claude-code"],
-        copy: true,
-        yes: true,
-      }),
+      buildAgentInstallerArguments("/tmp/source with spaces", ["codex", "claude-code"], true),
     ).toEqual([
       "add",
       "/tmp/source with spaces",
@@ -55,30 +54,6 @@ describe("agent setup argument construction", () => {
       "--yes",
     ]);
   });
-
-  it("maps all-agent setup to the installer's explicit all mode", () => {
-    expect(buildAgentInstallerArguments("/tmp/source", { all: true })).toEqual([
-      "add",
-      "/tmp/source",
-      "--global",
-      "--skill",
-      "*",
-      "--all",
-    ]);
-  });
-
-  it("rejects conflicting, empty, and duplicate agent selections", () => {
-    for (const request of [
-      { agents: ["codex"], all: true },
-      { agents: [] },
-      { agents: [""] },
-      { agents: ["codex", "codex"] },
-    ]) {
-      expect(() => buildAgentInstallerArguments("/tmp/source", request)).toThrowError(
-        expect.objectContaining({ code: "AGENT_SETUP_OPTIONS_INVALID", exitCode: 2 }),
-      );
-    }
-  });
 });
 
 describe("agent setup orchestration", () => {
@@ -89,10 +64,12 @@ describe("agent setup orchestration", () => {
     await expect(
       setupAgents({
         cwd: "/workspace",
+        home: "/home/user",
         env: {},
         version: "1.2.3",
         request: { dryRun: true },
         runner,
+        registry: registry(),
         interactive: false,
         createTemporaryDirectory,
       }),
@@ -124,10 +101,12 @@ describe("agent setup orchestration", () => {
     await expect(
       setupAgents({
         cwd,
+        home: join(cwd, "home"),
         env: { NO_COLOR: "1" },
         version: "1.2.3",
         request: { agents: ["codex"] },
         runner,
+        registry: registry(),
         interactive: false,
       }),
     ).resolves.toMatchObject({
@@ -138,33 +117,108 @@ describe("agent setup orchestration", () => {
       dryRun: false,
     });
     expect(runner.run).toHaveBeenCalledOnce();
+    expect(runner.run).toHaveBeenCalledWith(
+      expect.objectContaining({
+        interactive: false,
+        arguments: expect.arrayContaining(["--agent", "codex", "--yes"]),
+      }),
+    );
     await expect(access(sourceDirectory)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
-  it("removes the temporary source and preserves diagnostics when installation fails", async () => {
+  it("rejects unknown explicit agents before generating skills or invoking the installer", async () => {
     const cwd = await temporaryDirectory();
-    let sourceDirectory = "";
-    const runner: AgentInstallerRunner = {
-      run: vi.fn(async (request) => {
-        sourceDirectory = request.arguments[1] ?? "";
-        return { exitCode: 1, stdout: "", stderr: "Invalid agents: unknown-agent" };
+    const runner: AgentInstallerRunner = { run: vi.fn() };
+
+    await expect(
+      setupAgents({
+        cwd,
+        home: join(cwd, "home"),
+        env: {},
+        version: "1.2.3",
+        request: { agents: ["unknown-agent"] },
+        runner,
+        registry: registry(),
+        interactive: false,
       }),
+    ).rejects.toMatchObject({
+      code: "AGENT_SETUP_OPTIONS_INVALID",
+      exitCode: 2,
+      context: { invalidAgents: ["unknown-agent"] },
+    });
+    expect(runner.run).not.toHaveBeenCalled();
+  });
+
+  it("fails safely when automatic detection finds no globally installable host", async () => {
+    const runner: AgentInstallerRunner = { run: vi.fn() };
+
+    await expect(
+      setupAgents({
+        cwd: "/workspace",
+        home: "/isolated/home",
+        env: {},
+        version: "1.2.3",
+        request: { yes: true },
+        runner,
+        registry: registry({ detected: [] }),
+        interactive: false,
+      }),
+    ).rejects.toMatchObject({ code: "AGENT_HOSTS_NOT_DETECTED", exitCode: 2 });
+    expect(runner.run).not.toHaveBeenCalled();
+  });
+
+  it("maps an installer's zero-exit partial failure report to partial success", async () => {
+    const cwd = await temporaryDirectory();
+    const runner: AgentInstallerRunner = {
+      run: vi.fn(async () => ({
+        exitCode: 0,
+        stdout: "Installation complete\nFailed to install 1\npermission denied",
+        stderr: "",
+      })),
     };
 
     await expect(
       setupAgents({
         cwd,
+        home: join(cwd, "home"),
         env: {},
         version: "1.2.3",
-        request: { agents: ["unknown-agent"] },
+        request: { agents: ["codex"] },
         runner,
+        registry: registry(),
         interactive: false,
       }),
     ).rejects.toMatchObject({
-      code: "AGENT_SETUP_FAILED",
-      exitCode: 1,
-      context: { installerExitCode: 1, diagnostic: "Invalid agents: unknown-agent" },
+      code: "AGENT_SETUP_PARTIAL",
+      exitCode: 8,
+      context: { diagnostic: expect.stringContaining("Failed to install 1") },
     });
-    await expect(access(sourceDirectory)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("preserves the primary installer error when temporary cleanup also fails", async () => {
+    const cwd = await temporaryDirectory();
+    const sourceDirectory = await temporaryDirectory();
+
+    await expect(
+      setupAgents({
+        cwd,
+        home: join(cwd, "home"),
+        env: {},
+        version: "1.2.3",
+        request: { agents: ["codex"] },
+        runner: {
+          run: async () => ({ exitCode: 1, stdout: "", stderr: "installer failed" }),
+        },
+        registry: registry(),
+        interactive: false,
+        createTemporaryDirectory: async () => sourceDirectory,
+        removeTemporaryDirectory: async () => {
+          throw new Error("cleanup failed");
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: "AGENT_SETUP_FAILED",
+      context: { diagnostic: "installer failed" },
+    });
   });
 });

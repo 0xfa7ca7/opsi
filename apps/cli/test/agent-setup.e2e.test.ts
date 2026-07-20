@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AgentInstallerRunner } from "../src/agent-setup.js";
+import type { AgentHostRegistry } from "../src/agent-hosts.js";
 import { runCli, type CliIo } from "../src/main.js";
 
 const temporaryDirectories: string[] = [];
@@ -152,6 +153,82 @@ describe("agent setup", () => {
         context: { installerExitCode: 1, diagnostic: "permission denied" },
       },
     });
+  });
+
+  it("does not expand --yes to every profile when no host is detected", async () => {
+    const value = await fixture();
+    const runner: AgentInstallerRunner = { run: vi.fn() };
+    const agentHostRegistry: AgentHostRegistry = {
+      supportedAgentIds: ["codex", "claude-code"],
+      detect: vi.fn(async () => []),
+    };
+
+    await expect(
+      runCli(["agent", "setup", "--yes", "--json"], value.io, {
+        agentInstallerRunner: runner,
+        agentHostRegistry,
+      }),
+    ).resolves.toBe(2);
+
+    expect(JSON.parse(value.stdout.join(""))).toMatchObject({
+      error: { code: "AGENT_HOSTS_NOT_DETECTED", exitCode: 2 },
+    });
+    expect(runner.run).not.toHaveBeenCalled();
+  });
+
+  it("confirms multiple detected hosts itself and keeps the installer non-interactive", async () => {
+    const value = await fixture();
+    const confirm = vi.fn(async () => true);
+    const runner: AgentInstallerRunner = {
+      run: vi.fn(async () => ({ exitCode: 0, stdout: "installed", stderr: "" })),
+    };
+    const agentHostRegistry: AgentHostRegistry = {
+      supportedAgentIds: ["codex", "claude-code"],
+      detect: vi.fn(async () => ["codex", "claude-code"]),
+    };
+
+    await expect(
+      runCli(
+        ["agent", "setup"],
+        {
+          ...value.io,
+          stdin: { isTTY: true },
+          stdout: { isTTY: true, write: value.io.stdout.write },
+          confirm,
+        },
+        { agentInstallerRunner: runner, agentHostRegistry },
+      ),
+    ).resolves.toBe(0);
+
+    expect(confirm).toHaveBeenCalledWith(
+      "Install OPSI skills for detected agents: codex, claude-code?",
+    );
+    expect(runner.run).toHaveBeenCalledWith(
+      expect.objectContaining({
+        interactive: false,
+        arguments: expect.arrayContaining(["--agent", "codex", "claude-code", "--yes"]),
+      }),
+    );
+  });
+
+  it("classifies unsupported explicit agent IDs as invalid input", async () => {
+    const value = await fixture();
+    const runner: AgentInstallerRunner = { run: vi.fn() };
+
+    await expect(
+      runCli(["agent", "setup", "--agent", "not-an-agent", "--json"], value.io, {
+        agentInstallerRunner: runner,
+      }),
+    ).resolves.toBe(2);
+
+    expect(JSON.parse(value.stdout.join(""))).toMatchObject({
+      error: {
+        code: "AGENT_SETUP_OPTIONS_INVALID",
+        exitCode: 2,
+        context: { invalidAgents: ["not-an-agent"] },
+      },
+    });
+    expect(runner.run).not.toHaveBeenCalled();
   });
 
   it("documents every public setup option in help", async () => {
