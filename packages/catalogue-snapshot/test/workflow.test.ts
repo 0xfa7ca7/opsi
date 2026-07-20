@@ -16,6 +16,7 @@ describe("catalogue snapshot workflow", () => {
 
     const generate = jobBlock(workflow, "generate");
     const verify = jobBlock(workflow, "verify");
+    expect(generate).toContain("    timeout-minutes: 30");
     expect(generate).toContain("      ref: ${{ github.event.repository.default_branch }}");
     expect(verify).toContain("      ref: ${{ github.event.repository.default_branch }}");
     expect(workflow.match(/pnpm install --frozen-lockfile/gu)).toHaveLength(2);

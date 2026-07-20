@@ -83,6 +83,12 @@ deployment, and every run checks out the repository's trusted default branch. Pu
 runs the static workflow contract and controlled fixtures, but never performs live catalogue
 generation or a Pages deployment.
 
+Live generation allows up to 90 seconds for each OPSI request attempt because a 300-record page
+can exceed ten megabytes and the upstream gateway may continue streaming after its response
+headers arrive. Retryable operations retain their bounded retries, and the complete `generate`
+job has a 30-minute ceiling. Provider failures include the safe catalogue offset that failed;
+response bodies and nested transport causes are never written to workflow logs.
+
 The publisher rejects a candidate whose dataset count is more than 10 percent below the
 previous catalogue. Investigate the live OPSI catalogue and the failed run before overriding
 this guard. If the reduction is intentional, dispatch **Catalogue snapshot** manually from the
@@ -95,7 +101,10 @@ unexplained count change.
 Start with the failed job in the workflow run:
 
 - `generate`: inspect dependency/build errors, live OPSI traversal failures, invalid retained
-  index or snapshot errors, and `CATALOGUE_COUNT_REDUCTION`. A failed generation does not
+  index or snapshot errors, and `CATALOGUE_COUNT_REDUCTION`. `OPSI response body timed out`
+  identifies an exhausted response-body deadline, while `OPSI returned a non-JSON response`
+  identifies a completed body that could not be parsed as JSON. Use the reported `offset` to
+  correlate repeated failures without logging upstream content. A failed generation does not
   change the public `gh-pages` branch.
 - `deploy`: confirm `CATALOGUE_DEPLOY_KEY` is present in the `catalogue-production` environment,
   that environment allows only `main`, its public half remains a write-enabled deploy key on

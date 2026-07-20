@@ -1,4 +1,4 @@
-import { EXIT_CODES, OpsiError, type DataProvider } from "@opsi/domain";
+import { EXIT_CODES, OpsiError, type DataProvider, type SearchPage } from "@opsi/domain";
 import {
   CATALOGUE_SCHEMA_VERSION,
   parseCatalogueSnapshot,
@@ -23,7 +23,20 @@ export async function generateCatalogueSnapshot(
   let expectedTotal: number | undefined;
 
   while (true) {
-    const page = await provider.search({ limit: DATASET_PAGE_SIZE, offset });
+    let page: SearchPage;
+    try {
+      page = await provider.search({ limit: DATASET_PAGE_SIZE, offset });
+    } catch (error) {
+      if (!(error instanceof OpsiError)) throw error;
+      throw new OpsiError({
+        code: error.code,
+        message: error.message,
+        exitCode: error.exitCode,
+        ...(error.suggestion === undefined ? {} : { suggestion: error.suggestion }),
+        context: { ...error.context, offset },
+        cause: error,
+      });
+    }
     if (expectedTotal === undefined) {
       expectedTotal = page.total;
     } else if (page.total !== expectedTotal) {
