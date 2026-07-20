@@ -238,6 +238,12 @@ export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
   leaf("completion", "Generate static shell completion", [
     argument("<shell>", "shell name", ["bash", "zsh", "fish"]),
   ]),
+  leaf(
+    "generate-skills",
+    "Generate installable Agent Skills for the opsi CLI",
+    [],
+    [option("--output-dir <path>", "directory that receives generated skills")],
+  ),
 ] as const;
 
 const GROUP_DESCRIPTIONS: Readonly<Record<string, string>> = {

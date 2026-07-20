@@ -1,3 +1,7 @@
+import { randomUUID } from "node:crypto";
+import { lstat, mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { isAbsolute, join, resolve } from "node:path";
+import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import {
   COMMAND_MANIFEST,
   GLOBAL_OPTION_MANIFEST,
@@ -160,7 +164,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     name: "opsi-diagnostics",
     description:
       "Inspect OPSI providers, diagnose an installation, or generate shell completion. Use for setup, troubleshooting, capability discovery, and CLI integration.",
-    commands: ["providers list", "doctor", "completion"],
+    commands: ["providers list", "doctor", "completion", "generate-skills"],
     purpose: "Diagnose the CLI environment and expose supported providers and shell integration.",
     workflows: ["Run offline diagnostics first when network access is unavailable or unwanted."],
     safety: ["Do not turn a diagnostic check into a network request when offline was requested."],
@@ -474,4 +478,83 @@ Installable Agent Skills for using the OPSI CLI from compatible AI agents. Insta
 | --- | --- |
 ${rows}
 `;
+}
+
+export interface GenerateAgentSkillsOptions {
+  readonly cwd: string;
+  readonly outputDirectory?: string;
+  readonly version: string;
+}
+
+export interface GenerateAgentSkillsResult {
+  readonly outputDirectory: string;
+  readonly count: number;
+  readonly skills: readonly string[];
+}
+
+function invalidSkillOutput(path: string, cause?: unknown): OpsiError {
+  return new OpsiError({
+    code: "SKILL_OUTPUT_INVALID",
+    message: `The Agent Skills output must be a writable directory: ${path}`,
+    exitCode: EXIT_CODES.INVALID_INPUT,
+    suggestion: "Choose a directory path with --output-dir.",
+    ...(cause === undefined ? {} : { cause }),
+  });
+}
+
+async function ensurePlainDirectory(path: string): Promise<void> {
+  try {
+    await mkdir(path, { recursive: true });
+    const metadata = await lstat(path);
+    if (!metadata.isDirectory() || metadata.isSymbolicLink()) throw invalidSkillOutput(path);
+  } catch (error) {
+    if (error instanceof OpsiError) throw error;
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "EEXIST" || code === "ENOTDIR") throw invalidSkillOutput(path, error);
+    throw error;
+  }
+}
+
+async function writeSkillFile(path: string, content: string): Promise<void> {
+  const temporary = `${path}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporary, content, { encoding: "utf8", flag: "wx" });
+    await rename(temporary, path);
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
+
+export async function generateAgentSkills(
+  options: GenerateAgentSkillsOptions,
+): Promise<GenerateAgentSkillsResult> {
+  const requested = options.outputDirectory ?? "skills";
+  const outputDirectory = isAbsolute(requested)
+    ? resolve(requested)
+    : resolve(options.cwd, requested);
+  const files = renderAgentSkillFiles(options.version);
+
+  try {
+    await ensurePlainDirectory(outputDirectory);
+    for (const [name, content] of files) {
+      const directory = join(outputDirectory, name);
+      await ensurePlainDirectory(directory);
+      await writeSkillFile(join(directory, "SKILL.md"), content);
+    }
+  } catch (error) {
+    if (error instanceof OpsiError) throw error;
+    throw new OpsiError({
+      code: "SKILL_GENERATION_FAILED",
+      message: `Agent Skills could not be written to ${outputDirectory}.`,
+      exitCode: EXIT_CODES.INTERNAL,
+      suggestion: "Check directory permissions and available disk space, then try again.",
+      cause: error,
+    });
+  }
+
+  return {
+    outputDirectory,
+    count: files.size,
+    skills: [...files.keys()],
+  };
 }
