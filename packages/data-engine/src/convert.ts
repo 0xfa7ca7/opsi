@@ -472,6 +472,7 @@ export async function convertData(
     stage = await stageTabularInput({
       input: options.input,
       ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+      ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
       databasePath,
       xlsxRowsPath,
       xlsxSharedStringsByteLimit,

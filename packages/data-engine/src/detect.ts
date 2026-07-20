@@ -8,6 +8,7 @@ import type {
   DetectedInputFormat,
   FormatDetection,
   SupportedDataFormat,
+  SupportedInputFormat,
 } from "./types.js";
 
 const EXTENSIONS: Readonly<Record<string, DetectedInputFormat>> = {
@@ -19,9 +20,10 @@ const EXTENSIONS: Readonly<Record<string, DetectedInputFormat>> = {
   ".xlsx": "xlsx",
   ".parquet": "parquet",
   ".zip": "zip",
+  ".xml": "xml",
 };
 
-const MEDIA_TYPES: Readonly<Record<string, SupportedDataFormat>> = {
+const MEDIA_TYPES: Readonly<Record<string, SupportedInputFormat>> = {
   "text/csv": "csv",
   "text/tab-separated-values": "tsv",
   "application/json": "json",
@@ -30,6 +32,8 @@ const MEDIA_TYPES: Readonly<Record<string, SupportedDataFormat>> = {
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
   "application/vnd.apache.parquet": "parquet",
   "application/parquet": "parquet",
+  "application/xml": "xml",
+  "text/xml": "xml",
 };
 
 function result(
@@ -72,7 +76,7 @@ function signature(head: Buffer, tail: Buffer): DetectedInputFormat | undefined 
 function structuredContent(
   text: string,
   structuredFallback?: Extract<SupportedDataFormat, "json" | "ndjson">,
-): SupportedDataFormat | undefined {
+): SupportedInputFormat | undefined {
   const trimmed = text.replace(/^\uFEFF/u, "").trim();
   if (trimmed.length === 0) return undefined;
   const lines = trimmed.split(/\r?\n/u).filter((line) => line.trim().length > 0);
@@ -99,6 +103,7 @@ function structuredContent(
       return structuredFallback;
     }
   }
+  if (trimmed.startsWith("<")) return "xml";
   const firstLines = lines.slice(0, 5);
   const tabs = firstLines.map((line) => line.split("\t").length - 1);
   const commas = firstLines.map((line) => line.split(",").length - 1);
@@ -156,7 +161,7 @@ export async function detectFormat(input: DataInput): Promise<FormatDetection> {
   const byDeclared =
     declared === "jsonl"
       ? "ndjson"
-      : (["csv", "tsv", "json", "ndjson", "xlsx", "parquet"] as const).find(
+      : (["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"] as const).find(
           (format) => format === declared,
         );
   if (byDeclared !== undefined)

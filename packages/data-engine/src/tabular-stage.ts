@@ -4,8 +4,9 @@ import type { DuckDBInstance, DuckDBTypeId, DuckDBConnection } from "@duckdb/nod
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import { detectFormat } from "./detect.js";
 import { sqlString } from "./sql-path.js";
-import type { DataInput, FormatDetection, SupportedDataFormat, ValidationIssue } from "./types.js";
+import type { DataInput, FormatDetection, SupportedDataFormat, SupportedInputFormat, ValidationIssue } from "./types.js";
 import { scanXlsx } from "./xlsx.js";
+import { writeXmlRowsAsNdjson } from "./xml.js";
 
 export interface StagedColumn {
   readonly name: string;
@@ -15,18 +16,18 @@ export interface StagedColumn {
 export interface TabularStage {
   readonly connection: DuckDBConnection;
   readonly columns: readonly StagedColumn[];
-  readonly sourceFormat: SupportedDataFormat;
+  readonly sourceFormat: SupportedInputFormat;
   readonly inputPath: string;
   readonly warnings: readonly ValidationIssue[];
   close(): Promise<void>;
 }
 
-function supported(format: string): format is SupportedDataFormat {
-  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet"].includes(format);
+function supported(format: string): format is SupportedInputFormat {
+  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"].includes(format);
 }
 
 function sourceExpression(
-  format: Exclude<SupportedDataFormat, "xlsx">,
+  format: Exclude<SupportedInputFormat, "xlsx" | "xml">,
   path: string,
   detection: FormatDetection,
 ): string {
@@ -101,6 +102,7 @@ export async function stageTabularInput(options: {
   readonly input: DataInput;
   readonly detection?: FormatDetection;
   readonly sheet?: string;
+  readonly recordPath?: string;
   readonly databasePath: string;
   readonly xlsxRowsPath: string;
   readonly xlsxSharedStringsByteLimit: number;
@@ -115,15 +117,15 @@ export async function stageTabularInput(options: {
       code: "UNSUPPORTED_CONVERSION_FORMAT",
       message: `The detected format '${detection.format}' cannot be converted.`,
       exitCode: EXIT_CODES.UNSUPPORTED,
-      suggestion: "Use CSV, TSV, JSON, NDJSON, XLSX, or Parquet input.",
+      suggestion: "Use CSV, TSV, JSON, NDJSON, XLSX, Parquet, or XML input.",
       context: { format: detection.format },
     });
 
   let warnings: readonly ValidationIssue[] = [];
   let stagedSource = detection.path;
-  let stagedFormat: Exclude<SupportedDataFormat, "xlsx"> = detection.format as Exclude<
-    SupportedDataFormat,
-    "xlsx"
+  let stagedFormat: Exclude<SupportedInputFormat, "xlsx" | "xml"> = detection.format as Exclude<
+    SupportedInputFormat,
+    "xlsx" | "xml"
   >;
   if (detection.format === "xlsx") {
     warnings = await xlsxAsNdjson(
@@ -133,6 +135,18 @@ export async function stageTabularInput(options: {
       options.xlsxSharedStringsByteLimit,
       options.signal,
     );
+    stagedSource = options.xlsxRowsPath;
+    stagedFormat = "ndjson";
+  } else if (detection.format === "xml") {
+    const normalized = await writeXmlRowsAsNdjson(
+      detection.path,
+      options.xlsxRowsPath,
+      {
+        ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      },
+    );
+    warnings = normalized.warnings;
     stagedSource = options.xlsxRowsPath;
     stagedFormat = "ndjson";
   }

@@ -4,7 +4,8 @@ import type { FileHandle } from "node:fs/promises";
 
 export type SupportedDataFormat = "csv" | "tsv" | "json" | "ndjson" | "xlsx" | "parquet";
 export const SUPPORTED_DATA_FORMATS = ["csv", "tsv", "json", "ndjson", "xlsx", "parquet"] as const;
-export type DetectedInputFormat = SupportedDataFormat | "zip" | "unknown";
+export type SupportedInputFormat = SupportedDataFormat | "xml";
+export type DetectedInputFormat = SupportedInputFormat | "zip" | "unknown";
 export type DetectionConfidence =
   "signature" | "media-type" | "content" | "declared-format" | "extension" | "unknown";
 
@@ -32,10 +33,11 @@ export type DataRow = Readonly<Record<string, unknown>>;
 export interface PreviewOptions {
   readonly limit?: number;
   readonly sheet?: string;
+  readonly recordPath?: string;
 }
 
 export interface DataPreview {
-  readonly format: SupportedDataFormat;
+  readonly format: SupportedInputFormat;
   readonly columns: readonly string[];
   readonly rows: readonly DataRow[];
   readonly returnedCount: number;
@@ -63,7 +65,7 @@ export interface InferredField {
 export interface InferredSchema {
   readonly fields: readonly InferredField[];
   readonly sampledRows: number;
-  readonly format: SupportedDataFormat;
+  readonly format: SupportedInputFormat;
   readonly sheet?: string;
 }
 
@@ -125,6 +127,7 @@ export interface ConversionOptions {
   readonly output: string;
   readonly targetFormat: SupportedDataFormat;
   readonly sheet?: string;
+  readonly recordPath?: string;
   readonly force: boolean;
   readonly spreadsheetSafe?: boolean;
 }

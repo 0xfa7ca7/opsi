@@ -1,4 +1,5 @@
 import { createReadStream } from "node:fs";
+import { Readable } from "node:stream";
 import { createHash } from "node:crypto";
 import { parse } from "csv-parse";
 import { extname } from "node:path";
@@ -8,6 +9,8 @@ import { scanWithDuckDb } from "./duckdb-import.js";
 import { inferredType, type DataEngine } from "./inspect.js";
 import { scanNdjson } from "./json.js";
 import { scanXlsx } from "./xlsx.js";
+import { previewXml } from "./xml.js";
+import type { DelimitedDialect, TextEncoding } from "./text-decoding.js";
 import type {
   DataSource,
   DataValidationResult,
@@ -28,19 +31,32 @@ function issue(
 
 async function validateDelimitedStream(
   path: string,
-  delimiter: "," | "\t",
+  delimiter: DelimitedDialect,
+  encoding: TextEncoding,
   limits: ConstructorParameters<typeof StreamingDiagnostics>[0],
 ): Promise<readonly ValidationIssue[]> {
   const diagnostics = new StreamingDiagnostics(limits);
   const source = createReadStream(path);
+  const decodedSource =
+    encoding === "utf-16be"
+      ? Readable.from(
+          (async function* () {
+            const decoder = new TextDecoder("utf-16be", { fatal: true });
+            for await (const chunk of source)
+              yield decoder.decode(Buffer.from(chunk as Uint8Array), { stream: true });
+            yield decoder.decode();
+          })(),
+        )
+      : source;
   const parser = parse({
     bom: true,
     delimiter,
     relax_column_count: true,
     skip_empty_lines: true,
     max_record_size: limits.maxRecordBytes,
+    encoding: encoding === "utf-16le" ? "utf16le" : "utf8",
   });
-  source.pipe(parser);
+  decodedSource.pipe(parser);
   let headers: readonly string[] | undefined;
   let rowNumber = 0;
   try {
@@ -93,6 +109,7 @@ async function validateDelimitedStream(
     return diagnostics.finish();
   } finally {
     source.destroy();
+    if (decodedSource !== source) decodedSource.destroy();
     parser.destroy();
   }
 }
@@ -471,6 +488,8 @@ export async function validateData(
   }
   if (
     ["csv", "tsv", "json", "ndjson"].includes(detection.format) &&
+    detection.encoding !== "utf-16le" &&
+    detection.encoding !== "utf-16be" &&
     !(await validUtf8(detection.path))
   )
     return complete(
@@ -500,9 +519,9 @@ export async function validateData(
     );
 
   if (detection.format === "csv" || detection.format === "tsv") {
-    const delimiter = detection.format === "csv" ? "," : "\t";
+    const delimiter = detection.delimiter ?? (detection.format === "csv" ? "," : "\t");
     try {
-      issues.push(...(await validateDelimitedStream(detection.path, delimiter, limits)));
+      issues.push(...(await validateDelimitedStream(detection.path, delimiter, detection.encoding ?? "utf-8", limits)));
     } catch (error) {
       if (error instanceof OpsiError) throw error;
       issues.push(
@@ -518,7 +537,7 @@ export async function validateData(
   }
 
   if (
-    ["json", "ndjson", "xlsx", "parquet"].includes(detection.format) &&
+    ["json", "ndjson", "xlsx", "parquet", "xml"].includes(detection.format) &&
     !issues.some((candidate) => candidate.severity === "error")
   ) {
     try {
@@ -542,7 +561,20 @@ export async function validateData(
           (headerIssue) => diagnostics.addIssue(headerIssue),
           (columns, warnings) => diagnostics.chargeHeader(columns, warnings),
         );
-      else
+      else if (detection.format === "xml") {
+        const preview = await previewXml(detection.path, {
+          limit: limits.maxRecords,
+          ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
+        });
+        if (preview.truncated)
+          throw new OpsiError({
+            code: "VALIDATION_RECORD_LIMIT",
+            message: "Validation record limit exceeded.",
+            exitCode: 5,
+            context: { limit: limits.maxRecords },
+          });
+        for (const row of preview.rows) diagnostics.add(row);
+      } else
         await scanWithDuckDb(detection.path, detection.format as "json" | "parquet", (row) =>
           diagnostics.add(row),
         );

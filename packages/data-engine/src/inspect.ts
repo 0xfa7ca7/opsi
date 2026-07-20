@@ -14,15 +14,16 @@ import type {
   InferredFieldType,
   InferredSchema,
   PreviewOptions,
-  SupportedDataFormat,
+  SupportedInputFormat,
 } from "./types.js";
 import { listSheets, previewXlsx } from "./xlsx.js";
 import { validateData } from "./validate.js";
 import { convertData } from "./convert.js";
 import type { ConversionOptions } from "./types.js";
+import { previewXml } from "./xml.js";
 
-function supported(format: string): format is SupportedDataFormat {
-  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet"].includes(format);
+function supported(format: string): format is SupportedInputFormat {
+  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"].includes(format);
 }
 
 function unsupported(format: string): never {
@@ -157,6 +158,11 @@ export class DataEngine {
       );
       return { format: "xlsx", ...preview, returnedCount: preview.rows.length };
     }
+    if (detection.format === "xml")
+      return previewXml(detection.path, {
+        limit,
+        ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
+      });
     let result: { readonly rows: readonly DataRow[]; readonly truncated: boolean };
     if (detection.format === "ndjson") {
       if ((await stat(detection.path)).size <= this.jsonNativeByteLimit) {
