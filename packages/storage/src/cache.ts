@@ -1,6 +1,18 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createReadStream } from "node:fs";
-import { link, lstat, open, readFile, readdir, rename, rm, stat, unlink } from "node:fs/promises";
+import { constants, createReadStream } from "node:fs";
+import {
+  chmod,
+  copyFile,
+  link,
+  lstat,
+  open,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  stat,
+  unlink,
+} from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import type { Readable } from "node:stream";
 import { EXIT_CODES, OpsiError, type MetadataCache } from "@opsi/domain";
@@ -35,6 +47,8 @@ export interface ContentCacheOptions {
   ) => void;
   readonly materializeTempPath?: (destination: string) => string;
   readonly maxObjectBytes?: number;
+  readonly linkObject?: (source: string, destination: string) => Promise<void>;
+  readonly copyObject?: (source: string, destination: string, mode?: number) => Promise<void>;
 }
 async function fileDigest(path: string): Promise<{ sha256: string; bytes: number }> {
   const hash = createHash("sha256");
@@ -123,11 +137,13 @@ async function atomicJson(path: string, value: unknown, fault?: () => void): Pro
 }
 export class ContentCache implements MetadataCache {
   private readonly paths: CacheLayout;
+  private readonly maxObjectBytes: number;
   constructor(
     root: string,
     private readonly options: ContentCacheOptions = {},
   ) {
     this.paths = new CacheLayout(root);
+    this.maxObjectBytes = options.maxObjectBytes ?? MAX_CACHE_OBJECT_BYTES;
   }
   async layout(): Promise<CacheLayout> {
     return this.paths.ensure();
@@ -142,7 +158,7 @@ export class ContentCache implements MetadataCache {
       for await (const raw of input) {
         const chunk = typeof raw === "string" ? Buffer.from(raw) : Buffer.from(raw);
         bytes += chunk.length;
-        if (bytes > (this.options.maxObjectBytes ?? MAX_CACHE_OBJECT_BYTES))
+        if (bytes > this.maxObjectBytes)
           throw new OpsiError({
             code: "CACHE_OBJECT_TOO_LARGE",
             message: "Cache object exceeds the configured byte limit.",
@@ -187,7 +203,7 @@ export class ContentCache implements MetadataCache {
       !winner.isFile() ||
       winner.isSymbolicLink() ||
       winner.size !== bytes ||
-      winner.size > (this.options.maxObjectBytes ?? MAX_CACHE_OBJECT_BYTES)
+      winner.size > this.maxObjectBytes
     ) {
       await rm(temp, { force: true });
       if (createdTarget) await rm(target, { force: true });
@@ -217,12 +233,47 @@ export class ContentCache implements MetadataCache {
         });
       throw error;
     }
-    if (!details.isFile() || details.isSymbolicLink() || details.size > MAX_CACHE_OBJECT_BYTES)
+    if (!details.isFile() || details.isSymbolicLink() || details.size > this.maxObjectBytes)
       throw corrupt("Cached object is not a regular file.");
     const verified = await fileDigest(path);
     if (verified.sha256 !== sha256 || verified.bytes !== details.size)
       throw corrupt("Cached object checksum verification failed.");
     return { path, sha256, bytes: details.size };
+  }
+  async materializeLink(sha256: string, requestedDestination: string): Promise<CacheObject> {
+    const layout = await this.layout();
+    const publicationLock = await CacheLock.acquire(layout.locks, "cache-publication");
+    const destination = resolve(requestedDestination);
+    try {
+      const destinationLock = await CacheLock.acquire(
+        dirname(destination),
+        `materialize:${destination}`,
+      );
+      try {
+        const object = await this.getObject(sha256);
+        try {
+          await (this.options.linkObject ?? link)(object.path, destination);
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code;
+          if (code !== "EXDEV" && code !== "EPERM" && code !== "ENOTSUP") throw error;
+          const temp = `${destination}.part-${process.pid}-${randomUUID()}`;
+          try {
+            await (this.options.copyObject ?? copyFile)(object.path, temp, constants.COPYFILE_EXCL);
+            await chmod(temp, 0o600);
+            await link(temp, destination);
+          } finally {
+            await rm(temp, { force: true });
+          }
+        }
+        await chmod(destination, 0o600);
+        await syncDirectory(dirname(destination));
+        return { ...object, path: destination };
+      } finally {
+        await destinationLock.release();
+      }
+    } finally {
+      await publicationLock.release();
+    }
   }
   async materialize(
     sha256: string,
@@ -458,6 +509,15 @@ export class ContentCache implements MetadataCache {
       return undefined;
     return record;
   }
+  async metadataRecords(): Promise<readonly MetadataRecord[]> {
+    const layout = await this.layout();
+    const names = (await readdir(layout.metadata)).filter((name) => name.endsWith(".json")).sort();
+    return Promise.all(
+      names.map(async (name) =>
+        parseMetadataRecord(await readFile(`${layout.metadata}/${name}`, "utf8")),
+      ),
+    );
+  }
   get<T>(key: string, schemaVersion: string): Promise<T | undefined> {
     return this.getMetadata<T>(key, schemaVersion);
   }
@@ -465,7 +525,31 @@ export class ContentCache implements MetadataCache {
     return this.putMetadata(key, schemaVersion, value, undefined, ttlMs);
   }
   async delete(key: string): Promise<void> {
+    await this.deleteMetadata(key);
+  }
+  async deleteMetadata(key: string): Promise<void> {
     await rm((await this.layout()).metadataPath(key), { force: true });
+  }
+  async removeObjectsIfUnreferenced(sha256s: readonly string[]): Promise<number> {
+    const layout = await this.layout();
+    const lock = await CacheLock.acquire(layout.locks, "cache-publication");
+    try {
+      const live = new Set(
+        (await this.metadataRecords()).flatMap((record) =>
+          record.objectSha256 === undefined ? [] : [record.objectSha256],
+        ),
+      );
+      let removed = 0;
+      for (const sha256 of new Set(sha256s)) {
+        if (!/^[a-f\d]{64}$/u.test(sha256) || live.has(sha256)) continue;
+        await rm(layout.objectPath(sha256), { force: true });
+        removed += 1;
+      }
+      if (removed > 0) await syncDirectory(layout.objects);
+      return removed;
+    } finally {
+      await lock.release();
+    }
   }
   async verify(): Promise<{
     readonly objects: number;
@@ -480,7 +564,7 @@ export class ContentCache implements MetadataCache {
       objects++;
       const path = layout.objectPath(name);
       const details = await lstat(path);
-      if (!details.isFile() || details.isSymbolicLink() || details.size > MAX_CACHE_OBJECT_BYTES) {
+      if (!details.isFile() || details.isSymbolicLink() || details.size > this.maxObjectBytes) {
         errors.push(`object:${name}`);
         continue;
       }

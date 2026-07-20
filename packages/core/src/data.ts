@@ -90,6 +90,7 @@ export class DataService {
       const mediaType = downloaded.mediaType ?? resource.mediaType;
       return await operation({
         path: downloaded.path,
+        sha256: downloaded.sha256,
         ...(mediaType === undefined ? {} : { mediaType }),
         ...(resource.format === undefined ? {} : { declaredFormat: resource.format }),
       });

@@ -11,4 +11,13 @@ export { ConversionService } from "./conversions.js";
 export type { ConversionServiceOptions } from "./conversions.js";
 export { QueryService } from "./queries.js";
 export type { QueryServiceOptions, QueryServiceResult } from "./queries.js";
+export { QueryDatabaseCache } from "./query-database-cache.js";
+export type {
+  QueryCacheMetadata,
+  QueryCacheStatus,
+  QueryCacheWarning,
+  QueryDatabaseCacheOptions,
+  QueryDatabaseExecutionOptions,
+  QueryDatabaseResult,
+} from "./query-database-cache.js";
 export { validateDatasetMetadata, validateResourceMetadata } from "./metadata-validation.js";

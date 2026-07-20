@@ -211,6 +211,7 @@ interface DataSource {
   readonly path: string;
   readonly mediaType?: string;
   readonly declaredFormat?: string;
+  readonly sha256?: string;
 }
 type DataInput = string | DataSource;
 interface DataResolutionOptions {
@@ -459,10 +460,38 @@ declare class DownloadService {
   ): Promise<ProbeResult>;
 }
 declare class CacheService {
-  info(): ReturnType<ContentCache["info"]>;
-  list(): ReturnType<ContentCache["list"]>;
+  info(): Promise<{
+    readonly root: string;
+    readonly objects: number;
+    readonly metadata: number;
+    readonly bytes: number;
+    readonly derived: {
+      readonly objects: number;
+      readonly bytes: number;
+      readonly maxBytes: number;
+      readonly ttlMs: number;
+    };
+  }>;
+  list(): Promise<
+    readonly {
+      readonly file: string;
+      readonly bytes: number;
+      readonly kind: "raw" | "duckdb-stage";
+      readonly key?: string;
+      readonly format?: DataFormat;
+      readonly sheet?: string;
+      readonly createdAt?: string;
+      readonly lastUsedAt?: string;
+      readonly expiresAt?: string;
+    }[]
+  >;
   clear(): ReturnType<ContentCache["clear"]>;
-  prune(): ReturnType<ContentCache["prune"]>;
+  prune(): Promise<{
+    readonly removed: number;
+    readonly derivedExpiredRemoved: number;
+    readonly derivedLruRemoved: number;
+    readonly derivedObjectsRemoved: number;
+  }>;
   verify(): ReturnType<ContentCache["verify"]>;
 }
 declare class DataService {
@@ -506,8 +535,24 @@ interface QueryServiceResult {
   readonly sql: string;
   readonly source: string;
   readonly durationMs: number;
+  readonly cache: QueryCacheMetadata;
+  readonly warnings: readonly QueryCacheWarning[];
   readonly output?: string;
   readonly provenancePath?: string;
+}
+export type QueryCacheStatus = "hit" | "miss" | "bypass";
+export interface QueryCacheMetadata {
+  readonly status: QueryCacheStatus;
+  readonly kind: "duckdb-stage";
+}
+export interface QueryCacheWarning {
+  readonly code: "QUERY_CACHE_BYPASS";
+  readonly message: string;
+}
+export interface DuckDbCachePolicy {
+  readonly enabled: boolean;
+  readonly maxBytes: number;
+  readonly ttlMs: number;
 }
 declare class QueryService {
   execute(input: string, options: QueryServiceOptions): Promise<QueryServiceResult>;
@@ -524,6 +569,7 @@ export interface OpsiClientOptions {
   readonly providerId: string;
   readonly downloads?: Omit<DownloadServiceOptions, "registry" | "providerId">;
   readonly cache?: ContentCache;
+  readonly duckdbCache?: DuckDbCachePolicy;
   readonly cwd?: string;
   readonly queryWorkerPath?: string | URL;
 }

@@ -42,7 +42,7 @@ post-deployment digest/schema verification provide additional controls. Operatio
 
 ## Query and format isolation
 
-SQL policy uses DuckDB statement extraction/preparation, rejects multiple/diagnostic/mutating statements, stages input in an OPSI-owned database, reopens read-only, disables external access and extension auto-install/load, and runs in a killable worker. Limits cover SQL bytes, rows, deadline, 1GB memory, four threads, columns, cells, and output. XLSX shared strings/columns and all preview/export sizes are bounded. Formula-like strings are warned or prefixed by explicit spreadsheet-safe export.
+SQL policy uses DuckDB statement extraction/preparation, rejects multiple/diagnostic/mutating statements, stages input in an OPSI-owned database, reopens read-only, disables external access and extension auto-install/load, and runs in a killable worker. Cached stages are immutable content-addressed objects; workers never open the canonical cache path, only an invocation-local hard link or exclusive copy. Structural verification also opens read-only with external access and extensions disabled. Derived metadata contains only digests, format/sheet, compatibility versions, sizes, and retention timestamps—never source paths, URLs, credentials, SQL, or result rows. TTL/LRU eviction affects only rebuildable derived stages. Limits cover SQL bytes, rows, deadline, 1GB memory, four threads, columns, cells, and output. XLSX shared strings/columns and all preview/export sizes are bounded. Formula-like strings are warned or prefixed by explicit spreadsheet-safe export.
 
 ## Overrides, secrets, and reporting
 

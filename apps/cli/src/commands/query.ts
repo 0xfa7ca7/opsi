@@ -27,6 +27,7 @@ export function registerQueryCommand(
         queryTimeoutMs?: number;
         duckdbMemoryLimit?: string;
         duckdbThreads?: number;
+        quiet?: boolean;
       };
       const limit = options.limit ?? context.configuration?.query.rowLimit ?? global.queryRowLimit;
       const timeoutMs =
@@ -51,6 +52,9 @@ export function registerQueryCommand(
           allowPrivateNetwork: options.allowPrivateNetwork ?? false,
           signal: controller.signal,
         });
+        if (global.quiet !== true)
+          for (const warning of result.warnings)
+            context.io.stderr.write(`warning [${warning.code}]: ${warning.message}\n`);
         context.renderer?.write(result.rows, {
           sql: result.sql,
           columns: result.columns,
@@ -58,6 +62,8 @@ export function registerQueryCommand(
           truncated: result.truncated,
           source: result.source,
           durationMs: result.durationMs,
+          cache: result.cache,
+          ...(result.warnings.length === 0 ? {} : { warnings: result.warnings }),
           ...(result.output === undefined
             ? {}
             : { output: result.output, provenancePath: result.provenancePath }),

@@ -12,6 +12,7 @@ export interface DataSource {
   readonly path: string;
   readonly mediaType?: string;
   readonly declaredFormat?: string;
+  readonly sha256?: string;
 }
 
 export type DataInput = string | DataSource;

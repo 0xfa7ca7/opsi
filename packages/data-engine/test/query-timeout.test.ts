@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DuckDbQueryRunner } from "../src/query.js";
+import { stageTabularInput } from "../src/tabular-stage.js";
 
 let directory: string;
 let input: string;
@@ -104,6 +105,30 @@ describe("DuckDbQueryRunner deadlines", () => {
       }),
     ).rejects.toMatchObject({ code: "QUERY_TIMEOUT", exitCode: 7 });
     expect(Date.now() - started).toBeLessThan(5_000);
+  });
+
+  it("enforces the same deadline for prepared databases", async () => {
+    const databasePath = join(directory, "prepared-timeout.duckdb");
+    const stage = await stageTabularInput({
+      input,
+      databasePath,
+      xlsxRowsPath: join(directory, "prepared-timeout.ndjson"),
+      xlsxSharedStringsByteLimit: 1024 * 1024,
+      preserveDatabaseOnClose: true,
+    });
+    await stage.connection.run("CHECKPOINT");
+    await stage.close();
+    const runner = new DuckDbQueryRunner({
+      workerPath: new URL("./fixtures/query-worker-source-entry.ts", import.meta.url),
+    });
+    await expect(
+      runner.executePrepared({
+        databasePath,
+        invocationDirectory: directory,
+        sql: "SELECT sum(a.i * b.i) FROM range(1000000000) a(i), range(1000000000) b(i)",
+        timeoutMs: 100,
+      }),
+    ).rejects.toMatchObject({ code: "QUERY_TIMEOUT", exitCode: 7 });
   });
 
   it("force-kills a worker that ignores the interrupt grace period", async () => {

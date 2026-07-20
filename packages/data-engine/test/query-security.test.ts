@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DuckDbQueryRunner } from "../src/query.js";
 import { executeQueryWorker, finalizeQueryWorkerResources } from "../src/query-worker.js";
-import { stageTabularInput } from "../src/tabular-stage.js";
+import { stageTabularInput, verifyStagedDatabase } from "../src/tabular-stage.js";
 
 let directory: string;
 let input: string;
@@ -254,6 +254,47 @@ describe("DuckDbQueryRunner security", () => {
     });
     expect(await readFile(databasePath)).toEqual(before);
     expect((await stat(databasePath)).mtimeMs).toBe(beforeStat.mtimeMs);
+  });
+
+  it("reuses a prepared database without modifying it", async () => {
+    const databasePath = join(directory, "prepared.duckdb");
+    const stage = await stageTabularInput({
+      input,
+      databasePath,
+      xlsxRowsPath: join(directory, "prepared-xlsx.ndjson"),
+      xlsxSharedStringsByteLimit: 1024 * 1024,
+      preserveDatabaseOnClose: true,
+    });
+    await stage.connection.run("CHECKPOINT");
+    await stage.close();
+    await expect(verifyStagedDatabase(databasePath)).resolves.toBeUndefined();
+    const before = await readFile(databasePath);
+    const beforeStat = await stat(databasePath);
+    const runner = new DuckDbQueryRunner({
+      workerPath: new URL("./fixtures/query-worker-source-entry.ts", import.meta.url),
+    });
+    const options = {
+      databasePath,
+      invocationDirectory: directory,
+      sql: "SELECT * FROM data ORDER BY value",
+      memoryLimit: "128MB",
+      threads: 1,
+    } as const;
+    const first = await runner.executePrepared(options);
+    const second = await runner.executePrepared(options);
+    expect(second).toEqual(first);
+    expect(await readFile(databasePath)).toEqual(before);
+    expect((await stat(databasePath)).mtimeMs).toBe(beforeStat.mtimeMs);
+  });
+
+  it("rejects a prepared database without the expected data table", async () => {
+    const databasePath = join(directory, "invalid.duckdb");
+    const database = await DuckDBInstance.create(databasePath);
+    database.closeSync();
+    await expect(verifyStagedDatabase(databasePath)).rejects.toMatchObject({
+      code: "STAGED_DATABASE_INVALID",
+      exitCode: 7,
+    });
   });
 
   it("removes database, WAL, and spill trees on every completed child path", async () => {

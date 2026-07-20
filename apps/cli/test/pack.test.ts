@@ -50,12 +50,15 @@ async function compileSdkConsumer(directory: string): Promise<void> {
   type CanonicalReference,
   type Dataset,
   type DatasetId,
+  type DuckDbCachePolicy,
   type DownloadRecord,
   type Field,
   type ParsedCanonicalReference,
   type ProviderId,
   type Provenance,
   type QueryResult,
+  type QueryCacheMetadata,
+  type QueryCacheWarning,
   type ResourceId,
   type SearchQuery,
   type ValidationIssue,
@@ -108,6 +111,12 @@ const queryResult: QueryResult = {
   source: reference,
   provenance,
 };
+const queryCache: QueryCacheMetadata = { status: 'hit', kind: 'duckdb-stage' };
+const queryWarning: QueryCacheWarning = {
+  code: 'QUERY_CACHE_BYPASS',
+  message: 'temporary staging',
+};
+const duckdbCache: DuckDbCachePolicy = { enabled: true, maxBytes: 10_000, ttlMs: 86_400_000 };
 const dataset: Dataset = {
   id: datasetId,
   providerId,
@@ -129,6 +138,7 @@ const registry = new ProviderRegistry([]);
 const client: OpsiClient = new OpsiClient({
   registry,
   providerId,
+  duckdbCache,
   downloads: { downloadDir: '/tmp', limits: { maxBytes: 1_000, timeoutMs: 1_000 } },
 });
 const search: SearchQuery = { text: 'promet', filters: { formats: ['csv'] } };
@@ -152,10 +162,11 @@ const operations = [
   client.data.validate('/tmp/traffic.csv').then((result) => result.schema?.fields[0]?.nullable),
   client.data.convert('/tmp/traffic.csv', { output: '/tmp/traffic.json', targetFormat: 'json' }).then((result) => result.warnings),
   client.conversions.convert('/tmp/traffic.csv', { output: '/tmp/traffic.tsv', targetFormat: 'tsv' }).then((result) => result.provenancePath),
-  client.query.execute('/tmp/traffic.csv', { sql: 'select * from data', limit: 5 }).then((result) => [result.source, result.durationMs]),
+  client.query.execute('/tmp/traffic.csv', { sql: 'select * from data', limit: 5 }).then((result) => [result.source, result.durationMs, result.cache.status, result.warnings]),
 ];
 void [dataset.providerMetadata?.raw.source, validation.schema?.fields[0]?.nullable,
-  download.provenance.transformations[0]?.operation, queryResult.rows[0]?.count, operations];
+  download.provenance.transformations[0]?.operation, queryResult.rows[0]?.count,
+  queryCache.status, queryWarning.code, operations];
 `,
   );
   await writeFile(
@@ -286,15 +297,26 @@ describe("canonical npm tarball", () => {
       JSON.parse((await execute(binary, ["doctor", "--json", "--offline"], { cwd: root })).stdout),
     ).toMatchObject({ data: { status: "pass" } });
     const csv = resolve(process.cwd(), "packages/testing/fixtures/data/valid.csv");
-    expect(
-      JSON.parse(
-        (
-          await execute(binary, ["query", csv, "--sql", "select 42 as answer", "--json"], {
-            cwd: root,
-          })
-        ).stdout,
-      ),
-    ).toMatchObject({ data: [{ answer: 42 }] });
+    const queryEnvironment = {
+      ...process.env,
+      HOME: root,
+      OPSI_CACHE_DIR: join(root, "cache"),
+    };
+    const queryArguments = ["query", csv, "--sql", "select 42 as answer", "--json"];
+    const firstQuery = JSON.parse(
+      (await execute(binary, queryArguments, { cwd: root, env: queryEnvironment })).stdout,
+    );
+    const secondQuery = JSON.parse(
+      (await execute(binary, queryArguments, { cwd: root, env: queryEnvironment })).stdout,
+    );
+    expect(firstQuery).toMatchObject({
+      data: [{ answer: 42 }],
+      meta: { cache: { status: "miss", kind: "duckdb-stage" } },
+    });
+    expect(secondQuery).toMatchObject({
+      data: firstQuery.data,
+      meta: { cache: { status: "hit", kind: "duckdb-stage" } },
+    });
     const xlsx = resolve(process.cwd(), "packages/testing/fixtures/data/data.xlsx");
     expect(
       JSON.parse(
@@ -352,6 +374,19 @@ describe("canonical npm tarball", () => {
         expect.objectContaining({ name: "format:parquet", status: "fail" }),
       ]),
     );
+    const csv = resolve(process.cwd(), "packages/testing/fixtures/data/valid.csv");
+    let queryFailure: (Error & { code?: number; stdout?: string }) | undefined;
+    try {
+      await execute(binary, ["query", csv, "--sql", "select * from data", "--json"], {
+        cwd: omitted,
+      });
+    } catch (error) {
+      queryFailure = error as Error & { code?: number; stdout?: string };
+    }
+    expect(queryFailure).toMatchObject({
+      code: 5,
+      stdout: expect.stringContaining("DUCKDB_UNAVAILABLE"),
+    });
     await compileSdkConsumer(omitted);
   });
 });

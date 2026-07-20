@@ -95,7 +95,14 @@ function environmentSource(env: NodeJS.ProcessEnv): MutableRecord {
       rowLimit: positiveInteger(env.OPSI_QUERY_ROW_LIMIT),
       timeoutMs: positiveInteger(env.OPSI_QUERY_TIMEOUT_MS),
     },
-    duckdb: { memoryLimit: env.OPSI_DUCKDB_MEMORY_LIMIT },
+    duckdb: {
+      memoryLimit: env.OPSI_DUCKDB_MEMORY_LIMIT,
+      cache: {
+        enabled: booleanValue(env.OPSI_DUCKDB_CACHE_ENABLED),
+        maxBytes: env.OPSI_DUCKDB_CACHE_MAX_BYTES,
+        ttlDays: positiveInteger(env.OPSI_DUCKDB_CACHE_TTL_DAYS),
+      },
+    },
     apiKey: env.OPSI_API_KEY,
   };
 }
@@ -136,7 +143,11 @@ export async function loadConfiguration(
     http: { timeoutMs: 30_000, maxDownloadBytes: 2 * 1024 * 1024 * 1024 },
     preview: { rowLimit: 20 },
     query: { rowLimit: 1_000, timeoutMs: 30_000 },
-    duckdb: { memoryLimit: "1GB", threads: 4 },
+    duckdb: {
+      memoryLimit: "1GB",
+      threads: 4,
+      cache: { enabled: true, maxBytes: "10GB", ttlDays: 30 },
+    },
     terminal: { color: runtimeEnv.NO_COLOR === undefined },
   };
   const user = await readSource(paths.userFile);

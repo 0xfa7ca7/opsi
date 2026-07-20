@@ -2,15 +2,15 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { open, rm } from "node:fs/promises";
 import { extname, resolve } from "node:path";
-import {
-  DuckDbQueryRunner,
-  type DataInput,
-  type DataRow,
-  type QueryResult,
-} from "@opsi/data-engine";
+import { type DataInput, type DataRow, type QueryResult } from "@opsi/data-engine";
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import { publishArtifactPair, type PairPublicationOptions } from "@opsi/storage";
 import type { DataResolutionOptions, DataService } from "./data.js";
+import {
+  QueryDatabaseCache,
+  type QueryCacheMetadata,
+  type QueryCacheWarning,
+} from "./query-database-cache.js";
 
 export interface QueryServiceOptions extends DataResolutionOptions {
   readonly sql: string;
@@ -27,6 +27,8 @@ export interface QueryServiceOptions extends DataResolutionOptions {
 export interface QueryServiceResult extends QueryResult {
   readonly source: string;
   readonly durationMs: number;
+  readonly cache: QueryCacheMetadata;
+  readonly warnings: readonly QueryCacheWarning[];
   readonly output?: string;
   readonly provenancePath?: string;
 }
@@ -128,15 +130,14 @@ function sourcePath(input: DataInput): string {
 export class QueryService {
   constructor(
     private readonly data: DataService,
-    private readonly runner: DuckDbQueryRunner,
+    private readonly databases: QueryDatabaseCache,
     private readonly publicationOptions: PairPublicationOptions = {},
   ) {}
 
   execute(input: string, options: QueryServiceOptions): Promise<QueryServiceResult> {
     return this.data.withResolvedInput(input, options, async (source) => {
       const started = performance.now();
-      const result = await this.runner.execute({
-        input: source,
+      const result = await this.databases.execute(source, {
         sql: options.sql,
         ...(options.limit === undefined ? {} : { rowLimit: options.limit }),
         ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),

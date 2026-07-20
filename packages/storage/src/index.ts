@@ -15,3 +15,14 @@ export type { ProvenanceInput, ProvenanceWriteOptions, StoredProvenance } from "
 export { publishArtifactPair } from "./paired-publication.js";
 export type { PairPublicationOptions, PairPublicationPoint } from "./paired-publication.js";
 export type { MetadataRecord, MetadataValidators } from "./cache.js";
+export { DerivedArtifactCache } from "./derived-artifact-cache.js";
+export type {
+  DerivedArtifactEntry,
+  DerivedArtifactHit,
+  DerivedArtifactIdentity,
+  DerivedArtifactInfo,
+  DerivedArtifactPolicy,
+  DerivedArtifactPruneResult,
+  DerivedArtifactPublication,
+  DerivedArtifactVerification,
+} from "./derived-artifact-cache.js";

@@ -66,7 +66,7 @@ Syntax: `opsi convert <input> --to <csv|tsv|json|ndjson|xlsx|parquet> --output <
 
 ### `query`
 
-Syntax: `opsi query <input> --sql <statement> [options]`. Only one read-only SELECT, WITH…SELECT, or VALUES statement is accepted. Options: `--limit`, `--timeout-ms`, `--sheet`, `--output`, `--force`, and network overrides. User SQL runs in a worker against staged table `data`, with row/time/1GB memory/4-thread/cell/output bounds and extensions/external access disabled. Rejected, timed-out, or cancelled queries exit 7. Example: `opsi query traffic.csv --sql "select * from data limit 2" --json`.
+Syntax: `opsi query <input> --sql <statement> [options]`. Only one read-only SELECT, WITH…SELECT, or VALUES statement is accepted. Options: `--limit`, `--timeout-ms`, `--sheet`, `--output`, `--force`, and network overrides. User SQL runs in a worker against staged table `data`, with row/time/1GB memory/4-thread/cell/output bounds and extensions/external access disabled. Stages for unchanged content are cached transparently; JSON metadata contains `cache: {status: "hit"|"miss"|"bypass", kind: "duckdb-stage"}`. Cache failure falls back to temporary staging with a sanitized warning. Rejected, timed-out, or cancelled queries exit 7. Example: `opsi query traffic.csv --sql "select * from data limit 2" --json`.
 
 ### `provenance show`
 
@@ -80,11 +80,11 @@ Syntax: `opsi provenance verify <path>`. Recomputes the artifact SHA-256 and com
 
 ### `cache info`
 
-Reports cache paths, object/metadata counts, and bytes. Example: `opsi cache info --json`.
+Reports cache paths, object/metadata counts, total bytes, and separate DuckDB-derived object/byte/budget/TTL totals. Example: `opsi cache info --json`.
 
 ### `cache list`
 
-Lists cache objects and metadata without mutation. Example: `opsi cache list --json`.
+Lists cache objects without mutation, marking them `raw` or `duckdb-stage`; derived entries include format and retention timestamps but no source path, URL, SQL, or result rows. Example: `opsi cache list --json`.
 
 ### `cache clear`
 
@@ -92,11 +92,11 @@ Deletes cache content with `--yes` or an interactive human confirmation. Non-TTY
 
 ### `cache prune`
 
-Removes expired metadata and unreferenced objects with `--yes` or interactive human confirmation. Publication locks and valid live references are preserved. Example: `opsi cache prune --yes --json`.
+Removes expired metadata and unreferenced objects with `--yes` or interactive human confirmation. Derived stages are expired first and then evicted by least-recent use until their separate budget is met. Raw cache entries are not evicted to meet that budget. Publication locks and valid live references are preserved. Example: `opsi cache prune --yes --json`.
 
 ### `cache verify`
 
-Re-hashes cached objects and reports corruption. Any corrupt object exits 6. Example: `opsi cache verify --json`.
+Re-hashes cached objects and structurally opens derived DuckDB stages read-only. Any corrupt object exits 6. Example: `opsi cache verify --json`.
 
 ### `config get`
 

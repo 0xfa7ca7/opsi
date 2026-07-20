@@ -1,4 +1,5 @@
 export { ConfigStore } from "./store.js";
+export { parseStorageBytes } from "./byte-size.js";
 export { loadConfiguration } from "./load.js";
 export type { CliConfigurationOptions, LoadConfigurationOptions } from "./load.js";
 export { resolveConfigPaths } from "./paths.js";

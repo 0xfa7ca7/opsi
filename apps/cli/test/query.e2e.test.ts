@@ -15,10 +15,16 @@ beforeEach(async () => {
 });
 afterEach(async () => rm(home, { recursive: true, force: true }));
 
-async function cli(argv: readonly string[]) {
+async function cli(argv: readonly string[], env: NodeJS.ProcessEnv = {}) {
   const child = spawn(process.execPath, [resolve("apps/cli/dist/main.js"), ...argv], {
     cwd: home,
-    env: { ...process.env, HOME: home, OPSI_CACHE_DIR: join(home, "cache"), NO_COLOR: "1" },
+    env: {
+      ...process.env,
+      ...env,
+      HOME: home,
+      OPSI_CACHE_DIR: join(home, "cache"),
+      NO_COLOR: "1",
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let stdout = "";
@@ -36,6 +42,58 @@ async function cli(argv: readonly string[]) {
 }
 
 describe("query CLI", () => {
+  it("reports a transparent miss followed by a hit", async () => {
+    const argv = ["query", input, "--sql", "SELECT * FROM data ORDER BY city", "--json"];
+    const first = await cli(argv);
+    const second = await cli(argv);
+    expect(first).toMatchObject({
+      exitCode: 0,
+      stderr: "",
+      json: { meta: { cache: { status: "miss", kind: "duckdb-stage" } } },
+    });
+    expect(second).toMatchObject({
+      exitCode: 0,
+      stderr: "",
+      json: { data: (first.json as { data: unknown }).data, meta: { cache: { status: "hit" } } },
+    });
+  });
+
+  it("reports bypass when the derived cache budget is zero", async () => {
+    await expect(
+      cli(["query", input, "--sql", "SELECT * FROM data", "--json"], {
+        OPSI_DUCKDB_CACHE_MAX_BYTES: "0B",
+      }),
+    ).resolves.toMatchObject({
+      exitCode: 0,
+      stderr: "",
+      json: { meta: { cache: { status: "bypass", kind: "duckdb-stage" } } },
+    });
+  });
+
+  it("exposes derived cache information and maintenance through cache commands", async () => {
+    await cli(["query", input, "--sql", "SELECT * FROM data", "--json"]);
+    await expect(cli(["cache", "info", "--json"])).resolves.toMatchObject({
+      exitCode: 0,
+      json: { data: { derived: { objects: 1, bytes: expect.any(Number) } } },
+    });
+    await expect(cli(["cache", "list", "--json"])).resolves.toMatchObject({
+      exitCode: 0,
+      json: { data: [expect.objectContaining({ kind: "duckdb-stage" })] },
+    });
+    await expect(cli(["cache", "verify", "--json"])).resolves.toMatchObject({
+      exitCode: 0,
+      json: { data: { errors: [] } },
+    });
+    await expect(cli(["cache", "prune", "--yes", "--json"])).resolves.toMatchObject({
+      exitCode: 0,
+      json: { data: { derivedExpiredRemoved: 0, derivedLruRemoved: 0 } },
+    });
+    await expect(cli(["cache", "clear", "--yes", "--json"])).resolves.toMatchObject({
+      exitCode: 0,
+      json: { data: { cleared: true } },
+    });
+  });
+
   it("queries only the data table and includes executed SQL metadata", async () => {
     const sql = "SELECT city, value FROM data ORDER BY city";
     await expect(cli(["query", input, "--sql", sql, "--json"])).resolves.toMatchObject({
