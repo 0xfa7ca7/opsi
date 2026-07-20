@@ -149,14 +149,32 @@ export class WfsService {
     const resolved = await this.resolve(input);
     let capabilities = this.capabilitiesCache.get(resolved.canonical);
     if (capabilities === undefined) {
-      const bytes = await this.fetch(
-        resolved,
-        { version: "2.0.0", request: "GetCapabilities" },
-        network,
-      );
-      const exception = serviceException(bytes);
-      if (exception !== undefined) throw exception;
-      capabilities = parseWfsCapabilities(bytes);
+      let negotiationError: OpsiError | undefined;
+      for (const version of ["2.0.0", "1.1.0", "1.0.0"] as const) {
+        const bytes = await this.fetch(resolved, { version, request: "GetCapabilities" }, network);
+        const exception = serviceException(bytes);
+        if (exception !== undefined) {
+          negotiationError = exception;
+          continue;
+        }
+        try {
+          capabilities = parseWfsCapabilities(bytes);
+          break;
+        } catch (error) {
+          if (!(error instanceof OpsiError) || error.code !== "WFS_VERSION_UNSUPPORTED")
+            throw error;
+          negotiationError = error;
+        }
+      }
+      if (capabilities === undefined)
+        throw (
+          negotiationError ??
+          new OpsiError({
+            code: "WFS_VERSION_UNSUPPORTED",
+            message: "The service did not negotiate WFS 2.0.0, 1.1.0, or 1.0.0.",
+            exitCode: EXIT_CODES.UNSUPPORTED,
+          })
+        );
       this.capabilitiesCache.set(resolved.canonical, capabilities);
     }
     return { resource: resolved.canonical, capabilities };
@@ -296,6 +314,7 @@ export class WfsService {
       readonly format?: "csv";
     },
   ): Promise<{ readonly output: string; readonly provenancePath: string; readonly rows: number }> {
+    const resolved = await this.resolve(input);
     const result = await this.preview(input, options);
     const output = resolve(options.output);
     try {
@@ -338,7 +357,7 @@ export class WfsService {
       const sidecar = await open(provenanceTemporary, "wx", 0o600);
       try {
         await sidecar.writeFile(
-          `${JSON.stringify({ schemaVersion: "1", retrievedAt: timestamp, sha256: createHash("sha256").update(bytes).digest("hex"), bytes: bytes.length, localPath: output, mediaType: "text/csv", transformations: [{ operation: "wfs-query", timestamp, details: { resource: input, version: result.version, layer: options.layer, properties: options.properties ?? [], filters: options.filters ?? {}, bbox: options.bbox ?? null, crs: options.crs ?? null, limit: options.limit ?? 20, startIndex: options.startIndex ?? 0, outputFormat: "csv" } }] }, null, 2)}\n`,
+          `${JSON.stringify({ schemaVersion: "1", retrievedAt: timestamp, sha256: createHash("sha256").update(bytes).digest("hex"), bytes: bytes.length, localPath: output, mediaType: "text/csv", transformations: [{ operation: "wfs-query", timestamp, details: { resource: resolved.canonical, version: result.version, layer: options.layer, properties: options.properties ?? [], filters: options.filters ?? {}, bbox: options.bbox ?? null, crs: options.crs ?? null, limit: options.limit ?? 20, startIndex: options.startIndex ?? 0, outputFormat: "csv" } }] }, null, 2)}\n`,
         );
         await sidecar.sync();
       } finally {

@@ -122,4 +122,32 @@ describe("secure WFS service", () => {
     ).rejects.toMatchObject({ code: "WFS_FIELD_NOT_FOUND", exitCode: 2 });
     expect(download).toHaveBeenCalledTimes(2);
   });
+
+  it("negotiates WFS 1.1 when 2.0 is rejected", async () => {
+    const download = vi.fn(async ({ url, destination }: { url: string; destination: string }) => {
+      const version = new URL(url).searchParams.get("version");
+      const body =
+        version === "2.0.0"
+          ? `<ows:ExceptionReport xmlns:ows="x"><ows:Exception exceptionCode="VersionNegotiationFailed"><ows:ExceptionText>unsupported</ows:ExceptionText></ows:Exception></ows:ExceptionReport>`
+          : `<wfs:WFS_Capabilities xmlns:wfs="x" version="1.1.0"><wfs:FeatureTypeList><wfs:FeatureType><wfs:Name>roads</wfs:Name></wfs:FeatureType></wfs:FeatureTypeList></wfs:WFS_Capabilities>`;
+      await writeFile(destination, body);
+      return {
+        path: destination,
+        finalUrl: url,
+        redirectChain: [url],
+        bytes: body.length,
+        sha256: "a".repeat(64),
+      };
+    });
+    const service = new WfsService({
+      registry: new ProviderRegistry([provider()]),
+      providerId: "fixture",
+      downloader: { download } as never,
+      limits: { maxBytes: 1_000_000, timeoutMs: 1000 },
+    });
+    await expect(service.inspect("wfs")).resolves.toMatchObject({
+      capabilities: { version: "1.1.0" },
+    });
+    expect(download).toHaveBeenCalledTimes(2);
+  });
 });

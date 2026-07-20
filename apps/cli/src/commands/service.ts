@@ -24,7 +24,7 @@ function network(options: SelectionArguments): WfsNetworkOptions {
 }
 
 function selection(options: SelectionArguments): WfsSelectionOptions {
-  const filters: Record<string, string> = {};
+  const filters: Record<string, string | number | boolean> = {};
   for (const candidate of options.filterEq ?? []) {
     const index = candidate.indexOf("=");
     if (index <= 0)
@@ -33,7 +33,12 @@ function selection(options: SelectionArguments): WfsSelectionOptions {
         message: "Equality filters must use field=value.",
         exitCode: EXIT_CODES.INVALID_INPUT,
       });
-    filters[candidate.slice(0, index)] = candidate.slice(index + 1);
+    const raw = candidate.slice(index + 1);
+    filters[candidate.slice(0, index)] = /^(?:true|false)$/iu.test(raw)
+      ? raw.toLowerCase() === "true"
+      : /^[+-]?(?:\d+|\d*\.\d+)$/u.test(raw) && Number.isFinite(Number(raw))
+        ? Number(raw)
+        : raw;
   }
   let bbox: [number, number, number, number] | undefined;
   if (options.bbox !== undefined) {

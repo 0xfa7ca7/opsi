@@ -90,9 +90,6 @@ export class DataService {
       await extractArchiveEntry(detection.path, selected, output, this.archiveLimits);
       return {
         path: output,
-        ...(typeof source === "string" || source.mediaType === undefined
-          ? {}
-          : { mediaType: source.mediaType }),
         declaredFormat: extname(selected).slice(1),
       };
     };

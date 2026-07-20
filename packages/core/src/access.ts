@@ -61,7 +61,7 @@ export class ResourceAccessService {
     input: string,
     options: DataResolutionOptions = {},
   ): Promise<ResourceAccessDescriptor> {
-    if (input.startsWith("local:file:") || !input.includes(":")) {
+    if (input.startsWith("local:file:") || !/^[^:]+:(?:dataset|resource):/u.test(input)) {
       try {
         const source = await this.local.resolve(input);
         const detection = await detectFormat(source);

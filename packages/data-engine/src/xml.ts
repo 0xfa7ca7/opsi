@@ -3,6 +3,7 @@ import { rm } from "node:fs/promises";
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import { SaxesParser, type SaxesAttributeNS, type SaxesTagNS } from "saxes";
 import type { DataRow, ValidationIssue } from "./types.js";
+import { detectTextEncoding } from "./text-decoding.js";
 
 export interface XmlLimits {
   readonly maxDocumentBytes: number;
@@ -82,6 +83,7 @@ async function parseXml(
     throw error;
   });
   let bytes = 0;
+  let decoder: InstanceType<typeof TextDecoder> | undefined;
   try {
     for await (const raw of createReadStream(path)) {
       const chunk = Buffer.from(raw as Uint8Array);
@@ -93,8 +95,10 @@ async function parseXml(
           exitCode: EXIT_CODES.INTEGRITY_FAILURE,
           context: { limit: limits.maxDocumentBytes },
         });
-      parser.write(chunk.toString("utf8"));
+      decoder ??= new TextDecoder(detectTextEncoding(chunk), { fatal: true });
+      parser.write(decoder.decode(chunk, { stream: true }));
     }
+    if (decoder !== undefined) parser.write(decoder.decode());
     parser.close();
   } catch (error) {
     throw xmlError(error);

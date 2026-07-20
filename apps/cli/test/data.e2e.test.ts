@@ -27,19 +27,26 @@ beforeAll(async () => {
       response.end("id,mesto\n1,Ljubljana\n2,Škofja Loka\n");
       return;
     }
+    if (url.pathname === "/archive.zip") {
+      response.writeHead(200, { "content-type": "application/zip" });
+      response.end(Buffer.from(zipSync({ "rows.csv": strToU8("id,name\n7,Celje\n") })));
+      return;
+    }
     if (url.pathname === "/resource_show") {
-      const mediaOnly = url.searchParams.get("id") === "resource-media";
+      const requestedId = url.searchParams.get("id");
+      const mediaOnly = requestedId === "resource-media";
+      const archive = requestedId === "resource-zip";
       response.writeHead(200, { "content-type": "application/json" });
       response.end(
         JSON.stringify({
           success: true,
           result: {
-            id: mediaOnly ? "resource-media" : "resource-data",
-            package_id: mediaOnly ? "dataset-media" : "dataset-data",
+            id: archive ? "resource-zip" : mediaOnly ? "resource-media" : "resource-data",
+            package_id: archive ? "dataset-zip" : mediaOnly ? "dataset-media" : "dataset-data",
             name: "Rows",
-            url: `${baseUrl}/data.csv`,
-            format: mediaOnly ? null : "CSV",
-            mimetype: mediaOnly ? "text/csv" : null,
+            url: `${baseUrl}/${archive ? "archive.zip" : "data.csv"}`,
+            format: archive ? "ZIP" : mediaOnly ? null : "CSV",
+            mimetype: archive ? "application/zip" : mediaOnly ? "text/csv" : null,
           },
         }),
       );
@@ -177,6 +184,21 @@ describe("data CLI", () => {
       exitCode: 0,
       json: { data: [{ id: "2", name: "Maribor" }] },
     });
+  });
+
+  it("drops archive media metadata after secure remote extraction", async () => {
+    await expect(
+      cli([
+        "resource",
+        "preview",
+        "opsi:resource:resource-zip",
+        "--entry",
+        "rows.csv",
+        "--allow-insecure-http",
+        "--allow-private-network",
+        "--json",
+      ]),
+    ).resolves.toMatchObject({ exitCode: 0, json: { data: [{ id: "7", name: "Celje" }] } });
   });
 
   it("uses an explicit XML record path when discovery is ambiguous", async () => {

@@ -80,15 +80,20 @@ export function buildWfsUrl(base: string | URL, query: WfsQuery): URL {
   if (filters.length > 0) {
     for (const [name] of filters)
       if (!NAME.test(name)) invalid("A WFS filter property is invalid.", { property: name });
+    const modern = query.version === "2.0.0";
+    const prefix = modern ? "fes" : "ogc";
+    const propertyElement = modern ? "ValueReference" : "PropertyName";
     const predicates = filters
       .map(
         ([name, value]) =>
-          `<fes:PropertyIsEqualTo><fes:ValueReference>${xml(name)}</fes:ValueReference><fes:Literal>${xml(value)}</fes:Literal></fes:PropertyIsEqualTo>`,
+          `<${prefix}:PropertyIsEqualTo><${prefix}:${propertyElement}>${xml(name)}</${prefix}:${propertyElement}><${prefix}:Literal>${xml(value)}</${prefix}:Literal></${prefix}:PropertyIsEqualTo>`,
       )
       .join("");
+    const body = filters.length > 1 ? `<${prefix}:And>${predicates}</${prefix}:And>` : predicates;
+    const namespace = modern ? "http://www.opengis.net/fes/2.0" : "http://www.opengis.net/ogc";
     url.searchParams.set(
       "filter",
-      `<fes:Filter xmlns:fes="http://www.opengis.net/fes/2.0">${filters.length > 1 ? `<fes:And>${predicates}</fes:And>` : predicates}</fes:Filter>`,
+      `<${prefix}:Filter xmlns:${prefix}="${namespace}">${body}</${prefix}:Filter>`,
     );
   }
   return url;

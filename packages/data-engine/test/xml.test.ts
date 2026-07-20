@@ -67,6 +67,25 @@ describe("bounded XML records", () => {
     });
   });
 
+  it("decodes UTF-16 XML before bounded record discovery", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "opsi-xml-"));
+    temporary.push(directory);
+    const path = join(directory, "utf16.xml");
+    await writeFile(
+      path,
+      Buffer.concat([
+        Buffer.from([0xff, 0xfe]),
+        Buffer.from(
+          "<root><row><name>Črnomelj</name></row><row><name>Koper</name></row></root>",
+          "utf16le",
+        ),
+      ]),
+    );
+    await expect(previewXml(path, { limit: 2 })).resolves.toMatchObject({
+      rows: [{ name: "Črnomelj" }, { name: "Koper" }],
+    });
+  });
+
   it("normalizes the same XML rows for validation and conversion", async () => {
     const path = await xml(
       "<root><row><id>1</id><name>Ljubljana</name></row><row><id>2</id><name>Maribor</name></row></root>",

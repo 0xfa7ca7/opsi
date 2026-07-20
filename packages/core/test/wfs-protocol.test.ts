@@ -31,6 +31,15 @@ describe("bounded WFS protocol", () => {
     });
     expect(legacy.searchParams.get("typeName")).toBe("roads");
     expect(legacy.searchParams.get("maxFeatures")).toBe("2");
+    const legacyFilter = buildWfsUrl("https://example.test/wfs", {
+      version: "1.1.0",
+      request: "GetFeature",
+      layer: "roads",
+      filters: { id: 2 },
+    }).searchParams.get("filter");
+    expect(legacyFilter).toContain('xmlns:ogc="http://www.opengis.net/ogc"');
+    expect(legacyFilter).toContain("<ogc:PropertyName>id</ogc:PropertyName>");
+    expect(legacyFilter).not.toContain("fes:");
   });
 
   it.each(["https://user:pass@example.test/wfs", "https://example.test/wfs#fragment"])(
