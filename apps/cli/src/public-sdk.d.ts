@@ -233,7 +233,8 @@ export type ParsedCanonicalReference =
   ParsedDatasetReference | ParsedResourceReference | ParsedLocalFileReference;
 
 type SupportedDataFormat = DataFormat;
-type DetectedInputFormat = SupportedDataFormat | "zip" | "unknown";
+type SupportedInputFormat = SupportedDataFormat | "xml";
+type DetectedInputFormat = SupportedInputFormat | "zip" | "unknown";
 type DetectionConfidence =
   "signature" | "media-type" | "content" | "declared-format" | "extension" | "unknown";
 interface DataSource {
@@ -246,6 +247,8 @@ type DataInput = string | DataSource;
 interface DataResolutionOptions {
   readonly allowInsecureHttp?: boolean;
   readonly allowPrivateNetwork?: boolean;
+  readonly entry?: string;
+  readonly recordPath?: string;
 }
 interface DataOperationOptions extends DataResolutionOptions {
   readonly limit?: number;
@@ -273,7 +276,7 @@ interface EngineValidationIssue {
   readonly context?: Readonly<Record<string, unknown>>;
 }
 interface DataPreview {
-  readonly format: SupportedDataFormat;
+  readonly format: SupportedInputFormat;
   readonly columns: readonly string[];
   readonly rows: readonly DataRow[];
   readonly returnedCount: number;
@@ -291,7 +294,7 @@ interface InferredField {
 interface InferredSchema {
   readonly fields: readonly InferredField[];
   readonly sampledRows: number;
-  readonly format: SupportedDataFormat;
+  readonly format: SupportedInputFormat;
   readonly sheet?: string;
 }
 interface DataValidationResult {
@@ -587,6 +590,65 @@ declare class QueryService {
   execute(input: string, options: QueryServiceOptions): Promise<QueryServiceResult>;
 }
 
+export type WfsVersion = "2.0.0" | "1.1.0" | "1.0.0";
+export interface WfsLayer {
+  readonly name: string;
+  readonly title?: string;
+  readonly defaultCrs?: string;
+  readonly otherCrs: readonly string[];
+}
+export interface WfsCapabilities {
+  readonly version: WfsVersion;
+  readonly operations: readonly string[];
+  readonly layers: readonly WfsLayer[];
+  readonly outputFormats: readonly string[];
+}
+export interface WfsField {
+  readonly name: string;
+  readonly type: string;
+  readonly nullable: boolean;
+}
+export interface WfsQuery {
+  readonly version: WfsVersion;
+  readonly request: "GetCapabilities" | "DescribeFeatureType" | "GetFeature";
+  readonly layer?: string;
+  readonly limit?: number;
+  readonly startIndex?: number;
+  readonly properties?: readonly string[];
+  readonly outputFormat?: string;
+  readonly resultType?: "hits" | "results";
+}
+export interface WfsNetworkOptions {
+  readonly allowInsecureHttp?: boolean;
+  readonly allowPrivateNetwork?: boolean;
+  readonly signal?: AbortSignal;
+}
+export interface WfsSelectionOptions extends WfsNetworkOptions {
+  readonly layer: string;
+  readonly properties?: readonly string[];
+  readonly filters?: Readonly<Record<string, string | number | boolean>>;
+  readonly bbox?: readonly [number, number, number, number];
+  readonly crs?: string;
+  readonly limit?: number;
+  readonly startIndex?: number;
+}
+export interface WfsPreviewResult {
+  readonly version: WfsVersion;
+  readonly layer: string;
+  readonly columns: readonly string[];
+  readonly rows: readonly DataRow[];
+  readonly returnedCount: number;
+  readonly truncated: boolean;
+}
+declare class WfsService {
+  inspect(input: string, network?: WfsNetworkOptions): Promise<{ readonly resource: string; readonly capabilities: WfsCapabilities }>;
+  layers(input: string, network?: WfsNetworkOptions): Promise<readonly WfsLayer[]>;
+  schema(input: string, options: WfsNetworkOptions & { readonly layer: string }): Promise<readonly WfsField[]>;
+  preview(input: string, options: WfsSelectionOptions): Promise<WfsPreviewResult>;
+  count(input: string, options: Omit<WfsSelectionOptions, "limit" | "startIndex" | "properties">): Promise<{ readonly version: WfsVersion; readonly layer: string; readonly count: number }>;
+  export(input: string, options: WfsSelectionOptions & { readonly output: string; readonly force?: boolean; readonly format?: "csv" }): Promise<{ readonly output: string; readonly rows: number }>;
+}
+
 export class ProviderRegistry {
   constructor(providers?: readonly DataProvider[]);
   register(provider: DataProvider): void;
@@ -612,5 +674,6 @@ export class OpsiClient {
   readonly data: DataService;
   readonly conversions: ConversionService;
   readonly query: QueryService;
+  readonly services: { readonly wfs: WfsService };
   search(query: SearchQuery): Promise<SearchPage>;
 }

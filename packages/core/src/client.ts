@@ -12,6 +12,7 @@ import { DuckDbQueryRunner } from "@opsi/data-engine";
 import { QueryDatabaseCache } from "./query-database-cache.js";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { WfsService } from "./wfs/service.js";
 
 export interface OpsiClientOptions {
   readonly registry: ProviderRegistry;
@@ -39,6 +40,7 @@ export class OpsiClient {
   readonly data: DataService;
   readonly conversions: ConversionService;
   readonly query: QueryService;
+  readonly services: { readonly wfs: WfsService };
   private readonly registry: ProviderRegistry;
   private readonly providerId: string;
 
@@ -60,6 +62,15 @@ export class OpsiClient {
       this.data,
       new QueryDatabaseCache({ runner, ...(derived === undefined ? {} : { derived }) }),
     );
+    this.services = {
+      wfs: new WfsService({
+        registry: this.registry,
+        providerId: this.providerId,
+        ...(options.downloads?.downloader === undefined ? {} : { downloader: options.downloads.downloader }),
+        limits: options.downloads?.limits ?? { maxBytes: 64 * 1024 * 1024, timeoutMs: 30_000 },
+        offline: options.downloads?.offline ?? false,
+      }),
+    };
     if (options.downloads !== undefined)
       this.downloads = new DownloadService({
         ...options.downloads,

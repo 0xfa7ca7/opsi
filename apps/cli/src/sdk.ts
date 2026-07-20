@@ -1,6 +1,16 @@
 export { OpsiClient, ProviderRegistry } from "@opsi/core";
 export type { OpsiClientOptions } from "@opsi/core";
 export type {
+  WfsCapabilities,
+  WfsField,
+  WfsLayer,
+  WfsNetworkOptions,
+  WfsPreviewResult,
+  WfsQuery,
+  WfsSelectionOptions,
+  WfsVersion,
+} from "@opsi/core";
+export type {
   CanonicalReference,
   Configuration,
   DataFile,
