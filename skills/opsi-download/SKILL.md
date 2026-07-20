@@ -7,7 +7,7 @@ description: "Download Slovenian OPSI dataset or resource content securely. Use 
 
 > **Prerequisite:** Read [opsi-shared](../opsi-shared/SKILL.md) before executing these commands.
 
-Download selected provider resources through the CLI's bounded secure downloader. Generated for `opsi` 0.1.0.
+Download selected provider resources through the CLI's bounded secure downloader. Generated for `opsi` 0.2.0.
 
 ## Workflow
 

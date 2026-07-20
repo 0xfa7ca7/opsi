@@ -5,7 +5,7 @@ description: "Apply shared OPSI CLI installation, structured-output, offline, sa
 
 # OPSI shared execution contract
 
-Read this before using any OPSI domain skill. Generated for `opsi` 0.1.0.
+Read this before using any OPSI domain skill. Generated for `opsi` 0.2.0.
 
 ## Install and discover
 

@@ -7,7 +7,7 @@ description: "Validate local or provider tabular data and OPSI dataset or resour
 
 > **Prerequisite:** Read [opsi-shared](../opsi-shared/SKILL.md) before executing these commands.
 
-Validate data content or normalized metadata and explain actionable issues. Generated for `opsi` 0.1.0.
+Validate data content or normalized metadata and explain actionable issues. Generated for `opsi` 0.2.0.
 
 ## Workflow
 

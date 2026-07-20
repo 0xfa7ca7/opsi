@@ -7,7 +7,7 @@ description: "Inspect OPSI resource metadata, secure remote headers, or bounded 
 
 > **Prerequisite:** Read [opsi-shared](../opsi-shared/SKILL.md) before executing these commands.
 
-Inspect a resource safely without committing to a full data workflow. Generated for `opsi` 0.1.0.
+Inspect a resource safely without committing to a full data workflow. Generated for `opsi` 0.2.0.
 
 ## Workflow
 

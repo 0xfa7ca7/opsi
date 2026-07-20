@@ -7,7 +7,7 @@ description: "Discover and inspect Slovenian OPSI datasets. Use for catalogue se
 
 > **Prerequisite:** Read [opsi-shared](../opsi-shared/SKILL.md) before executing these commands.
 
-Find datasets and inspect their normalized metadata and tabular schemas. Generated for `opsi` 0.1.0.
+Find datasets and inspect their normalized metadata and tabular schemas. Generated for `opsi` 0.2.0.
 
 ## Workflow
 

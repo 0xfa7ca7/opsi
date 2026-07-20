@@ -7,7 +7,7 @@ description: "Inspect or update OPSI CLI cache and non-secret configuration. Use
 
 > **Prerequisite:** Read [opsi-shared](../opsi-shared/SKILL.md) before executing these commands.
 
-Manage local cache and validated non-secret CLI configuration. Generated for `opsi` 0.1.0.
+Manage local cache and validated non-secret CLI configuration. Generated for `opsi` 0.2.0.
 
 ## Workflow
 
