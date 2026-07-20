@@ -148,8 +148,8 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         id: "structured-selectors",
         title: "Resolve structured content",
         instructions: [
-          "For an ambiguous ZIP, use the returned `--entry`; for XML use one returned `--record-path`; for XLSX use the returned `--sheet`.",
-          "Do not guess a selector or process every archive entry, XML element, or workbook sheet when inspection reports an ambiguity.",
+          "Use one `--entry` or `--record-path` reported by resource inspect or the relevant operation's structured error/output; resource inspect can surface ZIP entries and XML record paths.",
+          "Without `--sheet`, XLSX resource preview, validate, or query emits `SHEET_REQUIRED` with `context.sheets` and a suggestion; use one listed sheet.",
         ],
       },
     ],
@@ -212,8 +212,8 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         id: "structured-selectors",
         title: "Select structured data",
         instructions: [
-          "Use exactly one resolved `--entry`, `--record-path`, or `--sheet` for ambiguous ZIP, XML, or XLSX content.",
-          "Return to resource inspection if a selector is unknown instead of guessing a data member.",
+          "Use one `--entry` or `--record-path` reported by resource inspect or the relevant operation's structured error/output; resource inspect can surface ZIP entries and XML record paths.",
+          "Without `--sheet`, XLSX resource preview, validate, or query emits `SHEET_REQUIRED` with `context.sheets` and a suggestion; use one listed sheet.",
         ],
       },
       {
@@ -611,7 +611,7 @@ Do not pass \`/opsi\`, \`@opsi\`, or \`$opsi\` to the shell. Those are host-spec
 
 ### ${definition.workflows[2]}
 
-1. Run \`opsi agent setup --dry-run\` to inspect detected targets and the planned repertoire.
+1. Run \`opsi agent setup --dry-run\` to inspect the planned selection and repertoire.
 2. With explicit authorization, select the intended host with \`--agent <id>\` and use \`--yes\` for non-interactive installation.
 3. Confirm the result includes the current repertoire, including \`opsi-services\`; use \`generate-skills\` only when a portable skill tree is needed rather than an installation.
 
@@ -669,8 +669,8 @@ Use the installed CLI as the source of truth when its help differs from generate
 ## Input and selector choices
 
 - Use a local path for data already on disk and a canonical \`opsi:resource:\` reference for provider data; do not invent IDs or references.
-- For an ambiguous ZIP use one returned \`--entry\`; for XML use one returned \`--record-path\`; for XLSX use one returned \`--sheet\`.
-- Stop and inspect again when the CLI cannot identify a unique selector. Do not process every archive member, XML record path, or workbook sheet by default.
+- Use one \`--entry\` or \`--record-path\` reported by resource inspect or the relevant operation's structured error/output; resource inspect can surface ZIP entries and XML record paths.
+- Without \`--sheet\`, XLSX resource preview, validate, or query emits \`SHEET_REQUIRED\` with \`context.sheets\` and a suggestion; use one listed sheet.
 
 ## Formats and outputs
 

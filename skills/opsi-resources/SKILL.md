@@ -28,8 +28,8 @@ Inspect a resource safely without committing to a full data workflow. Generated 
 
 ### Resolve structured content
 
-- For an ambiguous ZIP, use the returned `--entry`; for XML use one returned `--record-path`; for XLSX use the returned `--sheet`.
-- Do not guess a selector or process every archive entry, XML element, or workbook sheet when inspection reports an ambiguity.
+- Use one `--entry` or `--record-path` reported by resource inspect or the relevant operation's structured error/output; resource inspect can surface ZIP entries and XML record paths.
+- Without `--sheet`, XLSX resource preview, validate, or query emits `SHEET_REQUIRED` with `context.sheets` and a suggestion; use one listed sheet.
 
 ## Commands
 

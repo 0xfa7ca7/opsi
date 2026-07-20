@@ -386,6 +386,25 @@ describe("agent skill rendering", () => {
     }
   });
 
+  it("renders accurate refresh planning and structured-selector guidance", () => {
+    const files = renderAgentSkillFiles("1.2.3");
+    const orchestrator = files.get("opsi") ?? "";
+    const resources = files.get("opsi-resources") ?? "";
+    const shared = files.get("opsi-shared") ?? "";
+    const validation = files.get("opsi-validation") ?? "";
+
+    expect(orchestrator).not.toContain("detected targets");
+    expect(orchestrator).toContain("planned selection and repertoire");
+
+    expect(resources).toContain("resource inspect can surface ZIP entries and XML record paths");
+    for (const content of [resources, shared, validation]) {
+      expect(content).toContain("relevant operation's structured error/output");
+      expect(content).toContain("SHEET_REQUIRED");
+      expect(content).toContain("context.sheets");
+      expect(content).toContain("suggestion");
+    }
+  });
+
   it("renders bounded WFS service workflows", () => {
     const content = renderAgentSkillFiles("1.2.3").get("opsi-services") ?? "";
     for (const command of [

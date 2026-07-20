@@ -44,7 +44,7 @@ Do not pass `/opsi`, `@opsi`, or `$opsi` to the shell. Those are host-specific w
 
 ### Refresh an agent installation
 
-1. Run `opsi agent setup --dry-run` to inspect detected targets and the planned repertoire.
+1. Run `opsi agent setup --dry-run` to inspect the planned selection and repertoire.
 2. With explicit authorization, select the intended host with `--agent <id>` and use `--yes` for non-interactive installation.
 3. Confirm the result includes the current repertoire, including `opsi-services`; use `generate-skills` only when a portable skill tree is needed rather than an installation.
 

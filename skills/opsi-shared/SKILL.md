@@ -36,8 +36,8 @@ Use the installed CLI as the source of truth when its help differs from generate
 ## Input and selector choices
 
 - Use a local path for data already on disk and a canonical `opsi:resource:` reference for provider data; do not invent IDs or references.
-- For an ambiguous ZIP use one returned `--entry`; for XML use one returned `--record-path`; for XLSX use one returned `--sheet`.
-- Stop and inspect again when the CLI cannot identify a unique selector. Do not process every archive member, XML record path, or workbook sheet by default.
+- Use one `--entry` or `--record-path` reported by resource inspect or the relevant operation's structured error/output; resource inspect can surface ZIP entries and XML record paths.
+- Without `--sheet`, XLSX resource preview, validate, or query emits `SHEET_REQUIRED` with `context.sheets` and a suggestion; use one listed sheet.
 
 ## Formats and outputs
 
