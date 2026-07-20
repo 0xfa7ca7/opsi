@@ -1,4 +1,9 @@
-import { COMMAND_MANIFEST, type CommandManifestEntry } from "./command-manifest.js";
+import {
+  COMMAND_MANIFEST,
+  GLOBAL_OPTION_MANIFEST,
+  type CommandManifestEntry,
+  type CommandOptionManifest,
+} from "./command-manifest.js";
 
 export interface AgentSkillDefinition {
   readonly name: string;
@@ -190,6 +195,11 @@ export function validateAgentSkills(
         problems.push(`Unknown command path "${path}" owned by "${entry.name}".`);
       }
     }
+    for (const related of entry.related) {
+      if (!skillNames.includes(related)) {
+        problems.push(`Unknown related skill "${related}" referenced by "${entry.name}".`);
+      }
+    }
   }
 
   for (const path of commandPaths) {
@@ -206,25 +216,250 @@ export function validateAgentSkills(
   return problems;
 }
 
-function renderInitialSkill(definition: AgentSkillDefinition, version: string): string {
-  const commandList = definition.commands.map((path) => `- \`opsi ${path}\``).join("\n");
+function frontmatter(definition: AgentSkillDefinition): string {
   return `---
 name: ${definition.name}
 description: ${JSON.stringify(definition.description)}
 ---
+`;
+}
 
+function tableText(value: string): string {
+  return value.replaceAll("|", "\\|").replaceAll("\n", " ");
+}
+
+function optionValue(option: CommandOptionManifest): string {
+  if (option.choices !== undefined) {
+    return option.choices.map((choice) => `\`${choice}\``).join(", ");
+  }
+  return option.flags.match(/[<[]([^>\]]+)[>\]]/u)?.[1] ?? "—";
+}
+
+function optionLabel(option: CommandOptionManifest): string {
+  return `\`${tableText(option.flags)}\``;
+}
+
+function commandUsage(entry: CommandManifestEntry): string {
+  const commandArguments = entry.arguments.map((argument) => argument.name).join(" ");
+  const requiredOptions = entry.options
+    .filter((option) => option.mandatory === true)
+    .map((option) => option.flags)
+    .join(" ");
+  const optional = entry.options.some((option) => option.mandatory !== true) ? "[options]" : "";
+  return ["opsi", entry.path, commandArguments, requiredOptions, optional]
+    .filter((part) => part.length > 0)
+    .join(" ");
+}
+
+function renderArguments(entry: CommandManifestEntry): string {
+  if (entry.arguments.length === 0) return "";
+  const rows = entry.arguments
+    .map((argument) => {
+      const choices =
+        argument.choices === undefined
+          ? "—"
+          : argument.choices.map((choice) => `\`${choice}\``).join(", ");
+      return `| \`${tableText(argument.name)}\` | ${choices} | ${tableText(argument.description)} |`;
+    })
+    .join("\n");
+  return `#### Arguments
+
+| Argument | Values | Description |
+| --- | --- | --- |
+${rows}
+
+`;
+}
+
+function renderOptions(entry: CommandManifestEntry): string {
+  if (entry.options.length === 0) return "";
+  const rows = entry.options
+    .map((option) => {
+      const conflicts =
+        option.conflicts === undefined
+          ? "—"
+          : option.conflicts.map((item) => `\`${item}\``).join(", ");
+      return `| ${optionLabel(option)} | ${option.mandatory === true ? "yes" : "no"} | ${optionValue(option)} | ${conflicts} | ${tableText(option.description)} |`;
+    })
+    .join("\n");
+  return `#### Options
+
+| Option | Required | Values | Conflicts | Description |
+| --- | --- | --- | --- | --- |
+${rows}
+
+`;
+}
+
+function renderCommand(entry: CommandManifestEntry): string {
+  return `### \`${entry.path}\`
+
+${entry.description}.
+
+\`\`\`sh
+${commandUsage(entry)}
+\`\`\`
+
+${renderArguments(entry)}${renderOptions(entry)}`;
+}
+
+function renderOrchestrator(definition: AgentSkillDefinition, version: string): string {
+  const routes = definition.related
+    .map((name) => {
+      const target = AGENT_SKILLS.find((candidate) => candidate.name === name);
+      if (target === undefined) throw new Error(`Missing related skill: ${name}`);
+      return `| ${tableText(target.purpose)} | [${name}](../${name}/SKILL.md) |`;
+    })
+    .join("\n");
+  return `${frontmatter(definition)}
+# OPSI orchestrator
+
+Use this skill as the main entry point for Slovenian public-data work with the \`opsi\` CLI. Generated for \`opsi\` ${version}.
+
+## Route requests
+
+1. Read [opsi-shared](../opsi-shared/SKILL.md).
+2. Classify the request and load the smallest relevant skill from this table.
+3. Load more than one domain skill only when the workflow crosses domains.
+4. Execute the documented \`opsi\` commands and summarize structured results.
+
+| Intent | Skill |
+| --- | --- |
+${routes}
+
+Do not pass \`/opsi\`, \`@opsi\`, or \`$opsi\` to the shell. Those are host-specific ways to invoke this skill; shell commands begin with \`opsi\`.
+
+## Common workflows
+
+${definition.workflows.map((workflow) => `- ${workflow}`).join("\n")}
+
+## Routing rules
+
+- Prefer the narrowest skill that fully handles the request.
+- Inspect \`opsi <command> --help\` if runtime syntax might differ from the generated reference.
+- Keep identifiers returned by the CLI exact; do not invent dataset or resource IDs.
+- Return a concise result grounded in stdout, stderr, and the process exit status.
+`;
+}
+
+function globalOptionsTable(): string {
+  const rows = GLOBAL_OPTION_MANIFEST.map(
+    (option) =>
+      `| ${optionLabel(option)} | ${optionValue(option)} | ${tableText(option.description)} |`,
+  ).join("\n");
+  return `| Option | Values | Description |
+| --- | --- | --- |
+${rows}`;
+}
+
+function renderShared(definition: AgentSkillDefinition, version: string): string {
+  return `${frontmatter(definition)}
+# OPSI shared execution contract
+
+Read this before using any OPSI domain skill. Generated for \`opsi\` ${version}.
+
+## Install and discover
+
+\`\`\`sh
+npm install --global opsi
+opsi --version
+opsi --help
+opsi <command> --help
+\`\`\`
+
+Use the installed CLI as the source of truth when its help differs from generated skill text.
+
+## Structured output
+
+- Prefer \`--json\` for one bounded result envelope or \`--ndjson\` for streamed records.
+- Use \`--fields\` and command-specific row limits to keep agent context small.
+- Read result data from stdout, diagnostics from stderr, and the exit status as the authoritative success signal.
+- Never parse a human-readable table when structured output is available.
+
+## Global options
+
+${globalOptionsTable()}
+
+## Network and offline behavior
+
+- Pass \`--offline\` when network access is prohibited. Do not imply that an uncached request can succeed offline.
+- Preserve HTTPS, DNS, redirect, timeout, download-size, query, memory, thread, cell, and output bounds.
+- Use \`--allow-insecure-http\` or \`--allow-private-network\` only after the user explicitly accepts that invocation's risk.
+- Do not blindly retry invalid input, unsupported operations, validation failures, or integrity failures.
+
+## Confirm mutations
+
+- Confirm before \`cache clear\` or \`cache prune\` unless the user already requested that exact operation.
+- Confirm before using \`--force\` to replace an artifact unless that exact overwrite is already authorized.
+- Do not persist secret-like configuration values; use the environment for secrets.
+
+## Exit categories
+
+| Exit | Meaning | Response |
+| --- | --- | --- |
+| 0 | Success | Use the structured result. |
+| 1 | Internal failure | Report diagnostics; retry only when evidence suggests a transient failure. |
+| 2 | Invalid input or configuration | Correct the command or configuration before retrying. |
+| 3 | Not found | Check the exact dataset, resource, or local path. |
+| 4 | Provider or network failure | Respect offline mode and retry only transient failures. |
+| 5 | Unsupported operation | Choose a supported provider, format, or installed native dependency. |
+| 6 | Validation or integrity failure | Report issues and repair or replace the input. |
+| 7 | Query failure | Correct the bounded read-only SQL or resource input. |
+| 8 | Partial success | Report successes and failures separately. |
+
+## Shell discipline
+
+- Quote paths and user-provided values safely.
+- Never print credentials, authorization headers, cookies, or secret environment values.
+- Use canonical references returned by \`opsi\` when available.
+`;
+}
+
+function renderRelated(definition: AgentSkillDefinition): string {
+  if (definition.related.length === 0) return "";
+  return `## Related skills
+
+${definition.related.map((name) => `- [${name}](../${name}/SKILL.md)`).join("\n")}
+
+`;
+}
+
+function renderDomainSkill(definition: AgentSkillDefinition, version: string): string {
+  const entries = definition.commands.map((path) => {
+    const entry = COMMAND_MANIFEST.find((candidate) => candidate.path === path);
+    if (entry === undefined) throw new Error(`Missing command manifest entry: ${path}`);
+    return entry;
+  });
+  const safety =
+    definition.safety.length === 0
+      ? ""
+      : `## Safety\n\n${definition.safety.map((item) => `- ${item}`).join("\n")}\n\n`;
+  return `${frontmatter(definition)}
 # ${definition.name}
 
-${definition.purpose}
+> **Prerequisite:** Read [opsi-shared](../opsi-shared/SKILL.md) before executing these commands.
 
-Version: ${version}
-${commandList.length === 0 ? "" : `\n## Commands\n\n${commandList}\n`}`;
+${definition.purpose} Generated for \`opsi\` ${version}.
+
+## Workflow
+
+${definition.workflows.map((workflow) => `- ${workflow}`).join("\n")}
+
+## Commands
+
+${entries.map(renderCommand).join("\n")}${safety}${renderRelated(definition)}`;
+}
+
+function renderSkill(definition: AgentSkillDefinition, version: string): string {
+  if (definition.name === "opsi") return renderOrchestrator(definition, version);
+  if (definition.name === "opsi-shared") return renderShared(definition, version);
+  return renderDomainSkill(definition, version);
 }
 
 export function renderAgentSkillFiles(version: string): ReadonlyMap<string, string> {
   const problems = validateAgentSkills();
   if (problems.length > 0) throw new Error(problems.join("\n"));
-  return new Map(AGENT_SKILLS.map((entry) => [entry.name, renderInitialSkill(entry, version)]));
+  return new Map(AGENT_SKILLS.map((entry) => [entry.name, renderSkill(entry, version)]));
 }
 
 export function renderAgentSkillsIndex(): string {
@@ -233,7 +468,7 @@ export function renderAgentSkillsIndex(): string {
   ).join("\n");
   return `# OPSI Agent Skills
 
-Installable skills for using the OPSI CLI from compatible AI agents.
+Installable Agent Skills for using the OPSI CLI from compatible AI agents. Install the complete repertoire to enable automatic routing through \`opsi\`, or install one focused domain skill and its \`opsi-shared\` prerequisite.
 
 | Skill | Description |
 | --- | --- |
