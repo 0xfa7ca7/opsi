@@ -1,3 +1,5 @@
+import { readFile, readdir } from "node:fs/promises";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   AGENT_SKILLS,
@@ -11,6 +13,7 @@ import {
   GLOBAL_OPTION_MANIFEST,
   type CommandManifestEntry,
 } from "../src/command-manifest.js";
+import { VERSION } from "../src/main.js";
 
 const EXPECTED_SKILLS = [
   "opsi",
@@ -219,5 +222,22 @@ describe("agent skill rendering", () => {
       expect(content).toContain(`../skills/${definition.name}/SKILL.md`);
       expect(content).toContain(definition.description);
     }
+  });
+
+  it("matches the complete checked-in skill tree and index byte for byte", async () => {
+    const expected = renderAgentSkillFiles(VERSION);
+    const skillRoot = resolve(process.cwd(), "skills");
+    const directories = (await readdir(skillRoot, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+
+    expect(directories).toEqual([...expected.keys()].sort());
+    for (const [name, content] of expected) {
+      expect(await readFile(resolve(skillRoot, name, "SKILL.md"), "utf8"), name).toBe(content);
+    }
+    expect(await readFile(resolve(process.cwd(), "docs/skills.md"), "utf8")).toBe(
+      renderAgentSkillsIndex(),
+    );
   });
 });
