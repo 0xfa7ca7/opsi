@@ -86,7 +86,7 @@ With no selection flags, the universal installer detects installed agents. One d
 
 `--yes` keeps discovery but selects all detected agents without prompting. `--agent` accepts one or more explicit installer IDs. `--all` maps to the installer's explicit all-agent mode and implies non-interactive confirmation. `--all` conflicts with `--agent`; duplicate agent IDs are rejected before process execution.
 
-Human output keeps the child installer attached to the configured stdin, stdout, and stderr so prompts work. Structured OPSI output (`--json`, `--ndjson`, `--csv`, `--tsv`, or `--output-format`) requires `--yes`, `--agent`, or `--all`; the runner captures child output and OPSI emits only its normal structured result envelope. This prevents installer decoration from corrupting machine-readable stdout.
+Human output in a TTY keeps the child installer attached to stdin, stdout, and stderr so prompts work. Structured OPSI output (`--json`, `--ndjson`, `--csv`, `--tsv`, or `--output-format`) or any non-TTY invocation requires `--yes`, `--agent`, or `--all`; the runner captures child output and OPSI emits only its normal structured result envelope. This prevents installer decoration from corrupting machine-readable stdout and prevents unattended prompt hangs.
 
 ### Command integration
 
