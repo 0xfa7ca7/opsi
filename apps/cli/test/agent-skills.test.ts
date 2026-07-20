@@ -11,6 +11,7 @@ import {
 import {
   COMMAND_MANIFEST,
   GLOBAL_OPTION_MANIFEST,
+  type CommandOptionManifest,
   type CommandManifestEntry,
 } from "../src/command-manifest.js";
 import { VERSION } from "../src/main.js";
@@ -50,6 +51,18 @@ const minimalSkills = (): readonly AgentSkillDefinition[] => [
   skill("opsi-shared"),
   skill("opsi-catalogue", ["search"]),
 ];
+
+const optionAttributeName = (option: CommandOptionManifest): string | undefined =>
+  option.flags
+    .match(/--[a-z][a-z0-9-]*/u)?.[0]
+    ?.slice(2)
+    .replace(/^no-/u, "")
+    .replace(/-([a-z0-9])/gu, (_match, character: string) => character.toUpperCase());
+
+const conflictFlag = (options: readonly CommandOptionManifest[], conflict: string): string =>
+  options
+    .find((option) => optionAttributeName(option) === conflict)
+    ?.flags.match(/--[a-z][a-z0-9-]*/u)?.[0] ?? conflict;
 
 describe("agent skill registry", () => {
   it("covers the complete approved repertoire and command manifest", () => {
@@ -191,8 +204,21 @@ describe("agent skill rendering", () => {
     for (const option of GLOBAL_OPTION_MANIFEST) {
       expect(content).toContain(option.flags);
       expect(content).toContain(option.description);
-      for (const conflict of option.conflicts ?? []) expect(content).toContain(conflict);
+      for (const conflict of option.conflicts ?? []) {
+        expect(content).toContain(conflictFlag(GLOBAL_OPTION_MANIFEST, conflict));
+      }
     }
+  });
+
+  it("renders option conflicts as user-facing CLI flags", () => {
+    const files = renderAgentSkillFiles("1.2.3");
+    const shared = files.get("opsi-shared") ?? "";
+    const catalogue = files.get("opsi-catalogue") ?? "";
+
+    expect(shared).toContain("`--ndjson`, `--csv`, `--tsv`, `--output-format`");
+    expect(shared).not.toContain("`outputFormat`");
+    expect(catalogue).toContain("`--limit`");
+    expect(catalogue).not.toContain("| `limit` |");
   });
 
   it("routes skill generation through diagnostics metadata before loading the body", () => {
@@ -225,7 +251,9 @@ describe("agent skill rendering", () => {
           expect(content).toContain(option.flags);
           expect(content).toContain(option.description);
           for (const choice of option.choices ?? []) expect(content).toContain(choice);
-          for (const conflict of option.conflicts ?? []) expect(content).toContain(conflict);
+          for (const conflict of option.conflicts ?? []) {
+            expect(content).toContain(conflictFlag(entry.options, conflict));
+          }
           if (option.mandatory === true) {
             expect(content).toMatch(
               new RegExp(`${option.flags.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}.*yes`, "u"),

@@ -43,7 +43,7 @@ opsi search [text] [options]
 | `--sort <field:direction>` | no | field:direction | — | sort result (repeatable) |
 | `--limit <number>` | no | number | — | maximum results |
 | `--offset <number>` | no | number | — | result offset |
-| `--all` | no | — | `limit` | retrieve every result page |
+| `--all` | no | — | `--limit` | retrieve every result page |
 
 
 ### `dataset list`
@@ -58,8 +58,8 @@ opsi dataset list [options]
 
 | Option | Required | Values | Conflicts | Description |
 | --- | --- | --- | --- | --- |
-| `--refresh` | no | — | `live` | refresh the published catalogue snapshot |
-| `--live` | no | — | `refresh` | query OPSI directly using paginated requests |
+| `--refresh` | no | — | `--live` | refresh the published catalogue snapshot |
+| `--live` | no | — | `--refresh` | query OPSI directly using paginated requests |
 
 
 ### `dataset show`

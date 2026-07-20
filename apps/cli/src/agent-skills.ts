@@ -252,10 +252,33 @@ function optionLabel(option: CommandOptionManifest): string {
   return `\`${tableText(option.flags)}\``;
 }
 
-function optionConflicts(option: CommandOptionManifest): string {
+function longOptionFlag(option: CommandOptionManifest): string | undefined {
+  return option.flags.match(/--[a-z][a-z0-9-]*/u)?.[0];
+}
+
+function optionAttributeName(option: CommandOptionManifest): string | undefined {
+  return longOptionFlag(option)
+    ?.slice(2)
+    .replace(/^no-/u, "")
+    .replace(/-([a-z0-9])/gu, (_match, character: string) => character.toUpperCase());
+}
+
+function optionConflicts(
+  option: CommandOptionManifest,
+  availableOptions: readonly CommandOptionManifest[],
+): string {
   return option.conflicts === undefined
     ? "—"
-    : option.conflicts.map((item) => `\`${item}\``).join(", ");
+    : option.conflicts
+        .map((item) => {
+          const conflictingOption = availableOptions.find(
+            (candidate) => optionAttributeName(candidate) === item,
+          );
+          const conflictLabel =
+            conflictingOption === undefined ? item : (longOptionFlag(conflictingOption) ?? item);
+          return `\`${conflictLabel}\``;
+        })
+        .join(", ");
 }
 
 function commandUsage(entry: CommandManifestEntry): string {
@@ -295,7 +318,7 @@ function renderOptions(entry: CommandManifestEntry): string {
   const rows = entry.options
     .map(
       (option) =>
-        `| ${optionLabel(option)} | ${option.mandatory === true ? "yes" : "no"} | ${optionValue(option)} | ${optionConflicts(option)} | ${tableText(option.description)} |`,
+        `| ${optionLabel(option)} | ${option.mandatory === true ? "yes" : "no"} | ${optionValue(option)} | ${optionConflicts(option, entry.options)} | ${tableText(option.description)} |`,
     )
     .join("\n");
   return `#### Options
@@ -361,7 +384,7 @@ ${definition.workflows.map((workflow) => `- ${workflow}`).join("\n")}
 function globalOptionsTable(): string {
   const rows = GLOBAL_OPTION_MANIFEST.map(
     (option) =>
-      `| ${optionLabel(option)} | ${optionValue(option)} | ${optionConflicts(option)} | ${tableText(option.description)} |`,
+      `| ${optionLabel(option)} | ${optionValue(option)} | ${optionConflicts(option, GLOBAL_OPTION_MANIFEST)} | ${tableText(option.description)} |`,
   ).join("\n");
   return `| Option | Values | Conflicts | Description |
 | --- | --- | --- | --- |

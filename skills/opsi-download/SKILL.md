@@ -33,8 +33,8 @@ opsi download <ids...> [options]
 
 | Option | Required | Values | Conflicts | Description |
 | --- | --- | --- | --- | --- |
-| `--dataset` | no | — | `resource` | treat bare identifiers as datasets |
-| `--resource` | no | — | `dataset` | treat bare identifiers as resources |
+| `--dataset` | no | — | `--resource` | treat bare identifiers as datasets |
+| `--resource` | no | — | `--dataset` | treat bare identifiers as resources |
 | `--destination <path>` | no | path | — | destination path (one resource only) |
 | `--output <path>` | no | path | — | alias for --destination |
 | `--force` | no | — | — | replace the requested regular file |

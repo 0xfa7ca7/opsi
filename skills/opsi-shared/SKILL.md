@@ -30,10 +30,10 @@ Use the installed CLI as the source of truth when its help differs from generate
 
 | Option | Values | Conflicts | Description |
 | --- | --- | --- | --- |
-| `--json` | — | `ndjson`, `csv`, `tsv`, `outputFormat` | render JSON |
-| `--ndjson` | — | `json`, `csv`, `tsv`, `outputFormat` | render newline-delimited JSON |
-| `--csv` | — | `json`, `ndjson`, `tsv`, `outputFormat` | render CSV |
-| `--tsv` | — | `json`, `ndjson`, `csv`, `outputFormat` | render TSV |
+| `--json` | — | `--ndjson`, `--csv`, `--tsv`, `--output-format` | render JSON |
+| `--ndjson` | — | `--json`, `--csv`, `--tsv`, `--output-format` | render newline-delimited JSON |
+| `--csv` | — | `--json`, `--ndjson`, `--tsv`, `--output-format` | render CSV |
+| `--tsv` | — | `--json`, `--ndjson`, `--csv`, `--output-format` | render TSV |
 | `--output-format <format>` | `table`, `json`, `ndjson`, `csv`, `tsv` | — | select output format |
 | `--fields <field>` | field | — | select output field (repeatable or comma-separated) |
 | `--provider <id>` | `opsi`, `local` | — | select provider |
