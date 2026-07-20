@@ -657,12 +657,28 @@ export interface WfsPreviewResult {
   readonly truncated: boolean;
 }
 declare class WfsService {
-  inspect(input: string, network?: WfsNetworkOptions): Promise<{ readonly resource: string; readonly capabilities: WfsCapabilities }>;
+  inspect(
+    input: string,
+    network?: WfsNetworkOptions,
+  ): Promise<{ readonly resource: string; readonly capabilities: WfsCapabilities }>;
   layers(input: string, network?: WfsNetworkOptions): Promise<readonly WfsLayer[]>;
-  schema(input: string, options: WfsNetworkOptions & { readonly layer: string }): Promise<readonly WfsField[]>;
+  schema(
+    input: string,
+    options: WfsNetworkOptions & { readonly layer: string },
+  ): Promise<readonly WfsField[]>;
   preview(input: string, options: WfsSelectionOptions): Promise<WfsPreviewResult>;
-  count(input: string, options: Omit<WfsSelectionOptions, "limit" | "startIndex" | "properties">): Promise<{ readonly version: WfsVersion; readonly layer: string; readonly count: number }>;
-  export(input: string, options: WfsSelectionOptions & { readonly output: string; readonly force?: boolean; readonly format?: "csv" }): Promise<{ readonly output: string; readonly provenancePath: string; readonly rows: number }>;
+  count(
+    input: string,
+    options: Omit<WfsSelectionOptions, "limit" | "startIndex" | "properties">,
+  ): Promise<{ readonly version: WfsVersion; readonly layer: string; readonly count: number }>;
+  export(
+    input: string,
+    options: WfsSelectionOptions & {
+      readonly output: string;
+      readonly force?: boolean;
+      readonly format?: "csv";
+    },
+  ): Promise<{ readonly output: string; readonly provenancePath: string; readonly rows: number }>;
 }
 declare class ResourceAccessService {
   inspect(input: string, options?: DataResolutionOptions): Promise<ResourceAccessDescriptor>;

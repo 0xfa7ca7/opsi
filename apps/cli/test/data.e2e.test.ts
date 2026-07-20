@@ -139,8 +139,22 @@ async function cli(argv: readonly string[]): Promise<CliResult> {
 
 describe("data CLI", () => {
   it("describes access operations without exposing a raw HTTP fallback", async () => {
-    const result = await cli(["resource", "inspect", resolve("packages/testing/fixtures/data/valid.csv"), "--json"]);
-    expect(result).toMatchObject({ exitCode: 0, json: { data: { kind: "local", detectedFormat: "csv", operations: expect.arrayContaining(["preview", "query"]) } } });
+    const result = await cli([
+      "resource",
+      "inspect",
+      resolve("packages/testing/fixtures/data/valid.csv"),
+      "--json",
+    ]);
+    expect(result).toMatchObject({
+      exitCode: 0,
+      json: {
+        data: {
+          kind: "local",
+          detectedFormat: "csv",
+          operations: expect.arrayContaining(["preview", "query"]),
+        },
+      },
+    });
     expect(result.stdout).not.toMatch(/curl|https?:\/\//u);
   });
 
@@ -148,7 +162,10 @@ describe("data CLI", () => {
     const archive = join(home, "multiple.zip");
     await writeFile(
       archive,
-      zipSync({ "a.csv": strToU8("id,name\n1,Ljubljana\n"), "b.csv": strToU8("id,name\n2,Maribor\n") }),
+      zipSync({
+        "a.csv": strToU8("id,name\n1,Ljubljana\n"),
+        "b.csv": strToU8("id,name\n2,Maribor\n"),
+      }),
     );
     await expect(cli(["resource", "preview", archive, "--json"])).resolves.toMatchObject({
       exitCode: 2,
@@ -164,10 +181,15 @@ describe("data CLI", () => {
 
   it("uses an explicit XML record path when discovery is ambiguous", async () => {
     const source = join(home, "ambiguous.xml");
-    await writeFile(source, "<root><a><id>1</id></a><a><id>2</id></a><b><id>3</id></b><b><id>4</id></b></root>");
+    await writeFile(
+      source,
+      "<root><a><id>1</id></a><a><id>2</id></a><b><id>3</id></b><b><id>4</id></b></root>",
+    );
     await expect(cli(["resource", "preview", source, "--json"])).resolves.toMatchObject({
       exitCode: 2,
-      json: { error: { code: "XML_RECORD_PATH_REQUIRED", context: { choices: ["/root/a", "/root/b"] } } },
+      json: {
+        error: { code: "XML_RECORD_PATH_REQUIRED", context: { choices: ["/root/a", "/root/b"] } },
+      },
     });
     await expect(
       cli(["resource", "preview", source, "--record-path", "/root/b", "--json"]),

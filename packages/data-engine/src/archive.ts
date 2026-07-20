@@ -32,7 +32,16 @@ export const DEFAULT_ARCHIVE_LIMITS: ArchiveLimits = {
   maxCompressionRatio: 200,
 };
 
-const SUPPORTED = new Set([".csv", ".tsv", ".json", ".jsonl", ".ndjson", ".xlsx", ".parquet", ".xml"]);
+const SUPPORTED = new Set([
+  ".csv",
+  ".tsv",
+  ".json",
+  ".jsonl",
+  ".ndjson",
+  ".xlsx",
+  ".parquet",
+  ".xml",
+]);
 const ARCHIVES = new Set([".zip", ".7z", ".rar", ".tar", ".gz", ".gzip"]);
 
 class FileReader implements Reader {
@@ -86,7 +95,12 @@ function assertEntry(entry: ZipEntry, limits: ArchiveLimits): void {
       exitCode: EXIT_CODES.INTEGRITY_FAILURE,
       context: { entry: entry.name, reason },
     });
-  const ratio = entry.compressedSize === 0 ? (entry.size === 0 ? 1 : Infinity) : entry.size / entry.compressedSize;
+  const ratio =
+    entry.compressedSize === 0
+      ? entry.size === 0
+        ? 1
+        : Infinity
+      : entry.size / entry.compressedSize;
   if (
     entry.size > limits.maxSelectedBytes ||
     entry.size > limits.maxExpandedBytes ||
@@ -96,11 +110,18 @@ function assertEntry(entry: ZipEntry, limits: ArchiveLimits): void {
       code: "ARCHIVE_LIMIT_EXCEEDED",
       message: "The ZIP archive entry exceeds a configured safety limit.",
       exitCode: EXIT_CODES.INTEGRITY_FAILURE,
-      context: { entry: entry.name, compressedBytes: entry.compressedSize, expandedBytes: entry.size },
+      context: {
+        entry: entry.name,
+        compressedBytes: entry.compressedSize,
+        expandedBytes: entry.size,
+      },
     });
 }
 
-async function withArchive<T>(path: string, operation: (entries: Readonly<Record<string, ZipEntry>>) => Promise<T>): Promise<T> {
+async function withArchive<T>(
+  path: string,
+  operation: (entries: Readonly<Record<string, ZipEntry>>) => Promise<T>,
+): Promise<T> {
   const reader = new FileReader(path);
   try {
     return await operation((await unzip(reader)).entries);

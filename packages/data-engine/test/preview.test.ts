@@ -66,10 +66,7 @@ describe("bounded previews and schema inference", () => {
   });
 
   it.each([";", "|"] as const)("previews consistently %s-delimited data", async (delimiter) => {
-    const path = await temporaryFile(
-      "sample.csv",
-      `id${delimiter}name\n1${delimiter}Ljubljana\n`,
-    );
+    const path = await temporaryFile("sample.csv", `id${delimiter}name\n1${delimiter}Ljubljana\n`);
 
     await expect(engine.preview(path)).resolves.toMatchObject({
       delimiter,

@@ -522,7 +522,14 @@ export async function validateData(
   if (detection.format === "csv" || detection.format === "tsv") {
     const delimiter = detection.delimiter ?? (detection.format === "csv" ? "," : "\t");
     try {
-      issues.push(...(await validateDelimitedStream(detection.path, delimiter, detection.encoding ?? "utf-8", limits)));
+      issues.push(
+        ...(await validateDelimitedStream(
+          detection.path,
+          delimiter,
+          detection.encoding ?? "utf-8",
+          limits,
+        )),
+      );
     } catch (error) {
       if (error instanceof OpsiError) throw error;
       issues.push(
@@ -563,10 +570,14 @@ export async function validateData(
           (columns, warnings) => diagnostics.chargeHeader(columns, warnings),
         );
       else if (detection.format === "xml") {
-        const preview = await previewXml(detection.path, {
-          limit: limits.maxRecords,
-          ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
-        }, limits.xmlLimits);
+        const preview = await previewXml(
+          detection.path,
+          {
+            limit: limits.maxRecords,
+            ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
+          },
+          limits.xmlLimits,
+        );
         if (preview.truncated)
           throw new OpsiError({
             code: "VALIDATION_RECORD_LIMIT",

@@ -7,10 +7,12 @@ export function detectTextEncoding(head: Uint8Array): TextEncoding {
   return "utf-8";
 }
 
-export function decodeTextSample(bytes: Uint8Array): {
-  readonly text: string;
-  readonly encoding: TextEncoding;
-} | undefined {
+export function decodeTextSample(bytes: Uint8Array):
+  | {
+      readonly text: string;
+      readonly encoding: TextEncoding;
+    }
+  | undefined {
   const encoding = detectTextEncoding(bytes);
   try {
     return {
@@ -34,7 +36,6 @@ export function sniffDelimitedDialect(text: string): DelimitedDialect | undefine
     return (counts[0] ?? 0) > 0 && counts.every((count) => count === counts[0]);
   });
   return candidates.sort(
-    (left, right) =>
-      (lines[0]?.split(right).length ?? 0) - (lines[0]?.split(left).length ?? 0),
+    (left, right) => (lines[0]?.split(right).length ?? 0) - (lines[0]?.split(left).length ?? 0),
   )[0];
 }

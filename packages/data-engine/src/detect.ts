@@ -130,7 +130,8 @@ export async function detectFormat(input: DataInput): Promise<FormatDetection> {
     extensionFormat === "json" || extensionFormat === "ndjson" ? extensionFormat : undefined;
   const structured = text === undefined ? undefined : structuredContent(text, structuredFallback);
   const structuredData = structured === "json" || structured === "ndjson" ? structured : undefined;
-  const dialect = structuredData === undefined && text !== undefined ? sniffDelimitedDialect(text) : undefined;
+  const dialect =
+    structuredData === undefined && text !== undefined ? sniffDelimitedDialect(text) : undefined;
   const dialectFormat = dialect === undefined ? undefined : dialect === "\t" ? "tsv" : "csv";
   const mediaType = source.mediaType?.split(";", 1)[0]?.trim().toLowerCase();
   const byMediaType = mediaType === undefined ? undefined : MEDIA_TYPES[mediaType];

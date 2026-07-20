@@ -64,8 +64,12 @@ describe("configuration", () => {
       archive: { maxEntries: 10_000, maxCompressionRatio: 200 },
       xml: { maxDepth: 128, maxRecords: 100_000 },
     });
-    await expect(loadConfiguration(await fixtureSources({ project: { archive: { maxEntries: 0 } } }))).rejects.toMatchObject({ code: "INVALID_CONFIGURATION", exitCode: 2 });
-    await expect(loadConfiguration(await fixtureSources({ project: { xml: { maxDepth: -1 } } }))).rejects.toMatchObject({ code: "INVALID_CONFIGURATION", exitCode: 2 });
+    await expect(
+      loadConfiguration(await fixtureSources({ project: { archive: { maxEntries: 0 } } })),
+    ).rejects.toMatchObject({ code: "INVALID_CONFIGURATION", exitCode: 2 });
+    await expect(
+      loadConfiguration(await fixtureSources({ project: { xml: { maxDepth: -1 } } })),
+    ).rejects.toMatchObject({ code: "INVALID_CONFIGURATION", exitCode: 2 });
   });
   it("parses nonnegative storage byte sizes exactly", () => {
     expect(parseStorageBytes("0B")).toBe(0);

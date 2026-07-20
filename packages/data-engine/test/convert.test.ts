@@ -81,9 +81,7 @@ describe("tabular conversion", () => {
 
     await new DataEngine().convert({ input, output, targetFormat: "json" });
 
-    expect(JSON.parse(await readFile(output, "utf8"))).toEqual([
-      { id: 1, name: "Ljubljana" },
-    ]);
+    expect(JSON.parse(await readFile(output, "utf8"))).toEqual([{ id: 1, name: "Ljubljana" }]);
   });
 
   it("normalizes malformed structured input instead of leaking a DuckDB error", async () => {

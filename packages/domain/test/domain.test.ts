@@ -133,14 +133,7 @@ it("serializes safe recovery arguments without a shell command", () => {
     nextActions: [
       {
         action: "resource.preview",
-        argv: [
-          "resource",
-          "preview",
-          "opsi:resource:r",
-          "--entry",
-          "data.csv",
-          "--json",
-        ],
+        argv: ["resource", "preview", "opsi:resource:r", "--entry", "data.csv", "--json"],
       },
     ],
   });

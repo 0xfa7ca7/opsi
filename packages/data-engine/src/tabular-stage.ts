@@ -4,7 +4,7 @@ import type { DuckDBInstance, DuckDBTypeId, DuckDBConnection } from "@duckdb/nod
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
 import { detectFormat } from "./detect.js";
 import { sqlString } from "./sql-path.js";
-import type { DataInput, FormatDetection, SupportedDataFormat, SupportedInputFormat, ValidationIssue } from "./types.js";
+import type { DataInput, FormatDetection, SupportedInputFormat, ValidationIssue } from "./types.js";
 import { scanXlsx } from "./xlsx.js";
 import { writeXmlRowsAsNdjson } from "./xml.js";
 

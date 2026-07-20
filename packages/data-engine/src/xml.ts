@@ -41,8 +41,13 @@ export const DEFAULT_XML_LIMITS: XmlLimits = {
   maxStateBytes: 64 * 1024 * 1024,
 };
 
-const RECORD_PATH = /^\/(?:[A-Za-z_][\w.-]*:)?[A-Za-z_][\w.-]*(?:\/(?:[A-Za-z_][\w.-]*:)?[A-Za-z_][\w.-]*)*$/u;
-type NamespaceOptions = { readonly xmlns: true; readonly position?: boolean; readonly fileName?: string };
+const RECORD_PATH =
+  /^\/(?:[A-Za-z_][\w.-]*:)?[A-Za-z_][\w.-]*(?:\/(?:[A-Za-z_][\w.-]*:)?[A-Za-z_][\w.-]*)*$/u;
+type NamespaceOptions = {
+  readonly xmlns: true;
+  readonly position?: boolean;
+  readonly fileName?: string;
+};
 
 function xmlError(error: unknown): OpsiError {
   return error instanceof OpsiError
@@ -139,7 +144,9 @@ export async function discoverXmlRecords(
       context: { choices: [] },
     });
   const bestCount = Math.max(...repeated.map(([, count]) => count));
-  const choices = repeated.filter(([, count]) => count === bestCount).map(([candidate]) => candidate);
+  const choices = repeated
+    .filter(([, count]) => count === bestCount)
+    .map(([candidate]) => candidate);
   if (choices.length !== 1)
     throw new OpsiError({
       code: "XML_RECORD_PATH_REQUIRED",
@@ -181,21 +188,35 @@ export async function previewXml(
   await parseXml(path, limits, (parser) => {
     parser.on("opentag", (tag: SaxesTagNS) => {
       if (stack.length + 1 > limits.maxDepth)
-        throw new OpsiError({ code: "XML_LIMIT_EXCEEDED", message: "The XML nesting depth exceeds the limit.", exitCode: EXIT_CODES.INTEGRITY_FAILURE });
+        throw new OpsiError({
+          code: "XML_LIMIT_EXCEEDED",
+          message: "The XML nesting depth exceeds the limit.",
+          exitCode: EXIT_CODES.INTEGRITY_FAILURE,
+        });
       if (Object.keys(tag.attributes).length > limits.maxAttributesPerElement)
-        throw new OpsiError({ code: "XML_LIMIT_EXCEEDED", message: "An XML element has too many attributes.", exitCode: EXIT_CODES.INTEGRITY_FAILURE });
+        throw new OpsiError({
+          code: "XML_LIMIT_EXCEEDED",
+          message: "An XML element has too many attributes.",
+          exitCode: EXIT_CODES.INTEGRITY_FAILURE,
+        });
       const parent = stack.at(-1);
       if (parent !== undefined) parent.hasChild = true;
       stack.push({ name: tag.name, text: "", hasChild: false });
       for (const [prefix, uri] of Object.entries(tag.ns)) namespaces[prefix] = uri;
       const currentPath = `/${stack.map((frame) => frame.name).join("/")}`;
-      if (currentPath === discovery.recordPath && rows.length <= Math.min(limit, limits.maxRecords)) {
+      if (
+        currentPath === discovery.recordPath &&
+        rows.length <= Math.min(limit, limits.maxRecords)
+      ) {
         const row: Record<string, unknown> = {};
         for (const attribute of Object.values(tag.attributes) as SaxesAttributeNS[])
           addValue(row, `@${attribute.name}`, attribute.value);
         record = { depth: stack.length, row };
       } else if (record !== undefined) {
-        const relative = stack.slice(record.depth).map((frame) => frame.name).join("/");
+        const relative = stack
+          .slice(record.depth)
+          .map((frame) => frame.name)
+          .join("/");
         for (const attribute of Object.values(tag.attributes) as SaxesAttributeNS[])
           addValue(record.row, `${relative}/@${attribute.name}`, attribute.value);
       }
@@ -206,19 +227,30 @@ export async function previewXml(
       frame.text += text;
       stateBytes += Buffer.byteLength(text);
       if (Buffer.byteLength(frame.text) > limits.maxValueBytes || stateBytes > limits.maxStateBytes)
-        throw new OpsiError({ code: "XML_LIMIT_EXCEEDED", message: "XML text state exceeds a configured limit.", exitCode: EXIT_CODES.INTEGRITY_FAILURE });
+        throw new OpsiError({
+          code: "XML_LIMIT_EXCEEDED",
+          message: "XML text state exceeds a configured limit.",
+          exitCode: EXIT_CODES.INTEGRITY_FAILURE,
+        });
     });
     parser.on("closetag", () => {
       const frame = stack.at(-1);
       if (frame === undefined) return;
       if (record !== undefined && !frame.hasChild) {
-        const relative = stack.slice(record.depth).map((candidate) => candidate.name).join("/");
+        const relative = stack
+          .slice(record.depth)
+          .map((candidate) => candidate.name)
+          .join("/");
         const value = frame.text.trim();
         if (relative.length > 0 && value.length > 0) addValue(record.row, relative, value);
       }
       if (record !== undefined && stack.length === record.depth) {
         if (Object.keys(record.row).length > limits.maxColumns)
-          throw new OpsiError({ code: "XML_LIMIT_EXCEEDED", message: "An XML record has too many columns.", exitCode: EXIT_CODES.INTEGRITY_FAILURE });
+          throw new OpsiError({
+            code: "XML_LIMIT_EXCEEDED",
+            message: "An XML record has too many columns.",
+            exitCode: EXIT_CODES.INTEGRITY_FAILURE,
+          });
         rows.push(record.row);
         record = undefined;
       }
@@ -244,7 +276,11 @@ export async function writeXmlRowsAsNdjson(
   output: string,
   options: { readonly recordPath?: string; readonly signal?: AbortSignal } = {},
   limits: XmlLimits = DEFAULT_XML_LIMITS,
-): Promise<{ readonly recordPath: string; readonly rows: number; readonly warnings: readonly ValidationIssue[] }> {
+): Promise<{
+  readonly recordPath: string;
+  readonly rows: number;
+  readonly warnings: readonly ValidationIssue[];
+}> {
   options.signal?.throwIfAborted();
   let descriptor: number | undefined;
   try {
@@ -275,7 +311,11 @@ export async function writeXmlRowsAsNdjson(
         message: "The selected XML record path has no rows.",
         exitCode: EXIT_CODES.INVALID_INPUT,
       });
-    return { recordPath: preview.recordPath, rows: preview.rows.length, warnings: preview.warnings };
+    return {
+      recordPath: preview.recordPath,
+      rows: preview.rows.length,
+      warnings: preview.warnings,
+    };
   } catch (error) {
     if (descriptor !== undefined) closeSync(descriptor);
     descriptor = undefined;

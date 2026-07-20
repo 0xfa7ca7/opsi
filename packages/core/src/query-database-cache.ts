@@ -141,7 +141,9 @@ export class QueryDatabaseCache {
       const derived = this.options.derived;
       const cacheEnabled =
         detection.format !== "xml" &&
-        derived !== undefined && derived.policy.enabled && derived.policy.maxBytes > 0;
+        derived !== undefined &&
+        derived.policy.enabled &&
+        derived.policy.maxBytes > 0;
       if (!cacheEnabled) {
         await build();
       } else {

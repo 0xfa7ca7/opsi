@@ -37,14 +37,17 @@ describe("bounded XML records", () => {
   });
 
   it("requires an explicit record path for equally repeated structures", async () => {
-    const path = await xml("<root><a><v>1</v></a><a><v>2</v></a><b><v>3</v></b><b><v>4</v></b></root>");
+    const path = await xml(
+      "<root><a><v>1</v></a><a><v>2</v></a><b><v>3</v></b><b><v>4</v></b></root>",
+    );
     await expect(discoverXmlRecords(path, DEFAULT_XML_LIMITS)).rejects.toMatchObject({
       code: "XML_RECORD_PATH_REQUIRED",
       exitCode: 2,
       context: { choices: ["/root/a", "/root/b"] },
     });
-    await expect(previewXml(path, { recordPath: "/root/b", limit: 1 }, DEFAULT_XML_LIMITS))
-      .resolves.toMatchObject({ rows: [{ v: "3" }], truncated: true });
+    await expect(
+      previewXml(path, { recordPath: "/root/b", limit: 1 }, DEFAULT_XML_LIMITS),
+    ).resolves.toMatchObject({ rows: [{ v: "3" }], truncated: true });
   });
 
   it("rejects DTD and entity declarations", async () => {
@@ -65,7 +68,9 @@ describe("bounded XML records", () => {
   });
 
   it("normalizes the same XML rows for validation and conversion", async () => {
-    const path = await xml("<root><row><id>1</id><name>Ljubljana</name></row><row><id>2</id><name>Maribor</name></row></root>");
+    const path = await xml(
+      "<root><row><id>1</id><name>Ljubljana</name></row><row><id>2</id><name>Maribor</name></row></root>",
+    );
     const output = join(path.slice(0, path.lastIndexOf("/")), "rows.json");
     const engine = new DataEngine();
 

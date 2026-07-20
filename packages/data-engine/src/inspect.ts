@@ -159,10 +159,14 @@ export class DataEngine {
       return { format: "xlsx", ...preview, returnedCount: preview.rows.length };
     }
     if (detection.format === "xml")
-      return previewXml(detection.path, {
-        limit,
-        ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
-      }, this.options.xmlLimits);
+      return previewXml(
+        detection.path,
+        {
+          limit,
+          ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
+        },
+        this.options.xmlLimits,
+      );
     let result: { readonly rows: readonly DataRow[]; readonly truncated: boolean };
     if (detection.format === "ndjson") {
       if ((await stat(detection.path)).size <= this.jsonNativeByteLimit) {

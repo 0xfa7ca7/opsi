@@ -4,7 +4,12 @@ import { ProviderRegistry } from "./registry.js";
 import { CacheService } from "./cache.js";
 import { DownloadService, type DownloadServiceOptions } from "./downloads.js";
 import { DerivedArtifactCache, type ContentCache, type DerivedArtifactPolicy } from "@opsi/storage";
-import { DataEngine, type ArchiveLimits, type DataEngineOptions, type XmlLimits } from "@opsi/data-engine";
+import {
+  DataEngine,
+  type ArchiveLimits,
+  type DataEngineOptions,
+  type XmlLimits,
+} from "@opsi/data-engine";
 import { DataService } from "./data.js";
 import { ConversionService } from "./conversions.js";
 import { QueryService } from "./queries.js";
@@ -54,8 +59,13 @@ export class OpsiClient {
     this.datasets = new DatasetCatalog(this.registry, this.providerId);
     this.resources = new ResourceCatalog(this.registry, this.providerId);
     this.providers = new ProviderCatalog(this.registry);
-    const dataEngineOptions: DataEngineOptions = { ...(options.xmlLimits === undefined ? {} : { xmlLimits: options.xmlLimits }) };
-    this.data = new DataService(this, new DataEngine(dataEngineOptions), { cwd: options.cwd ?? process.cwd(), ...(options.archiveLimits === undefined ? {} : { archiveLimits: options.archiveLimits }) });
+    const dataEngineOptions: DataEngineOptions = {
+      ...(options.xmlLimits === undefined ? {} : { xmlLimits: options.xmlLimits }),
+    };
+    this.data = new DataService(this, new DataEngine(dataEngineOptions), {
+      cwd: options.cwd ?? process.cwd(),
+      ...(options.archiveLimits === undefined ? {} : { archiveLimits: options.archiveLimits }),
+    });
     this.conversions = new ConversionService(this.data);
     const queryWorkerPath = options.queryWorkerPath ?? defaultQueryWorkerPath();
     const runner = new DuckDbQueryRunner({ workerPath: queryWorkerPath });
@@ -65,13 +75,19 @@ export class OpsiClient {
         : new DerivedArtifactCache(options.cache, options.duckdbCache);
     this.query = new QueryService(
       this.data,
-      new QueryDatabaseCache({ runner, ...(derived === undefined ? {} : { derived }), ...(options.xmlLimits === undefined ? {} : { xmlLimits: options.xmlLimits }) }),
+      new QueryDatabaseCache({
+        runner,
+        ...(derived === undefined ? {} : { derived }),
+        ...(options.xmlLimits === undefined ? {} : { xmlLimits: options.xmlLimits }),
+      }),
     );
     this.services = {
       wfs: new WfsService({
         registry: this.registry,
         providerId: this.providerId,
-        ...(options.downloads?.downloader === undefined ? {} : { downloader: options.downloads.downloader }),
+        ...(options.downloads?.downloader === undefined
+          ? {}
+          : { downloader: options.downloads.downloader }),
         limits: options.downloads?.limits ?? { maxBytes: 64 * 1024 * 1024, timeoutMs: 30_000 },
         offline: options.downloads?.offline ?? false,
       }),

@@ -24,16 +24,21 @@ describe("bounded WFS protocol", () => {
     expect(url.searchParams.get("count")).toBe("5");
     expect(url.searchParams.get("propertyName")).toBe("EID_STAVBA");
     const legacy = buildWfsUrl("https://example.test/wfs", {
-      version: "1.1.0", request: "GetFeature", layer: "roads", limit: 2,
+      version: "1.1.0",
+      request: "GetFeature",
+      layer: "roads",
+      limit: 2,
     });
     expect(legacy.searchParams.get("typeName")).toBe("roads");
     expect(legacy.searchParams.get("maxFeatures")).toBe("2");
   });
 
   it.each(["https://user:pass@example.test/wfs", "https://example.test/wfs#fragment"])(
-    "rejects unsafe base URL %s", (base) => {
-      expect(() => buildWfsUrl(base, { version: "2.0.0", request: "GetCapabilities" }))
-        .toThrowError(expect.objectContaining({ code: "WFS_URL_INVALID" }));
+    "rejects unsafe base URL %s",
+    (base) => {
+      expect(() =>
+        buildWfsUrl(base, { version: "2.0.0", request: "GetCapabilities" }),
+      ).toThrowError(expect.objectContaining({ code: "WFS_URL_INVALID" }));
     },
   );
 
@@ -47,17 +52,41 @@ describe("bounded WFS protocol", () => {
     expect(capabilities).toMatchObject({
       version: "2.0.0",
       operations: ["GetFeature"],
-      layers: [{ name: "si:roads", title: "Roads", defaultCrs: "urn:ogc:def:crs:EPSG::3794", otherCrs: ["EPSG:4326"] }],
+      layers: [
+        {
+          name: "si:roads",
+          title: "Roads",
+          defaultCrs: "urn:ogc:def:crs:EPSG::3794",
+          otherCrs: ["EPSG:4326"],
+        },
+      ],
     });
-    expect(parseWfsSchema(`<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"><xsd:element name="roads" type="tns:roadsType"/><xsd:complexType name="roadsType"><xsd:sequence><xsd:element name="id" type="xsd:long" minOccurs="0"/><xsd:element name="name" type="xsd:string"/></xsd:sequence></xsd:complexType></xsd:schema>`, "roads"))
-      .toEqual([{ name: "id", type: "xsd:long", nullable: true }, { name: "name", type: "xsd:string", nullable: false }]);
+    expect(
+      parseWfsSchema(
+        `<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"><xsd:element name="roads" type="tns:roadsType"/><xsd:complexType name="roadsType"><xsd:sequence><xsd:element name="id" type="xsd:long" minOccurs="0"/><xsd:element name="name" type="xsd:string"/></xsd:sequence></xsd:complexType></xsd:schema>`,
+        "roads",
+      ),
+    ).toEqual([
+      { name: "id", type: "xsd:long", nullable: true },
+      { name: "name", type: "xsd:string", nullable: false },
+    ]);
     expect(parseWfsCount(`<wfs:FeatureCollection xmlns:wfs="x" numberMatched="42"/>`)).toBe(42);
-    expect(parseWfsException(`<ows:ExceptionReport xmlns:ows="x"><ows:Exception exceptionCode="InvalidParameterValue"><ows:ExceptionText>bad layer</ows:ExceptionText></ows:Exception></ows:ExceptionReport>`))
-      .toMatchObject({ code: "SERVICE_EXCEPTION", context: { serviceCode: "InvalidParameterValue" } });
+    expect(
+      parseWfsException(
+        `<ows:ExceptionReport xmlns:ows="x"><ows:Exception exceptionCode="InvalidParameterValue"><ows:ExceptionText>bad layer</ows:ExceptionText></ows:Exception></ows:ExceptionReport>`,
+      ),
+    ).toMatchObject({
+      code: "SERVICE_EXCEPTION",
+      context: { serviceCode: "InvalidParameterValue" },
+    });
   });
 
   it("rejects DTD input and oversized XML", () => {
-    expect(() => parseWfsCapabilities('<!DOCTYPE x><x/>')).toThrowError(expect.objectContaining({ code: "INVALID_WFS_RESPONSE" }));
-    expect(() => parseWfsCapabilities(`<x>${"a".repeat(1024)}</x>`, 64)).toThrowError(expect.objectContaining({ code: "WFS_RESPONSE_TOO_LARGE" }));
+    expect(() => parseWfsCapabilities("<!DOCTYPE x><x/>")).toThrowError(
+      expect.objectContaining({ code: "INVALID_WFS_RESPONSE" }),
+    );
+    expect(() => parseWfsCapabilities(`<x>${"a".repeat(1024)}</x>`, 64)).toThrowError(
+      expect.objectContaining({ code: "WFS_RESPONSE_TOO_LARGE" }),
+    );
   });
 });

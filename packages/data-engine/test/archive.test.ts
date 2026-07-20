@@ -3,11 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { strToU8, zipSync } from "fflate";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  DEFAULT_ARCHIVE_LIMITS,
-  extractArchiveEntry,
-  inspectArchive,
-} from "../src/index.js";
+import { DEFAULT_ARCHIVE_LIMITS, extractArchiveEntry, inspectArchive } from "../src/index.js";
 
 const temporary: string[] = [];
 
@@ -17,7 +13,9 @@ async function archive(entries: Readonly<Record<string, string>>): Promise<strin
   const path = join(directory, "fixture.zip");
   await writeFile(
     path,
-    zipSync(Object.fromEntries(Object.entries(entries).map(([name, value]) => [name, strToU8(value)]))),
+    zipSync(
+      Object.fromEntries(Object.entries(entries).map(([name, value]) => [name, strToU8(value)])),
+    ),
   );
   return path;
 }
@@ -45,7 +43,7 @@ describe("safe ZIP data access", () => {
   });
 
   it("requires selection when multiple data entries exist", async () => {
-    const path = await archive({ "a.csv": "id\n1\n", "b.json": "[{\"id\":2}]" });
+    const path = await archive({ "a.csv": "id\n1\n", "b.json": '[{"id":2}]' });
     await expect(inspectArchive(path, DEFAULT_ARCHIVE_LIMITS)).rejects.toMatchObject({
       code: "ARCHIVE_ENTRY_REQUIRED",
       exitCode: 2,

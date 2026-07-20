@@ -214,7 +214,15 @@ describe("agent skill rendering", () => {
 
   it("renders bounded WFS service workflows", () => {
     const content = renderAgentSkillFiles("1.2.3").get("opsi-services") ?? "";
-    for (const command of ["service inspect", "service layers", "service schema", "service preview", "service count", "service export"]) expect(content).toContain(`### \`${command}\``);
+    for (const command of [
+      "service inspect",
+      "service layers",
+      "service schema",
+      "service preview",
+      "service count",
+      "service export",
+    ])
+      expect(content).toContain(`### \`${command}\``);
     expect(content).toContain("Never send transaction requests");
   });
 

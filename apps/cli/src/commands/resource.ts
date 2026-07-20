@@ -11,9 +11,19 @@ export function registerResourceCommand(
   client: OpsiClient,
 ): void {
   registerResourcePreviewCommand(program, context, client);
-  manifestCommand(program, "resource inspect").action(async (input: string, options: { readonly allowInsecureHttp?: boolean; readonly allowPrivateNetwork?: boolean }) => {
-    context.renderer?.write(await client.access.inspect(input, { allowInsecureHttp: options.allowInsecureHttp ?? false, allowPrivateNetwork: options.allowPrivateNetwork ?? false }));
-  });
+  manifestCommand(program, "resource inspect").action(
+    async (
+      input: string,
+      options: { readonly allowInsecureHttp?: boolean; readonly allowPrivateNetwork?: boolean },
+    ) => {
+      context.renderer?.write(
+        await client.access.inspect(input, {
+          allowInsecureHttp: options.allowInsecureHttp ?? false,
+          allowPrivateNetwork: options.allowPrivateNetwork ?? false,
+        }),
+      );
+    },
+  );
   manifestCommand(program, "resource show").action(async (id: string) => {
     context.renderer?.write(await client.resources.get(resourceId(id)));
   });

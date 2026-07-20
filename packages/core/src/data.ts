@@ -68,11 +68,7 @@ export class DataService {
       if (detection.format !== "zip") return source;
       let inspection;
       try {
-        inspection = await inspectArchive(
-          detection.path,
-          this.archiveLimits,
-          options.entry,
-        );
+        inspection = await inspectArchive(detection.path, this.archiveLimits, options.entry);
       } catch (error) {
         if (error instanceof OpsiError && error.code === "ARCHIVE_ENTRY_REQUIRED") {
           const choices = (error.context?.choices as readonly string[] | undefined) ?? [];
