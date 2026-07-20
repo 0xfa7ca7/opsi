@@ -45,11 +45,17 @@ function retryAfterMilliseconds(value: string | null): number | undefined {
 
 type ProviderErrorKind = "request" | "invalid-response" | "not-found";
 
+interface ProviderResponseContext {
+  readonly status: number;
+  readonly contentType: string | null;
+}
+
 function providerError(
   operation: OpsiOperationName,
   message: string,
   cause?: unknown,
   kind: ProviderErrorKind = "request",
+  responseContext?: ProviderResponseContext,
 ): OpsiError {
   const notFound =
     kind === "not-found" && (operation === "package_show" || operation === "resource_show");
@@ -62,7 +68,13 @@ function providerError(
         : "PROVIDER_REQUEST_FAILED",
     message,
     exitCode: notFound ? EXIT_CODES.NOT_FOUND : EXIT_CODES.PROVIDER_FAILURE,
-    context: { provider: "opsi", operation },
+    context: {
+      provider: "opsi",
+      operation,
+      ...(responseContext === undefined
+        ? {}
+        : { status: responseContext.status, contentType: responseContext.contentType }),
+    },
     ...(cause === undefined ? {} : { cause }),
   });
 }
@@ -131,6 +143,7 @@ export class OpsiTransport {
       )
       .catch((error: unknown) => {
         if (error instanceof RetryableRequestError) {
+          if (error.cause instanceof OpsiError) throw error.cause;
           throw providerError(operation, error.message, error);
         }
         throw error;
@@ -218,11 +231,21 @@ export class OpsiTransport {
     try {
       body = await response.json();
     } catch (error) {
-      throw providerError(
+      const invalidResponse = providerError(
         operation,
         "OPSI returned a non-JSON response.",
         error,
         "invalid-response",
+        {
+          status: response.status,
+          contentType: response.headers.get("content-type"),
+        },
+      );
+      throw new RetryableRequestError(
+        invalidResponse.message,
+        response.status,
+        undefined,
+        invalidResponse,
       );
     }
 
