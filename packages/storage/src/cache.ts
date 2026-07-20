@@ -530,6 +530,27 @@ export class ContentCache implements MetadataCache {
   async deleteMetadata(key: string): Promise<void> {
     await rm((await this.layout()).metadataPath(key), { force: true });
   }
+  async removeObjectsIfUnreferenced(sha256s: readonly string[]): Promise<number> {
+    const layout = await this.layout();
+    const lock = await CacheLock.acquire(layout.locks, "cache-publication");
+    try {
+      const live = new Set(
+        (await this.metadataRecords()).flatMap((record) =>
+          record.objectSha256 === undefined ? [] : [record.objectSha256],
+        ),
+      );
+      let removed = 0;
+      for (const sha256 of new Set(sha256s)) {
+        if (!/^[a-f\d]{64}$/u.test(sha256) || live.has(sha256)) continue;
+        await rm(layout.objectPath(sha256), { force: true });
+        removed += 1;
+      }
+      if (removed > 0) await syncDirectory(layout.objects);
+      return removed;
+    } finally {
+      await lock.release();
+    }
+  }
   async verify(): Promise<{
     readonly objects: number;
     readonly metadata: number;
