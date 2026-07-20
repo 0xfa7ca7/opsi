@@ -32,6 +32,8 @@ interface PublisherArguments {
   readonly allowLargeReduction: boolean;
 }
 
+export const CATALOGUE_PROVIDER_TIMEOUT_MS = 90_000;
+
 export async function runPublisher(
   argv: readonly string[],
   runtime: PublisherRuntime = {},
@@ -106,7 +108,12 @@ export async function runPublisher(
 }
 
 function createDefaultProvider(): DataProvider {
-  return new OpsiProvider(new OpsiTransport({ scheduler: new RequestScheduler() }));
+  return new OpsiProvider(
+    new OpsiTransport({
+      scheduler: new RequestScheduler(),
+      timeoutMs: CATALOGUE_PROVIDER_TIMEOUT_MS,
+    }),
+  );
 }
 
 function parsePublisherArguments(argv: readonly string[]): PublisherArguments {

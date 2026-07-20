@@ -231,16 +231,33 @@ export class OpsiTransport {
     try {
       body = await response.json();
     } catch (error) {
-      const invalidResponse = providerError(
-        operation,
-        "OPSI returned a non-JSON response.",
-        error,
-        "invalid-response",
-        {
-          status: response.status,
-          contentType: response.headers.get("content-type"),
-        },
-      );
+      const responseContext = {
+        status: response.status,
+        contentType: response.headers.get("content-type"),
+      };
+      const invalidResponse = timeout.aborted
+        ? providerError(
+            operation,
+            "OPSI response body timed out.",
+            error,
+            "request",
+            responseContext,
+          )
+        : error instanceof SyntaxError
+          ? providerError(
+              operation,
+              "OPSI returned a non-JSON response.",
+              error,
+              "invalid-response",
+              responseContext,
+            )
+          : providerError(
+              operation,
+              "OPSI response body could not be read.",
+              error,
+              "request",
+              responseContext,
+            );
       throw new RetryableRequestError(
         invalidResponse.message,
         response.status,

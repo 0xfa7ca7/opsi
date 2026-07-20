@@ -611,6 +611,111 @@ describe("OPSI provider contract", () => {
     expect(serialized).not.toContain("cause");
   });
 
+  it("reports a response-body timeout separately from malformed JSON", async () => {
+    const fetch = vi.fn(async (_input: string | URL, init?: RequestInit) => {
+      const signal = init?.signal;
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('{"success":true,"result":'));
+            signal?.addEventListener("abort", () => controller.error(signal.reason), {
+              once: true,
+            });
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json;charset=utf-8" },
+        },
+      );
+    });
+    const transport = new OpsiTransport({
+      baseUrl: "https://example.invalid/fixture",
+      fetch,
+      timeoutMs: 10,
+      scheduler: new RequestScheduler({ intervalMs: 0, maxRetries: 0 }),
+    });
+
+    await expect(
+      transport.call("package_search", {
+        q: "*:*",
+        fq: "",
+        rows: 1,
+        start: 0,
+        facet: "true",
+        "facet.field": [],
+        "facet.mincount": 0,
+        "facet.limit": 50,
+        sort: "relevance asc",
+      }),
+    ).rejects.toMatchObject({
+      code: "PROVIDER_REQUEST_FAILED",
+      message: "OPSI response body timed out.",
+      exitCode: 4,
+      context: {
+        provider: "opsi",
+        operation: "package_search",
+        status: 200,
+        contentType: "application/json;charset=utf-8",
+      },
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a terminated response body separately from malformed JSON", async () => {
+    const fetch = vi.fn(
+      async () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.error(new TypeError("terminated secret upstream response"));
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json;charset=utf-8" },
+          },
+        ),
+    );
+    const transport = new OpsiTransport({
+      baseUrl: "https://example.invalid/fixture",
+      fetch,
+      scheduler: new RequestScheduler({ intervalMs: 0, maxRetries: 0 }),
+    });
+
+    let received: unknown;
+    try {
+      await transport.call("package_search", {
+        q: "*:*",
+        fq: "",
+        rows: 1,
+        start: 0,
+        facet: "true",
+        "facet.field": [],
+        "facet.mincount": 0,
+        "facet.limit": 50,
+        sort: "relevance asc",
+      });
+    } catch (error) {
+      received = error;
+    }
+
+    expect(received).toBeInstanceOf(OpsiError);
+    if (!(received instanceof OpsiError)) throw new Error("expected OpsiError");
+    expect(received.toJSON()).toEqual({
+      code: "PROVIDER_REQUEST_FAILED",
+      message: "OPSI response body could not be read.",
+      exitCode: 4,
+      context: {
+        provider: "opsi",
+        operation: "package_search",
+        status: 200,
+        contentType: "application/json;charset=utf-8",
+      },
+    });
+    expect(JSON.stringify(received)).not.toContain("terminated secret upstream response");
+  });
+
   it("does not mislabel an invalid resource envelope as not found", async () => {
     const transport = new OpsiTransport({
       baseUrl: "https://example.invalid/fixture",

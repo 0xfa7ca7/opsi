@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
-import { formatPublisherError } from "../src/publish-entry.js";
+import * as publisher from "../src/publish-entry.js";
+
+const { formatPublisherError } = publisher;
 
 describe("catalogue publisher diagnostics", () => {
+  it("allows slow live catalogue pages without changing the interactive provider timeout", () => {
+    expect(
+      (publisher as unknown as Readonly<Record<string, unknown>>).CATALOGUE_PROVIDER_TIMEOUT_MS,
+    ).toBe(90_000);
+  });
+
   it("emits structured OpsiError details without serializing nested causes", () => {
     const error = new OpsiError({
       code: "CATALOGUE_COUNT_REDUCTION",

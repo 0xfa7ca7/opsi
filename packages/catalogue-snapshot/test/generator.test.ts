@@ -1,5 +1,7 @@
 import {
   datasetId,
+  EXIT_CODES,
+  OpsiError,
   providerId,
   type DataProvider,
   type DatasetSummary,
@@ -109,6 +111,45 @@ describe("generateCatalogueSnapshot", () => {
       exitCode: 4,
       context: { field: "total" },
     });
+  });
+
+  it("adds the failing page offset to provider diagnostics", async () => {
+    const upstream = new OpsiError({
+      code: "PROVIDER_REQUEST_FAILED",
+      message: "OPSI response body timed out.",
+      exitCode: EXIT_CODES.PROVIDER_FAILURE,
+      context: { provider: "opsi", operation: "package_search", status: 200 },
+      cause: new Error("secret upstream response body"),
+    });
+    const search = vi.fn(async (query: SearchQuery): Promise<SearchPage> => {
+      if (query.offset === 0) {
+        return page(0, 2, [dataset("a", "Alpha", "alpha")], 300);
+      }
+      throw upstream;
+    });
+    const provider = { search } as unknown as DataProvider;
+
+    let received: unknown;
+    try {
+      await generateCatalogueSnapshot(provider, { generatedAt });
+    } catch (error) {
+      received = error;
+    }
+
+    expect(received).toBeInstanceOf(OpsiError);
+    if (!(received instanceof OpsiError)) throw new Error("expected OpsiError");
+    expect(received.toJSON()).toEqual({
+      code: "PROVIDER_REQUEST_FAILED",
+      message: "OPSI response body timed out.",
+      exitCode: EXIT_CODES.PROVIDER_FAILURE,
+      context: {
+        provider: "opsi",
+        operation: "package_search",
+        status: 200,
+        offset: 300,
+      },
+    });
+    expect(JSON.stringify(received)).not.toContain("secret upstream response body");
   });
 
   it("rejects a final record count different from the first-page total", async () => {
