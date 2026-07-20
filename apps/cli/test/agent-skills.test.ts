@@ -31,6 +31,76 @@ const EXPECTED_SKILLS = [
   "opsi-diagnostics",
 ] as const;
 
+const EXPECTED_DATA_CAPABILITY_IDS = {
+  "opsi-catalogue": ["catalogue-mode", "search-refinement", "dataset-followup"],
+  "opsi-resources": ["input-resolution", "access-selection", "structured-selectors"],
+  "opsi-download": ["target-resolution", "destination-strategy", "partial-results"],
+  "opsi-validation": ["validation-mode", "structured-selectors", "failure-recovery"],
+  "opsi-analysis": ["supported-inputs", "bounded-query", "query-export", "safe-conversion"],
+  "opsi-provenance": ["record-inspection", "integrity-verification"],
+} as const;
+
+const REQUIRED_GUIDANCE = {
+  opsi: [
+    "## End-to-end workflows",
+    "Acquire and analyze data",
+    "Inspect and export WFS data",
+    "Refresh an agent installation",
+  ],
+  "opsi-shared": [
+    "## Default decision sequence",
+    "local path",
+    "opsi:resource:",
+    "--entry",
+    "--record-path",
+    "--sheet",
+    "JSON, NDJSON, CSV, TSV, XLSX, Parquet",
+    "offline",
+  ],
+  "opsi-catalogue": [
+    "snapshot",
+    "--refresh",
+    "--live",
+    "--all",
+    "dataset resources",
+    "dataset schema",
+  ],
+  "opsi-resources": [
+    "resource inspect",
+    "resource preview",
+    "--entry",
+    "--record-path",
+    "--sheet",
+    "WFS",
+  ],
+  "opsi-download": [
+    "--dataset",
+    "--resource",
+    "one resource",
+    "batch",
+    "Partial success",
+    "provenance verify",
+  ],
+  "opsi-validation": ["--metadata", "--entry", "--record-path", "--sheet", "exit 6"],
+  "opsi-analysis": [
+    "CSV",
+    "TSV",
+    "JSON",
+    "NDJSON",
+    "XLSX",
+    "Parquet",
+    "ZIP",
+    "XML",
+    "SELECT",
+    "WITH",
+    "VALUES",
+    "--output",
+    "--spreadsheet-safe",
+    "provenance verify",
+  ],
+  "opsi-provenance": ["provenance show", "provenance verify", "digest mismatch", "Do not mutate"],
+} as const;
+
 const command = (path: string): CommandManifestEntry => ({
   path,
   description: `Run ${path}`,
@@ -83,6 +153,17 @@ describe("agent skill registry", () => {
     for (const definition of AGENT_SKILLS) {
       expect(definition.description, definition.name).toMatch(/^Use when /u);
       expect(definition.description.length, definition.name).toBeLessThanOrEqual(500);
+    }
+  });
+
+  it("assigns the ordered acquisition and analysis capability guides", () => {
+    for (const [name, expectedIds] of Object.entries(EXPECTED_DATA_CAPABILITY_IDS)) {
+      const definition = AGENT_SKILLS.find((entry) => entry.name === name);
+      expect(definition, name).toBeDefined();
+      expect(
+        definition?.capabilities.map((capability) => capability.id),
+        name,
+      ).toEqual(expectedIds);
     }
   });
 
@@ -272,6 +353,37 @@ describe("agent skill rendering", () => {
       }
     }
     expect(content).toContain("Do not fall back to curl or another raw HTTP client");
+  });
+
+  it("renders the required data workflow guidance and capability guides before commands", () => {
+    const files = renderAgentSkillFiles("1.2.3");
+
+    for (const [name, requiredTokens] of Object.entries(REQUIRED_GUIDANCE)) {
+      const content = files.get(name) ?? "";
+      for (const token of requiredTokens) expect(content, `${name}: ${token}`).toContain(token);
+    }
+
+    for (const [name] of Object.entries(EXPECTED_DATA_CAPABILITY_IDS)) {
+      const definition = AGENT_SKILLS.find((entry) => entry.name === name);
+      const content = files.get(name) ?? "";
+      const capabilityGuide = content.indexOf("## Capability guide");
+      const commands = content.indexOf("## Commands");
+
+      expect(capabilityGuide, name).toBeGreaterThan(-1);
+      expect(commands, name).toBeGreaterThan(capabilityGuide);
+      for (const capability of definition?.capabilities ?? []) {
+        const title = `### ${capability.title}`;
+        expect(content.indexOf(title), `${name}: ${title}`).toBeGreaterThan(capabilityGuide);
+        expect(content.indexOf(title), `${name}: ${title}`).toBeLessThan(commands);
+        for (const instruction of capability.instructions) {
+          const bullet = `- ${instruction}`;
+          expect(content.indexOf(bullet), `${name}: ${bullet}`).toBeGreaterThan(
+            content.indexOf(title),
+          );
+          expect(content.indexOf(bullet), `${name}: ${bullet}`).toBeLessThan(commands);
+        }
+      }
+    }
   });
 
   it("renders bounded WFS service workflows", () => {

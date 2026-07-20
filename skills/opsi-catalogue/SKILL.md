@@ -14,6 +14,23 @@ Find datasets and inspect their normalized metadata and tabular schemas. Generat
 - Search with a narrow limit and fields, then inspect the selected dataset.
 - List dataset resources before selecting one for preview or download.
 
+## Capability guide
+
+### Choose catalogue mode
+
+- Use the published snapshot for ordinary discovery; use `dataset list --refresh` only when a fresh snapshot is needed.
+- Use `dataset list --live` for an explicit paginated live traversal, and do not combine it with `--refresh`.
+
+### Refine discovery
+
+- Start with `search` using `--limit`, `--fields`, and only the relevant organization, tag, format, license, date, or sort filters.
+- Use `--all` only when every result page is required; otherwise retain a bounded page and exact IDs returned by the CLI.
+
+### Follow a selected dataset
+
+- Run `dataset show`, then `dataset resources` before choosing a resource; use `dataset schema` when tabular structure determines the choice.
+- Use `dataset open` only to view the provider's public page, not as a replacement for structured CLI metadata.
+
 ## Commands
 
 ### `search`

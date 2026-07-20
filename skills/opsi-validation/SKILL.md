@@ -13,6 +13,23 @@ Validate data content or normalized metadata and explain actionable issues. Gene
 
 - Validate downloaded content before analysis or conversion.
 
+## Capability guide
+
+### Choose validation mode
+
+- Validate a local path or canonical provider reference before analysis; use `--metadata` when only normalized metadata should be checked.
+- Use offline validation after acquisition when all required input is local; do not silently retry a failed offline request online.
+
+### Select structured data
+
+- Use exactly one resolved `--entry`, `--record-path`, or `--sheet` for ambiguous ZIP, XML, or XLSX content.
+- Return to resource inspection if a selector is unknown instead of guessing a data member.
+
+### Recover from validation failures
+
+- Treat exit 6 as a validation or integrity failure: report the issues and repair, replace, or reselect the input before retrying.
+- Do not treat validation or integrity failure as a transient network error or bypass it before analysis.
+
 ## Commands
 
 ### `validate`

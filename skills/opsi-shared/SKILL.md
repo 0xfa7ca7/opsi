@@ -26,6 +26,24 @@ Use the installed CLI as the source of truth when its help differs from generate
 - Inspect the structured `error.code` together with the exit status before choosing remediation.
 - Never parse a human-readable table when structured output is available.
 
+## Default decision sequence
+
+1. Resolve a local path, a local:file reference, or an exact `opsi:resource:` reference.
+2. Inspect unknown inputs, then preview a bounded sample and validate when the next operation depends on content integrity.
+3. Download provider data before local-only work, then use `--offline` for the remaining local steps when network access is unavailable or unwanted.
+4. Perform the requested bounded operation and verify important artifacts with provenance.
+
+## Input and selector choices
+
+- Use a local path for data already on disk and a canonical `opsi:resource:` reference for provider data; do not invent IDs or references.
+- For an ambiguous ZIP use one returned `--entry`; for XML use one returned `--record-path`; for XLSX use one returned `--sheet`.
+- Stop and inspect again when the CLI cannot identify a unique selector. Do not process every archive member, XML record path, or workbook sheet by default.
+
+## Formats and outputs
+
+- Supported tabular workflow formats include JSON, NDJSON, CSV, TSV, XLSX, Parquet, ZIP, and XML when their selected content is supported.
+- Choose `--json` for one bounded envelope, `--ndjson` for records, and command-specific `--output` for a persisted artifact; use spreadsheet-safe output when needed.
+
 ## Global options
 
 | Option | Values | Conflicts | Description |

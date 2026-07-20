@@ -35,9 +35,9 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     purpose:
       "Classify the request, load shared guidance, and select the smallest relevant domain skill or ordered set of skills.",
     workflows: [
-      "Discover data, inspect its metadata, then choose a resource.",
-      "Download or preview selected data before validating, querying, or converting it.",
-      "Use provenance to verify any artifact produced by a download, conversion, or query export.",
+      "Acquire and analyze data",
+      "Inspect and export WFS data",
+      "Refresh an agent installation",
     ],
     capabilities: [],
     safety: [],
@@ -59,7 +59,9 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Use when any OPSI CLI skill needs shared installation, output, offline, safety, or error-handling guidance.",
     commands: [],
     purpose: "Provide the common execution contract every OPSI domain skill must follow.",
-    workflows: [],
+    workflows: [
+      "Resolve the input, inspect it, preview a bounded sample, validate when useful, perform the requested operation, then verify important artifacts.",
+    ],
     capabilities: [],
     safety: [
       "Prefer structured output and bounded result sets.",
@@ -86,7 +88,32 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Search with a narrow limit and fields, then inspect the selected dataset.",
       "List dataset resources before selecting one for preview or download.",
     ],
-    capabilities: [],
+    capabilities: [
+      {
+        id: "catalogue-mode",
+        title: "Choose catalogue mode",
+        instructions: [
+          "Use the published snapshot for ordinary discovery; use `dataset list --refresh` only when a fresh snapshot is needed.",
+          "Use `dataset list --live` for an explicit paginated live traversal, and do not combine it with `--refresh`.",
+        ],
+      },
+      {
+        id: "search-refinement",
+        title: "Refine discovery",
+        instructions: [
+          "Start with `search` using `--limit`, `--fields`, and only the relevant organization, tag, format, license, date, or sort filters.",
+          "Use `--all` only when every result page is required; otherwise retain a bounded page and exact IDs returned by the CLI.",
+        ],
+      },
+      {
+        id: "dataset-followup",
+        title: "Follow a selected dataset",
+        instructions: [
+          "Run `dataset show`, then `dataset resources` before choosing a resource; use `dataset schema` when tabular structure determines the choice.",
+          "Use `dataset open` only to view the provider's public page, not as a replacement for structured CLI metadata.",
+        ],
+      },
+    ],
     safety: ["Use explicit live catalogue traversal only when the user needs it."],
     related: ["opsi-resources", "opsi-download", "opsi-validation"],
   },
@@ -100,7 +127,32 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Inspect metadata and headers before downloading an unfamiliar resource.",
       "Preview a bounded number of rows before validation or analysis.",
     ],
-    capabilities: [],
+    capabilities: [
+      {
+        id: "input-resolution",
+        title: "Resolve the input",
+        instructions: [
+          "Use a local path for local data and retain an exact `opsi:resource:` reference for provider data; do not invent either identifier.",
+          "Run `resource inspect` to learn supported access operations before choosing download, validation, WFS, or analysis.",
+        ],
+      },
+      {
+        id: "access-selection",
+        title: "Select safe access",
+        instructions: [
+          "Use `resource headers` for a secure provider-header probe and `resource preview` with a small `--limit` for a bounded content check.",
+          "Route a WFS resource to the services skill after inspection; do not replace OPSI access controls with direct HTTP.",
+        ],
+      },
+      {
+        id: "structured-selectors",
+        title: "Resolve structured content",
+        instructions: [
+          "For an ambiguous ZIP, use the returned `--entry`; for XML use one returned `--record-path`; for XLSX use the returned `--sheet`.",
+          "Do not guess a selector or process every archive entry, XML element, or workbook sheet when inspection reports an ambiguity.",
+        ],
+      },
+    ],
     safety: ["Keep previews bounded and do not weaken network controls implicitly."],
     related: ["opsi-catalogue", "opsi-download", "opsi-validation", "opsi-analysis"],
   },
@@ -111,7 +163,32 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     commands: ["download"],
     purpose: "Download selected provider resources through the CLI's bounded secure downloader.",
     workflows: ["Resolve a canonical resource or dataset reference, then download it."],
-    capabilities: [],
+    capabilities: [
+      {
+        id: "target-resolution",
+        title: "Resolve download targets",
+        instructions: [
+          "Pass canonical resource references when available; use `--dataset` or `--resource` to disambiguate bare identifiers.",
+          "Inspect a selected resource first when its format or access method is uncertain.",
+        ],
+      },
+      {
+        id: "destination-strategy",
+        title: "Choose a destination",
+        instructions: [
+          "Use `--destination` or `--output` for one resource; use the configured download directory for a batch.",
+          "Do not use `--force` to replace an existing artifact unless that exact overwrite is authorized; verify the existing artifact first when it matters.",
+        ],
+      },
+      {
+        id: "partial-results",
+        title: "Handle batch results",
+        instructions: [
+          "For a batch, report each successful and failed resource separately; exit 8 means Partial success, not complete success.",
+          "Run `provenance verify` for important downloaded artifacts before handing them to later workflow steps.",
+        ],
+      },
+    ],
     safety: ["Confirm before replacing an existing artifact with --force."],
     related: ["opsi-catalogue", "opsi-resources", "opsi-validation", "opsi-provenance"],
   },
@@ -122,7 +199,32 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     commands: ["validate"],
     purpose: "Validate data content or normalized metadata and explain actionable issues.",
     workflows: ["Validate downloaded content before analysis or conversion."],
-    capabilities: [],
+    capabilities: [
+      {
+        id: "validation-mode",
+        title: "Choose validation mode",
+        instructions: [
+          "Validate a local path or canonical provider reference before analysis; use `--metadata` when only normalized metadata should be checked.",
+          "Use offline validation after acquisition when all required input is local; do not silently retry a failed offline request online.",
+        ],
+      },
+      {
+        id: "structured-selectors",
+        title: "Select structured data",
+        instructions: [
+          "Use exactly one resolved `--entry`, `--record-path`, or `--sheet` for ambiguous ZIP, XML, or XLSX content.",
+          "Return to resource inspection if a selector is unknown instead of guessing a data member.",
+        ],
+      },
+      {
+        id: "failure-recovery",
+        title: "Recover from validation failures",
+        instructions: [
+          "Treat exit 6 as a validation or integrity failure: report the issues and repair, replace, or reselect the input before retrying.",
+          "Do not treat validation or integrity failure as a transient network error or bypass it before analysis.",
+        ],
+      },
+    ],
     safety: ["Treat integrity failures as non-retryable until the input changes."],
     related: ["opsi-resources", "opsi-download", "opsi-analysis"],
   },
@@ -136,7 +238,40 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Preview and validate input before running a bounded query.",
       "Convert an input and then verify the generated provenance record.",
     ],
-    capabilities: [],
+    capabilities: [
+      {
+        id: "supported-inputs",
+        title: "Choose a supported input",
+        instructions: [
+          "Query or convert CSV, TSV, JSON, NDJSON, XLSX, Parquet, ZIP, or XML only after inspection identifies a usable tabular member.",
+          "Use a resolved `--entry`, `--record-path`, or `--sheet` whenever ZIP, XML, or XLSX input is ambiguous.",
+        ],
+      },
+      {
+        id: "bounded-query",
+        title: "Run bounded read-only SQL",
+        instructions: [
+          "Use one read-only `SELECT`, `WITH ... SELECT`, or `VALUES` statement, with an explicit `--limit` and a suitable timeout.",
+          "Keep global query row, time, memory, and thread bounds appropriate to the requested result; correct exit 7 rather than retrying the same query.",
+        ],
+      },
+      {
+        id: "query-export",
+        title: "Export query results",
+        instructions: [
+          "Use `--output` for a bounded query export and choose a new path unless the user explicitly authorizes `--force`.",
+          "Run `provenance verify` on an important query export before reporting it as a final artifact.",
+        ],
+      },
+      {
+        id: "safe-conversion",
+        title: "Convert safely",
+        instructions: [
+          "Choose a supported conversion target and `--output`; use `--spreadsheet-safe` for CSV or XLSX intended for spreadsheet software.",
+          "Validate or inspect the converted result and use `provenance verify`; do not overwrite an existing destination without authorization.",
+        ],
+      },
+    ],
     safety: [
       "Keep SQL read-only and bounded.",
       "Confirm before replacing an existing output with --force.",
@@ -174,7 +309,24 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     commands: ["provenance show", "provenance verify"],
     purpose: "Inspect recorded lineage and verify an artifact against its digest.",
     workflows: ["Verify every important downloaded, converted, or query-exported artifact."],
-    capabilities: [],
+    capabilities: [
+      {
+        id: "record-inspection",
+        title: "Inspect recorded lineage",
+        instructions: [
+          "Use `provenance show` to inspect an artifact's source, retrieval, and transformation record before explaining where it came from.",
+          "Compare the record with the exact local artifact and preserve canonical references returned by OPSI.",
+        ],
+      },
+      {
+        id: "integrity-verification",
+        title: "Verify artifact integrity",
+        instructions: [
+          "Use `provenance verify` to recompute and compare the artifact digest after download, conversion, or query export.",
+          "Report a digest mismatch as integrity failure; Do not mutate, replace, or discard the evidence before it is reported.",
+        ],
+      },
+    ],
     safety: ["Do not dismiss a digest mismatch or mutate evidence before reporting it."],
     related: ["opsi-download", "opsi-analysis"],
   },
@@ -443,9 +595,25 @@ ${routes}
 
 Do not pass \`/opsi\`, \`@opsi\`, or \`$opsi\` to the shell. Those are host-specific ways to invoke this skill; shell commands begin with \`opsi\`.
 
-## Common workflows
+## End-to-end workflows
 
-${definition.workflows.map((workflow) => `- ${workflow}`).join("\n")}
+### ${definition.workflows[0]}
+
+1. Search with a bounded result set, inspect the selected dataset and resource, then preview and validate the chosen input.
+2. Download it to a new destination when local processing is needed; then use \`--offline\` for the local validation, query, conversion, and provenance steps.
+3. Keep queries read-only and bounded, authorize any overwrite, and run \`provenance verify\` for important outputs.
+
+### ${definition.workflows[1]}
+
+1. Inspect the canonical WFS resource, list its layers, and inspect the selected layer schema.
+2. Preview or count a finite selection before exporting a bounded CSV; preserve the CLI's network safeguards and never send WFS transactions.
+3. Verify the exported artifact with provenance.
+
+### ${definition.workflows[2]}
+
+1. Run \`opsi agent setup --dry-run\` to inspect detected targets and the planned repertoire.
+2. With explicit authorization, select the intended host with \`--agent <id>\` and use \`--yes\` for non-interactive installation.
+3. Confirm the result includes the current repertoire, including \`opsi-services\`; use \`generate-skills\` only when a portable skill tree is needed rather than an installation.
 
 ## Routing rules
 
@@ -490,6 +658,24 @@ Use the installed CLI as the source of truth when its help differs from generate
 - Read result data from stdout, diagnostics from stderr, and the exit status as the authoritative success signal.
 - Inspect the structured \`error.code\` together with the exit status before choosing remediation.
 - Never parse a human-readable table when structured output is available.
+
+## Default decision sequence
+
+1. Resolve a local path, a local:file reference, or an exact \`opsi:resource:\` reference.
+2. Inspect unknown inputs, then preview a bounded sample and validate when the next operation depends on content integrity.
+3. Download provider data before local-only work, then use \`--offline\` for the remaining local steps when network access is unavailable or unwanted.
+4. Perform the requested bounded operation and verify important artifacts with provenance.
+
+## Input and selector choices
+
+- Use a local path for data already on disk and a canonical \`opsi:resource:\` reference for provider data; do not invent IDs or references.
+- For an ambiguous ZIP use one returned \`--entry\`; for XML use one returned \`--record-path\`; for XLSX use one returned \`--sheet\`.
+- Stop and inspect again when the CLI cannot identify a unique selector. Do not process every archive member, XML record path, or workbook sheet by default.
+
+## Formats and outputs
+
+- Supported tabular workflow formats include JSON, NDJSON, CSV, TSV, XLSX, Parquet, ZIP, and XML when their selected content is supported.
+- Choose \`--json\` for one bounded envelope, \`--ndjson\` for records, and command-specific \`--output\` for a persisted artifact; use spreadsheet-safe output when needed.
 
 ## Global options
 
@@ -543,6 +729,17 @@ ${definition.related.map((name) => `- [${name}](../${name}/SKILL.md)`).join("\n"
 `;
 }
 
+function renderCapabilities(definition: AgentSkillDefinition): string {
+  if (definition.capabilities.length === 0) return "";
+  const sections = definition.capabilities
+    .map(
+      ({ title, instructions }) =>
+        `### ${title}\n\n${instructions.map((instruction) => `- ${instruction}`).join("\n")}`,
+    )
+    .join("\n\n");
+  return `## Capability guide\n\n${sections}\n\n`;
+}
+
 function renderDomainSkill(definition: AgentSkillDefinition, version: string): string {
   const entries = definition.commands.map((path) => {
     const entry = COMMAND_MANIFEST.find((candidate) => candidate.path === path);
@@ -564,7 +761,7 @@ ${definition.purpose} Generated for \`opsi\` ${version}.
 
 ${definition.workflows.map((workflow) => `- ${workflow}`).join("\n")}
 
-## Commands
+${renderCapabilities(definition)}## Commands
 
 ${entries.map(renderCommand).join("\n")}${safety}${renderRelated(definition)}`;
 }

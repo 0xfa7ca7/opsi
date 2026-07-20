@@ -28,11 +28,25 @@ Use this skill as the main entry point for Slovenian public-data work with the `
 
 Do not pass `/opsi`, `@opsi`, or `$opsi` to the shell. Those are host-specific ways to invoke this skill; shell commands begin with `opsi`.
 
-## Common workflows
+## End-to-end workflows
 
-- Discover data, inspect its metadata, then choose a resource.
-- Download or preview selected data before validating, querying, or converting it.
-- Use provenance to verify any artifact produced by a download, conversion, or query export.
+### Acquire and analyze data
+
+1. Search with a bounded result set, inspect the selected dataset and resource, then preview and validate the chosen input.
+2. Download it to a new destination when local processing is needed; then use `--offline` for the local validation, query, conversion, and provenance steps.
+3. Keep queries read-only and bounded, authorize any overwrite, and run `provenance verify` for important outputs.
+
+### Inspect and export WFS data
+
+1. Inspect the canonical WFS resource, list its layers, and inspect the selected layer schema.
+2. Preview or count a finite selection before exporting a bounded CSV; preserve the CLI's network safeguards and never send WFS transactions.
+3. Verify the exported artifact with provenance.
+
+### Refresh an agent installation
+
+1. Run `opsi agent setup --dry-run` to inspect detected targets and the planned repertoire.
+2. With explicit authorization, select the intended host with `--agent <id>` and use `--yes` for non-interactive installation.
+3. Confirm the result includes the current repertoire, including `opsi-services`; use `generate-skills` only when a portable skill tree is needed rather than an installation.
 
 ## Routing rules
 

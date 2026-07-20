@@ -14,6 +14,28 @@ Analyze tabular inputs with bounded read-only SQL or convert supported formats. 
 - Preview and validate input before running a bounded query.
 - Convert an input and then verify the generated provenance record.
 
+## Capability guide
+
+### Choose a supported input
+
+- Query or convert CSV, TSV, JSON, NDJSON, XLSX, Parquet, ZIP, or XML only after inspection identifies a usable tabular member.
+- Use a resolved `--entry`, `--record-path`, or `--sheet` whenever ZIP, XML, or XLSX input is ambiguous.
+
+### Run bounded read-only SQL
+
+- Use one read-only `SELECT`, `WITH ... SELECT`, or `VALUES` statement, with an explicit `--limit` and a suitable timeout.
+- Keep global query row, time, memory, and thread bounds appropriate to the requested result; correct exit 7 rather than retrying the same query.
+
+### Export query results
+
+- Use `--output` for a bounded query export and choose a new path unless the user explicitly authorizes `--force`.
+- Run `provenance verify` on an important query export before reporting it as a final artifact.
+
+### Convert safely
+
+- Choose a supported conversion target and `--output`; use `--spreadsheet-safe` for CSV or XLSX intended for spreadsheet software.
+- Validate or inspect the converted result and use `provenance verify`; do not overwrite an existing destination without authorization.
+
 ## Commands
 
 ### `query`

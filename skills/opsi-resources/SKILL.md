@@ -14,6 +14,23 @@ Inspect a resource safely without committing to a full data workflow. Generated 
 - Inspect metadata and headers before downloading an unfamiliar resource.
 - Preview a bounded number of rows before validation or analysis.
 
+## Capability guide
+
+### Resolve the input
+
+- Use a local path for local data and retain an exact `opsi:resource:` reference for provider data; do not invent either identifier.
+- Run `resource inspect` to learn supported access operations before choosing download, validation, WFS, or analysis.
+
+### Select safe access
+
+- Use `resource headers` for a secure provider-header probe and `resource preview` with a small `--limit` for a bounded content check.
+- Route a WFS resource to the services skill after inspection; do not replace OPSI access controls with direct HTTP.
+
+### Resolve structured content
+
+- For an ambiguous ZIP, use the returned `--entry`; for XML use one returned `--record-path`; for XLSX use the returned `--sheet`.
+- Do not guess a selector or process every archive entry, XML element, or workbook sheet when inspection reports an ambiguity.
+
 ## Commands
 
 ### `resource show`

@@ -13,6 +13,23 @@ Download selected provider resources through the CLI's bounded secure downloader
 
 - Resolve a canonical resource or dataset reference, then download it.
 
+## Capability guide
+
+### Resolve download targets
+
+- Pass canonical resource references when available; use `--dataset` or `--resource` to disambiguate bare identifiers.
+- Inspect a selected resource first when its format or access method is uncertain.
+
+### Choose a destination
+
+- Use `--destination` or `--output` for one resource; use the configured download directory for a batch.
+- Do not use `--force` to replace an existing artifact unless that exact overwrite is authorized; verify the existing artifact first when it matters.
+
+### Handle batch results
+
+- For a batch, report each successful and failed resource separately; exit 8 means Partial success, not complete success.
+- Run `provenance verify` for important downloaded artifacts before handing them to later workflow steps.
+
 ## Commands
 
 ### `download`
