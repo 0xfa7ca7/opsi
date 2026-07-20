@@ -104,12 +104,35 @@ Rubric (14 points): canonical reference; inspect; layers; schema; repeatable/com
 
 ### Baseline
 
-Evaluator status: completed. Score: **14/14**. It retains a canonical resource
+Evaluator status: completed. Score: **13/14**. It retains a canonical resource
 reference, inspects capabilities, lists layers and schema, uses selected
-properties and typed equality filters, binds the bbox to an advertised CRS,
-limits previews and exports, counts matching features, requires explicit
-overwrite authorization, rejects all listed unsafe fallbacks, and verifies
-provenance. Incorrect or missing rubric decisions: none.
+properties, binds the bbox to a layer CRS, limits previews and exports, counts
+matching features, requires explicit overwrite authorization, rejects all
+listed unsafe fallbacks, and verifies provenance. It loses the typed
+`--filter-eq` point: the response claims XSD-aware schema coercion, but the CLI
+only lexically coerces `true`/`false`, finite numeric strings, and otherwise
+strings. Its bounds/paging assertion is also incorrect guidance, although it
+does not remove a separate listed rubric point because the response still uses
+an explicit finite `--limit` for preview and export.
+
+Post-baseline review correction (the transcript below is intentionally
+unchanged):
+
+- Incorrect decision, verbatim: `service capabilities: negotiated version, advertised CRS/bounds/paging`.
+- Incorrect decision, verbatim: ``--filter-eq` is repeatable and XSD-aware after schema validation`.
+- Accurate model: [`apps/cli/src/public-sdk.d.ts`](../../../apps/cli/src/public-sdk.d.ts)
+  defines WFS inspection as version, operations, layers, and output formats;
+  its layers carry default/other CRSs, but inspection does not expose bounds or
+  paging. [`apps/cli/src/commands/service.ts`](../../../apps/cli/src/commands/service.ts)
+  parses equality values lexically as boolean, number, or string rather than
+  against the layer's XSD schema. A safe user workflow must select its CRS from
+  layer data, keep `--limit` finite, and not infer bounds or paging support
+  from `service inspect`; it must describe `--filter-eq` as lexical scalar
+  coercion.
+
+The unresolvable `WFS design 135-174` text remains only in the preserved
+verbatim evaluator transcript. It is not scoring evidence; the resolvable code
+paths above are the scoring basis.
 
 Verbatim evaluator response:
 
@@ -149,13 +172,30 @@ Rubric (13 points): `doctor --offline`; providers; cache info/list/verify; raw-v
 
 ### Baseline
 
-Evaluator status: completed. Score: **13/13**. It includes the offline health
+Evaluator status: completed. Score: **12/13**. It includes the offline health
 check and provider listing; read-only cache inspection and verification with a
 raw/derived distinction; preserves cache contents; covers configuration paths,
 listing, and values; dry-runs host setup; limits the authorized write to Codex
-with `--yes`; explains symlink and copy choices; distinguishes generation from
-installation; and performs a post-install check. Incorrect or missing rubric
-decisions: none.
+with `--yes`; distinguishes generation from installation; and proposes a
+post-install check. It loses the symlink-versus-`--copy` point because it
+recommends the unsafe default symlink installation rather than a durable copy.
+
+Post-baseline review correction (the transcript below is intentionally
+unchanged):
+
+- Incorrect decision, verbatim: `Keep that default: it is the best choice for a normal local Codex installation and makes future refreshes track the installed repertoire.`
+- Accurate behavior: [`apps/cli/src/agent-setup.ts`](../../../apps/cli/src/agent-setup.ts)
+  generates skills in an `opsi-agent-setup-` temporary directory, invokes the
+  installer without `--copy` by default, then removes that source directory.
+  Default symlinks therefore point at deleted generated skills. An explicitly
+  authorized durable Codex refresh must use `opsi agent setup --agent codex
+  --copy --yes --json` and verify the installed copy.
+
+This is a baseline product capability gap, not a Task 1 implementation item:
+`agent setup`'s default cannot safely install generated skills while it removes
+their source directory. A later product change must either copy by default or
+retain a durable source; until then, user guidance must require `--copy` for a
+real installation.
 
 Verbatim evaluator response:
 
@@ -216,9 +256,12 @@ Verbatim evaluator response:
 | Scenario | Baseline score | Maximum | Result |
 | --- | ---: | ---: | --- |
 | Acquisition and analysis | 13 | 13 | Full rubric coverage |
-| WFS access | 14 | 14 | Full rubric coverage |
-| Local state and agent refresh | 13 | 13 | Full rubric coverage |
-| **Total** | **40** | **40** | **No baseline capability gap observed** |
+| WFS access | 13 | 14 | Filter typing was overstated; inspection/paging guidance was incorrect |
+| Local state and agent refresh | 12 | 13 | Default symlink installation is unsafe after temporary-source cleanup |
+| **Total** | **38** | **40** | **Capability gaps observed** |
 
+The baseline exposes two gaps: WFS guidance must not claim that inspection
+provides bounds/paging or that filters are XSD-aware, and the agent-refresh
+workflow must use `--copy` until the default installation behavior is fixed.
 No improved evaluation or refactor loop has run yet, so those sections are
 intentionally absent rather than empty.
