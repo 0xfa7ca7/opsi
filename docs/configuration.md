@@ -6,9 +6,11 @@ Environment names include `OPSI_PROVIDER`, `OPSI_OUTPUT`, `OPSI_OFFLINE`, `OPSI_
 
 ## Complete schema
 
-`provider` is a non-empty provider ID; `output` is `human|json|ndjson|csv|tsv`; `locale` is a non-empty locale; and `offline` is boolean. `paths.cacheDir` and `paths.downloadDir` are non-empty paths. `http.timeoutMs`, `http.maxDownloadBytes`, `preview.rowLimit`, `query.rowLimit`, and `query.timeoutMs` are positive integers. `duckdb.memoryLimit` is a supported positive byte size no larger than exact `1GB`; `duckdb.threads` is 1–4. `duckdb.cache.enabled` is boolean, `duckdb.cache.maxBytes` is a nonnegative integer byte size using `B`, `KB`, `MB`, `GB`, `KiB`, `MiB`, or `GiB`, and `duckdb.cache.ttlDays` is a positive integer. A `0B` budget bypasses retention without disabling queries. `terminal.color` is boolean. Unknown keys fail strict validation instead of being ignored.
+`provider` is a non-empty provider ID; `output` is `human|json|ndjson|csv|tsv`; `locale` is non-empty; and `offline` is boolean. Paths are non-empty and HTTP/preview/query limits are positive integers. DuckDB memory is bounded to exact `1GB`, threads to 1–4, and its cache uses validated byte sizes. Archive limits are `archive.maxEntries`, `maxPathBytes`, `maxSelectedBytes`, `maxExpandedBytes`, and `maxCompressionRatio`. XML limits are `xml.maxDocumentBytes`, `maxDepth`, `maxAttributesPerElement`, `maxValueBytes`, `maxColumns`, `maxRecords`, and `maxStateBytes`. All are positive. Unknown keys fail strict validation.
 
 The defaults are provider `opsi`, human output, locale `sl-SI`, online mode, platform-conventional cache/data roots, 30,000 ms HTTP timeout, 2 GiB maximum download, 20 preview rows, 1,000 query rows, 30,000 ms query timeout, `1GB` DuckDB memory, four threads, `duckdb.cache = {"enabled":true,"maxBytes":"10GB","ttlDays":30}`, and color when `NO_COLOR` is absent. The DuckDB budget applies only to rebuildable derived stages; raw downloads, provider metadata, catalogue snapshots, and provenance are outside its LRU eviction budget.
+
+Archive defaults are 10,000 entries, 1,024 path bytes, 512 MiB selected bytes, 1 GiB expanded bytes, and a 200:1 compression ratio. XML defaults are 64 MiB document/state, depth 128, 256 attributes per element, 1 MiB values, 1,024 columns, and 100,000 records.
 
 ## Examples and precedence
 

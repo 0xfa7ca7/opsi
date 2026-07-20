@@ -15,6 +15,8 @@ export function registerValidateCommand(
       options: {
         readonly metadata?: boolean;
         readonly sheet?: string;
+        readonly entry?: string;
+        readonly recordPath?: string;
         readonly allowInsecureHttp?: boolean;
         readonly allowPrivateNetwork?: boolean;
       },
@@ -23,6 +25,8 @@ export function registerValidateCommand(
         ? await validateMetadata(input, client)
         : await client.data.validate(input, {
             ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+            ...(options.entry === undefined ? {} : { entry: options.entry }),
+            ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
             allowInsecureHttp: options.allowInsecureHttp ?? false,
             allowPrivateNetwork: options.allowPrivateNetwork ?? false,
           });

@@ -15,11 +15,65 @@ async function temporaryFile(name: string, contents: string): Promise<string> {
   return path;
 }
 
+async function temporaryBytes(name: string, contents: Uint8Array): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), "opsi-preview-"));
+  temporary.push(directory);
+  const path = join(directory, name);
+  await writeFile(path, contents);
+  return path;
+}
+
 afterEach(async () => {
   await Promise.all(temporary.splice(0).map((path) => rm(path, { recursive: true, force: true })));
 });
 
 describe("bounded previews and schema inference", () => {
+  it("previews UTF-16LE tab-separated data declared as CSV", async () => {
+    const path = await temporaryBytes(
+      "budget.csv",
+      Buffer.concat([
+        Buffer.from([0xff, 0xfe]),
+        Buffer.from("id\tname\r\n1\tLjubljana\r\n", "utf16le"),
+      ]),
+    );
+
+    await expect(engine.preview({ path, declaredFormat: "CSV" })).resolves.toMatchObject({
+      format: "tsv",
+      encoding: "utf-16le",
+      delimiter: "\t",
+      rows: [{ id: "1", name: "Ljubljana" }],
+    });
+  });
+
+  it("previews UTF-16BE semicolon-separated data", async () => {
+    const littleEndian = Buffer.from("id;name\r\n1;Maribor\r\n", "utf16le");
+    const bigEndian = Buffer.from(littleEndian);
+    for (let index = 0; index < bigEndian.length; index += 2) {
+      const first = bigEndian[index] as number;
+      bigEndian[index] = bigEndian[index + 1] as number;
+      bigEndian[index + 1] = first;
+    }
+    const path = await temporaryBytes(
+      "budget.csv",
+      Buffer.concat([Buffer.from([0xfe, 0xff]), bigEndian]),
+    );
+
+    await expect(engine.preview(path)).resolves.toMatchObject({
+      encoding: "utf-16be",
+      delimiter: ";",
+      rows: [{ id: "1", name: "Maribor" }],
+    });
+  });
+
+  it.each([";", "|"] as const)("previews consistently %s-delimited data", async (delimiter) => {
+    const path = await temporaryFile("sample.csv", `id${delimiter}name\n1${delimiter}Ljubljana\n`);
+
+    await expect(engine.preview(path)).resolves.toMatchObject({
+      delimiter,
+      rows: [{ id: "1", name: "Ljubljana" }],
+    });
+  });
+
   it("normalizes malformed delimited user input to a stable typed error", async () => {
     const path = await temporaryFile("broken.csv", 'a,b\n"unterminated,2\n');
     await expect(engine.preview(path)).rejects.toMatchObject({

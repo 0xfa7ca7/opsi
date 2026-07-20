@@ -144,6 +144,8 @@ export function registerDatasetCommand(
       options: {
         readonly resource?: string;
         readonly sheet?: string;
+        readonly entry?: string;
+        readonly recordPath?: string;
         readonly allowInsecureHttp?: boolean;
         readonly allowPrivateNetwork?: boolean;
       },
@@ -151,7 +153,7 @@ export function registerDatasetCommand(
       const value = await client.datasets.get(datasetId(id));
       const tabular = value.resources.filter(
         (resource) =>
-          ["csv", "tsv", "json", "jsonl", "ndjson", "xlsx", "parquet"].includes(
+          ["csv", "tsv", "json", "jsonl", "ndjson", "xlsx", "parquet", "xml", "zip"].includes(
             resource.format?.toLowerCase() ?? "",
           ) ||
           [
@@ -163,6 +165,9 @@ export function registerDatasetCommand(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/vnd.apache.parquet",
             "application/parquet",
+            "application/xml",
+            "text/xml",
+            "application/zip",
           ].includes(resource.mediaType?.split(";", 1)[0]?.trim().toLowerCase() ?? ""),
       );
       let selected = options.resource;
@@ -204,6 +209,8 @@ export function registerDatasetCommand(
       context.renderer?.write(
         await client.data.inferSchema(reference, {
           ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+          ...(options.entry === undefined ? {} : { entry: options.entry }),
+          ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
           allowInsecureHttp: options.allowInsecureHttp ?? false,
           allowPrivateNetwork: options.allowPrivateNetwork ?? false,
         }),

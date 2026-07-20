@@ -29,6 +29,7 @@ import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerCompletionCommand } from "./commands/completion.js";
 import { registerGenerateSkillsCommand } from "./commands/generate-skills.js";
 import { registerAgentCommand } from "./commands/agent.js";
+import { registerServiceCommand } from "./commands/service.js";
 import type { AgentInstallerRunner } from "./agent-setup.js";
 import { SkillsAgentInstallerRunner } from "./agent-installer-runner.js";
 import { PinnedAgentHostRegistry, type AgentHostRegistry } from "./agent-hosts.js";
@@ -89,6 +90,8 @@ function createClient(
       offline: configuration?.offline ?? false,
     },
     queryWorkerPath: new URL("./query-worker.js", import.meta.url),
+    ...(configuration?.archive === undefined ? {} : { archiveLimits: configuration.archive }),
+    ...(configuration?.xml === undefined ? {} : { xmlLimits: configuration.xml }),
   });
 }
 
@@ -140,6 +143,7 @@ export function createProgram(
   registerValidateCommand(program, context, client);
   registerConvertCommand(program, context, client);
   registerQueryCommand(program, context, client);
+  registerServiceCommand(program, context, client);
   registerConfigCommand(program, context);
   registerDoctorCommand(program, context, client);
   registerCompletionCommand(program, context);

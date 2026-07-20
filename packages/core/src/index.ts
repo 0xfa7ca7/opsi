@@ -21,3 +21,26 @@ export type {
   QueryDatabaseResult,
 } from "./query-database-cache.js";
 export { validateDatasetMetadata, validateResourceMetadata } from "./metadata-validation.js";
+export {
+  WfsService,
+  type WfsNetworkOptions,
+  type WfsSelectionOptions,
+  type WfsPreviewResult,
+} from "./wfs/service.js";
+export {
+  buildWfsUrl,
+  parseWfsCapabilities,
+  parseWfsCount,
+  parseWfsException,
+  parseWfsSchema,
+} from "./wfs/index.js";
+export type {
+  WfsCapabilities,
+  WfsField,
+  WfsLayer,
+  WfsQuery,
+  WfsRequest,
+  WfsVersion,
+} from "./wfs/index.js";
+export { ResourceAccessService } from "./access.js";
+export type { ArchiveLimits, XmlLimits } from "@opsi/data-engine";

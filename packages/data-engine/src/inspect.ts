@@ -14,15 +14,16 @@ import type {
   InferredFieldType,
   InferredSchema,
   PreviewOptions,
-  SupportedDataFormat,
+  SupportedInputFormat,
 } from "./types.js";
 import { listSheets, previewXlsx } from "./xlsx.js";
 import { validateData } from "./validate.js";
 import { convertData } from "./convert.js";
 import type { ConversionOptions } from "./types.js";
+import { previewXml } from "./xml.js";
 
-function supported(format: string): format is SupportedDataFormat {
-  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet"].includes(format);
+function supported(format: string): format is SupportedInputFormat {
+  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"].includes(format);
 }
 
 function unsupported(format: string): never {
@@ -118,9 +119,11 @@ export class DataEngine {
     if (detection.format === "csv" || detection.format === "tsv") {
       this.options.onAdapter?.(detection.format);
       let parsed;
+      const delimiter = detection.delimiter ?? (detection.format === "csv" ? "," : "\t");
       try {
-        parsed = await readDelimited(detection.path, detection.format === "csv" ? "," : "\t", {
+        parsed = await readDelimited(detection.path, delimiter, {
           limit,
+          ...(detection.encoding === undefined ? {} : { encoding: detection.encoding }),
         });
       } catch (error) {
         if (error instanceof OpsiError) throw error;
@@ -136,6 +139,8 @@ export class DataEngine {
       const rows = recordsToRows(parsed.headers, parsed.records);
       return {
         format: detection.format,
+        ...(detection.encoding === undefined ? {} : { encoding: detection.encoding }),
+        delimiter,
         columns: parsed.headers,
         rows,
         returnedCount: rows.length,
@@ -153,6 +158,15 @@ export class DataEngine {
       );
       return { format: "xlsx", ...preview, returnedCount: preview.rows.length };
     }
+    if (detection.format === "xml")
+      return previewXml(
+        detection.path,
+        {
+          limit,
+          ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
+        },
+        this.options.xmlLimits,
+      );
     let result: { readonly rows: readonly DataRow[]; readonly truncated: boolean };
     if (detection.format === "ndjson") {
       if ((await stat(detection.path)).size <= this.jsonNativeByteLimit) {
@@ -215,6 +229,7 @@ export class DataEngine {
       maxStateBytes: this.options.validationMaxStateBytes ?? 64 * 1024 * 1024,
       maxIssueGroups: this.options.validationMaxIssueGroups ?? 10_000,
       xlsxSharedStringsByteLimit: this.xlsxSharedStringsByteLimit,
+      ...(this.options.xmlLimits === undefined ? {} : { xmlLimits: this.options.xmlLimits }),
     });
   }
 

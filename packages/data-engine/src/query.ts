@@ -57,12 +57,13 @@ export interface QueryExecutionOptions {
   readonly memoryLimit?: string;
   readonly threads?: number;
   readonly sheet?: string;
+  readonly recordPath?: string;
   readonly signal?: AbortSignal;
 }
 
 export interface PreparedQueryExecutionOptions extends Omit<
   QueryExecutionOptions,
-  "input" | "sheet"
+  "input" | "sheet" | "recordPath"
 > {
   readonly databasePath: string;
   readonly invocationDirectory: string;
@@ -171,6 +172,7 @@ export class DuckDbQueryRunner {
         preserveDatabaseOnClose: true,
         ...(options.signal === undefined ? {} : { signal: options.signal }),
         ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+        ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
       });
       if (cancelled) throw queryCancelled();
       await stage.connection.run("CHECKPOINT");

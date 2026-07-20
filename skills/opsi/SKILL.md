@@ -1,6 +1,6 @@
 ---
 name: opsi
-description: "Route Slovenian public-data requests to the smallest relevant OPSI CLI skill. Use for discovering, inspecting, downloading, validating, querying, converting, or managing data from the Slovenian OPSI portal."
+description: "Route Slovenian public-data requests to the smallest relevant OPSI CLI skill. Use for discovering, inspecting, downloading, validating, querying, converting, or accessing services from the Slovenian OPSI portal."
 ---
 
 # OPSI orchestrator
@@ -21,6 +21,7 @@ Use this skill as the main entry point for Slovenian public-data work with the `
 | Download selected provider resources through the CLI's bounded secure downloader. | [opsi-download](../opsi-download/SKILL.md) |
 | Validate data content or normalized metadata and explain actionable issues. | [opsi-validation](../opsi-validation/SKILL.md) |
 | Analyze tabular inputs with bounded read-only SQL or convert supported formats. | [opsi-analysis](../opsi-analysis/SKILL.md) |
+| Access WFS feature services through bounded, schema-validated OPSI workflows. | [opsi-services](../opsi-services/SKILL.md) |
 | Inspect recorded lineage and verify an artifact against its digest. | [opsi-provenance](../opsi-provenance/SKILL.md) |
 | Manage local cache and validated non-secret CLI configuration. | [opsi-local-state](../opsi-local-state/SKILL.md) |
 | Generate installable Agent Skills, diagnose the CLI environment, and expose providers and shell integration. | [opsi-diagnostics](../opsi-diagnostics/SKILL.md) |

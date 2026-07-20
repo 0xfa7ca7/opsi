@@ -68,6 +68,22 @@ beforeEach(async () => {
 afterEach(async () => rm(root, { recursive: true, force: true }));
 
 describe("tabular conversion", () => {
+  it("converts UTF-16LE tab-separated input declared as CSV", async () => {
+    const input = path("budget.csv");
+    const output = path("budget.json");
+    await writeFile(
+      input,
+      Buffer.concat([
+        Buffer.from([0xff, 0xfe]),
+        Buffer.from("id\tname\r\n1\tLjubljana\r\n", "utf16le"),
+      ]),
+    );
+
+    await new DataEngine().convert({ input, output, targetFormat: "json" });
+
+    expect(JSON.parse(await readFile(output, "utf8"))).toEqual([{ id: 1, name: "Ljubljana" }]);
+  });
+
   it("normalizes malformed structured input instead of leaking a DuckDB error", async () => {
     const input = path("broken.json");
     await writeFile(input, "{broken");

@@ -48,7 +48,7 @@ describe("generate-skills", () => {
 
     expect(JSON.parse(value.stdout.join(""))).toMatchObject({
       data: {
-        count: 10,
+        count: 11,
         outputDirectory: join(value.cwd, "skills"),
         skills: expect.arrayContaining(["opsi", "opsi-analysis", "opsi-shared"]),
       },
@@ -82,7 +82,7 @@ describe("generate-skills", () => {
       "# OPSI orchestrator",
     );
     expect(JSON.parse(value.stdout.join(""))).toMatchObject({
-      data: { count: 10, outputDirectory: output },
+      data: { count: 11, outputDirectory: output },
     });
   });
 

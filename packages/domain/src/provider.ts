@@ -33,6 +33,38 @@ export interface SearchPage {
 
 export type ResolvedResourceKind = "file" | "page" | "api" | "archive" | "service";
 
+export interface NextAction {
+  readonly action: string;
+  readonly argv: readonly string[];
+  readonly reason?: string;
+}
+
+export type ResourceAccessOperation =
+  | "inspect"
+  | "preview"
+  | "schema"
+  | "validate"
+  | "query"
+  | "convert"
+  | "download"
+  | "layers"
+  | "count"
+  | "export"
+  | "open";
+
+export interface ResourceAccessDescriptor {
+  readonly input: string;
+  readonly kind: ResolvedResourceKind | "local";
+  readonly declaredFormat?: string;
+  readonly detectedFormat?: string;
+  readonly protocol?: "wfs" | "wms" | "unknown";
+  readonly version?: string;
+  readonly operations: readonly ResourceAccessOperation[];
+  readonly selections?: Readonly<Record<string, readonly string[]>>;
+  readonly limitations: readonly string[];
+  readonly nextActions: readonly NextAction[];
+}
+
 export interface ResolvedResource {
   readonly resource: Resource;
   readonly kind: ResolvedResourceKind;

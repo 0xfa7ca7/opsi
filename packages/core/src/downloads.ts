@@ -25,6 +25,7 @@ export interface ResourceDownloadOptions {
   readonly allowPrivateNetwork?: boolean;
   readonly signal?: AbortSignal;
   readonly requireTabular?: boolean;
+  readonly requireData?: boolean;
 }
 export interface DownloadServiceOptions {
   readonly registry: ProviderRegistry;
@@ -71,7 +72,10 @@ export class DownloadService {
     const provider = this.options.registry.get(selectedProviderId);
     const resource = await provider.getResource(id);
     const resolved = await provider.resolveResource(resource);
-    if (options.requireTabular === true && resolved.kind !== "file")
+    if (
+      (options.requireTabular === true && resolved.kind !== "file") ||
+      (options.requireData === true && resolved.kind !== "file" && resolved.kind !== "archive")
+    )
       throw new OpsiError({
         code: resolved.kind === "archive" ? "DOWNLOAD_ONLY_FORMAT" : "UNSUPPORTED_RESOURCE_KIND",
         message:

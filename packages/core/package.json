@@ -20,6 +20,7 @@
     "@opsi/data-engine": "workspace:*",
     "@opsi/domain": "workspace:*",
     "@opsi/provider-local": "workspace:*",
-    "@opsi/storage": "workspace:*"
+    "@opsi/storage": "workspace:*",
+    "saxes": "6.0.0"
   }
 }

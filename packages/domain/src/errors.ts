@@ -1,3 +1,5 @@
+import type { NextAction } from "./provider.js";
+
 export type ExitCode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export type FailureExitCode = Exclude<ExitCode, 0>;
 
@@ -19,6 +21,7 @@ export interface OpsiErrorOptions {
   readonly exitCode: FailureExitCode;
   readonly suggestion?: string;
   readonly context?: Readonly<Record<string, unknown>>;
+  readonly nextActions?: readonly NextAction[];
   readonly cause?: unknown;
 }
 
@@ -27,6 +30,7 @@ export class OpsiError extends Error {
   readonly exitCode: FailureExitCode;
   readonly suggestion?: string;
   readonly context?: Readonly<Record<string, unknown>>;
+  readonly nextActions?: readonly NextAction[];
   override readonly cause?: unknown;
 
   constructor(options: OpsiErrorOptions) {
@@ -41,6 +45,9 @@ export class OpsiError extends Error {
     if (options.context !== undefined) {
       this.context = options.context;
     }
+    if (options.nextActions !== undefined && options.nextActions.length > 0) {
+      this.nextActions = options.nextActions;
+    }
     if (options.cause !== undefined) {
       this.cause = options.cause;
     }
@@ -53,6 +60,7 @@ export class OpsiError extends Error {
       exitCode: this.exitCode,
       ...(this.suggestion === undefined ? {} : { suggestion: this.suggestion }),
       ...(this.context === undefined ? {} : { context: this.context }),
+      ...(this.nextActions === undefined ? {} : { nextActions: this.nextActions }),
     };
   }
 }

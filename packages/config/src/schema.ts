@@ -47,6 +47,24 @@ const terminalSchema = z.strictObject({
   color: z.boolean(),
 });
 
+const archiveSchema = z.strictObject({
+  maxEntries: z.number().int().positive(),
+  maxPathBytes: z.number().int().positive(),
+  maxSelectedBytes: z.number().int().positive(),
+  maxExpandedBytes: z.number().int().positive(),
+  maxCompressionRatio: z.number().positive(),
+});
+
+const xmlSchema = z.strictObject({
+  maxDocumentBytes: z.number().int().positive(),
+  maxDepth: z.number().int().positive(),
+  maxAttributesPerElement: z.number().int().positive(),
+  maxValueBytes: z.number().int().positive(),
+  maxColumns: z.number().int().positive(),
+  maxRecords: z.number().int().positive(),
+  maxStateBytes: z.number().int().positive(),
+});
+
 export const configurationSchema = z.strictObject({
   provider: z.string().trim().min(1),
   output: outputFormatSchema,
@@ -58,6 +76,8 @@ export const configurationSchema = z.strictObject({
   query: querySchema,
   duckdb: duckdbSchema,
   terminal: terminalSchema,
+  archive: archiveSchema,
+  xml: xmlSchema,
   apiKey: z.string().min(1).optional(),
 });
 
@@ -72,6 +92,8 @@ export const configurationSourceSchema = z.strictObject({
   query: querySchema.partial().optional(),
   duckdb: duckdbSourceSchema.optional(),
   terminal: terminalSchema.partial().optional(),
+  archive: archiveSchema.partial().optional(),
+  xml: xmlSchema.partial().optional(),
 });
 
 export type OutputFormat = z.infer<typeof outputFormatSchema>;

@@ -1,12 +1,17 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, extname, join } from "node:path";
 import {
+  DEFAULT_ARCHIVE_LIMITS,
   DataEngine,
+  detectFormat,
+  extractArchiveEntry,
+  inspectArchive,
   type ConversionResult,
   type DataInput,
   type PreviewOptions,
   type SupportedDataFormat,
+  type ArchiveLimits,
 } from "@opsi/data-engine";
 import {
   EXIT_CODES,
@@ -21,6 +26,8 @@ import type { OpsiClient } from "./client.js";
 export interface DataResolutionOptions {
   readonly allowInsecureHttp?: boolean;
   readonly allowPrivateNetwork?: boolean;
+  readonly entry?: string;
+  readonly recordPath?: string;
 }
 
 export interface DataOperationOptions extends PreviewOptions, DataResolutionOptions {}
@@ -39,21 +46,66 @@ export class DataService {
   constructor(
     private readonly client: OpsiClient,
     private readonly engine: DataEngine = new DataEngine(),
-    options: { readonly cwd?: string } = {},
+    options: { readonly cwd?: string; readonly archiveLimits?: ArchiveLimits } = {},
   ) {
     this.local = new LocalProvider(options);
+    this.archiveLimits = options.archiveLimits ?? DEFAULT_ARCHIVE_LIMITS;
   }
+  private readonly archiveLimits: ArchiveLimits;
 
   async withResolvedInput<T>(
     input: string,
     options: DataResolutionOptions,
     operation: (source: DataInput) => Promise<T>,
   ): Promise<T> {
+    let directory: string | undefined;
+    const temporaryDirectory = async (): Promise<string> => {
+      directory ??= await mkdtemp(join(tmpdir(), "opsi-data-"));
+      return directory;
+    };
+    const prepare = async (source: DataInput): Promise<DataInput> => {
+      const detection = await detectFormat(source);
+      if (detection.format !== "zip") return source;
+      let inspection;
+      try {
+        inspection = await inspectArchive(detection.path, this.archiveLimits, options.entry);
+      } catch (error) {
+        if (error instanceof OpsiError && error.code === "ARCHIVE_ENTRY_REQUIRED") {
+          const choices = (error.context?.choices as readonly string[] | undefined) ?? [];
+          throw new OpsiError({
+            code: error.code,
+            message: error.message,
+            exitCode: error.exitCode,
+            ...(error.context === undefined ? {} : { context: error.context }),
+            nextActions: choices.map((entry) => ({
+              action: "resource.preview",
+              argv: ["resource", "preview", input, "--entry", entry, "--json"],
+            })),
+          });
+        }
+        throw error;
+      }
+      const selected = inspection.selectedEntry as string;
+      const output = join(await temporaryDirectory(), `entry${extname(basename(selected))}`);
+      await extractArchiveEntry(detection.path, selected, output, this.archiveLimits);
+      return {
+        path: output,
+        declaredFormat: extname(selected).slice(1),
+      };
+    };
+    const run = async (source: DataInput): Promise<T> => operation(await prepare(source));
+    const runLocal = async (source: DataInput): Promise<T> => {
+      try {
+        return await run(source);
+      } finally {
+        if (directory !== undefined) await rm(directory, { recursive: true, force: true });
+      }
+    };
     let id: ResourceId;
     let selectedProviderId: string | undefined;
     if (input.startsWith("local:file:") || /^[^:]+:(?:dataset|resource):/u.test(input)) {
       const reference = parseCanonicalReference(input);
-      if (reference.kind === "file") return operation(await this.local.resolve(input));
+      if (reference.kind === "file") return runLocal(await this.local.resolve(input));
       if (reference.kind !== "resource")
         throw new OpsiError({
           code: "RESOURCE_REFERENCE_REQUIRED",
@@ -65,7 +117,7 @@ export class DataService {
       selectedProviderId = reference.providerId;
     } else {
       try {
-        return await operation(await this.local.resolve(input));
+        return await runLocal(await this.local.resolve(input));
       } catch (error) {
         if (!(error instanceof OpsiError) || error.code !== "LOCAL_FILE_NOT_FOUND") throw error;
       }
@@ -78,17 +130,17 @@ export class DataService {
         message: "Resource data cannot be resolved because downloads are unavailable.",
         exitCode: EXIT_CODES.UNSUPPORTED,
       });
-    const directory = await mkdtemp(join(tmpdir(), "opsi-data-"));
+    directory = await temporaryDirectory();
     try {
       const downloaded = await this.client.downloads.resource(id, {
         ...(selectedProviderId === undefined ? {} : { providerId: selectedProviderId }),
         destination: join(directory, "source"),
         allowInsecureHttp: options.allowInsecureHttp ?? false,
         allowPrivateNetwork: options.allowPrivateNetwork ?? false,
-        requireTabular: true,
+        requireData: true,
       });
       const mediaType = downloaded.mediaType ?? resource.mediaType;
-      return await operation({
+      return await run({
         path: downloaded.path,
         sha256: downloaded.sha256,
         ...(mediaType === undefined ? {} : { mediaType }),
@@ -126,6 +178,7 @@ export class DataService {
         output: options.output,
         targetFormat: options.targetFormat,
         ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+        ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
         force: options.force ?? false,
         spreadsheetSafe: options.spreadsheetSafe ?? false,
       }),

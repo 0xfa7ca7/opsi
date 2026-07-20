@@ -5,6 +5,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { strToU8, zipSync } from "fflate";
 
 interface CliResult {
   readonly exitCode: number;
@@ -26,19 +27,26 @@ beforeAll(async () => {
       response.end("id,mesto\n1,Ljubljana\n2,Škofja Loka\n");
       return;
     }
+    if (url.pathname === "/archive.zip") {
+      response.writeHead(200, { "content-type": "application/zip" });
+      response.end(Buffer.from(zipSync({ "rows.csv": strToU8("id,name\n7,Celje\n") })));
+      return;
+    }
     if (url.pathname === "/resource_show") {
-      const mediaOnly = url.searchParams.get("id") === "resource-media";
+      const requestedId = url.searchParams.get("id");
+      const mediaOnly = requestedId === "resource-media";
+      const archive = requestedId === "resource-zip";
       response.writeHead(200, { "content-type": "application/json" });
       response.end(
         JSON.stringify({
           success: true,
           result: {
-            id: mediaOnly ? "resource-media" : "resource-data",
-            package_id: mediaOnly ? "dataset-media" : "dataset-data",
+            id: archive ? "resource-zip" : mediaOnly ? "resource-media" : "resource-data",
+            package_id: archive ? "dataset-zip" : mediaOnly ? "dataset-media" : "dataset-data",
             name: "Rows",
-            url: `${baseUrl}/data.csv`,
-            format: mediaOnly ? null : "CSV",
-            mimetype: mediaOnly ? "text/csv" : null,
+            url: `${baseUrl}/${archive ? "archive.zip" : "data.csv"}`,
+            format: archive ? "ZIP" : mediaOnly ? null : "CSV",
+            mimetype: archive ? "application/zip" : mediaOnly ? "text/csv" : null,
           },
         }),
       );
@@ -137,6 +145,79 @@ async function cli(argv: readonly string[]): Promise<CliResult> {
 }
 
 describe("data CLI", () => {
+  it("describes access operations without exposing a raw HTTP fallback", async () => {
+    const result = await cli([
+      "resource",
+      "inspect",
+      resolve("packages/testing/fixtures/data/valid.csv"),
+      "--json",
+    ]);
+    expect(result).toMatchObject({
+      exitCode: 0,
+      json: {
+        data: {
+          kind: "local",
+          detectedFormat: "csv",
+          operations: expect.arrayContaining(["preview", "query"]),
+        },
+      },
+    });
+    expect(result.stdout).not.toMatch(/curl|https?:\/\//u);
+  });
+
+  it("previews an explicitly selected entry from a local ZIP archive", async () => {
+    const archive = join(home, "multiple.zip");
+    await writeFile(
+      archive,
+      zipSync({
+        "a.csv": strToU8("id,name\n1,Ljubljana\n"),
+        "b.csv": strToU8("id,name\n2,Maribor\n"),
+      }),
+    );
+    await expect(cli(["resource", "preview", archive, "--json"])).resolves.toMatchObject({
+      exitCode: 2,
+      json: { error: { code: "ARCHIVE_ENTRY_REQUIRED", nextActions: expect.any(Array) } },
+    });
+    await expect(
+      cli(["resource", "preview", archive, "--entry", "b.csv", "--json"]),
+    ).resolves.toMatchObject({
+      exitCode: 0,
+      json: { data: [{ id: "2", name: "Maribor" }] },
+    });
+  });
+
+  it("drops archive media metadata after secure remote extraction", async () => {
+    await expect(
+      cli([
+        "resource",
+        "preview",
+        "opsi:resource:resource-zip",
+        "--entry",
+        "rows.csv",
+        "--allow-insecure-http",
+        "--allow-private-network",
+        "--json",
+      ]),
+    ).resolves.toMatchObject({ exitCode: 0, json: { data: [{ id: "7", name: "Celje" }] } });
+  });
+
+  it("uses an explicit XML record path when discovery is ambiguous", async () => {
+    const source = join(home, "ambiguous.xml");
+    await writeFile(
+      source,
+      "<root><a><id>1</id></a><a><id>2</id></a><b><id>3</id></b><b><id>4</id></b></root>",
+    );
+    await expect(cli(["resource", "preview", source, "--json"])).resolves.toMatchObject({
+      exitCode: 2,
+      json: {
+        error: { code: "XML_RECORD_PATH_REQUIRED", context: { choices: ["/root/a", "/root/b"] } },
+      },
+    });
+    await expect(
+      cli(["resource", "preview", source, "--record-path", "/root/b", "--json"]),
+    ).resolves.toMatchObject({ exitCode: 0, json: { data: [{ id: "3" }, { id: "4" }] } });
+  });
+
   it("previews local paths and canonical resources with bounded rows", async () => {
     const local = resolve("packages/testing/fixtures/data/valid.csv");
     await expect(
@@ -209,13 +290,13 @@ describe("data CLI", () => {
     });
   });
 
-  it("returns download guidance for ZIP and explicit dataset ambiguity", async () => {
+  it("rejects malformed ZIP data and reports explicit dataset ambiguity", async () => {
     const zip = join(home, "archive.zip");
     await writeFile(zip, Buffer.from("PK\u0003\u0004fixture"));
     await expect(cli(["resource", "preview", zip, "--json"])).resolves.toMatchObject({
-      exitCode: 5,
+      exitCode: 6,
       json: {
-        error: { code: "DOWNLOAD_ONLY_FORMAT", suggestion: expect.stringContaining("Download") },
+        error: { code: "INVALID_ARCHIVE_DATA" },
       },
     });
     await expect(cli(["dataset", "schema", "dataset-data", "--json"])).resolves.toMatchObject({

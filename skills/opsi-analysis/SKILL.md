@@ -1,6 +1,6 @@
 ---
 name: opsi-analysis
-description: "Query or convert bounded tabular data with OPSI CLI. Use for read-only SQL analysis, CSV/TSV/JSON/NDJSON/XLSX/Parquet conversion, and exported query results."
+description: "Query or convert bounded data with OPSI CLI. Use for resilient delimited, ZIP-selected, XML, JSON, XLSX, Parquet, and exported query workflows."
 ---
 
 # opsi-analysis
@@ -38,6 +38,8 @@ opsi query <input> --sql <query> [options]
 | `--limit <rows>` | no | rows | — | maximum returned rows |
 | `--timeout-ms <milliseconds>` | no | milliseconds | — | hard query deadline |
 | `--sheet <name>` | no | name | — | XLSX sheet name |
+| `--entry <path>` | no | path | — | ZIP data entry path |
+| `--record-path <path>` | no | path | — | XML record element path |
 | `--output <path>` | no | path | — | export bounded results (.csv, .tsv, .json, .ndjson) |
 | `--force` | no | — | — | replace an existing output |
 | `--allow-insecure-http` | no | — | — | allow HTTP for this invocation |
@@ -65,6 +67,8 @@ opsi convert <input> --to <format> --output <path> [options]
 | `--to <format>` | yes | `csv`, `tsv`, `json`, `ndjson`, `xlsx`, `parquet` | — | destination data format |
 | `--output <path>` | yes | path | — | destination file path |
 | `--sheet <name>` | no | name | — | XLSX sheet name |
+| `--entry <path>` | no | path | — | ZIP data entry path |
+| `--record-path <path>` | no | path | — | XML record element path |
 | `--force` | no | — | — | replace an existing regular destination |
 | `--spreadsheet-safe` | no | — | — | prefix formula-like string values |
 | `--allow-insecure-http` | no | — | — | allow HTTP for this invocation |

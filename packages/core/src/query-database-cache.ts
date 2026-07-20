@@ -11,7 +11,7 @@ import {
   type DuckDbQueryRunner,
   type PreparedQueryExecutionOptions,
   type QueryResult,
-  type SupportedDataFormat,
+  type SupportedInputFormat,
   type TabularStage,
 } from "@opsi/data-engine";
 import { EXIT_CODES, OpsiError } from "@opsi/domain";
@@ -40,7 +40,7 @@ type DerivedCache = Pick<
 export type QueryDatabaseExecutionOptions = Omit<
   PreparedQueryExecutionOptions,
   "databasePath" | "invocationDirectory"
-> & { readonly sheet?: string };
+> & { readonly sheet?: string; readonly recordPath?: string };
 
 export interface QueryDatabaseCacheOptions {
   readonly derived?: DerivedCache;
@@ -49,6 +49,7 @@ export interface QueryDatabaseCacheOptions {
   readonly verify?: typeof verifyStagedDatabase;
   readonly makeTemporaryDirectory?: () => Promise<string>;
   readonly removeTemporaryDirectory?: (path: string) => Promise<void>;
+  readonly xmlLimits?: import("@opsi/data-engine").XmlLimits;
 }
 
 export interface QueryDatabaseResult extends QueryResult {
@@ -68,8 +69,8 @@ async function sourceDigest(input: DataInput, path: string): Promise<string> {
   return hash.digest("hex");
 }
 
-function supported(format: string): format is SupportedDataFormat {
-  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet"].includes(format);
+function supported(format: string): format is SupportedInputFormat {
+  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"].includes(format);
 }
 
 function cleanupFailure(failures: readonly unknown[], operationError: unknown): OpsiError {
@@ -115,7 +116,7 @@ export class QueryDatabaseCache {
           code: "UNSUPPORTED_CONVERSION_FORMAT",
           message: `The detected format '${detection.format}' cannot be converted.`,
           exitCode: EXIT_CODES.UNSUPPORTED,
-          suggestion: "Use CSV, TSV, JSON, NDJSON, XLSX, or Parquet input.",
+          suggestion: "Use CSV, TSV, JSON, NDJSON, XLSX, Parquet, or XML input.",
           context: { format: detection.format },
         });
       const build = async (): Promise<void> => {
@@ -128,6 +129,8 @@ export class QueryDatabaseCache {
           preserveDatabaseOnClose: true,
           ...(options.signal === undefined ? {} : { signal: options.signal }),
           ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+          ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
+          ...(this.options.xmlLimits === undefined ? {} : { xmlLimits: this.options.xmlLimits }),
         });
         await stage.connection.run("CHECKPOINT");
         await stage.close();
@@ -137,14 +140,17 @@ export class QueryDatabaseCache {
 
       const derived = this.options.derived;
       const cacheEnabled =
-        derived !== undefined && derived.policy.enabled && derived.policy.maxBytes > 0;
+        detection.format !== "xml" &&
+        derived !== undefined &&
+        derived.policy.enabled &&
+        derived.policy.maxBytes > 0;
       if (!cacheEnabled) {
         await build();
       } else {
         const identity: DerivedArtifactIdentity = {
           kind: "duckdb-stage",
           sourceSha256: await sourceDigest(source, detection.path),
-          format: detection.format,
+          format: detection.format as Exclude<SupportedInputFormat, "xml">,
           ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
           stagingVersion: QUERY_STAGE_VERSION,
           duckdbVersion: QUERY_STAGE_DUCKDB_VERSION,

@@ -2,7 +2,7 @@
 
 **One CLI for Slovenian public data — built for people, scripts, and agents.**
 
-Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and download resources, validate common data formats, and query them locally with DuckDB. Structured output, bounded operations, and built-in help make `opsi` straightforward to use from a terminal, an automated workflow, or a coding agent.
+Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and download resources, safely select ZIP/XML data, query read-only WFS services, and analyze tabular data locally with DuckDB. Structured output, bounded operations, and built-in help make `opsi` straightforward to use from a terminal, an automated workflow, or a coding agent.
 
 [![CI](https://github.com/0xfa7ca7/opsi/actions/workflows/ci.yml/badge.svg)](https://github.com/0xfa7ca7/opsi/actions/workflows/ci.yml)
 [![Node.js 24+](https://img.shields.io/badge/Node.js-24%2B-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
@@ -138,7 +138,7 @@ Run `opsi --help` or read the [complete command reference](docs/commands.md) for
 
 ## Working with data
 
-`opsi` can inspect and validate CSV, TSV, JSON, NDJSON, XLSX, and Parquet files. It can convert between those formats and query them through a bounded local DuckDB worker.
+`opsi` can inspect and validate resilient CSV/TSV-style data (UTF-8/UTF-16, comma/tab/semicolon/pipe), JSON, NDJSON, XLSX, Parquet, bounded XML records, and one safely selected data entry inside a ZIP. Use `--entry` for ambiguous archives and `--record-path` for ambiguous XML. Read-only WFS workflows expose layers, schemas, bounded previews, counts, and CSV exports without leaving OPSI.
 
 The first query for a source imports it into a rebuildable DuckDB stage; later queries over identical bytes and the same XLSX sheet reuse that stage. JSON query metadata reports `cache.status` as `miss`, `hit`, or `bypass`. The derived cache defaults to a 10 GB budget and 30-day sliding lifetime, and its entries are visible through `opsi cache info|list|verify|prune|clear`. Derived eviction never removes raw downloads or catalogue data merely to satisfy the DuckDB budget.
 
