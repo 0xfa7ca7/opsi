@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -236,6 +236,7 @@ describe("canonical npm tarball", () => {
       license: "MIT",
       engines: { node: ">=24.0.0" },
       repository: { type: "git" },
+      dependencies: { skills: "1.5.19" },
     });
     expect(JSON.stringify(metadata)).not.toContain("workspace:");
     expect(await tarText("dist/main.js")).toMatch(/^#!\/usr\/bin\/env node\n/u);
@@ -289,6 +290,20 @@ describe("canonical npm tarball", () => {
     expect(await readFile(join(generatedSkills, "opsi-analysis", "SKILL.md"), "utf8")).toContain(
       "opsi query",
     );
+    const installer = await execute(
+      process.execPath,
+      ["--input-type=module", "-e", "console.log(import.meta.resolve('skills/bin/cli.mjs'))"],
+      { cwd: root },
+    );
+    expect(installer.stdout).toContain("skills/bin/cli.mjs");
+    const setup = await execute(binary, ["agent", "setup", "--dry-run", "--json"], {
+      cwd: root,
+    });
+    expect(JSON.parse(setup.stdout)).toMatchObject({
+      data: { installer: "skills@1.5.19", scope: "global", dryRun: true },
+    });
+    await expect(access(join(root, ".agents"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(access(join(root, "skills-lock.json"))).rejects.toMatchObject({ code: "ENOENT" });
     const datasetListHelp = (await execute(binary, ["dataset", "list", "--help"], { cwd: root }))
       .stdout;
     expect(datasetListHelp).toContain("--refresh");
