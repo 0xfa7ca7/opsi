@@ -66,7 +66,7 @@ export class OpsiClient {
         registry: this.registry,
         providerId: this.providerId,
       });
-    if (options.cache !== undefined) this.cache = new CacheService(options.cache);
+    if (options.cache !== undefined) this.cache = new CacheService(options.cache, derived);
   }
 
   search(query: SearchQuery): Promise<SearchPage> {

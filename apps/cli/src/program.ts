@@ -3,6 +3,8 @@ import { OpsiClient, ProviderRegistry } from "@opsi/core";
 import { OpsiProvider, OpsiTransport, RequestScheduler } from "@opsi/provider-opsi";
 import { LocalProvider } from "@opsi/provider-local";
 import { ContentCache, ProvenanceStore } from "@opsi/storage";
+import type { DerivedArtifactPolicy } from "@opsi/storage";
+import { parseStorageBytes } from "@opsi/config";
 import {
   CatalogueSnapshotClient,
   ContentCacheCatalogueSnapshotStore,
@@ -32,7 +34,20 @@ function requestInterval(value: string | undefined): number | undefined {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
-function createClient(context: CliContext, cache: ContentCache): OpsiClient {
+function duckdbCachePolicy(context: CliContext): DerivedArtifactPolicy {
+  const configuration = context.configuration?.duckdb.cache;
+  return {
+    enabled: configuration?.enabled ?? true,
+    maxBytes: parseStorageBytes(configuration?.maxBytes ?? "10GB") ?? 10_000_000_000,
+    ttlMs: (configuration?.ttlDays ?? 30) * 24 * 60 * 60 * 1_000,
+  };
+}
+
+function createClient(
+  context: CliContext,
+  cache: ContentCache,
+  duckdbCache: DerivedArtifactPolicy,
+): OpsiClient {
   const intervalMs = requestInterval(context.io.env?.OPSI_REQUEST_INTERVAL_MS);
   const configuration = context.configuration;
   const provider = new OpsiProvider(
@@ -56,6 +71,7 @@ function createClient(context: CliContext, cache: ContentCache): OpsiClient {
     registry,
     providerId: context.configuration?.provider ?? provider.descriptor.id,
     cache,
+    duckdbCache,
     cwd: context.io.cwd ?? process.cwd(),
     downloads: {
       downloadDir: configuration?.paths.downloadDir ?? context.io.cwd ?? process.cwd(),
@@ -93,8 +109,11 @@ export function createProgram(
     .action(() => program.help({ error: true }));
   addGlobalOptions(program);
   registerCommandManifest(program);
-  const cache = new ContentCache(context.configuration?.paths.cacheDir ?? ".opsi-cache");
-  const client = createClient(context, cache);
+  const duckdbCache = duckdbCachePolicy(context);
+  const cache = new ContentCache(context.configuration?.paths.cacheDir ?? ".opsi-cache", {
+    maxObjectBytes: Math.max(2 * 1024 * 1024 * 1024, duckdbCache.maxBytes),
+  });
+  const client = createClient(context, cache, duckdbCache);
   const catalogue =
     dependencies.catalogue ??
     new CatalogueSnapshotClient({
