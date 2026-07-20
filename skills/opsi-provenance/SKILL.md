@@ -1,6 +1,6 @@
 ---
 name: opsi-provenance
-description: "Inspect or verify OPSI artifact provenance. Use to explain an artifact's source and transformations or detect integrity mismatches."
+description: "Use when inspecting or verifying OPSI artifact provenance, transformations, or integrity mismatches."
 ---
 
 # opsi-provenance

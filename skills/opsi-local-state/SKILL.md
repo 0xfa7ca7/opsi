@@ -1,6 +1,6 @@
 ---
 name: opsi-local-state
-description: "Inspect or update OPSI CLI cache and non-secret configuration. Use for cache diagnostics, verification, pruning, clearing, or configuration values and paths."
+description: "Use when inspecting or changing the OPSI cache or non-secret configuration."
 ---
 
 # opsi-local-state

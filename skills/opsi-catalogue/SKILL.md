@@ -1,6 +1,6 @@
 ---
 name: opsi-catalogue
-description: "Discover and inspect Slovenian OPSI datasets. Use for catalogue search, dataset listing, dataset metadata, embedded resources, schema inference, or opening a public dataset page."
+description: "Use when discovering Slovenian public-data or OPSI datasets, metadata, resources, schemas, or public pages."
 ---
 
 # opsi-catalogue

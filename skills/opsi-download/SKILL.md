@@ -1,6 +1,6 @@
 ---
 name: opsi-download
-description: "Download Slovenian OPSI dataset or resource content securely. Use for destination selection, batch downloads, overwrite handling, and downloaded artifact provenance."
+description: "Use when securely downloading an OPSI dataset or resource and choosing a destination or overwrite handling."
 ---
 
 # opsi-download

@@ -1,6 +1,6 @@
 ---
 name: opsi-analysis
-description: "Query or convert bounded data with OPSI CLI. Use for resilient delimited, ZIP-selected, XML, JSON, XLSX, Parquet, and exported query workflows."
+description: "Use when querying or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports."
 ---
 
 # opsi-analysis

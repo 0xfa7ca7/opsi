@@ -1,6 +1,6 @@
 ---
 name: opsi-diagnostics
-description: "Inspect OPSI providers, diagnose an installation, generate shell completion, or generate installable Agent Skills. Use for setup, troubleshooting, capability discovery, CLI integration, and agent setup."
+description: "Use when diagnosing OPSI, generating shell completion or Agent Skills, or performing agent setup."
 ---
 
 # opsi-diagnostics
@@ -85,7 +85,7 @@ opsi agent setup [options]
 | --- | --- | --- | --- | --- |
 | `--agent <ids...>` | no | ids... | — | target explicit agent installer IDs |
 | `--all` | no | — | `--agent` | install for every supported agent |
-| `--copy` | no | — | — | copy skills instead of creating symlinks |
+| `--copy` | no | — | — | copy skills into agent directories (default behavior) |
 | `--yes` | no | — | — | accept detected agents without prompting |
 | `--dry-run` | no | — | — | show the setup plan without making changes |
 

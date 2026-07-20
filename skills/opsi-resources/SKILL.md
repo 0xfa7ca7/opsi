@@ -1,6 +1,6 @@
 ---
 name: opsi-resources
-description: "Inspect OPSI resource access capabilities, metadata, secure headers, and bounded local or provider previews. Use when evaluating a dataset resource before download or analysis."
+description: "Use when inspecting an OPSI resource, its secure access, headers, or bounded preview before the next step."
 ---
 
 # opsi-resources

@@ -1,6 +1,6 @@
 ---
 name: opsi-shared
-description: "Apply shared OPSI CLI installation, structured-output, offline, safety, and error-handling rules. Load with every OPSI domain skill."
+description: "Use when any OPSI CLI skill needs shared installation, output, offline, safety, or error-handling guidance."
 ---
 
 # OPSI shared execution contract

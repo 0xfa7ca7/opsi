@@ -1,6 +1,6 @@
 ---
 name: opsi-validation
-description: "Validate local or provider tabular data and OPSI dataset or resource metadata. Use to find integrity issues, warnings, and remediation recommendations."
+description: "Use when checking local or provider data, or OPSI metadata, for integrity issues and remediation."
 ---
 
 # opsi-validation

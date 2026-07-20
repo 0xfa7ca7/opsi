@@ -1,6 +1,6 @@
 ---
 name: opsi
-description: "Route Slovenian public-data requests to the smallest relevant OPSI CLI skill. Use for discovering, inspecting, downloading, validating, querying, converting, or accessing services from the Slovenian OPSI portal."
+description: "Use when a Slovenian public-data or OPSI request needs the relevant skill selected."
 ---
 
 # OPSI orchestrator

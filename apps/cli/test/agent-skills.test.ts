@@ -5,6 +5,7 @@ import {
   AGENT_SKILLS,
   renderAgentSkillFiles,
   renderAgentSkillsIndex,
+  type AgentSkillCapabilityGuide,
   validateAgentSkills,
   type AgentSkillDefinition,
 } from "../src/agent-skills.js";
@@ -43,9 +44,16 @@ const skill = (name: string, commands: readonly string[] = []): AgentSkillDefini
   commands,
   purpose: `${name} purpose`,
   workflows: [],
+  capabilities: [],
   safety: [],
   related: [],
 });
+
+const skillWithCapabilities = (
+  name: string,
+  capabilities: readonly AgentSkillCapabilityGuide[],
+  commands: readonly string[] = [],
+): AgentSkillDefinition => ({ ...skill(name, commands), capabilities });
 
 const minimalSkills = (): readonly AgentSkillDefinition[] => [
   skill("opsi"),
@@ -69,6 +77,13 @@ describe("agent skill registry", () => {
   it("covers the complete approved repertoire and command manifest", () => {
     expect(AGENT_SKILLS.map((entry) => entry.name)).toEqual(EXPECTED_SKILLS);
     expect(validateAgentSkills()).toEqual([]);
+  });
+
+  it("uses concise discovery triggers for every skill description", () => {
+    for (const definition of AGENT_SKILLS) {
+      expect(definition.description, definition.name).toMatch(/^Use when /u);
+      expect(definition.description.length, definition.name).toBeLessThanOrEqual(500);
+    }
   });
 
   it("reports duplicate and invalid skill names", () => {
@@ -136,6 +151,53 @@ describe("agent skill registry", () => {
         [command("search")],
       ),
     ).toContain('Command path "search" is listed more than once by "opsi-catalogue".');
+  });
+
+  it("reports malformed capability guides", () => {
+    const invalidCapabilities = [
+      { id: "Bad ID", title: "Valid title", instructions: ["Valid instruction"] },
+      { id: "blank-title", title: " ", instructions: ["Valid instruction"] },
+      { id: "blank-instruction", title: "Valid title", instructions: [" "] },
+      { id: "empty-instructions", title: "Valid title", instructions: [] },
+    ] as const;
+
+    expect(
+      validateAgentSkills(
+        [
+          skill("opsi"),
+          skill("opsi-shared"),
+          skillWithCapabilities("opsi-catalogue", invalidCapabilities, ["search"]),
+        ],
+        [command("search")],
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        'Invalid capability ID "Bad ID" in "opsi-catalogue".',
+        'Capability "blank-title" in "opsi-catalogue" must have a non-blank title.',
+        'Capability "blank-instruction" in "opsi-catalogue" must have non-blank instructions.',
+        'Capability "empty-instructions" in "opsi-catalogue" must have non-blank instructions.',
+      ]),
+    );
+  });
+
+  it("reports duplicate capability IDs within a skill", () => {
+    expect(
+      validateAgentSkills(
+        [
+          skill("opsi"),
+          skill("opsi-shared"),
+          skillWithCapabilities(
+            "opsi-catalogue",
+            [
+              { id: "search-refinement", title: "Search", instructions: ["Refine"] },
+              { id: "search-refinement", title: "Search again", instructions: ["Refine again"] },
+            ],
+            ["search"],
+          ),
+        ],
+        [command("search")],
+      ),
+    ).toContain('Capability ID "search-refinement" is listed more than once by "opsi-catalogue".');
   });
 });
 
@@ -241,7 +303,7 @@ describe("agent skill rendering", () => {
     const content = renderAgentSkillFiles("1.2.3").get("opsi-diagnostics") ?? "";
     const frontmatter = content.match(/^---\n([\s\S]*?)\n---\n/u)?.[1] ?? "";
 
-    expect(frontmatter).toContain("generate installable Agent Skills");
+    expect(frontmatter).toContain("agent setup");
     expect(content).toContain("Generate installable Agent Skills");
     expect(content).toContain("### `agent setup`");
     expect(content).toContain("opsi agent setup [options]");

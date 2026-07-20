@@ -9,12 +9,19 @@ import {
   type CommandOptionManifest,
 } from "./command-manifest.js";
 
+export interface AgentSkillCapabilityGuide {
+  readonly id: string;
+  readonly title: string;
+  readonly instructions: readonly string[];
+}
+
 export interface AgentSkillDefinition {
   readonly name: string;
   readonly description: string;
   readonly commands: readonly string[];
   readonly purpose: string;
   readonly workflows: readonly string[];
+  readonly capabilities: readonly AgentSkillCapabilityGuide[];
   readonly safety: readonly string[];
   readonly related: readonly string[];
 }
@@ -23,7 +30,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
     name: "opsi",
     description:
-      "Route Slovenian public-data requests to the smallest relevant OPSI CLI skill. Use for discovering, inspecting, downloading, validating, querying, converting, or accessing services from the Slovenian OPSI portal.",
+      "Use when a Slovenian public-data or OPSI request needs the relevant skill selected.",
     commands: [],
     purpose:
       "Classify the request, load shared guidance, and select the smallest relevant domain skill or ordered set of skills.",
@@ -32,6 +39,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Download or preview selected data before validating, querying, or converting it.",
       "Use provenance to verify any artifact produced by a download, conversion, or query export.",
     ],
+    capabilities: [],
     safety: [],
     related: [
       "opsi-catalogue",
@@ -48,10 +56,11 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
     name: "opsi-shared",
     description:
-      "Apply shared OPSI CLI installation, structured-output, offline, safety, and error-handling rules. Load with every OPSI domain skill.",
+      "Use when any OPSI CLI skill needs shared installation, output, offline, safety, or error-handling guidance.",
     commands: [],
     purpose: "Provide the common execution contract every OPSI domain skill must follow.",
     workflows: [],
+    capabilities: [],
     safety: [
       "Prefer structured output and bounded result sets.",
       "Honor offline requests and existing network safeguards.",
@@ -63,7 +72,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
     name: "opsi-catalogue",
     description:
-      "Discover and inspect Slovenian OPSI datasets. Use for catalogue search, dataset listing, dataset metadata, embedded resources, schema inference, or opening a public dataset page.",
+      "Use when discovering Slovenian public-data or OPSI datasets, metadata, resources, schemas, or public pages.",
     commands: [
       "search",
       "dataset list",
@@ -77,52 +86,57 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Search with a narrow limit and fields, then inspect the selected dataset.",
       "List dataset resources before selecting one for preview or download.",
     ],
+    capabilities: [],
     safety: ["Use explicit live catalogue traversal only when the user needs it."],
     related: ["opsi-resources", "opsi-download", "opsi-validation"],
   },
   {
     name: "opsi-resources",
     description:
-      "Inspect OPSI resource access capabilities, metadata, secure headers, and bounded local or provider previews. Use when evaluating a dataset resource before download or analysis.",
+      "Use when inspecting an OPSI resource, its secure access, headers, or bounded preview before the next step.",
     commands: ["resource show", "resource inspect", "resource headers", "resource preview"],
     purpose: "Inspect a resource safely without committing to a full data workflow.",
     workflows: [
       "Inspect metadata and headers before downloading an unfamiliar resource.",
       "Preview a bounded number of rows before validation or analysis.",
     ],
+    capabilities: [],
     safety: ["Keep previews bounded and do not weaken network controls implicitly."],
     related: ["opsi-catalogue", "opsi-download", "opsi-validation", "opsi-analysis"],
   },
   {
     name: "opsi-download",
     description:
-      "Download Slovenian OPSI dataset or resource content securely. Use for destination selection, batch downloads, overwrite handling, and downloaded artifact provenance.",
+      "Use when securely downloading an OPSI dataset or resource and choosing a destination or overwrite handling.",
     commands: ["download"],
     purpose: "Download selected provider resources through the CLI's bounded secure downloader.",
     workflows: ["Resolve a canonical resource or dataset reference, then download it."],
+    capabilities: [],
     safety: ["Confirm before replacing an existing artifact with --force."],
     related: ["opsi-catalogue", "opsi-resources", "opsi-validation", "opsi-provenance"],
   },
   {
     name: "opsi-validation",
     description:
-      "Validate local or provider tabular data and OPSI dataset or resource metadata. Use to find integrity issues, warnings, and remediation recommendations.",
+      "Use when checking local or provider data, or OPSI metadata, for integrity issues and remediation.",
     commands: ["validate"],
     purpose: "Validate data content or normalized metadata and explain actionable issues.",
     workflows: ["Validate downloaded content before analysis or conversion."],
+    capabilities: [],
     safety: ["Treat integrity failures as non-retryable until the input changes."],
     related: ["opsi-resources", "opsi-download", "opsi-analysis"],
   },
   {
     name: "opsi-analysis",
     description:
-      "Query or convert bounded data with OPSI CLI. Use for resilient delimited, ZIP-selected, XML, JSON, XLSX, Parquet, and exported query workflows.",
+      "Use when querying or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports.",
     commands: ["query", "convert"],
     purpose: "Analyze tabular inputs with bounded read-only SQL or convert supported formats.",
     workflows: [
       "Preview and validate input before running a bounded query.",
       "Convert an input and then verify the generated provenance record.",
     ],
+    capabilities: [],
     safety: [
       "Keep SQL read-only and bounded.",
       "Confirm before replacing an existing output with --force.",
@@ -146,6 +160,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Inspect a canonical WFS resource, list layers, then inspect a selected layer schema.",
       "Preview or count a layer with typed equality filters before exporting bounded rows.",
     ],
+    capabilities: [],
     safety: [
       "Use canonical resource references and bounded limits.",
       "Never send transaction requests, raw CQL, arbitrary XML filters, or direct HTTP calls.",
@@ -155,17 +170,17 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
     name: "opsi-provenance",
     description:
-      "Inspect or verify OPSI artifact provenance. Use to explain an artifact's source and transformations or detect integrity mismatches.",
+      "Use when inspecting or verifying OPSI artifact provenance, transformations, or integrity mismatches.",
     commands: ["provenance show", "provenance verify"],
     purpose: "Inspect recorded lineage and verify an artifact against its digest.",
     workflows: ["Verify every important downloaded, converted, or query-exported artifact."],
+    capabilities: [],
     safety: ["Do not dismiss a digest mismatch or mutate evidence before reporting it."],
     related: ["opsi-download", "opsi-analysis"],
   },
   {
     name: "opsi-local-state",
-    description:
-      "Inspect or update OPSI CLI cache and non-secret configuration. Use for cache diagnostics, verification, pruning, clearing, or configuration values and paths.",
+    description: "Use when inspecting or changing the OPSI cache or non-secret configuration.",
     commands: [
       "cache info",
       "cache list",
@@ -182,13 +197,14 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Inspect cache state before pruning or clearing it.",
       "Locate and inspect configuration before changing a value.",
     ],
+    capabilities: [],
     safety: ["Confirm cache clear or prune unless the exact mutation is already authorized."],
     related: ["opsi-diagnostics"],
   },
   {
     name: "opsi-diagnostics",
     description:
-      "Inspect OPSI providers, diagnose an installation, generate shell completion, or generate installable Agent Skills. Use for setup, troubleshooting, capability discovery, CLI integration, and agent setup.",
+      "Use when diagnosing OPSI, generating shell completion or Agent Skills, or performing agent setup.",
     commands: ["providers list", "doctor", "completion", "generate-skills", "agent setup"],
     purpose:
       "Generate installable Agent Skills, diagnose the CLI environment, and expose providers and shell integration.",
@@ -197,6 +213,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Use `--dry-run` to inspect the installation plan, or `--agent` when the target host IDs are already known.",
       "Run offline diagnostics first when network access is unavailable or unwanted.",
     ],
+    capabilities: [],
     safety: [
       "Do not turn a diagnostic check into a network request when offline was requested.",
       "In non-interactive use, require `--yes`, `--agent`, or `--all` before installing skills.",
@@ -229,6 +246,31 @@ export function validateAgentSkills(
     }
     if (entry.name !== "opsi" && entry.name !== "opsi-shared" && entry.commands.length === 0) {
       problems.push(`Domain skill "${entry.name}" must own at least one command.`);
+    }
+    const seenCapabilityIds = new Set<string>();
+    for (const capability of entry.capabilities) {
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(capability.id)) {
+        problems.push(`Invalid capability ID "${capability.id}" in "${entry.name}".`);
+      }
+      if (seenCapabilityIds.has(capability.id)) {
+        problems.push(
+          `Capability ID "${capability.id}" is listed more than once by "${entry.name}".`,
+        );
+      }
+      seenCapabilityIds.add(capability.id);
+      if (capability.title.trim().length === 0) {
+        problems.push(
+          `Capability "${capability.id}" in "${entry.name}" must have a non-blank title.`,
+        );
+      }
+      if (
+        capability.instructions.length === 0 ||
+        capability.instructions.some((instruction) => instruction.trim().length === 0)
+      ) {
+        problems.push(
+          `Capability "${capability.id}" in "${entry.name}" must have non-blank instructions.`,
+        );
+      }
     }
     const seenCommandPaths = new Set<string>();
     for (const path of entry.commands) {
