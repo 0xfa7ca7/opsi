@@ -23,32 +23,33 @@ Use the installed CLI as the source of truth when its help differs from generate
 - Prefer `--json` for one bounded result envelope or `--ndjson` for streamed records.
 - Use `--fields` and command-specific row limits to keep agent context small.
 - Read result data from stdout, diagnostics from stderr, and the exit status as the authoritative success signal.
+- Inspect the structured `error.code` together with the exit status before choosing remediation.
 - Never parse a human-readable table when structured output is available.
 
 ## Global options
 
-| Option | Values | Description |
-| --- | --- | --- |
-| `--json` | — | render JSON |
-| `--ndjson` | — | render newline-delimited JSON |
-| `--csv` | — | render CSV |
-| `--tsv` | — | render TSV |
-| `--output-format <format>` | `table`, `json`, `ndjson`, `csv`, `tsv` | select output format |
-| `--fields <field>` | field | select output field (repeatable or comma-separated) |
-| `--provider <id>` | `opsi`, `local` | select provider |
-| `--offline` | — | disable network access |
-| `--cache-dir <path>` | path | override cache directory |
-| `--download-dir <path>` | path | override download directory |
-| `--http-timeout-ms <number>` | number | HTTP timeout in milliseconds |
-| `--max-download-bytes <number>` | number | maximum download size |
-| `--preview-row-limit <number>` | number | preview row limit |
-| `--query-row-limit <number>` | number | query row limit |
-| `--query-timeout-ms <number>` | number | query timeout in milliseconds |
-| `--duckdb-memory-limit <limit>` | limit | DuckDB memory limit |
-| `--duckdb-threads <number>` | number | DuckDB worker threads |
-| `--quiet` | — | suppress non-result output |
-| `--debug` | — | include diagnostic stack traces |
-| `--no-color` | — | disable color output |
+| Option | Values | Conflicts | Description |
+| --- | --- | --- | --- |
+| `--json` | — | `ndjson`, `csv`, `tsv`, `outputFormat` | render JSON |
+| `--ndjson` | — | `json`, `csv`, `tsv`, `outputFormat` | render newline-delimited JSON |
+| `--csv` | — | `json`, `ndjson`, `tsv`, `outputFormat` | render CSV |
+| `--tsv` | — | `json`, `ndjson`, `csv`, `outputFormat` | render TSV |
+| `--output-format <format>` | `table`, `json`, `ndjson`, `csv`, `tsv` | — | select output format |
+| `--fields <field>` | field | — | select output field (repeatable or comma-separated) |
+| `--provider <id>` | `opsi`, `local` | — | select provider |
+| `--offline` | — | — | disable network access |
+| `--cache-dir <path>` | path | — | override cache directory |
+| `--download-dir <path>` | path | — | override download directory |
+| `--http-timeout-ms <number>` | number | — | HTTP timeout in milliseconds |
+| `--max-download-bytes <number>` | number | — | maximum download size |
+| `--preview-row-limit <number>` | number | — | preview row limit |
+| `--query-row-limit <number>` | number | — | query row limit |
+| `--query-timeout-ms <number>` | number | — | query timeout in milliseconds |
+| `--duckdb-memory-limit <limit>` | limit | — | DuckDB memory limit |
+| `--duckdb-threads <number>` | number | — | DuckDB worker threads |
+| `--quiet` | — | — | suppress non-result output |
+| `--debug` | — | — | include diagnostic stack traces |
+| `--no-color` | — | — | disable color output |
 
 ## Network and offline behavior
 

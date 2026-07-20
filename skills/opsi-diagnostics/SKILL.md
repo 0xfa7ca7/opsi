@@ -1,13 +1,13 @@
 ---
 name: opsi-diagnostics
-description: "Inspect OPSI providers, diagnose an installation, or generate shell completion. Use for setup, troubleshooting, capability discovery, and CLI integration."
+description: "Inspect OPSI providers, diagnose an installation, generate shell completion, or generate installable Agent Skills. Use for setup, troubleshooting, capability discovery, CLI integration, and agent setup."
 ---
 
 # opsi-diagnostics
 
 > **Prerequisite:** Read [opsi-shared](../opsi-shared/SKILL.md) before executing these commands.
 
-Diagnose the CLI environment and expose supported providers and shell integration. Generated for `opsi` 0.1.0.
+Generate installable Agent Skills, diagnose the CLI environment, and expose providers and shell integration. Generated for `opsi` 0.1.0.
 
 ## Workflow
 

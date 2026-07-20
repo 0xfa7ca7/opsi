@@ -163,9 +163,10 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
     name: "opsi-diagnostics",
     description:
-      "Inspect OPSI providers, diagnose an installation, or generate shell completion. Use for setup, troubleshooting, capability discovery, and CLI integration.",
+      "Inspect OPSI providers, diagnose an installation, generate shell completion, or generate installable Agent Skills. Use for setup, troubleshooting, capability discovery, CLI integration, and agent setup.",
     commands: ["providers list", "doctor", "completion", "generate-skills"],
-    purpose: "Diagnose the CLI environment and expose supported providers and shell integration.",
+    purpose:
+      "Generate installable Agent Skills, diagnose the CLI environment, and expose providers and shell integration.",
     workflows: ["Run offline diagnostics first when network access is unavailable or unwanted."],
     safety: ["Do not turn a diagnostic check into a network request when offline was requested."],
     related: ["opsi-local-state"],
@@ -191,10 +192,18 @@ export function validateAgentSkills(
     }
     if (seenNames.has(entry.name)) problems.push(`Duplicate skill name "${entry.name}".`);
     seenNames.add(entry.name);
+    if ((entry.name === "opsi" || entry.name === "opsi-shared") && entry.commands.length > 0) {
+      problems.push(`Reserved skill "${entry.name}" must not own commands.`);
+    }
     if (entry.name !== "opsi" && entry.name !== "opsi-shared" && entry.commands.length === 0) {
       problems.push(`Domain skill "${entry.name}" must own at least one command.`);
     }
+    const seenCommandPaths = new Set<string>();
     for (const path of entry.commands) {
+      if (seenCommandPaths.has(path)) {
+        problems.push(`Command path "${path}" is listed more than once by "${entry.name}".`);
+      }
+      seenCommandPaths.add(path);
       if (!commandPaths.has(path)) {
         problems.push(`Unknown command path "${path}" owned by "${entry.name}".`);
       }
@@ -243,6 +252,12 @@ function optionLabel(option: CommandOptionManifest): string {
   return `\`${tableText(option.flags)}\``;
 }
 
+function optionConflicts(option: CommandOptionManifest): string {
+  return option.conflicts === undefined
+    ? "—"
+    : option.conflicts.map((item) => `\`${item}\``).join(", ");
+}
+
 function commandUsage(entry: CommandManifestEntry): string {
   const commandArguments = entry.arguments.map((argument) => argument.name).join(" ");
   const requiredOptions = entry.options
@@ -278,13 +293,10 @@ ${rows}
 function renderOptions(entry: CommandManifestEntry): string {
   if (entry.options.length === 0) return "";
   const rows = entry.options
-    .map((option) => {
-      const conflicts =
-        option.conflicts === undefined
-          ? "—"
-          : option.conflicts.map((item) => `\`${item}\``).join(", ");
-      return `| ${optionLabel(option)} | ${option.mandatory === true ? "yes" : "no"} | ${optionValue(option)} | ${conflicts} | ${tableText(option.description)} |`;
-    })
+    .map(
+      (option) =>
+        `| ${optionLabel(option)} | ${option.mandatory === true ? "yes" : "no"} | ${optionValue(option)} | ${optionConflicts(option)} | ${tableText(option.description)} |`,
+    )
     .join("\n");
   return `#### Options
 
@@ -349,10 +361,10 @@ ${definition.workflows.map((workflow) => `- ${workflow}`).join("\n")}
 function globalOptionsTable(): string {
   const rows = GLOBAL_OPTION_MANIFEST.map(
     (option) =>
-      `| ${optionLabel(option)} | ${optionValue(option)} | ${tableText(option.description)} |`,
+      `| ${optionLabel(option)} | ${optionValue(option)} | ${optionConflicts(option)} | ${tableText(option.description)} |`,
   ).join("\n");
-  return `| Option | Values | Description |
-| --- | --- | --- |
+  return `| Option | Values | Conflicts | Description |
+| --- | --- | --- | --- |
 ${rows}`;
 }
 
@@ -378,6 +390,7 @@ Use the installed CLI as the source of truth when its help differs from generate
 - Prefer \`--json\` for one bounded result envelope or \`--ndjson\` for streamed records.
 - Use \`--fields\` and command-specific row limits to keep agent context small.
 - Read result data from stdout, diagnostics from stderr, and the exit status as the authoritative success signal.
+- Inspect the structured \`error.code\` together with the exit status before choosing remediation.
 - Never parse a human-readable table when structured output is available.
 
 ## Global options

@@ -111,6 +111,18 @@ describe("agent skill registry", () => {
       'Unknown related skill "opsi-missing" referenced by "opsi-catalogue".',
     );
   });
+
+  it("keeps reserved skills commandless and rejects repeated ownership entries", () => {
+    expect(
+      validateAgentSkills([skill("opsi", ["search"]), skill("opsi-shared")], [command("search")]),
+    ).toContain('Reserved skill "opsi" must not own commands.');
+    expect(
+      validateAgentSkills(
+        [skill("opsi"), skill("opsi-shared"), skill("opsi-catalogue", ["search", "search"])],
+        [command("search")],
+      ),
+    ).toContain('Command path "search" is listed more than once by "opsi-catalogue".');
+  });
 });
 
 describe("agent skill rendering", () => {
@@ -149,6 +161,7 @@ describe("agent skill rendering", () => {
     for (const skillName of EXPECTED_SKILLS.slice(2)) {
       expect(content).toContain(`../${skillName}/SKILL.md`);
     }
+    expect(content).toContain("Generate installable Agent Skills");
     expect(content).not.toContain("### `search`");
   });
 
@@ -163,6 +176,7 @@ describe("agent skill rendering", () => {
       "stdout",
       "stderr",
       "exit status",
+      "error.code",
       "--offline",
       "--allow-insecure-http",
       "--allow-private-network",
@@ -177,7 +191,16 @@ describe("agent skill rendering", () => {
     for (const option of GLOBAL_OPTION_MANIFEST) {
       expect(content).toContain(option.flags);
       expect(content).toContain(option.description);
+      for (const conflict of option.conflicts ?? []) expect(content).toContain(conflict);
     }
+  });
+
+  it("routes skill generation through diagnostics metadata before loading the body", () => {
+    const content = renderAgentSkillFiles("1.2.3").get("opsi-diagnostics") ?? "";
+    const frontmatter = content.match(/^---\n([\s\S]*?)\n---\n/u)?.[1] ?? "";
+
+    expect(frontmatter).toContain("generate installable Agent Skills");
+    expect(content).toContain("Generate installable Agent Skills");
   });
 
   it("renders every owned command directly from manifest metadata", () => {

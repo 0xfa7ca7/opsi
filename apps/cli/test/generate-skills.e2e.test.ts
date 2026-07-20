@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -97,6 +97,40 @@ describe("generate-skills", () => {
 
     expect(JSON.parse(value.stdout.join(""))).toMatchObject({
       error: { code: "SKILL_OUTPUT_INVALID", exitCode: 2 },
+    });
+  });
+
+  const symlinkTest: typeof it = process.platform === "win32" ? it.skip : it;
+
+  symlinkTest("rejects a symbolic-link skill directory without following it", async () => {
+    const value = await fixture();
+    const output = join(value.cwd, "skills");
+    const outside = join(value.cwd, "outside");
+    await mkdir(output);
+    await mkdir(outside);
+    await symlink(outside, join(output, "opsi"));
+
+    await expect(
+      runCli(["generate-skills", "--output-dir", output, "--json"], value.io),
+    ).resolves.toBe(2);
+    expect(JSON.parse(value.stdout.join(""))).toMatchObject({
+      error: { code: "SKILL_OUTPUT_INVALID", exitCode: 2 },
+    });
+    await expect(readFile(join(outside, "SKILL.md"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("returns a typed generation failure when a known file target is a directory", async () => {
+    const value = await fixture();
+    const output = join(value.cwd, "skills");
+    await mkdir(join(output, "opsi", "SKILL.md"), { recursive: true });
+
+    await expect(
+      runCli(["generate-skills", "--output-dir", output, "--json"], value.io),
+    ).resolves.toBe(1);
+    expect(JSON.parse(value.stdout.join(""))).toMatchObject({
+      error: { code: "SKILL_GENERATION_FAILED", exitCode: 1 },
     });
   });
 });

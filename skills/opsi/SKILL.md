@@ -23,7 +23,7 @@ Use this skill as the main entry point for Slovenian public-data work with the `
 | Analyze tabular inputs with bounded read-only SQL or convert supported formats. | [opsi-analysis](../opsi-analysis/SKILL.md) |
 | Inspect recorded lineage and verify an artifact against its digest. | [opsi-provenance](../opsi-provenance/SKILL.md) |
 | Manage local cache and validated non-secret CLI configuration. | [opsi-local-state](../opsi-local-state/SKILL.md) |
-| Diagnose the CLI environment and expose supported providers and shell integration. | [opsi-diagnostics](../opsi-diagnostics/SKILL.md) |
+| Generate installable Agent Skills, diagnose the CLI environment, and expose providers and shell integration. | [opsi-diagnostics](../opsi-diagnostics/SKILL.md) |
 
 Do not pass `/opsi`, `@opsi`, or `$opsi` to the shell. Those are host-specific ways to invoke this skill; shell commands begin with `opsi`.
 
