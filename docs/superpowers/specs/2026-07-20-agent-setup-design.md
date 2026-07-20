@@ -17,7 +17,7 @@ opsi agent setup
 Supported options are:
 
 - `--agent <ids...>` to target explicit installer agent IDs instead of discovery.
-- `--all` to target every installer profile and skip prompts.
+- `--all` to target every pinned installer profile that supports global installation and skip prompts.
 - `--copy` to copy skill files when symlinks are unavailable or unwanted.
 - `--yes` to select all detected agents without confirmation.
 - `--dry-run` to return the planned setup without creating temporary files or invoking the installer.
@@ -36,7 +36,7 @@ This closely matches Caveman's current provider mechanism and minimizes code, bu
 
 ### 3. Use a pinned `skills` runtime dependency
 
-This is the selected approach. OPSI depends on an exact `skills` package version and invokes its installed Node entrypoint with an argv array. The dependency owns agent detection and installation paths; OPSI owns the generated source, command contract, dry-run behavior, typed errors, and version upgrades. There is no shell, no `npx`, and no GitHub fetch during setup.
+This is the selected approach, with an OPSI-owned safety boundary around the pinned runtime. OPSI depends on an exact `skills` package version and invokes its installed Node entrypoint with an argv array. A declarative OPSI registry mirrors that exact version's bounded local detection markers and globally installable IDs; the dependency continues to own installation paths, symlink/copy mechanics, and platform behavior. OPSI owns detection, selection, confirmation, generated source, dry-run behavior, typed errors, and version upgrades. There is no shell, no `npx`, and no GitHub fetch during setup.
 
 ## Architecture
 
@@ -76,17 +76,17 @@ For a real setup, the adapter creates a mode-`0700` temporary directory, calls t
 node <resolved-skills-cli> add <temporary-source> --global --skill * [selection flags]
 ```
 
-and removes the temporary directory in a `finally` block. The local source causes the universal installer to skip remote cloning and install telemetry. The generated contents therefore exactly match the installed `opsi` version.
+and removes the temporary directory after success or with best effort while preserving a primary failure. The local source causes the universal installer to skip remote cloning and install telemetry. OPSI always passes resolved explicit agents plus `--yes` and captures the child streams, preventing upstream selection, cancellation, and post-install remote-skill prompts. The generated contents therefore exactly match the installed `opsi` version.
 
 `--dry-run` validates options and returns a structured plan without creating the temporary source, resolving the installer binary, or starting a child process.
 
 ### Interaction modes
 
-With no selection flags, the universal installer detects installed agents. One detected agent is selected automatically; multiple detected agents use its normal selection prompt; no detected agents use its normal supported-agent prompt.
+With no selection flags, OPSI probes the bounded markers in the registry synchronized with `skills@1.5.19`. One detected agent is selected automatically; multiple detected agents require one OPSI confirmation. No detected agents return `AGENT_HOSTS_NOT_DETECTED` with guidance to use `--agent` or `--all`.
 
-`--yes` keeps discovery but selects all detected agents without prompting. `--agent` accepts one or more explicit installer IDs. `--all` maps to the installer's explicit all-agent mode and implies non-interactive confirmation. `--all` conflicts with `--agent`; duplicate agent IDs are rejected before process execution.
+`--yes` keeps discovery but selects all detected agents without prompting; it never expands an empty detection result. `--agent` accepts one or more explicit IDs validated against the pinned registry. `--all` expands to every registry profile that supports global installation, excluding profiles such as Eve and PromptScript that cannot succeed globally. `--all` conflicts with `--agent`; duplicate agent IDs are rejected before process execution.
 
-Human output in a TTY keeps the child installer attached to stdin, stdout, and stderr so prompts work. Structured OPSI output (`--json`, `--ndjson`, `--csv`, `--tsv`, or `--output-format`) or any non-TTY invocation requires `--yes`, `--agent`, or `--all`; the runner captures child output and OPSI emits only its normal structured result envelope. This prevents installer decoration from corrupting machine-readable stdout and prevents unattended prompt hangs.
+Human output in a TTY uses OPSI's own confirmation callback before mutation. Every child invocation is non-interactive and captured. Structured OPSI output (`--json`, `--ndjson`, `--csv`, `--tsv`, or `--output-format`) or any non-TTY invocation requires `--yes`, `--agent`, or `--all`; OPSI emits only its normal structured result envelope. This prevents installer decoration from corrupting machine-readable stdout, unattended prompt hangs, cancellation reported as success, and the installer's unrelated remote-skill recommendation prompt.
 
 ### Command integration
 
@@ -94,9 +94,10 @@ Add `agent setup` to the command manifest and register it through `apps/cli/src/
 
 ## Errors and safety
 
-- Conflicting or duplicate selection options fail before temporary files or child execution with exit category 2. Unknown agent IDs are rejected by the pinned installer and reported as setup failures with its diagnostic preserved.
+- Conflicting, duplicate, or unknown selection options fail before temporary files or child execution with exit category 2.
 - Missing or unresolvable pinned installer code returns `AGENT_INSTALLER_UNAVAILABLE` with exit category 5.
 - A nonzero installer exit returns `AGENT_SETUP_FAILED`; invalid installer input maps to exit category 2 when identifiable, otherwise internal failure maps to exit category 1.
+- A zero-exit installer report containing failed targets returns `AGENT_SETUP_PARTIAL` with exit category 8 and a bounded diagnostic.
 - Temporary source creation or cleanup failures use the existing skill-generation error model without exposing secret environment values.
 - Installer execution uses `process.execPath` and an argv array, never a shell command string.
 - Only the generated temporary source is deleted. Agent destinations are owned and updated by the pinned installer.
@@ -114,11 +115,12 @@ Tests cover:
 
 - exact command manifest flags and completion surface;
 - option validation and argument construction without shell interpolation;
-- default detection, explicit agents, all agents, copy, yes, and conflicts;
+- full pinned-registry coverage, default detection, zero detection, explicit agents, all globally installable agents, copy, yes, and conflicts;
 - dry-run producing no temporary directory or runner call;
 - generated source contents and guaranteed cleanup on success and failure;
 - typed missing-installer and child-process failures;
 - structured-mode non-interactive requirements and clean output;
 - byte-for-byte checked-in skill drift;
 - packed npm installation resolving the pinned installer and running `agent setup --dry-run --json`;
+- real pinned-installer installation and a real zero-exit target failure in isolated home directories;
 - full `pnpm check` on the final branch.

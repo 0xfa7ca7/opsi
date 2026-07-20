@@ -172,7 +172,7 @@ The repository ships a complete repertoire of [Agent Skills](docs/skills.md): a 
 opsi agent setup
 ```
 
-Interactive setup prompts when more than one host is detected. For unattended setup, accept the detected hosts with `--yes`, target explicit installer IDs with `--agent codex claude-code`, or target every supported host with `--all`. Use `--dry-run` to preview the plan and `--copy` when symlinks are unsuitable. Setup uses the pinned installer shipped with OPSI, does not invoke `npx`, and does not create `.agents` or `skills-lock.json` in the current project.
+Interactive setup asks for confirmation when more than one host is detected. For unattended setup, accept the detected hosts with `--yes`, target explicit installer IDs with `--agent codex claude-code`, or target every globally installable profile with `--all`. If detection finds no host, choose one explicitly with `--agent` or `--all`; `--yes` never expands an empty detection result. Use `--dry-run` to preview the plan and `--copy` when symlinks are unsuitable. Setup uses the pinned installer shipped with OPSI, does not invoke `npx`, does not offer unrelated remote skills, and does not create `.agents` or `skills-lock.json` in the current project.
 
 For a project-local installation, use a compatible Agent Skills installer directly:
 

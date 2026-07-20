@@ -4,6 +4,8 @@
 
 **Goal:** Add `opsi agent setup` so one command installs the embedded OPSI Agent Skills globally into automatically detected or explicitly selected agent hosts.
 
+> **Post-review hardening:** The final implementation adds `agent-hosts.ts`, synchronized with the globally installable profiles and local detection markers in `skills@1.5.19`. OPSI resolves and validates targets itself, fails on empty detection, confirms multiple detected hosts itself, and always invokes the installer with explicit agent IDs plus `--yes` over captured streams. Real-installer integration tests cover successful isolated-HOME installation and upstream zero-exit partial failure reporting. This supersedes plan steps below that delegate detection or prompts to the child installer.
+
 **Architecture:** OPSI generates its deterministic skill repertoire into a private temporary directory, then invokes the exact pinned `skills` package entrypoint with `process.execPath` and an argv array. A process-runner interface isolates child execution from orchestration and tests; the command adapter owns Commander integration and structured-output constraints.
 
 **Tech Stack:** TypeScript 6, Node.js 24 ESM and child processes, Commander 15, `skills` 1.5.19, Vitest 4, pnpm 11.

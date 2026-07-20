@@ -1,0 +1,99 @@
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { SkillsAgentInstallerRunner } from "../src/agent-installer-runner.js";
+import {
+  setupAgents,
+  type AgentInstallerRunRequest,
+  type AgentInstallerRunResult,
+  type AgentInstallerRunner,
+} from "../src/agent-setup.js";
+import type { AgentHostRegistry } from "../src/agent-hosts.js";
+
+const temporaryDirectories: string[] = [];
+const registry: AgentHostRegistry = {
+  supportedAgentIds: ["universal", "codex"],
+  detect: async () => [],
+};
+
+async function fixture(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "opsi-real-agent-setup-"));
+  temporaryDirectories.push(root);
+  return root;
+}
+
+afterEach(async () => {
+  await Promise.all(
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { recursive: true, force: true })),
+  );
+});
+
+describe("real pinned agent installer integration", () => {
+  it("installs all generated skills locally without prompts or remote recommendations", async () => {
+    const root = await fixture();
+    const home = join(root, "home");
+    const cwd = join(root, "workspace");
+    await mkdir(home, { recursive: true });
+    await mkdir(cwd, { recursive: true });
+    const realRunner = new SkillsAgentInstallerRunner();
+    let installerRequest: AgentInstallerRunRequest | undefined;
+    let installerResult: AgentInstallerRunResult | undefined;
+    const runner: AgentInstallerRunner = {
+      run: async (request) => {
+        installerRequest = request;
+        installerResult = await realRunner.run(request);
+        return installerResult;
+      },
+    };
+
+    await expect(
+      setupAgents({
+        cwd,
+        home,
+        env: { ...process.env, HOME: home, NO_COLOR: "1" },
+        version: "1.2.3",
+        request: { agents: ["universal"], copy: true },
+        runner,
+        registry,
+        interactive: true,
+      }),
+    ).resolves.toMatchObject({ agents: ["universal"], dryRun: false });
+
+    expect(installerRequest).toMatchObject({ interactive: false });
+    expect(installerRequest?.arguments).toEqual(
+      expect.arrayContaining(["--agent", "universal", "--copy", "--yes"]),
+    );
+    expect(`${installerResult?.stdout}\n${installerResult?.stderr}`).not.toContain("find-skills");
+    for (const skill of ["opsi", "opsi-shared", "opsi-analysis", "opsi-diagnostics"]) {
+      expect(await readFile(join(home, ".agents", "skills", skill, "SKILL.md"), "utf8")).toContain(
+        `name: ${skill}`,
+      );
+    }
+    await expect(access(join(cwd, ".agents"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(access(join(cwd, "skills-lock.json"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("recognizes a real zero-exit installer target failure as partial success", async () => {
+    const root = await fixture();
+    const blockedHome = join(root, "blocked-home");
+    const cwd = join(root, "workspace");
+    await writeFile(blockedHome, "not a directory");
+    await mkdir(cwd, { recursive: true });
+
+    await expect(
+      setupAgents({
+        cwd,
+        home: blockedHome,
+        env: { ...process.env, HOME: blockedHome, NO_COLOR: "1" },
+        version: "1.2.3",
+        request: { agents: ["codex"], copy: true },
+        runner: new SkillsAgentInstallerRunner(),
+        registry,
+        interactive: false,
+      }),
+    ).rejects.toMatchObject({ code: "AGENT_SETUP_PARTIAL", exitCode: 8 });
+  });
+});

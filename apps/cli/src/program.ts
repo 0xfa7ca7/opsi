@@ -31,6 +31,7 @@ import { registerGenerateSkillsCommand } from "./commands/generate-skills.js";
 import { registerAgentCommand } from "./commands/agent.js";
 import type { AgentInstallerRunner } from "./agent-setup.js";
 import { SkillsAgentInstallerRunner } from "./agent-installer-runner.js";
+import { PinnedAgentHostRegistry, type AgentHostRegistry } from "./agent-hosts.js";
 
 function requestInterval(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
@@ -94,6 +95,7 @@ function createClient(
 export interface ProgramDependencies {
   readonly catalogue?: Pick<CatalogueSnapshotClient, "list">;
   readonly agentInstallerRunner?: AgentInstallerRunner;
+  readonly agentHostRegistry?: AgentHostRegistry;
 }
 
 export function createProgram(
@@ -146,6 +148,7 @@ export function createProgram(
     program,
     context,
     dependencies.agentInstallerRunner ?? new SkillsAgentInstallerRunner(),
+    dependencies.agentHostRegistry ?? new PinnedAgentHostRegistry(),
   );
   return program;
 }
