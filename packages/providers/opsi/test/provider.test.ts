@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { datasetId, providerId, resourceId } from "@opsi/domain";
+import { datasetId, OpsiError, providerId, resourceId } from "@opsi/domain";
 import { describe, expect, it, vi } from "vitest";
 import {
   OpsiProvider,
@@ -514,6 +514,101 @@ describe("OPSI provider contract", () => {
       code: "PROVIDER_REQUEST_FAILED",
       exitCode: 4,
     });
+  });
+
+  it("retries a transient non-JSON response for a retryable operation", async () => {
+    const validResponse = await fixture("package-search");
+    let attempt = 0;
+    const fetch = vi.fn(async () => {
+      attempt += 1;
+      if (attempt === 1) {
+        return new Response("temporary gateway page", {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        });
+      }
+      return new Response(JSON.stringify(validResponse), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    const transport = new OpsiTransport({
+      baseUrl: "https://example.invalid/fixture",
+      fetch,
+      scheduler: new RequestScheduler({
+        intervalMs: 0,
+        maxRetries: 1,
+        retryBaseMs: 0,
+        jitterRatio: 0,
+      }),
+    });
+
+    await expect(
+      transport.call("package_search", {
+        q: "*:*",
+        fq: "",
+        rows: 1,
+        start: 0,
+        facet: "true",
+        "facet.field": [],
+        "facet.mincount": 0,
+        "facet.limit": 50,
+        sort: "relevance asc",
+      }),
+    ).resolves.toMatchObject({ count: expect.any(Number) });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports safe final response metadata when non-JSON retries are exhausted", async () => {
+    let attempt = 0;
+    const fetch = vi.fn(async () => {
+      attempt += 1;
+      return new Response(
+        attempt === 1 ? "first secret upstream response" : "final secret upstream response",
+        {
+          status: attempt === 1 ? 200 : 501,
+          headers: {
+            "content-type": attempt === 1 ? "text/html" : "text/plain; charset=utf-8",
+          },
+        },
+      );
+    });
+    const transport = new OpsiTransport({
+      baseUrl: "https://example.invalid/fixture",
+      fetch,
+      scheduler: new RequestScheduler({
+        intervalMs: 0,
+        maxRetries: 1,
+        retryBaseMs: 0,
+        jitterRatio: 0,
+      }),
+    });
+
+    let received: unknown;
+    try {
+      await transport.call("status_show", {});
+    } catch (error) {
+      received = error;
+    }
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(received).toBeInstanceOf(OpsiError);
+    if (!(received instanceof OpsiError)) throw new Error("expected OpsiError");
+    expect(received.toJSON()).toEqual({
+      code: "INVALID_PROVIDER_RESPONSE",
+      message: "OPSI returned a non-JSON response.",
+      exitCode: 4,
+      context: {
+        provider: "opsi",
+        operation: "status_show",
+        status: 501,
+        contentType: "text/plain; charset=utf-8",
+      },
+    });
+    const serialized = JSON.stringify(received);
+    expect(serialized).not.toContain("first secret upstream response");
+    expect(serialized).not.toContain("final secret upstream response");
+    expect(serialized).not.toContain("cause");
   });
 
   it("does not mislabel an invalid resource envelope as not found", async () => {
