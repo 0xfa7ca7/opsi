@@ -1,6 +1,6 @@
 # opsi
 
-`opsi` is the production Node.js 24 CLI and TypeScript SDK for Slovenian public data. It provides catalogue search, normalized dataset/resource metadata, secure downloads and cache reuse, bounded previews and validation, format conversion, sandboxed DuckDB queries, provenance, diagnostics, and static shell completion. It contains no AI feature and sends no telemetry.
+`opsi` is the production Node.js 24 CLI and TypeScript SDK for Slovenian public data. It provides catalogue search, normalized dataset/resource metadata, secure downloads and cache reuse, bounded previews and validation, format conversion, sandboxed DuckDB queries, provenance, diagnostics, and static shell completion. Machine-readable output, stable errors, and bounded operations make it suitable for interactive use, automation, and coding agents.
 
 Supported release targets are Linux x64 glibc, macOS arm64, and Windows x64. Install with `npm install --global opsi`, then run `opsi --version` and `opsi doctor --offline --json`. DuckDB is optional so catalogue/config/completion commands still start when a native binding cannot install; native operations return typed `DUCKDB_UNAVAILABLE` remediation.
 
