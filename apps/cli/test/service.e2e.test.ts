@@ -85,6 +85,7 @@ async function cli(args: readonly string[]) {
       HOME: home,
       OPSI_BASE_URL: baseUrl,
       OPSI_CACHE_DIR: join(home, "cache"),
+      OPSI_OFFLINE: "0",
       OPSI_REQUEST_INTERVAL_MS: "0",
       NO_COLOR: "1",
     },
