@@ -60,6 +60,12 @@ export interface QueryExecutionOptions {
   readonly signal?: AbortSignal;
 }
 
+export interface PreparedQueryExecutionOptions
+  extends Omit<QueryExecutionOptions, "input" | "sheet"> {
+  readonly databasePath: string;
+  readonly invocationDirectory: string;
+}
+
 export interface DuckDbQueryRunnerOptions {
   readonly workerPath: string | URL;
   readonly graceMs?: number;
@@ -83,6 +89,29 @@ function queryCancelled(): OpsiError {
     message: "The query was cancelled.",
     exitCode: EXIT_CODES.QUERY_FAILURE,
   });
+}
+
+function queryLimits(options: PreparedQueryExecutionOptions | QueryExecutionOptions): QueryLimits {
+  const memoryLimit = options.memoryLimit ?? DEFAULT_LIMITS.memoryLimit;
+  if (duckDbMemoryLimitBytes(memoryLimit) === undefined)
+    throw new OpsiError({
+      code: "QUERY_MEMORY_LIMIT",
+      message: "DuckDB memory must be a supported positive size no larger than 1GB.",
+      exitCode: EXIT_CODES.QUERY_FAILURE,
+    });
+  return {
+    rowLimit: boundedLimit("rowLimit", options.rowLimit ?? DEFAULT_LIMITS.rowLimit),
+    timeoutMs: boundedLimit("timeoutMs", options.timeoutMs ?? DEFAULT_LIMITS.timeoutMs),
+    maxSqlBytes: boundedLimit("maxSqlBytes", options.maxSqlBytes ?? DEFAULT_LIMITS.maxSqlBytes),
+    maxColumns: boundedLimit("maxColumns", options.maxColumns ?? DEFAULT_LIMITS.maxColumns),
+    maxCellBytes: boundedLimit("maxCellBytes", options.maxCellBytes ?? DEFAULT_LIMITS.maxCellBytes),
+    maxOutputBytes: boundedLimit(
+      "maxOutputBytes",
+      options.maxOutputBytes ?? DEFAULT_LIMITS.maxOutputBytes,
+    ),
+    memoryLimit,
+    threads: boundedLimit("threads", options.threads ?? DEFAULT_LIMITS.threads),
+  };
 }
 
 function cleanupError(failures: readonly unknown[], operationError: unknown): OpsiError {
@@ -115,32 +144,9 @@ export class DuckDbQueryRunner {
   constructor(private readonly options: DuckDbQueryRunnerOptions) {}
 
   async execute(options: QueryExecutionOptions): Promise<QueryResult> {
-    const memoryLimit = options.memoryLimit ?? DEFAULT_LIMITS.memoryLimit;
-    if (duckDbMemoryLimitBytes(memoryLimit) === undefined)
-      throw new OpsiError({
-        code: "QUERY_MEMORY_LIMIT",
-        message: "DuckDB memory must be a supported positive size no larger than 1GB.",
-        exitCode: EXIT_CODES.QUERY_FAILURE,
-      });
-    const limits: QueryLimits = {
-      rowLimit: boundedLimit("rowLimit", options.rowLimit ?? DEFAULT_LIMITS.rowLimit),
-      timeoutMs: boundedLimit("timeoutMs", options.timeoutMs ?? DEFAULT_LIMITS.timeoutMs),
-      maxSqlBytes: boundedLimit("maxSqlBytes", options.maxSqlBytes ?? DEFAULT_LIMITS.maxSqlBytes),
-      maxColumns: boundedLimit("maxColumns", options.maxColumns ?? DEFAULT_LIMITS.maxColumns),
-      maxCellBytes: boundedLimit(
-        "maxCellBytes",
-        options.maxCellBytes ?? DEFAULT_LIMITS.maxCellBytes,
-      ),
-      maxOutputBytes: boundedLimit(
-        "maxOutputBytes",
-        options.maxOutputBytes ?? DEFAULT_LIMITS.maxOutputBytes,
-      ),
-      memoryLimit,
-      threads: boundedLimit("threads", options.threads ?? DEFAULT_LIMITS.threads),
-    };
+    queryLimits(options);
     let directory: string | undefined;
     let stage: TabularStage | undefined;
-    let child: ChildProcess | undefined;
     let queryResult: QueryResult | undefined;
     let operationError: unknown;
     let cancelled = options.signal?.aborted ?? false;
@@ -167,11 +173,68 @@ export class DuckDbQueryRunner {
       if (cancelled) throw queryCancelled();
       await stage.connection.run("CHECKPOINT");
       await stage.close();
+      stage = undefined;
       if (cancelled) throw queryCancelled();
 
-      const request: QueryWorkerRequest = {
+      queryResult = await this.executePrepared({
         databasePath,
         invocationDirectory: directory,
+        sql: options.sql,
+        ...(options.rowLimit === undefined ? {} : { rowLimit: options.rowLimit }),
+        ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+        ...(options.maxSqlBytes === undefined ? {} : { maxSqlBytes: options.maxSqlBytes }),
+        ...(options.maxColumns === undefined ? {} : { maxColumns: options.maxColumns }),
+        ...(options.maxCellBytes === undefined ? {} : { maxCellBytes: options.maxCellBytes }),
+        ...(options.maxOutputBytes === undefined
+          ? {}
+          : { maxOutputBytes: options.maxOutputBytes }),
+        ...(options.memoryLimit === undefined ? {} : { memoryLimit: options.memoryLimit }),
+        ...(options.threads === undefined ? {} : { threads: options.threads }),
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      });
+    } catch (error) {
+      operationError =
+        cancelled || (error as Error).name === "AbortError" ? queryCancelled() : error;
+    } finally {
+      options.signal?.removeEventListener("abort", abortDuringImport);
+      const failures: unknown[] = [];
+      if (stage !== undefined) {
+        try {
+          await stage.close();
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+      if (directory !== undefined) {
+        try {
+          await (this.options.removeTemporaryDirectory?.(directory) ??
+            rm(directory, { recursive: true, force: true }));
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+      if (failures.length > 0) operationError = cleanupError(failures, operationError);
+    }
+    if (operationError !== undefined) throw operationError;
+    if (queryResult === undefined)
+      throw new OpsiError({
+        code: "QUERY_FAILED",
+        message: "The query completed without a result.",
+        exitCode: EXIT_CODES.QUERY_FAILURE,
+      });
+    return queryResult;
+  }
+
+  async executePrepared(options: PreparedQueryExecutionOptions): Promise<QueryResult> {
+    const limits = queryLimits(options);
+    let child: ChildProcess | undefined;
+    let queryResult: QueryResult | undefined;
+    let operationError: unknown;
+    if (options.signal?.aborted === true) throw queryCancelled();
+    try {
+      const request: QueryWorkerRequest = {
+        databasePath: options.databasePath,
+        invocationDirectory: options.invocationDirectory,
         sql: options.sql,
         limits,
       };
@@ -276,29 +339,12 @@ export class DuckDbQueryRunner {
         child?.send(request);
       });
     } catch (error) {
-      operationError =
-        cancelled || (error as Error).name === "AbortError" ? queryCancelled() : error;
+      operationError = error;
     } finally {
-      options.signal?.removeEventListener("abort", abortDuringImport);
       const failures: unknown[] = [];
-      if (stage !== undefined) {
-        try {
-          await stage.close();
-        } catch (error) {
-          failures.push(error);
-        }
-      }
       if (child !== undefined) {
         try {
           await stopAndWait(child);
-        } catch (error) {
-          failures.push(error);
-        }
-      }
-      if (directory !== undefined) {
-        try {
-          await (this.options.removeTemporaryDirectory?.(directory) ??
-            rm(directory, { recursive: true, force: true }));
         } catch (error) {
           failures.push(error);
         }

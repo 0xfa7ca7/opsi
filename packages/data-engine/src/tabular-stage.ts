@@ -215,6 +215,75 @@ export async function stageTabularInput(options: {
   }
 }
 
+export async function verifyStagedDatabase(databasePath: string): Promise<void> {
+  let instance: DuckDBInstance | undefined;
+  let connection: DuckDBConnection | undefined;
+  let operationError: unknown;
+  try {
+    const { DuckDBInstance } = await import("@duckdb/node-api");
+    instance = await DuckDBInstance.create(databasePath, {
+      access_mode: "READ_ONLY",
+      enable_external_access: "false",
+      autoinstall_known_extensions: "false",
+      autoload_known_extensions: "false",
+      allow_community_extensions: "false",
+      allow_unsigned_extensions: "false",
+      lock_configuration: "true",
+    });
+    connection = await instance.connect();
+    const result = await connection.runAndReadAll(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main' AND table_type = 'BASE TABLE' ORDER BY table_name",
+    );
+    const tableNames = result
+      .getRowObjectsJS()
+      .map((row) => row.table_name)
+      .filter((name): name is string => typeof name === "string");
+    if (tableNames.length !== 1 || tableNames[0] !== "data")
+      throw new OpsiError({
+        code: "STAGED_DATABASE_INVALID",
+        message: "The staged DuckDB database does not contain exactly one data table.",
+        exitCode: EXIT_CODES.QUERY_FAILURE,
+        context: { tables: tableNames },
+      });
+  } catch (error) {
+    operationError =
+      error instanceof OpsiError
+        ? error
+        : new OpsiError({
+            code: "STAGED_DATABASE_INVALID",
+            message: "The staged DuckDB database could not be verified.",
+            exitCode: EXIT_CODES.QUERY_FAILURE,
+            context: { message: error instanceof Error ? error.message : String(error) },
+            cause: error,
+          });
+  } finally {
+    const failures: unknown[] = [];
+    for (const close of [
+      connection === undefined ? undefined : () => connection?.closeSync(),
+      instance === undefined ? undefined : () => instance?.closeSync(),
+    ]) {
+      if (close === undefined) continue;
+      try {
+        close();
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (failures.length > 0)
+      operationError = new OpsiError({
+        code: "STAGED_DATABASE_CLEANUP_FAILED",
+        message: "The staged DuckDB verification resources could not be closed.",
+        exitCode: EXIT_CODES.QUERY_FAILURE,
+        context: { failureCount: failures.length },
+        cause: new AggregateError(
+          operationError === undefined ? failures : [operationError, ...failures],
+          "Staged database verification and cleanup failures",
+        ),
+      });
+  }
+  if (operationError !== undefined) throw operationError;
+}
+
 export function isStringColumn(typeId: DuckDBTypeId): boolean {
   // Stable DuckDB logical type identifiers: VARCHAR, STRING_LITERAL, ENUM.
   return [17, 37, 23].includes(typeId as number);
