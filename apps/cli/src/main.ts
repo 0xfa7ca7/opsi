@@ -9,7 +9,7 @@ import { CommanderError } from "commander";
 import { processIo, type CliIo } from "./context.js";
 import { handleRuntimeError } from "./errors.js";
 import { cliConfigurationFromArgv, requestedOutputFormat, selectedFields } from "./options.js";
-import { createProgram } from "./program.js";
+import { createProgram, type ProgramDependencies } from "./program.js";
 
 export type { CliContext, CliIo } from "./context.js";
 export { createProgram } from "./program.js";
@@ -30,7 +30,11 @@ export function readPackageVersion(
 
 export const VERSION = readPackageVersion();
 
-export async function runCli(argv: readonly string[], io: CliIo): Promise<ExitCode> {
+export async function runCli(
+  argv: readonly string[],
+  io: CliIo,
+  dependencies: ProgramDependencies = {},
+): Promise<ExitCode> {
   const requestedFormat = requestedOutputFormat(argv);
   const debug = argv.includes("--debug");
 
@@ -52,7 +56,7 @@ export async function runCli(argv: readonly string[], io: CliIo): Promise<ExitCo
       stdout: io.stdout,
       ...(fields === undefined ? {} : { fields }),
     });
-    const program = createProgram({ io, version: VERSION, configuration, renderer });
+    const program = createProgram({ io, version: VERSION, configuration, renderer }, dependencies);
     await program.parseAsync([...argv], { from: "user" });
     return EXIT_CODES.SUCCESS;
   } catch (error) {

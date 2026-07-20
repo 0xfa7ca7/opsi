@@ -164,7 +164,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     name: "opsi-diagnostics",
     description:
       "Inspect OPSI providers, diagnose an installation, generate shell completion, or generate installable Agent Skills. Use for setup, troubleshooting, capability discovery, CLI integration, and agent setup.",
-    commands: ["providers list", "doctor", "completion", "generate-skills"],
+    commands: ["providers list", "doctor", "completion", "generate-skills", "agent setup"],
     purpose:
       "Generate installable Agent Skills, diagnose the CLI environment, and expose providers and shell integration.",
     workflows: ["Run offline diagnostics first when network access is unavailable or unwanted."],
