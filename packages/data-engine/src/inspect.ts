@@ -118,9 +118,11 @@ export class DataEngine {
     if (detection.format === "csv" || detection.format === "tsv") {
       this.options.onAdapter?.(detection.format);
       let parsed;
+      const delimiter = detection.delimiter ?? (detection.format === "csv" ? "," : "\t");
       try {
-        parsed = await readDelimited(detection.path, detection.format === "csv" ? "," : "\t", {
+        parsed = await readDelimited(detection.path, delimiter, {
           limit,
+          ...(detection.encoding === undefined ? {} : { encoding: detection.encoding }),
         });
       } catch (error) {
         if (error instanceof OpsiError) throw error;
@@ -136,6 +138,8 @@ export class DataEngine {
       const rows = recordsToRows(parsed.headers, parsed.records);
       return {
         format: detection.format,
+        ...(detection.encoding === undefined ? {} : { encoding: detection.encoding }),
+        delimiter,
         columns: parsed.headers,
         rows,
         returnedCount: rows.length,

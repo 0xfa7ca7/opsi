@@ -1,5 +1,7 @@
 import { createReadStream } from "node:fs";
+import { Readable } from "node:stream";
 import { parse } from "csv-parse";
+import type { DelimitedDialect, TextEncoding } from "./text-decoding.js";
 
 export interface DelimitedReadResult {
   readonly headers: readonly string[];
@@ -10,19 +12,35 @@ export interface DelimitedReadResult {
 
 export async function readDelimited(
   path: string,
-  delimiter: "," | "\t",
-  options: { readonly limit?: number; readonly relaxed?: boolean } = {},
+  delimiter: DelimitedDialect,
+  options: {
+    readonly limit?: number;
+    readonly relaxed?: boolean;
+    readonly encoding?: TextEncoding;
+  } = {},
 ): Promise<DelimitedReadResult> {
   const limit = options.limit ?? Number.MAX_SAFE_INTEGER;
   const source = createReadStream(path);
+  const decodedSource =
+    options.encoding === "utf-16be"
+      ? Readable.from(
+          (async function* () {
+            const decoder = new TextDecoder("utf-16be", { fatal: true });
+            for await (const chunk of source)
+              yield decoder.decode(Buffer.from(chunk as Uint8Array), { stream: true });
+            yield decoder.decode();
+          })(),
+        )
+      : source;
   const parser = parse({
     bom: true,
     delimiter,
     relax_column_count: options.relaxed ?? false,
     skip_empty_lines: true,
     max_record_size: 16 * 1024 * 1024,
+    encoding: options.encoding === "utf-16le" ? "utf16le" : "utf8",
   });
-  source.pipe(parser);
+  decodedSource.pipe(parser);
   const parsed: string[][] = [];
   try {
     for await (const raw of parser) {
@@ -35,6 +53,7 @@ export async function readDelimited(
     }
   } finally {
     source.destroy();
+    if (decodedSource !== source) decodedSource.destroy();
   }
   const headers = parsed[0] ?? [];
   const allRecords = parsed.slice(1);

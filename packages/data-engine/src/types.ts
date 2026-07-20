@@ -23,6 +23,8 @@ export interface FormatDetection {
   readonly confidence: DetectionConfidence;
   readonly mediaType?: string;
   readonly extension?: string;
+  readonly encoding?: import("./text-decoding.js").TextEncoding;
+  readonly delimiter?: import("./text-decoding.js").DelimitedDialect;
 }
 
 export type DataRow = Readonly<Record<string, unknown>>;
@@ -40,6 +42,8 @@ export interface DataPreview {
   readonly truncated: boolean;
   readonly sheet?: string;
   readonly warnings: readonly ValidationIssue[];
+  readonly encoding?: import("./text-decoding.js").TextEncoding;
+  readonly delimiter?: import("./text-decoding.js").DelimitedDialect;
 }
 
 export interface DataInspection extends FormatDetection {

@@ -25,13 +25,22 @@ function supported(format: string): format is SupportedDataFormat {
   return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet"].includes(format);
 }
 
-function sourceExpression(format: Exclude<SupportedDataFormat, "xlsx">, path: string): string {
+function sourceExpression(
+  format: Exclude<SupportedDataFormat, "xlsx">,
+  path: string,
+  detection: FormatDetection,
+): string {
   const input = sqlString(path);
   switch (format) {
     case "csv":
-      return `read_csv(${input}, auto_detect = true, header = true, delim = ',', sample_size = -1, strict_mode = true, nullstr = '', allow_quoted_nulls = false)`;
-    case "tsv":
-      return `read_csv(${input}, auto_detect = true, header = true, delim = '\t', sample_size = -1, strict_mode = true, nullstr = '', allow_quoted_nulls = false)`;
+    case "tsv": {
+      const delimiter = detection.delimiter ?? (format === "csv" ? "," : "\t");
+      const encoding =
+        detection.encoding === "utf-16le" || detection.encoding === "utf-16be"
+          ? ", encoding = 'utf-16'"
+          : "";
+      return `read_csv(${input}, auto_detect = true, header = true, delim = ${sqlString(delimiter)}, sample_size = -1, strict_mode = true, nullstr = '', allow_quoted_nulls = false${encoding})`;
+    }
     case "json":
       return `read_json_auto(${input}, format = 'auto', union_by_name = true, sample_size = -1)`;
     case "ndjson":
@@ -181,7 +190,7 @@ export async function stageTabularInput(options: {
     // This is an OPSI-owned statement. Only the path literal is variable and is
     // quoted by sqlString; no user SQL reaches the staging connection.
     await connection.run(
-      `CREATE TABLE data AS SELECT * FROM ${sourceExpression(stagedFormat, stagedSource)}`,
+      `CREATE TABLE data AS SELECT * FROM ${sourceExpression(stagedFormat, stagedSource, detection)}`,
     );
     const result = await connection.runAndReadAll("SELECT * FROM data LIMIT 0");
     const columns = Array.from({ length: result.columnCount }, (_, index) => ({
