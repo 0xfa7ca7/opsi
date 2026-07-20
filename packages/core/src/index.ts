@@ -24,3 +24,4 @@ export { validateDatasetMetadata, validateResourceMetadata } from "./metadata-va
 export { WfsService, type WfsNetworkOptions, type WfsSelectionOptions, type WfsPreviewResult } from "./wfs/service.js";
 export { buildWfsUrl, parseWfsCapabilities, parseWfsCount, parseWfsException, parseWfsSchema } from "./wfs/index.js";
 export type { WfsCapabilities, WfsField, WfsLayer, WfsQuery, WfsRequest, WfsVersion } from "./wfs/index.js";
+export { ResourceAccessService } from "./access.js";

@@ -147,6 +147,7 @@ export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
     ],
   ),
   leaf("resource show", "Show resource details", [argument("<id>", "resource identifier")]),
+  leaf("resource inspect", "Inspect supported access operations for a resource", [argument("<input>", "local path or canonical resource reference")], NETWORK_OPTIONS),
   leaf(
     "resource headers",
     "Probe resource headers securely",

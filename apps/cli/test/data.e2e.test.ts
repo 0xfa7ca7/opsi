@@ -138,6 +138,12 @@ async function cli(argv: readonly string[]): Promise<CliResult> {
 }
 
 describe("data CLI", () => {
+  it("describes access operations without exposing a raw HTTP fallback", async () => {
+    const result = await cli(["resource", "inspect", resolve("packages/testing/fixtures/data/valid.csv"), "--json"]);
+    expect(result).toMatchObject({ exitCode: 0, json: { data: { kind: "local", detectedFormat: "csv", operations: expect.arrayContaining(["preview", "query"]) } } });
+    expect(result.stdout).not.toMatch(/curl|https?:\/\//u);
+  });
+
   it("previews an explicitly selected entry from a local ZIP archive", async () => {
     const archive = join(home, "multiple.zip");
     await writeFile(

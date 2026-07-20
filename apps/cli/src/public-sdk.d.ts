@@ -648,6 +648,9 @@ declare class WfsService {
   count(input: string, options: Omit<WfsSelectionOptions, "limit" | "startIndex" | "properties">): Promise<{ readonly version: WfsVersion; readonly layer: string; readonly count: number }>;
   export(input: string, options: WfsSelectionOptions & { readonly output: string; readonly force?: boolean; readonly format?: "csv" }): Promise<{ readonly output: string; readonly rows: number }>;
 }
+declare class ResourceAccessService {
+  inspect(input: string, options?: DataResolutionOptions): Promise<ResourceAccessDescriptor>;
+}
 
 export class ProviderRegistry {
   constructor(providers?: readonly DataProvider[]);
@@ -675,5 +678,6 @@ export class OpsiClient {
   readonly conversions: ConversionService;
   readonly query: QueryService;
   readonly services: { readonly wfs: WfsService };
+  readonly access: ResourceAccessService;
   search(query: SearchQuery): Promise<SearchPage>;
 }

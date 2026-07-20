@@ -13,6 +13,7 @@ import { QueryDatabaseCache } from "./query-database-cache.js";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { WfsService } from "./wfs/service.js";
+import { ResourceAccessService } from "./access.js";
 
 export interface OpsiClientOptions {
   readonly registry: ProviderRegistry;
@@ -41,6 +42,7 @@ export class OpsiClient {
   readonly conversions: ConversionService;
   readonly query: QueryService;
   readonly services: { readonly wfs: WfsService };
+  readonly access: ResourceAccessService;
   private readonly registry: ProviderRegistry;
   private readonly providerId: string;
 
@@ -71,6 +73,7 @@ export class OpsiClient {
         offline: options.downloads?.offline ?? false,
       }),
     };
+    this.access = new ResourceAccessService(this, this.registry, this.providerId, options.cwd);
     if (options.downloads !== undefined)
       this.downloads = new DownloadService({
         ...options.downloads,
