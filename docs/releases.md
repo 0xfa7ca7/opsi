@@ -1,12 +1,12 @@
 # Releases
 
-Changesets define version/release notes. CI performs a frozen install, all quality and offline test gates, builds once, creates one canonical npm tarball, records its SHA-256, and installs those exact bytes on Linux x64 glibc, macOS arm64, and Windows x64. The current-Node lane is advisory.
+Changesets define version/release notes. CI performs a frozen install, all quality and offline test gates, creates one canonical npm tarball, records its SHA-256, and installs those exact bytes on Linux x64 glibc, macOS arm64, and Windows x64. The current-Node lane is advisory.
 
 Release tags must equal `v<package version>` and use the protected `npm` environment. The release workflow downloads—not rebuilds—the tested artifact, verifies tag/version/digest and package absence, upgrades npm to at least 11.5.1, publishes with npm trusted publishing/OIDC and provenance, installs the published exact version, verifies npm provenance, and attaches the tarball/checksum to GitHub. No stored npm token is permitted. Never publish from an untested local build.
 
 ## CI production of canonical bytes
 
-The quality job begins from a checkout with all `dist` directories removed, performs frozen install, formatting, lint, strict typecheck, ordinary offline unit/integration/E2E/security tests, builds, then runs the canonical pack gate. `pack.test.ts` checks the exact allowlist and tar-embedded metadata/shebang/modes/specifiers/secrets/paths; clean-installs and smokes Node/DuckDB/XLSX/SDK; compiles a strict TypeScript consumer normally and with omitted optionals; and verifies typed native absence.
+The quality job begins from a checkout with all `dist` directories removed, then performs frozen install, formatting, lint, strict typecheck, a clean build, ordinary offline unit/integration/E2E/security tests, and the canonical pack gate in that order. `pack.test.ts` checks the exact allowlist and tar-embedded metadata/shebang/modes/specifiers/secrets/paths; clean-installs and smokes Node/DuckDB/XLSX/SDK; compiles a strict TypeScript consumer normally and with omitted optionals; and verifies typed native absence.
 
 CI then creates one named tarball, `pack.json`, and `SHA256SUMS`. Exact-install jobs download those bytes and assert Linux/x64/glibc, macOS/arm64, or Windows/x64 before install/query/doctor/SDK smoke. The current-Node lane is advisory. No platform job repacks.
 
