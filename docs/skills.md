@@ -1,6 +1,6 @@
 # OPSI Agent Skills
 
-Installable Agent Skills for using the OPSI CLI from compatible AI agents. Install the complete repertoire to enable automatic routing through `opsi`, or install one focused domain skill and its `opsi-shared` prerequisite.
+Installable Agent Skills for using the OPSI CLI from compatible AI agents. Run `opsi agent setup` for automatic host detection and global installation of the complete repertoire. To manage a project-local installation manually, install the repertoire with a compatible Agent Skills installer, or install one focused domain skill and its `opsi-shared` prerequisite.
 
 | Skill | Description |
 | --- | --- |

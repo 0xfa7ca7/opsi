@@ -167,8 +167,15 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     commands: ["providers list", "doctor", "completion", "generate-skills", "agent setup"],
     purpose:
       "Generate installable Agent Skills, diagnose the CLI environment, and expose providers and shell integration.",
-    workflows: ["Run offline diagnostics first when network access is unavailable or unwanted."],
-    safety: ["Do not turn a diagnostic check into a network request when offline was requested."],
+    workflows: [
+      "Use `opsi agent setup` to detect installed agent hosts and install the complete OPSI skill repertoire globally.",
+      "Use `--dry-run` to inspect the installation plan, or `--agent` when the target host IDs are already known.",
+      "Run offline diagnostics first when network access is unavailable or unwanted.",
+    ],
+    safety: [
+      "Do not turn a diagnostic check into a network request when offline was requested.",
+      "In non-interactive use, require `--yes`, `--agent`, or `--all` before installing skills.",
+    ],
     related: ["opsi-local-state"],
   },
 ] as const;
@@ -510,7 +517,7 @@ export function renderAgentSkillsIndex(): string {
   ).join("\n");
   return `# OPSI Agent Skills
 
-Installable Agent Skills for using the OPSI CLI from compatible AI agents. Install the complete repertoire to enable automatic routing through \`opsi\`, or install one focused domain skill and its \`opsi-shared\` prerequisite.
+Installable Agent Skills for using the OPSI CLI from compatible AI agents. Run \`opsi agent setup\` for automatic host detection and global installation of the complete repertoire. To manage a project-local installation manually, install the repertoire with a compatible Agent Skills installer, or install one focused domain skill and its \`opsi-shared\` prerequisite.
 
 | Skill | Description |
 | --- | --- |

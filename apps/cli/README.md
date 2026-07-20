@@ -2,7 +2,7 @@
 
 `opsi` is the production Node.js 24 CLI and TypeScript SDK for Slovenian public data. It provides catalogue search, normalized dataset/resource metadata, secure downloads and cache reuse, bounded previews and validation, format conversion, sandboxed DuckDB queries, provenance, diagnostics, and static shell completion. Machine-readable output, stable errors, and bounded operations make it suitable for interactive use, automation, and coding agents.
 
-Generate the repository's installable Agent Skills with `opsi generate-skills` or choose a target with `--output-dir`. The main orchestrator, shared execution rules, and complete domain repertoire are indexed at `https://github.com/0xfa7ca7/opsi/blob/main/docs/skills.md`.
+Install the complete Agent Skills repertoire globally into automatically detected agent hosts with `opsi agent setup`. Use `--yes` for unattended detected-host setup, `--agent <ids...>` for explicit hosts, `--all` for every supported host, or `--dry-run` to preview the plan. Generate the same skills without installing them with `opsi generate-skills` or choose a target with `--output-dir`. The main orchestrator, shared execution rules, and complete domain repertoire are indexed at `https://github.com/0xfa7ca7/opsi/blob/main/docs/skills.md`.
 
 Supported release targets are Linux x64 glibc, macOS arm64, and Windows x64. Install with `npm install --global opsi`, then run `opsi --version` and `opsi doctor --offline --json`. DuckDB is optional so catalogue/config/completion commands still start when a native binding cannot install; native operations return typed `DUCKDB_UNAVAILABLE` remediation.
 

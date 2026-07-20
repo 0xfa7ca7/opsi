@@ -133,6 +133,7 @@ describe("documentation contract", () => {
       "doctor",
       "completion",
       "generate-skills",
+      "agent setup",
     ])
       expect(commands, command).toContain(`\`${command}`);
   });
@@ -143,6 +144,7 @@ describe("documentation contract", () => {
       "npx skills add https://github.com/0xfa7ca7/opsi",
       "npx skills add https://github.com/0xfa7ca7/opsi/tree/main/skills/opsi-analysis",
       "opsi generate-skills",
+      "opsi agent setup",
       "docs/skills.md",
       "/opsi",
       "@opsi",
@@ -153,12 +155,15 @@ describe("documentation contract", () => {
 
     const commands = await text("docs/commands.md");
     expect(commands).toContain("`generate-skills`");
+    expect(commands).toContain("`agent setup`");
+    expect(commands).toContain("automatic agent detection");
     expect(commands).toContain("`--output-dir`");
     expect(commands).toContain("known generated `SKILL.md` targets");
     expect(commands).toContain("structured output");
 
     const packagedReadme = await text("apps/cli/README.md");
     expect(packagedReadme).toContain("opsi generate-skills");
+    expect(packagedReadme).toContain("opsi agent setup");
     expect(packagedReadme).toContain("docs/skills.md");
 
     const changeset = await text(".changeset/agent-skills.md");
