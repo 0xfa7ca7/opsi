@@ -20,6 +20,10 @@
     "@duckdb/node-api": "1.5.4-r.1",
     "@opsi/domain": "workspace:*",
     "csv-parse": "7.0.1",
-    "exceljs": "4.4.0"
+    "exceljs": "4.4.0",
+    "unzipit": "1.4.3"
+  },
+  "devDependencies": {
+    "fflate": "0.8.2"
   }
 }

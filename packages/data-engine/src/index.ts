@@ -6,6 +6,12 @@ export {
   sniffDelimitedDialect,
 } from "./text-decoding.js";
 export type { DelimitedDialect, TextEncoding } from "./text-decoding.js";
+export {
+  DEFAULT_ARCHIVE_LIMITS,
+  extractArchiveEntry,
+  inspectArchive,
+} from "./archive.js";
+export type { ArchiveEntry, ArchiveInspection, ArchiveLimits } from "./archive.js";
 export { DataEngine, inferredType } from "./inspect.js";
 export { QueryPolicy } from "./query-policy.js";
 export { DuckDbQueryRunner } from "./query.js";
