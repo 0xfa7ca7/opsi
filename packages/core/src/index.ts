@@ -25,3 +25,4 @@ export { WfsService, type WfsNetworkOptions, type WfsSelectionOptions, type WfsP
 export { buildWfsUrl, parseWfsCapabilities, parseWfsCount, parseWfsException, parseWfsSchema } from "./wfs/index.js";
 export type { WfsCapabilities, WfsField, WfsLayer, WfsQuery, WfsRequest, WfsVersion } from "./wfs/index.js";
 export { ResourceAccessService } from "./access.js";
+export type { ArchiveLimits, XmlLimits } from "@opsi/data-engine";

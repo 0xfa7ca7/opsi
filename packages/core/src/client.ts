@@ -4,7 +4,7 @@ import { ProviderRegistry } from "./registry.js";
 import { CacheService } from "./cache.js";
 import { DownloadService, type DownloadServiceOptions } from "./downloads.js";
 import { DerivedArtifactCache, type ContentCache, type DerivedArtifactPolicy } from "@opsi/storage";
-import { DataEngine } from "@opsi/data-engine";
+import { DataEngine, type ArchiveLimits, type DataEngineOptions, type XmlLimits } from "@opsi/data-engine";
 import { DataService } from "./data.js";
 import { ConversionService } from "./conversions.js";
 import { QueryService } from "./queries.js";
@@ -23,6 +23,8 @@ export interface OpsiClientOptions {
   readonly duckdbCache?: DerivedArtifactPolicy;
   readonly cwd?: string;
   readonly queryWorkerPath?: string | URL;
+  readonly archiveLimits?: ArchiveLimits;
+  readonly xmlLimits?: XmlLimits;
 }
 
 function defaultQueryWorkerPath(): URL {
@@ -52,7 +54,8 @@ export class OpsiClient {
     this.datasets = new DatasetCatalog(this.registry, this.providerId);
     this.resources = new ResourceCatalog(this.registry, this.providerId);
     this.providers = new ProviderCatalog(this.registry);
-    this.data = new DataService(this, new DataEngine(), { cwd: options.cwd ?? process.cwd() });
+    const dataEngineOptions: DataEngineOptions = { ...(options.xmlLimits === undefined ? {} : { xmlLimits: options.xmlLimits }) };
+    this.data = new DataService(this, new DataEngine(dataEngineOptions), { cwd: options.cwd ?? process.cwd(), ...(options.archiveLimits === undefined ? {} : { archiveLimits: options.archiveLimits }) });
     this.conversions = new ConversionService(this.data);
     const queryWorkerPath = options.queryWorkerPath ?? defaultQueryWorkerPath();
     const runner = new DuckDbQueryRunner({ workerPath: queryWorkerPath });
@@ -62,7 +65,7 @@ export class OpsiClient {
         : new DerivedArtifactCache(options.cache, options.duckdbCache);
     this.query = new QueryService(
       this.data,
-      new QueryDatabaseCache({ runner, ...(derived === undefined ? {} : { derived }) }),
+      new QueryDatabaseCache({ runner, ...(derived === undefined ? {} : { derived }), ...(options.xmlLimits === undefined ? {} : { xmlLimits: options.xmlLimits }) }),
     );
     this.services = {
       wfs: new WfsService({

@@ -39,3 +39,9 @@ Generate shell setup with `opsi completion bash`, `zsh`, or `fish`. The script i
 Inspect before converting: preview a bounded sample, validate, then convert to a new destination. Use `--sheet` for ambiguous XLSX and `--spreadsheet-safe` when CSV/XLSX output will open in office software. Do not use `--force` until provenance for the existing file is saved/verified. Query exports support only bounded CSV/TSV/JSON/NDJSON outputs; convert to Parquet separately and verify its sidecar.
 
 Diagnose installations with `opsi doctor --offline --json`. A `skip` connectivity check is expected offline; any `fail` produces a nonzero status after all checks finish. Catalogue/configuration commands remain usable after typed DuckDB absence, which is useful for inspecting provider data while fixing the native installation.
+
+## ZIP, XML, and WFS
+
+Inspect capabilities before choosing an operation: `opsi resource inspect opsi:resource:ID --json`. For an ambiguous ZIP, use the returned choice exactly: `opsi resource preview archive.zip --entry data/rows.csv --limit 10 --json`. For generic XML, select a returned record path: `opsi query stations.xml --record-path /root/station --sql "select * from data limit 10" --json`.
+
+For WFS, keep the canonical resource reference throughout: `opsi service layers opsi:resource:ID --json`; `opsi service schema opsi:resource:ID --layer si:roads --json`; `opsi service preview opsi:resource:ID --layer si:roads --property id,name --limit 5 --json`; `opsi service count opsi:resource:ID --layer si:roads --filter-eq municipality=Ljubljana --json`. WFS is read-only: no transactions, raw CQL/XML filters, or raw HTTP fallback.

@@ -11,6 +11,7 @@ import {
   type DataInput,
   type PreviewOptions,
   type SupportedDataFormat,
+  type ArchiveLimits,
 } from "@opsi/data-engine";
 import {
   EXIT_CODES,
@@ -45,10 +46,12 @@ export class DataService {
   constructor(
     private readonly client: OpsiClient,
     private readonly engine: DataEngine = new DataEngine(),
-    options: { readonly cwd?: string } = {},
+    options: { readonly cwd?: string; readonly archiveLimits?: ArchiveLimits } = {},
   ) {
     this.local = new LocalProvider(options);
+    this.archiveLimits = options.archiveLimits ?? DEFAULT_ARCHIVE_LIMITS;
   }
+  private readonly archiveLimits: ArchiveLimits;
 
   async withResolvedInput<T>(
     input: string,
@@ -67,7 +70,7 @@ export class DataService {
       try {
         inspection = await inspectArchive(
           detection.path,
-          DEFAULT_ARCHIVE_LIMITS,
+          this.archiveLimits,
           options.entry,
         );
       } catch (error) {
@@ -88,7 +91,7 @@ export class DataService {
       }
       const selected = inspection.selectedEntry as string;
       const output = join(await temporaryDirectory(), `entry${extname(basename(selected))}`);
-      await extractArchiveEntry(detection.path, selected, output, DEFAULT_ARCHIVE_LIMITS);
+      await extractArchiveEntry(detection.path, selected, output, this.archiveLimits);
       return {
         path: output,
         ...(typeof source === "string" || source.mediaType === undefined

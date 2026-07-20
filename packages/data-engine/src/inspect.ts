@@ -162,7 +162,7 @@ export class DataEngine {
       return previewXml(detection.path, {
         limit,
         ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
-      });
+      }, this.options.xmlLimits);
     let result: { readonly rows: readonly DataRow[]; readonly truncated: boolean };
     if (detection.format === "ndjson") {
       if ((await stat(detection.path)).size <= this.jsonNativeByteLimit) {
@@ -225,6 +225,7 @@ export class DataEngine {
       maxStateBytes: this.options.validationMaxStateBytes ?? 64 * 1024 * 1024,
       maxIssueGroups: this.options.validationMaxIssueGroups ?? 10_000,
       xlsxSharedStringsByteLimit: this.xlsxSharedStringsByteLimit,
+      ...(this.options.xmlLimits === undefined ? {} : { xmlLimits: this.options.xmlLimits }),
     });
   }
 

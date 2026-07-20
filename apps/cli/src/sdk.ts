@@ -9,6 +9,8 @@ export type {
   WfsQuery,
   WfsSelectionOptions,
   WfsVersion,
+  ArchiveLimits,
+  XmlLimits,
 } from "@opsi/core";
 export type {
   CanonicalReference,

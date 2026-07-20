@@ -234,6 +234,22 @@ export type ParsedCanonicalReference =
 
 type SupportedDataFormat = DataFormat;
 type SupportedInputFormat = SupportedDataFormat | "xml";
+export interface ArchiveLimits {
+  readonly maxEntries: number;
+  readonly maxPathBytes: number;
+  readonly maxSelectedBytes: number;
+  readonly maxExpandedBytes: number;
+  readonly maxCompressionRatio: number;
+}
+export interface XmlLimits {
+  readonly maxDocumentBytes: number;
+  readonly maxDepth: number;
+  readonly maxAttributesPerElement: number;
+  readonly maxValueBytes: number;
+  readonly maxColumns: number;
+  readonly maxRecords: number;
+  readonly maxStateBytes: number;
+}
 type DetectedInputFormat = SupportedInputFormat | "zip" | "unknown";
 type DetectionConfidence =
   "signature" | "media-type" | "content" | "declared-format" | "extension" | "unknown";
@@ -646,7 +662,7 @@ declare class WfsService {
   schema(input: string, options: WfsNetworkOptions & { readonly layer: string }): Promise<readonly WfsField[]>;
   preview(input: string, options: WfsSelectionOptions): Promise<WfsPreviewResult>;
   count(input: string, options: Omit<WfsSelectionOptions, "limit" | "startIndex" | "properties">): Promise<{ readonly version: WfsVersion; readonly layer: string; readonly count: number }>;
-  export(input: string, options: WfsSelectionOptions & { readonly output: string; readonly force?: boolean; readonly format?: "csv" }): Promise<{ readonly output: string; readonly rows: number }>;
+  export(input: string, options: WfsSelectionOptions & { readonly output: string; readonly force?: boolean; readonly format?: "csv" }): Promise<{ readonly output: string; readonly provenancePath: string; readonly rows: number }>;
 }
 declare class ResourceAccessService {
   inspect(input: string, options?: DataResolutionOptions): Promise<ResourceAccessDescriptor>;
@@ -666,6 +682,8 @@ export interface OpsiClientOptions {
   readonly duckdbCache?: DuckDbCachePolicy;
   readonly cwd?: string;
   readonly queryWorkerPath?: string | URL;
+  readonly archiveLimits?: ArchiveLimits;
+  readonly xmlLimits?: XmlLimits;
 }
 export class OpsiClient {
   constructor(options: OpsiClientOptions);

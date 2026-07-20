@@ -90,6 +90,8 @@ function createClient(
       offline: configuration?.offline ?? false,
     },
     queryWorkerPath: new URL("./query-worker.js", import.meta.url),
+    ...(configuration?.archive === undefined ? {} : { archiveLimits: configuration.archive }),
+    ...(configuration?.xml === undefined ? {} : { xmlLimits: configuration.xml }),
   });
 }
 

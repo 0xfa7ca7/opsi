@@ -112,6 +112,8 @@ opsi dataset schema <id> [options]
 | --- | --- | --- | --- | --- |
 | `--resource <id>` | no | id | — | resource identifier or canonical resource reference |
 | `--sheet <name>` | no | name | — | XLSX sheet name |
+| `--entry <path>` | no | path | — | ZIP data entry path |
+| `--record-path <path>` | no | path | — | XML record element path |
 | `--allow-insecure-http` | no | — | — | allow HTTP for this invocation |
 | `--allow-private-network` | no | — | — | allow private network addresses for this invocation |
 

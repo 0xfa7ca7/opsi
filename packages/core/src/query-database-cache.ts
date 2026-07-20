@@ -49,6 +49,7 @@ export interface QueryDatabaseCacheOptions {
   readonly verify?: typeof verifyStagedDatabase;
   readonly makeTemporaryDirectory?: () => Promise<string>;
   readonly removeTemporaryDirectory?: (path: string) => Promise<void>;
+  readonly xmlLimits?: import("@opsi/data-engine").XmlLimits;
 }
 
 export interface QueryDatabaseResult extends QueryResult {
@@ -129,6 +130,7 @@ export class QueryDatabaseCache {
           ...(options.signal === undefined ? {} : { signal: options.signal }),
           ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
           ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
+          ...(this.options.xmlLimits === undefined ? {} : { xmlLimits: this.options.xmlLimits }),
         });
         await stage.connection.run("CHECKPOINT");
         await stage.close();

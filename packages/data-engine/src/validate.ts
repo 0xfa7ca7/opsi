@@ -479,6 +479,7 @@ export async function validateData(
     readonly maxColumns: number;
     readonly maxStateBytes: number;
     readonly maxIssueGroups: number;
+    readonly xmlLimits?: import("./xml.js").XmlLimits;
   },
 ): Promise<DataValidationResult> {
   const detection = await detectFormat(source);
@@ -565,7 +566,7 @@ export async function validateData(
         const preview = await previewXml(detection.path, {
           limit: limits.maxRecords,
           ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
-        });
+        }, limits.xmlLimits);
         if (preview.truncated)
           throw new OpsiError({
             code: "VALIDATION_RECORD_LIMIT",

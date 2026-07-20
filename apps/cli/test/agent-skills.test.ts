@@ -24,6 +24,7 @@ const EXPECTED_SKILLS = [
   "opsi-download",
   "opsi-validation",
   "opsi-analysis",
+  "opsi-services",
   "opsi-provenance",
   "opsi-local-state",
   "opsi-diagnostics",
@@ -208,6 +209,13 @@ describe("agent skill rendering", () => {
         expect(content).toContain(conflictFlag(GLOBAL_OPTION_MANIFEST, conflict));
       }
     }
+    expect(content).toContain("Do not fall back to curl or another raw HTTP client");
+  });
+
+  it("renders bounded WFS service workflows", () => {
+    const content = renderAgentSkillFiles("1.2.3").get("opsi-services") ?? "";
+    for (const command of ["service inspect", "service layers", "service schema", "service preview", "service count", "service export"]) expect(content).toContain(`### \`${command}\``);
+    expect(content).toContain("Never send transaction requests");
   });
 
   it("renders option conflicts as user-facing CLI flags", () => {

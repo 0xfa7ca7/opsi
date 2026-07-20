@@ -23,7 +23,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
     name: "opsi",
     description:
-      "Route Slovenian public-data requests to the smallest relevant OPSI CLI skill. Use for discovering, inspecting, downloading, validating, querying, converting, or managing data from the Slovenian OPSI portal.",
+      "Route Slovenian public-data requests to the smallest relevant OPSI CLI skill. Use for discovering, inspecting, downloading, validating, querying, converting, or accessing services from the Slovenian OPSI portal.",
     commands: [],
     purpose:
       "Classify the request, load shared guidance, and select the smallest relevant domain skill or ordered set of skills.",
@@ -39,6 +39,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "opsi-download",
       "opsi-validation",
       "opsi-analysis",
+      "opsi-services",
       "opsi-provenance",
       "opsi-local-state",
       "opsi-diagnostics",
@@ -55,6 +56,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Prefer structured output and bounded result sets.",
       "Honor offline requests and existing network safeguards.",
       "Confirm destructive or overwrite operations unless already explicitly authorized.",
+      "Do not fall back to curl or another raw HTTP client for an operation supported by opsi.",
     ],
     related: [],
   },
@@ -81,8 +83,8 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
     name: "opsi-resources",
     description:
-      "Inspect OPSI resource metadata, secure remote headers, or bounded local and provider data previews. Use when evaluating a dataset resource before download or analysis.",
-    commands: ["resource show", "resource headers", "resource preview"],
+      "Inspect OPSI resource access capabilities, metadata, secure headers, and bounded local or provider previews. Use when evaluating a dataset resource before download or analysis.",
+    commands: ["resource show", "resource inspect", "resource headers", "resource preview"],
     purpose: "Inspect a resource safely without committing to a full data workflow.",
     workflows: [
       "Inspect metadata and headers before downloading an unfamiliar resource.",
@@ -114,7 +116,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
     name: "opsi-analysis",
     description:
-      "Query or convert bounded tabular data with OPSI CLI. Use for read-only SQL analysis, CSV/TSV/JSON/NDJSON/XLSX/Parquet conversion, and exported query results.",
+      "Query or convert bounded data with OPSI CLI. Use for resilient delimited, ZIP-selected, XML, JSON, XLSX, Parquet, and exported query workflows.",
     commands: ["query", "convert"],
     purpose: "Analyze tabular inputs with bounded read-only SQL or convert supported formats.",
     workflows: [
@@ -126,6 +128,29 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Confirm before replacing an existing output with --force.",
     ],
     related: ["opsi-resources", "opsi-validation", "opsi-provenance"],
+  },
+  {
+    name: "opsi-services",
+    description:
+      "Use when Slovenian public data is exposed through WFS and the request needs capabilities, layers, schemas, bounded feature previews, counts, or CSV exports.",
+    commands: [
+      "service inspect",
+      "service layers",
+      "service schema",
+      "service preview",
+      "service count",
+      "service export",
+    ],
+    purpose: "Access WFS feature services through bounded, schema-validated OPSI workflows.",
+    workflows: [
+      "Inspect a canonical WFS resource, list layers, then inspect a selected layer schema.",
+      "Preview or count a layer with typed equality filters before exporting bounded rows.",
+    ],
+    safety: [
+      "Use canonical resource references and bounded limits.",
+      "Never send transaction requests, raw CQL, arbitrary XML filters, or direct HTTP calls.",
+    ],
+    related: ["opsi-catalogue", "opsi-resources", "opsi-analysis", "opsi-provenance"],
   },
   {
     name: "opsi-provenance",
@@ -433,6 +458,10 @@ ${globalOptionsTable()}
 - Preserve HTTPS, DNS, redirect, timeout, download-size, query, memory, thread, cell, and output bounds.
 - Use \`--allow-insecure-http\` or \`--allow-private-network\` only after the user explicitly accepts that invocation's risk.
 - Do not blindly retry invalid input, unsupported operations, validation failures, or integrity failures.
+
+## Safety
+
+${definition.safety.map((item) => `- ${item}`).join("\n")}
 
 ## Confirm mutations
 

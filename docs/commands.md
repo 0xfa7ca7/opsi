@@ -40,7 +40,11 @@ Syntax: `opsi resource show <id>`. Returns normalized resource metadata, canonic
 
 ### `resource preview`
 
-Syntax: `opsi resource preview <input> [--limit <rows>] [--sheet <name>]`. Input may be a local path, `local:file:` reference, bare resource ID, or canonical resource reference. Previewing is bounded and never executes spreadsheet formulas. XLSX with multiple sheets requires `--sheet`. Unsupported/malformed content exits 5/6. Example: `opsi resource preview traffic.xlsx --sheet Data --limit 10 --json`.
+Syntax: `opsi resource preview <input> [--limit <rows>] [--sheet <name>] [--entry <path>] [--record-path <path>]`. Input may be local or a canonical resource. Previewing is bounded. XLSX, ambiguous ZIP, and ambiguous XML require their explicit selection option. Example: `opsi resource preview archive.zip --entry data/rows.csv --limit 10 --json`.
+
+### `resource inspect`
+
+Syntax: `opsi resource inspect <input>`. Returns the resource kind/protocol, detected format, supported OPSI operations, selection choices, limitations, and safe next-action argv arrays. It does not recommend raw HTTP clients. Example: `opsi resource inspect opsi:resource:RESOURCE_ID --json`.
 
 ### `resource headers`
 
@@ -62,11 +66,15 @@ Syntax: `opsi validate <input> [--metadata] [--sheet <name>]`. Without `--metada
 
 ### `convert`
 
-Syntax: `opsi convert <input> --to <csv|tsv|json|ndjson|xlsx|parquet> --output <path> [options]`. Options are `--sheet`, `--force`, `--spreadsheet-safe`, and network overrides. Publication is atomic; provenance records the source, digest, transformation, and override flags. Unsupported conversion exits 5; invalid input/output conflicts exit 2. Example: `opsi convert traffic.csv --to parquet --output traffic.parquet`.
+Syntax: `opsi convert <input> --to <csv|tsv|json|ndjson|xlsx|parquet> --output <path> [options]`. Options include `--sheet`, `--entry`, `--record-path`, `--force`, `--spreadsheet-safe`, and network overrides. Publication is atomic. Example: `opsi convert stations.xml --record-path /root/station --to parquet --output stations.parquet`.
 
 ### `query`
 
-Syntax: `opsi query <input> --sql <statement> [options]`. Only one read-only SELECT, WITH…SELECT, or VALUES statement is accepted. Options: `--limit`, `--timeout-ms`, `--sheet`, `--output`, `--force`, and network overrides. User SQL runs in a worker against staged table `data`, with row/time/1GB memory/4-thread/cell/output bounds and extensions/external access disabled. Stages for unchanged content are cached transparently; JSON metadata contains `cache: {status: "hit"|"miss"|"bypass", kind: "duckdb-stage"}`. Cache failure falls back to temporary staging with a sanitized warning. Rejected, timed-out, or cancelled queries exit 7. Example: `opsi query traffic.csv --sql "select * from data limit 2" --json`.
+Syntax: `opsi query <input> --sql <statement> [options]`. Only one read-only SELECT, WITH…SELECT, or VALUES statement is accepted. Options include `--limit`, `--timeout-ms`, `--sheet`, `--entry`, `--record-path`, `--output`, `--force`, and network overrides. User SQL runs against OPSI-owned table `data` with row/time/memory/thread/cell/output bounds and external access disabled. Example: `opsi query archive.zip --entry rows.csv --sql "select * from data limit 2" --json`.
+
+### `service inspect|layers|schema|preview|count|export`
+
+Read-only WFS syntax starts with a canonical resource: `opsi service inspect <resource>`, `service layers <resource>`, `service schema <resource> --layer <name>`, `service preview <resource> --layer <name> [--limit]`, `service count <resource> --layer <name>`, and `service export <resource> --layer <name> --output <path>`. Preview/export accept repeatable `--property`, typed `--filter-eq field=value`, `--bbox`, `--crs`, and pagination. Raw CQL/XML filters and write transactions are not supported. Example: `opsi service preview opsi:resource:ID --layer si:roads --property id,name --limit 5 --json`.
 
 ### `provenance show`
 

@@ -107,6 +107,7 @@ export async function stageTabularInput(options: {
   readonly xlsxRowsPath: string;
   readonly xlsxSharedStringsByteLimit: number;
   readonly preserveDatabaseOnClose?: boolean;
+  readonly xmlLimits?: import("./xml.js").XmlLimits;
   readonly signal?: AbortSignal;
 }): Promise<TabularStage> {
   options.signal?.throwIfAborted();
@@ -145,6 +146,7 @@ export async function stageTabularInput(options: {
         ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       },
+      options.xmlLimits,
     );
     warnings = normalized.warnings;
     stagedSource = options.xlsxRowsPath;

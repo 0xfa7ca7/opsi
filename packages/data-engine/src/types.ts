@@ -105,6 +105,7 @@ export interface DataEngineOptions {
   readonly validationMaxIssueGroups?: number;
   readonly conversionFileSystem?: Partial<ConversionFileSystem>;
   readonly conversionStageClose?: (close: () => Promise<void>) => Promise<void>;
+  readonly xmlLimits?: import("./xml.js").XmlLimits;
 }
 
 export interface ConversionFileSystem {

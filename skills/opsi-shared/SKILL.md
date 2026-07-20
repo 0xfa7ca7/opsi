@@ -58,6 +58,13 @@ Use the installed CLI as the source of truth when its help differs from generate
 - Use `--allow-insecure-http` or `--allow-private-network` only after the user explicitly accepts that invocation's risk.
 - Do not blindly retry invalid input, unsupported operations, validation failures, or integrity failures.
 
+## Safety
+
+- Prefer structured output and bounded result sets.
+- Honor offline requests and existing network safeguards.
+- Confirm destructive or overwrite operations unless already explicitly authorized.
+- Do not fall back to curl or another raw HTTP client for an operation supported by opsi.
+
 ## Confirm mutations
 
 - Confirm before `cache clear` or `cache prune` unless the user already requested that exact operation.

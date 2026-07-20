@@ -1,10 +1,10 @@
-import { copyFile, lstat, mkdtemp, open, rm } from "node:fs/promises";
-import { constants } from "node:fs";
+import { createHash } from "node:crypto";
+import { lstat, mkdtemp, open, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { DataEngine, type DataRow } from "@opsi/data-engine";
 import { EXIT_CODES, OpsiError, parseCanonicalReference, resourceId, type ResourceId } from "@opsi/domain";
-import { Downloader, type DownloadLimits } from "@opsi/storage";
+import { Downloader, publishArtifactPair, type DownloadLimits } from "@opsi/storage";
 import type { ProviderRegistry } from "../registry.js";
 import { buildWfsUrl } from "./url.js";
 import { parseWfsCapabilities, parseWfsCount, parseWfsException, parseWfsSchema } from "./parser.js";
@@ -165,7 +165,7 @@ export class WfsService {
     return { version: checked.version, layer: options.layer, count: parseWfsCount(bytes) };
   }
 
-  async export(input: string, options: WfsSelectionOptions & { readonly output: string; readonly force?: boolean; readonly format?: "csv" }): Promise<{ readonly output: string; readonly rows: number }> {
+  async export(input: string, options: WfsSelectionOptions & { readonly output: string; readonly force?: boolean; readonly format?: "csv" }): Promise<{ readonly output: string; readonly provenancePath: string; readonly rows: number }> {
     const result = await this.preview(input, options);
     const output = resolve(options.output);
     try {
@@ -174,11 +174,22 @@ export class WfsService {
       if (options.force !== true) throw new OpsiError({ code: "SERVICE_DESTINATION_EXISTS", message: "The WFS export destination already exists.", exitCode: EXIT_CODES.INVALID_INPUT });
     } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
     const temporary = `${output}.part-${process.pid}`;
+    const provenancePath = `${output}.provenance.json`;
+    const provenanceTemporary = `${provenancePath}.part-${process.pid}`;
     const columns = result.columns;
     const cell = (value: unknown) => { const text = value == null ? "" : String(value); return /[",\r\n]/u.test(text) ? `"${text.replaceAll('"', '""')}"` : text; };
     const handle = await open(temporary, "wx", 0o600);
     try { await handle.writeFile(`${columns.join(",")}\n${result.rows.map((row) => columns.map((column) => cell(row[column])).join(",")).join("\n")}\n`); await handle.sync(); } finally { await handle.close(); }
-    try { await copyFile(temporary, output, options.force === true ? 0 : constants.COPYFILE_EXCL); } finally { await rm(temporary, { force: true }); }
-    return { output, rows: result.returnedCount };
+    try {
+      const bytes = await readFile(temporary);
+      const timestamp = new Date().toISOString();
+      const sidecar = await open(provenanceTemporary, "wx", 0o600);
+      try {
+        await sidecar.writeFile(`${JSON.stringify({ schemaVersion: "1", retrievedAt: timestamp, sha256: createHash("sha256").update(bytes).digest("hex"), bytes: bytes.length, localPath: output, mediaType: "text/csv", transformations: [{ operation: "wfs-query", timestamp, details: { resource: input, version: result.version, layer: options.layer, properties: options.properties ?? [], filters: options.filters ?? {}, bbox: options.bbox ?? null, crs: options.crs ?? null, limit: options.limit ?? 20, startIndex: options.startIndex ?? 0, outputFormat: "csv" } }] }, null, 2)}\n`);
+        await sidecar.sync();
+      } finally { await sidecar.close(); }
+      await publishArtifactPair(temporary, provenanceTemporary, output, { force: options.force ?? false, existsCode: "SERVICE_DESTINATION_EXISTS", existsExitCode: EXIT_CODES.INVALID_INPUT });
+    } catch (error) { await Promise.all([rm(temporary, { force: true }), rm(provenanceTemporary, { force: true })]); throw error; }
+    return { output, provenancePath, rows: result.returnedCount };
   }
 }

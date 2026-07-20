@@ -149,6 +149,22 @@ export async function loadConfiguration(
       cache: { enabled: true, maxBytes: "10GB", ttlDays: 30 },
     },
     terminal: { color: runtimeEnv.NO_COLOR === undefined },
+    archive: {
+      maxEntries: 10_000,
+      maxPathBytes: 1_024,
+      maxSelectedBytes: 512 * 1024 * 1024,
+      maxExpandedBytes: 1024 * 1024 * 1024,
+      maxCompressionRatio: 200,
+    },
+    xml: {
+      maxDocumentBytes: 64 * 1024 * 1024,
+      maxDepth: 128,
+      maxAttributesPerElement: 256,
+      maxValueBytes: 1024 * 1024,
+      maxColumns: 1_024,
+      maxRecords: 100_000,
+      maxStateBytes: 64 * 1024 * 1024,
+    },
   };
   const user = await readSource(paths.userFile);
   const project = await readSource(paths.projectFile);

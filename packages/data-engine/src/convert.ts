@@ -476,6 +476,7 @@ export async function convertData(
       databasePath,
       xlsxRowsPath,
       xlsxSharedStringsByteLimit,
+      ...(engineOptions.xmlLimits === undefined ? {} : { xmlLimits: engineOptions.xmlLimits }),
     });
     if (resolve(stage.inputPath) === output)
       throw new OpsiError({

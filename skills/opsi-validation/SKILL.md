@@ -35,6 +35,8 @@ opsi validate <input> [options]
 | --- | --- | --- | --- | --- |
 | `--metadata` | no | — | — | validate metadata without fetching resource content |
 | `--sheet <name>` | no | name | — | XLSX sheet name |
+| `--entry <path>` | no | path | — | ZIP data entry path |
+| `--record-path <path>` | no | path | — | XML record element path |
 | `--allow-insecure-http` | no | — | — | allow HTTP for this invocation |
 | `--allow-private-network` | no | — | — | allow private network addresses for this invocation |
 

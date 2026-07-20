@@ -1,6 +1,6 @@
 ---
 name: opsi-resources
-description: "Inspect OPSI resource metadata, secure remote headers, or bounded local and provider data previews. Use when evaluating a dataset resource before download or analysis."
+description: "Inspect OPSI resource access capabilities, metadata, secure headers, and bounded local or provider previews. Use when evaluating a dataset resource before download or analysis."
 ---
 
 # opsi-resources
@@ -29,6 +29,28 @@ opsi resource show <id>
 | Argument | Values | Description |
 | --- | --- | --- |
 | `<id>` | — | resource identifier |
+
+
+### `resource inspect`
+
+Inspect supported access operations for a resource.
+
+```sh
+opsi resource inspect <input> [options]
+```
+
+#### Arguments
+
+| Argument | Values | Description |
+| --- | --- | --- |
+| `<input>` | — | local path or canonical resource reference |
+
+#### Options
+
+| Option | Required | Values | Conflicts | Description |
+| --- | --- | --- | --- | --- |
+| `--allow-insecure-http` | no | — | — | allow HTTP for this invocation |
+| `--allow-private-network` | no | — | — | allow private network addresses for this invocation |
 
 
 ### `resource headers`
@@ -73,6 +95,8 @@ opsi resource preview <input> [options]
 | --- | --- | --- | --- | --- |
 | `--limit <rows>` | no | rows | — | maximum preview rows |
 | `--sheet <name>` | no | name | — | XLSX sheet name |
+| `--entry <path>` | no | path | — | ZIP data entry path |
+| `--record-path <path>` | no | path | — | XML record element path |
 | `--allow-insecure-http` | no | — | — | allow HTTP for this invocation |
 | `--allow-private-network` | no | — | — | allow private network addresses for this invocation |
 

@@ -56,5 +56,8 @@ describe("service CLI", () => {
     await expect(cli(["service", "schema", "opsi:resource:wfs", "--layer", "si:roads", ...network])).resolves.toMatchObject({ exitCode: 0, json: { data: [{ name: "id" }, { name: "name" }] } });
     await expect(cli(["service", "preview", "opsi:resource:wfs", "--layer", "si:roads", "--property", "name", "--limit", "1", ...network])).resolves.toMatchObject({ exitCode: 0, json: { data: [{ id: "1", name: "Ljubljana" }], meta: { truncated: true } } });
     await expect(cli(["service", "count", "opsi:resource:wfs", "--layer", "si:roads", ...network])).resolves.toMatchObject({ exitCode: 0, json: { data: { count: 2 } } });
+    const output = join(home, "roads.csv");
+    await expect(cli(["service", "export", "opsi:resource:wfs", "--layer", "si:roads", "--output", output, "--limit", "2", ...network])).resolves.toMatchObject({ exitCode: 0, json: { data: { output, provenancePath: `${output}.provenance.json`, rows: 2 } } });
+    await expect(cli(["provenance", "verify", output, "--json"])).resolves.toMatchObject({ exitCode: 0, json: { data: { valid: true } } });
   });
 });
