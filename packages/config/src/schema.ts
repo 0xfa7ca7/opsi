@@ -1,5 +1,6 @@
 import { duckDbMemoryLimitBytes, EXIT_CODES, OpsiError } from "@opsi/domain";
 import { z } from "zod";
+import { parseStorageBytes } from "./byte-size.js";
 
 export const outputFormatSchema = z.enum(["human", "json", "ndjson", "csv", "tsv"]);
 
@@ -22,11 +23,24 @@ const querySchema = z.strictObject({
   timeoutMs: z.number().int().positive(),
 });
 
+const duckdbCacheSchema = z.strictObject({
+  enabled: z.boolean(),
+  maxBytes: z.string().refine((value) => parseStorageBytes(value) !== undefined, {
+    message: "must be a supported nonnegative byte size",
+  }),
+  ttlDays: z.number().int().positive(),
+});
+
 const duckdbSchema = z.strictObject({
   memoryLimit: z.string().refine((value) => duckDbMemoryLimitBytes(value) !== undefined, {
     message: "must be a supported positive byte size no larger than 1GB",
   }),
   threads: z.number().int().positive().max(4),
+  cache: duckdbCacheSchema,
+});
+
+const duckdbSourceSchema = duckdbSchema.partial().extend({
+  cache: duckdbCacheSchema.partial().optional(),
 });
 
 const terminalSchema = z.strictObject({
@@ -56,7 +70,7 @@ export const configurationSourceSchema = z.strictObject({
   http: httpSchema.partial().optional(),
   preview: previewSchema.partial().optional(),
   query: querySchema.partial().optional(),
-  duckdb: duckdbSchema.partial().optional(),
+  duckdb: duckdbSourceSchema.optional(),
   terminal: terminalSchema.partial().optional(),
 });
 

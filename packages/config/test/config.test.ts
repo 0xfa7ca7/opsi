@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   ConfigStore,
   loadConfiguration,
+  parseStorageBytes,
   resolveConfigPaths,
   type LoadConfigurationOptions,
 } from "../src/index.js";
@@ -58,6 +59,46 @@ afterEach(async () => {
 });
 
 describe("configuration", () => {
+  it("parses nonnegative storage byte sizes exactly", () => {
+    expect(parseStorageBytes("0B")).toBe(0);
+    expect(parseStorageBytes("10GB")).toBe(10_000_000_000);
+    expect(parseStorageBytes("2GiB")).toBe(2_147_483_648);
+    expect(parseStorageBytes("-1GB")).toBeUndefined();
+    expect(parseStorageBytes("1.5GB")).toBeUndefined();
+    expect(parseStorageBytes("10")).toBeUndefined();
+    expect(parseStorageBytes("1XB")).toBeUndefined();
+    expect(parseStorageBytes("9007199254740992B")).toBeUndefined();
+  });
+
+  it("provides and overrides the DuckDB cache policy", async () => {
+    await expect(loadConfiguration(await fixtureSources())).resolves.toMatchObject({
+      duckdb: { cache: { enabled: true, maxBytes: "10GB", ttlDays: 30 } },
+    });
+
+    await expect(
+      loadConfiguration(
+        await fixtureSources({
+          env: {
+            OPSI_DUCKDB_CACHE_ENABLED: "false",
+            OPSI_DUCKDB_CACHE_MAX_BYTES: "2GiB",
+            OPSI_DUCKDB_CACHE_TTL_DAYS: "7",
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      duckdb: { cache: { enabled: false, maxBytes: "2GiB", ttlDays: 7 } },
+    });
+  });
+
+  it.each(["-1GB", "1.5GB", "10", "1XB", "9007199254740992B"])(
+    "rejects invalid DuckDB cache size %s",
+    async (maxBytes) => {
+      await expect(
+        loadConfiguration(await fixtureSources({ project: { duckdb: { cache: { maxBytes } } } })),
+      ).rejects.toMatchObject({ code: "INVALID_CONFIGURATION", exitCode: 2 });
+    },
+  );
+
   it.each(["1GB", "999MB", "953MiB"])("accepts DuckDB memory limit %s", async (memoryLimit) => {
     await expect(
       loadConfiguration(await fixtureSources({ project: { duckdb: { memoryLimit } } })),
