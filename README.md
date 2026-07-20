@@ -1,8 +1,8 @@
 # opsi
 
-**One CLI for Slovenian public data — from discovery to analysis.**
+**One CLI for Slovenian public data — built for people, scripts, and agents.**
 
-Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and download resources, validate common data formats, and query them locally with DuckDB. Built for terminals, scripts, and TypeScript applications.
+Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and download resources, validate common data formats, and query them locally with DuckDB. Structured output, bounded operations, and built-in help make `opsi` straightforward to use from a terminal, an automated workflow, or a coding agent.
 
 [![CI](https://github.com/0xfa7ca7/opsi/actions/workflows/ci.yml/badge.svg)](https://github.com/0xfa7ca7/opsi/actions/workflows/ci.yml)
 [![Node.js 24+](https://img.shields.io/badge/Node.js-24%2B-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
@@ -19,8 +19,9 @@ Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and downloa
 - [Command overview](#command-overview)
 - [Working with data](#working-with-data)
 - [Automation and structured output](#automation-and-structured-output)
+- [Using opsi with agents](#using-opsi-with-agents)
 - [Offline use](#offline-use)
-- [Security and privacy](#security-and-privacy)
+- [Security](#security)
 - [TypeScript SDK](#typescript-sdk)
 - [Documentation](#documentation)
 - [Development](#development)
@@ -29,9 +30,9 @@ Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and downloa
 
 - **One end-to-end workflow.** Discover a dataset, inspect its resources, download the data, validate it, query it, and convert it without switching tools.
 - **Predictable automation.** Choose JSON, NDJSON, CSV, or TSV output; keep result data on stdout; and branch on stable exit categories.
+- **Agent-friendly interface.** Discover commands with `--help`, request compact machine-readable results with `--json` and `--fields`, and handle failures without parsing human-readable messages.
 - **Safe local analysis.** Downloads are bounded and verified, queries are read-only and sandboxed, and generated artifacts include provenance records.
 - **Useful offline.** Reuse cached catalogue metadata and content without allowing accidental network requests.
-- **Private by default.** No telemetry, analytics key, or AI service is required.
 
 ## Installation
 
@@ -155,6 +156,25 @@ NO_COLOR=1 opsi providers list --csv
 
 JSON responses use a stable `{ schemaVersion, data, meta, error? }` envelope. Results go to stdout; warnings and diagnostics go to stderr. Stable exit categories let scripts distinguish invalid input, missing data, provider failures, validation errors, query failures, and partial success without parsing messages.
 
+## Using opsi with agents
+
+Coding agents can use the same command surface as people and scripts. Start with `--help`, request structured output, and keep results focused with field and row limits:
+
+```sh
+opsi --help
+opsi search promet --fields id,title --json --limit 5
+opsi dataset show DATASET_ID --json
+opsi resource preview ./downloads/data.csv --limit 20 --json
+```
+
+For reliable agent workflows:
+
+- Prefer `--json` or `--ndjson` over parsing human-readable tables.
+- Use `--fields` and command-specific limits to keep context small and predictable.
+- Read results from stdout, diagnostics from stderr, and use the process exit status for control flow.
+- Pass `--offline` when the agent must not make network requests.
+- Run `opsi <command> --help` to inspect available arguments before constructing a command.
+
 ## Offline use
 
 Warm the cache during an online run, then pass `--offline` or set `OPSI_OFFLINE=1`:
@@ -167,9 +187,9 @@ OPSI_OFFLINE=1 opsi resource preview opsi:resource:RESOURCE_ID --json
 
 Offline commands never make network requests. Operations that require uncached metadata or content fail with a typed cache-miss error. Catalogue snapshots must remain valid and no more than 24 hours old.
 
-## Security and privacy
+## Security
 
-`opsi` sends no telemetry and requires no AI or analytics key. Remote content is subject to HTTPS, DNS, redirect, timeout, and download-size controls. Queries run with DuckDB external access and extension loading disabled. Downloads, conversions, and query exports publish atomically and record provenance.
+Remote content is subject to HTTPS, DNS, redirect, timeout, and download-size controls. Queries run with DuckDB external access and extension loading disabled. Downloads, conversions, and query exports publish atomically and record provenance.
 
 Read the [security model](docs/security.md) and [security policy](SECURITY.md) before enabling network overrides or reporting a vulnerability.
 
