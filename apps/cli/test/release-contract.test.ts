@@ -99,6 +99,7 @@ describe("documentation contract", () => {
       "docs/recipes.md",
       "docs/releases.md",
       "docs/installation.md",
+      "docs/skills.md",
     ]) {
       const document = await text(path);
       expect(document.length, path).toBeGreaterThan(1_500);
@@ -131,7 +132,37 @@ describe("documentation contract", () => {
       "config path",
       "doctor",
       "completion",
+      "generate-skills",
     ])
       expect(commands, command).toContain(`\`${command}`);
+  });
+
+  it("documents installable Agent Skills and their generated release contract", async () => {
+    const readme = await text("README.md");
+    for (const expected of [
+      "npx skills add https://github.com/0xfa7ca7/opsi",
+      "npx skills add https://github.com/0xfa7ca7/opsi/tree/main/skills/opsi-analysis",
+      "opsi generate-skills",
+      "docs/skills.md",
+      "/opsi",
+      "@opsi",
+      "$opsi",
+    ]) {
+      expect(readme).toContain(expected);
+    }
+
+    const commands = await text("docs/commands.md");
+    expect(commands).toContain("`generate-skills`");
+    expect(commands).toContain("`--output-dir`");
+    expect(commands).toContain("known generated `SKILL.md` targets");
+    expect(commands).toContain("structured output");
+
+    const packagedReadme = await text("apps/cli/README.md");
+    expect(packagedReadme).toContain("opsi generate-skills");
+    expect(packagedReadme).toContain("docs/skills.md");
+
+    const changeset = await text(".changeset/agent-skills.md");
+    expect(changeset).toContain('"opsi": minor');
+    expect(changeset).toContain("Agent Skills");
   });
 });

@@ -123,3 +123,9 @@ Syntax: `opsi doctor [--offline]`. Aggregates Node, configuration, writable cach
 ### `completion`
 
 Syntax: `opsi completion <bash|zsh|fish>`. Prints a static script generated from the normalized command manifest. It completes only known commands/options/enum/provider values plus local filesystem paths and never calls OPSI. Install with `opsi completion bash > ~/.local/share/bash-completion/completions/opsi`, the corresponding zsh `$fpath` file, or `~/.config/fish/completions/opsi.fish`.
+
+### `generate-skills`
+
+Syntax: `opsi generate-skills [--output-dir <path>]`. Generates the complete installable Agent Skills repertoire for compatible AI-agent hosts. The default output directory is `./skills`; the `--output-dir` option accepts relative paths resolved from the current directory or absolute paths.
+
+Generation is deterministic, idempotent, and offline. It creates the output and known skill directories as needed, atomically replaces only known generated `SKILL.md` targets, and preserves unrelated files. An existing non-directory or symbolic-link target is rejected with `SKILL_OUTPUT_INVALID`. Other filesystem failures return `SKILL_GENERATION_FAILED`. Normal structured output flags are supported; for example, `opsi generate-skills --output-dir ~/.agents/skills --json` returns the resolved output directory, generated skill count, and skill names.
