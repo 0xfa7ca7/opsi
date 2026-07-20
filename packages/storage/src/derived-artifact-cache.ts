@@ -240,7 +240,7 @@ export class DerivedArtifactCache {
     const references = new Map<string, number>();
     for (const entry of remaining)
       references.set(entry.objectSha256, (references.get(entry.objectSha256) ?? 0) + 1);
-    let bytes = new Map(remaining.map((entry) => [entry.objectSha256, entry.bytes]));
+    const bytes = new Map(remaining.map((entry) => [entry.objectSha256, entry.bytes]));
     let total = [...bytes.values()].reduce((sum, value) => sum + value, 0);
     let lruRemoved = 0;
     const removedObjects = expired.map((entry) => entry.objectSha256);

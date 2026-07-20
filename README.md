@@ -33,6 +33,7 @@ Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and downloa
 - **Agent-friendly interface.** Discover commands with `--help`, request compact machine-readable results with `--json` and `--fields`, and handle failures without parsing human-readable messages.
 - **Safe local analysis.** Downloads are bounded and verified, queries are read-only and sandboxed, and generated artifacts include provenance records.
 - **Useful offline.** Reuse cached catalogue metadata and content without allowing accidental network requests.
+- **Fast repeated queries.** Transparently reuse immutable DuckDB staging databases for unchanged content, with a separate TTL/LRU storage budget.
 
 ## Installation
 
@@ -138,6 +139,8 @@ Run `opsi --help` or read the [complete command reference](docs/commands.md) for
 
 `opsi` can inspect and validate CSV, TSV, JSON, NDJSON, XLSX, and Parquet files. It can convert between those formats and query them through a bounded local DuckDB worker.
 
+The first query for a source imports it into a rebuildable DuckDB stage; later queries over identical bytes and the same XLSX sheet reuse that stage. JSON query metadata reports `cache.status` as `miss`, `hit`, or `bypass`. The derived cache defaults to a 10 GB budget and 30-day sliding lifetime, and its entries are visible through `opsi cache info|list|verify|prune|clear`. Derived eviction never removes raw downloads or catalogue data merely to satisfy the DuckDB budget.
+
 | Capability | Behavior                                                                        |
 | ---------- | ------------------------------------------------------------------------------- |
 | Preview    | Reads a bounded number of rows from local files or provider resources           |
@@ -158,7 +161,7 @@ opsi dataset list --ndjson
 NO_COLOR=1 opsi providers list --csv
 ```
 
-JSON responses use a stable `{ schemaVersion, data, meta, error? }` envelope. Results go to stdout; warnings and diagnostics go to stderr. Stable exit categories let scripts distinguish invalid input, missing data, provider failures, validation errors, query failures, and partial success without parsing messages.
+JSON responses use a stable `{ schemaVersion, data, meta, error? }` envelope. Query metadata includes the transparent DuckDB stage-cache status. Results go to stdout; warnings and diagnostics go to stderr. Stable exit categories let scripts distinguish invalid input, missing data, provider failures, validation errors, query failures, and partial success without parsing messages.
 
 ## Using opsi with agents
 

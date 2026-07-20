@@ -60,8 +60,10 @@ export interface QueryExecutionOptions {
   readonly signal?: AbortSignal;
 }
 
-export interface PreparedQueryExecutionOptions
-  extends Omit<QueryExecutionOptions, "input" | "sheet"> {
+export interface PreparedQueryExecutionOptions extends Omit<
+  QueryExecutionOptions,
+  "input" | "sheet"
+> {
   readonly databasePath: string;
   readonly invocationDirectory: string;
 }
@@ -185,9 +187,7 @@ export class DuckDbQueryRunner {
         ...(options.maxSqlBytes === undefined ? {} : { maxSqlBytes: options.maxSqlBytes }),
         ...(options.maxColumns === undefined ? {} : { maxColumns: options.maxColumns }),
         ...(options.maxCellBytes === undefined ? {} : { maxCellBytes: options.maxCellBytes }),
-        ...(options.maxOutputBytes === undefined
-          ? {}
-          : { maxOutputBytes: options.maxOutputBytes }),
+        ...(options.maxOutputBytes === undefined ? {} : { maxOutputBytes: options.maxOutputBytes }),
         ...(options.memoryLimit === undefined ? {} : { memoryLimit: options.memoryLimit }),
         ...(options.threads === undefined ? {} : { threads: options.threads }),
         ...(options.signal === undefined ? {} : { signal: options.signal }),

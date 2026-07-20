@@ -56,10 +56,6 @@ export interface QueryDatabaseResult extends QueryResult {
   readonly warnings: readonly QueryCacheWarning[];
 }
 
-function inputPath(input: DataInput): string {
-  return typeof input === "string" ? input : input.path;
-}
-
 async function sourceDigest(input: DataInput, path: string): Promise<string> {
   if (
     typeof input !== "string" &&
@@ -214,7 +210,7 @@ export class QueryDatabaseCache {
                 }
               }
             });
-          } catch (error) {
+          } catch {
             if (stagingError !== undefined) throw stagingError;
             warn();
             await rm(databasePath, { force: true });
