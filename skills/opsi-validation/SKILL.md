@@ -47,4 +47,3 @@ opsi validate <input> [options]
 - [opsi-resources](../opsi-resources/SKILL.md)
 - [opsi-download](../opsi-download/SKILL.md)
 - [opsi-analysis](../opsi-analysis/SKILL.md)
-

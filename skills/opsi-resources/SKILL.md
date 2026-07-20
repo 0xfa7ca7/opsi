@@ -86,4 +86,3 @@ opsi resource preview <input> [options]
 - [opsi-download](../opsi-download/SKILL.md)
 - [opsi-validation](../opsi-validation/SKILL.md)
 - [opsi-analysis](../opsi-analysis/SKILL.md)
-

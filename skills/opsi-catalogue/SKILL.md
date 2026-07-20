@@ -139,4 +139,3 @@ opsi dataset open <id>
 - [opsi-resources](../opsi-resources/SKILL.md)
 - [opsi-download](../opsi-download/SKILL.md)
 - [opsi-validation](../opsi-validation/SKILL.md)
-

@@ -134,6 +134,7 @@ describe("agent skill rendering", () => {
         expect.stringMatching(/^description: "[^"]+"$/u),
       ]);
       expect(content.endsWith("\n"), name).toBe(true);
+      expect(content.endsWith("\n\n"), name).toBe(false);
       expect(content.split("\n").length, name).toBeLessThan(500);
       expect(content, name).not.toMatch(/(?:TBD|TODO|API[_ -]?KEY|real token)/iu);
     }

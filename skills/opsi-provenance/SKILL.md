@@ -52,4 +52,3 @@ opsi provenance verify <path>
 
 - [opsi-download](../opsi-download/SKILL.md)
 - [opsi-analysis](../opsi-analysis/SKILL.md)
-

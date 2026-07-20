@@ -463,7 +463,9 @@ function renderSkill(definition: AgentSkillDefinition, version: string): string 
 export function renderAgentSkillFiles(version: string): ReadonlyMap<string, string> {
   const problems = validateAgentSkills();
   if (problems.length > 0) throw new Error(problems.join("\n"));
-  return new Map(AGENT_SKILLS.map((entry) => [entry.name, renderSkill(entry, version)]));
+  return new Map(
+    AGENT_SKILLS.map((entry) => [entry.name, `${renderSkill(entry, version).trimEnd()}\n`]),
+  );
 }
 
 export function renderAgentSkillsIndex(): string {

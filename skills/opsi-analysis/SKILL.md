@@ -80,4 +80,3 @@ opsi convert <input> --to <format> --output <path> [options]
 - [opsi-resources](../opsi-resources/SKILL.md)
 - [opsi-validation](../opsi-validation/SKILL.md)
 - [opsi-provenance](../opsi-provenance/SKILL.md)
-

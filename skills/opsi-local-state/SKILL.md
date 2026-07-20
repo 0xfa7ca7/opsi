@@ -128,4 +128,3 @@ opsi config path
 ## Related skills
 
 - [opsi-diagnostics](../opsi-diagnostics/SKILL.md)
-

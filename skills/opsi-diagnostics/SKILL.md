@@ -75,4 +75,3 @@ opsi generate-skills [options]
 ## Related skills
 
 - [opsi-local-state](../opsi-local-state/SKILL.md)
-
