@@ -2,7 +2,16 @@ import { createHash } from "node:crypto";
 import { execFile, fork, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { promisify } from "node:util";
-import { lstat, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  lstat,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
@@ -46,6 +55,80 @@ describe("ContentCache", () => {
     });
     expect(await cache.verify()).toMatchObject({ errors: [expect.stringContaining("metadata:")] });
     expect((await cache.getMetadata<{ ok: boolean }>("safe/../../key", "v1"))?.ok).toBe(true);
+  });
+
+  it("enumerates strict metadata records and deletes them by key", async () => {
+    const cache = new ContentCache(await root());
+    await cache.putMetadata("first", "v1", { value: 1 });
+    await cache.putMetadata("second", "v1", { value: 2 });
+
+    await expect(cache.metadataRecords()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "first", schemaVersion: "v1", value: { value: 1 } }),
+        expect.objectContaining({ key: "second", schemaVersion: "v1", value: { value: 2 } }),
+      ]),
+    );
+    await cache.deleteMetadata("first");
+    await expect(cache.getMetadata("first", "v1", true)).resolves.toBeUndefined();
+  });
+
+  it("materializes a verified object with a link-first owner-only destination", async () => {
+    const cache = new ContentCache(await root());
+    const object = await cache.putObject(Readable.from(["database"]));
+    const destination = join(await root(), "query.duckdb");
+
+    const linked = await cache.materializeLink(object.sha256, destination);
+
+    expect(await readFile(linked.path, "utf8")).toBe("database");
+    expect(linked.sha256).toBe(object.sha256);
+    const [sourceDetails, destinationDetails] = await Promise.all([
+      lstat(object.path),
+      lstat(destination),
+    ]);
+    expect(destinationDetails.mode & 0o077).toBe(0);
+    if (process.platform !== "win32") expect(destinationDetails.ino).toBe(sourceDetails.ino);
+    await expect(cache.materializeLink(object.sha256, destination)).rejects.toMatchObject({
+      code: "EEXIST",
+    });
+  });
+
+  it("copies a verified object when links are unavailable", async () => {
+    let copied = false;
+    const cache = new ContentCache(await root(), {
+      linkObject: async () => {
+        throw Object.assign(new Error("cross-device"), { code: "EXDEV" });
+      },
+      copyObject: async (source, destination) => {
+        copied = true;
+        await copyFile(source, destination);
+      },
+    });
+    const object = await cache.putObject(Readable.from(["database"]));
+    const destination = join(await root(), "copied.duckdb");
+
+    await expect(cache.materializeLink(object.sha256, destination)).resolves.toMatchObject({
+      path: destination,
+    });
+    expect(copied).toBe(true);
+    expect(await readFile(destination, "utf8")).toBe("database");
+  });
+
+  it("cleans a partial copy and releases locks when link materialization fails", async () => {
+    const cache = new ContentCache(await root(), {
+      linkObject: async () => {
+        throw Object.assign(new Error("cross-device"), { code: "EXDEV" });
+      },
+      copyObject: async (_source, destination) => {
+        await writeFile(destination, "partial");
+        throw new Error("copy failed");
+      },
+    });
+    const object = await cache.putObject(Readable.from(["database"]));
+    const destination = join(await root(), "partial.duckdb");
+
+    await expect(cache.materializeLink(object.sha256, destination)).rejects.toThrow("copy failed");
+    await expect(lstat(destination)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readdir((await cache.layout()).locks)).toEqual([]);
   });
 
   it("never publishes metadata when failure is injected after object publication", async () => {
@@ -314,6 +397,9 @@ describe("ContentCache", () => {
     const exact = await limited.putObject(Readable.from(["12", "345"]));
     expect(exact).toMatchObject({ bytes: 5, sha256: sha256("12345") });
     const stricter = new ContentCache(directory, { maxObjectBytes: 4 });
+    await expect(stricter.getObject(exact.sha256)).rejects.toMatchObject({
+      code: "CACHE_CORRUPT",
+    });
     await expect(stricter.putObject(Readable.from(["12345"]))).rejects.toMatchObject({
       code: "CACHE_OBJECT_TOO_LARGE",
     });
