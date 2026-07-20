@@ -40,7 +40,7 @@ afterEach(async () => {
 describe("agent setup argument construction", () => {
   it("passes only resolved agents to a non-prompting global install", () => {
     expect(
-      buildAgentInstallerArguments("/tmp/source with spaces", ["codex", "claude-code"], true),
+      buildAgentInstallerArguments("/tmp/source with spaces", ["codex", "claude-code"]),
     ).toEqual([
       "add",
       "/tmp/source with spaces",
@@ -120,7 +120,7 @@ describe("agent setup orchestration", () => {
     expect(runner.run).toHaveBeenCalledWith(
       expect.objectContaining({
         interactive: false,
-        arguments: expect.arrayContaining(["--agent", "codex", "--yes"]),
+        arguments: expect.arrayContaining(["--agent", "codex", "--copy", "--yes"]),
       }),
     );
     await expect(access(sourceDirectory)).rejects.toMatchObject({ code: "ENOENT" });

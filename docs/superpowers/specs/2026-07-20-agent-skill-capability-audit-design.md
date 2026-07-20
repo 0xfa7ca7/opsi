@@ -8,7 +8,7 @@ Ensure the installable OPSI Agent Skills let a user-facing coding agent discover
 
 The audit covers every public command, argument, option, conflict, supported input and output format, safety boundary, structured-output contract, and cross-command workflow exposed by the CLI. It includes catalogue access, resource inspection, downloads, validation, local analysis, conversion, WFS access, provenance, cache and configuration management, diagnostics, skill generation, and agent installation.
 
-The audit does not add TypeScript SDK guidance, contributor workflows, internal architecture documentation, model-provider integrations, or new CLI behavior. If a user-facing capability is missing from the CLI itself, this work records the gap but does not invent a shell or HTTP workaround.
+The audit does not add TypeScript SDK guidance, contributor workflows, internal architecture documentation, or model-provider integrations. If evaluation exposes a defect that prevents a documented user-facing skill workflow from working, this work may fix that public CLI behavior with a focused regression test. It does not invent a shell or HTTP workaround.
 
 ## Existing State
 
@@ -16,11 +16,15 @@ The current registry assigns every command in `COMMAND_MANIFEST` to exactly one 
 
 The repository contains eleven skills: an orchestrator, a shared execution contract, and nine domain skills. A locally installed older repertoire can legitimately be stale and omit recently added domains such as WFS services; `opsi agent setup` and `opsi generate-skills` must therefore explain refresh and verification clearly.
 
+Baseline evaluation also exposed a defect in automatic setup: OPSI generated the repertoire in a temporary directory, let the pinned installer create symlinks by default, and then removed the temporary source. The resulting installation could contain dangling symlinks. Because the generated source is intentionally ephemeral, `agent setup` must install durable copies by default before cleanup. The existing `--copy` option remains accepted as an explicit, backward-compatible request for that safe behavior.
+
 ## Chosen Approach
 
 Keep the current eleven-skill topology and enrich the generator's curated domain definitions. Each domain remains the smallest independently discoverable unit for its user intent. The orchestrator continues to route broad requests, while the shared skill owns rules that apply everywhere.
 
 The generator remains the source of truth. Checked-in skills and `docs/skills.md` remain generated artifacts protected by exact-byte drift tests. Capability guidance is represented in structured registry fields or focused renderer helpers so tests can verify required topics without maintaining handwritten generated files.
+
+The `agent setup` orchestration continues to own a private, mode-`0700` temporary source and remove it on both success and failure. It always asks the pinned installer to copy generated skills into selected global agent locations, making those targets independent of temporary-source cleanup. A real-installer integration test must read installed skill content after `setupAgents()` has returned and the temporary source no longer exists.
 
 This approach is preferred over one comprehensive skill, which would consume unnecessary context and weaken routing, and over a large new reference-file hierarchy, which would add indirection without enough content to justify it.
 
@@ -46,7 +50,7 @@ Each domain skill contains concise capability guidance before its manifest-deriv
 - `opsi-services`: canonical WFS discovery, layers, schema, typed equality filters, properties, bounding boxes and CRS, pagination, counts, bounded CSV exports, and prohibited transaction/raw-query fallbacks.
 - `opsi-provenance`: show versus verify, digest mismatches, source and transformation interpretation, and evidence preservation.
 - `opsi-local-state`: raw and derived cache visibility, verification, pruning and clearing, configuration inspection and validated updates, confirmation, and non-secret constraints.
-- `opsi-diagnostics`: providers, offline diagnostics, shell completion, skill generation, host detection, targeted/all-host installation, symlink versus copy, dry runs, non-interactive confirmation, and refreshing stale installations.
+- `opsi-diagnostics`: providers, offline diagnostics, shell completion, skill generation, host detection, targeted/all-host installation, durable-copy behavior, dry runs, non-interactive confirmation, and refreshing stale installations.
 
 Guidance uses concrete command sequences where sequence matters and concise decision tables where agents must choose among modes. It does not duplicate general programming knowledge or internal implementation details.
 

@@ -15,6 +15,7 @@
 - Preserve the existing eleven-skill topology and one-level cross-references.
 - Keep generated frontmatter limited to `name` and `description`; every description begins with `Use when` and contains only discovery triggers.
 - Preserve CLI safety bounds, structured output, offline behavior, network controls, mutation confirmation, and exit categories.
+- `opsi agent setup` must leave a durable installed skill tree after its temporary generated source is removed.
 - Keep generated files deterministic, below 500 lines each, and free of secrets, placeholders, and machine-specific paths.
 - Use baseline and improved fresh-agent evaluations before claiming that guidance is effective.
 - Follow test-driven development for renderer and registry behavior.
@@ -24,6 +25,10 @@
 ## File structure
 
 - Modify `apps/cli/src/agent-skills.ts`: add structured capability guides, improve trigger descriptions, and render user workflows.
+- Modify `apps/cli/src/agent-setup.ts`: make temporary-source installation durable by default.
+- Modify `apps/cli/test/agent-setup.test.ts`: cover default installer arguments and cleanup orchestration.
+- Modify `apps/cli/test/agent-setup.integration.test.ts`: reproduce dangling default symlinks with the real pinned installer and verify the fix.
+- Modify `apps/cli/src/command-manifest.ts`: describe the retained `--copy` compatibility flag accurately.
 - Modify `apps/cli/test/agent-skills.test.ts`: enforce discovery metadata, capability IDs, workflow content, limits, and exact generated output.
 - Modify `skills/*/SKILL.md`: regenerate the eleven checked-in skills from the renderer.
 - Modify `docs/skills.md`: regenerate the public repertoire index with improved trigger descriptions.
@@ -110,7 +115,74 @@ git add docs/superpowers/evaluations/2026-07-20-agent-skill-capability-audit.md
 git commit -m "test: record OPSI skill capability baseline"
 ```
 
-### Task 2: Define the machine-verifiable capability contract
+### Task 2: Fix durable default agent installation
+
+**Files:**
+- Modify: `apps/cli/src/agent-setup.ts`
+- Modify: `apps/cli/src/command-manifest.ts`
+- Modify: `apps/cli/test/agent-setup.test.ts`
+- Modify: `apps/cli/test/agent-setup.integration.test.ts`
+- Modify: `apps/cli/test/agent-setup.e2e.test.ts`
+- Modify: `README.md`
+- Modify: `apps/cli/README.md`
+
+**Interfaces:**
+- Preserves: `AgentSetupRequest.copy`, the public `--copy` option, `setupAgents()`, and the pinned `skills@1.5.19` installer.
+- Changes: default real setup always passes `--copy`, so installed files survive temporary-source cleanup.
+
+- [ ] **Step 1: Record the root-cause evidence**
+
+Confirm the failing data flow in `apps/cli/src/agent-setup.ts`: `defaultTemporaryDirectory()` creates an ephemeral source; `buildAgentInstallerArguments()` omits `--copy` when `request.copy` is false; the pinned installer therefore symlinks; `defaultRemoveTemporaryDirectory()` removes the symlink target after installation. Record this hypothesis and the relevant source lines in the task report before editing code.
+
+- [ ] **Step 2: Write the failing real-installer regression test**
+
+In `apps/cli/test/agent-setup.integration.test.ts`, change the successful integration scenario to omit `copy: true`:
+
+```ts
+request: { agents: ["universal"] },
+```
+
+Keep the assertions that read representative installed `SKILL.md` files after `setupAgents()` returns, and assert the installer request contains `--copy`. This test proves the installed targets remain readable after the temporary source has been removed.
+
+Add a unit assertion in `apps/cli/test/agent-setup.test.ts` that a default `request: { agents: ["codex"] }` calls the runner with arguments containing `--copy`.
+
+- [ ] **Step 3: Run focused tests and verify RED**
+
+Run:
+
+```bash
+pnpm exec vitest run --project unit apps/cli/test/agent-setup.test.ts
+pnpm exec vitest run --project integration apps/cli/test/agent-setup.integration.test.ts
+```
+
+Expected: unit and integration assertions FAIL because default setup omits `--copy`; the real installed paths are unreadable after cleanup.
+
+- [ ] **Step 4: Implement the minimal durable-copy fix**
+
+Change `buildAgentInstallerArguments()` so every real installation includes `--copy` before `--yes`, regardless of whether `AgentSetupRequest.copy` was explicitly set. Remove its unused boolean parameter and update callers/tests. Retain the public request field and CLI option for backward compatibility.
+
+Update the manifest option description to `copy skills into agent directories (default behavior)` and update both READMEs to state that setup uses durable copies because its generated source is temporary. Do not add a symlink mode or persistent generated cache.
+
+- [ ] **Step 5: Run focused tests and verify GREEN**
+
+Run:
+
+```bash
+pnpm exec vitest run --project unit apps/cli/test/agent-setup.test.ts apps/cli/test/agent-setup.e2e.test.ts
+pnpm exec vitest run --project integration apps/cli/test/agent-setup.integration.test.ts
+git diff --check
+```
+
+Expected: focused tests PASS, installed skill files remain readable after cleanup, and diff check exits 0.
+
+- [ ] **Step 6: Commit the bug fix**
+
+```bash
+git add apps/cli/src/agent-setup.ts apps/cli/src/command-manifest.ts apps/cli/test/agent-setup.test.ts apps/cli/test/agent-setup.integration.test.ts apps/cli/test/agent-setup.e2e.test.ts README.md apps/cli/README.md docs/superpowers/specs/2026-07-20-agent-skill-capability-audit-design.md docs/superpowers/plans/2026-07-20-agent-skill-capability-audit.md
+git commit -m "fix: install durable OPSI agent skills by default"
+```
+
+### Task 3: Define the machine-verifiable capability contract
 
 **Files:**
 - Modify: `apps/cli/test/agent-skills.test.ts`
@@ -188,7 +260,7 @@ pnpm exec vitest run --project unit apps/cli/test/agent-skills.test.ts
 
 Expected: PASS. Empty capability arrays are valid until each domain's behavior tests define the required entries in Tasks 3–5.
 
-### Task 3: Teach the shared and end-to-end data workflow
+### Task 4: Teach the shared and end-to-end data workflow
 
 **Files:**
 - Modify: `apps/cli/test/agent-skills.test.ts`
@@ -236,7 +308,7 @@ Run the agent-skills unit test. Expected: FAIL on the new guidance and empty cap
 
 - [ ] **Step 3: Populate acquisition and analysis capabilities**
 
-Add the exact capability IDs from Task 2 to the six domain definitions. Instructions must cover the required tokens, safe sequencing, selector ambiguity, bounded output, offline transitions, partial success, overwrite authorization, and provenance verification. Keep each instruction actionable and avoid internal implementation details.
+Add the exact capability IDs from Task 3 to the six domain definitions. Instructions must cover the required tokens, safe sequencing, selector ambiguity, bounded output, offline transitions, partial success, overwrite authorization, and provenance verification. Keep each instruction actionable and avoid internal implementation details.
 
 - [ ] **Step 4: Render capability guides and expand shared routing**
 
@@ -287,7 +359,7 @@ git add apps/cli/src/agent-skills.ts apps/cli/test/agent-skills.test.ts skills d
 git commit -m "feat: teach complete OPSI data workflows"
 ```
 
-### Task 4: Teach complete WFS workflows
+### Task 5: Teach complete WFS workflows
 
 **Files:**
 - Modify: `apps/cli/test/agent-skills.test.ts`
@@ -327,7 +399,7 @@ git add apps/cli/src/agent-skills.ts apps/cli/test/agent-skills.test.ts skills/o
 git commit -m "feat: teach complete OPSI WFS workflows"
 ```
 
-### Task 5: Teach local-state, diagnostics, and skill refresh workflows
+### Task 6: Teach local-state, diagnostics, and skill refresh workflows
 
 **Files:**
 - Modify: `apps/cli/test/agent-skills.test.ts`
@@ -343,7 +415,7 @@ git commit -m "feat: teach complete OPSI WFS workflows"
 
 - [ ] **Step 1: Add failing local-state and refresh assertions**
 
-Require `opsi-local-state` to expose exactly `cache-tiers`, `cache-mutations`, and `configuration`. Require `opsi-diagnostics` to expose exactly `environment-diagnostics`, `shell-integration`, `skill-generation`, and `agent-refresh`. Require generated guidance to distinguish raw downloads/catalogue data from rebuildable derived DuckDB stages; explain info/list/verify before prune/clear; preserve explicit authorization; keep secrets out of config; use `doctor --offline`; distinguish `generate-skills` from `agent setup`; explain detected hosts, `--agent`, `--all`, `--dry-run`, `--yes`, symlink default, `--copy`, empty detection, rerunning setup to refresh, and post-install verification.
+Require `opsi-local-state` to expose exactly `cache-tiers`, `cache-mutations`, and `configuration`. Require `opsi-diagnostics` to expose exactly `environment-diagnostics`, `shell-integration`, `skill-generation`, and `agent-refresh`. Require generated guidance to distinguish raw downloads/catalogue data from rebuildable derived DuckDB stages; explain info/list/verify before prune/clear; preserve explicit authorization; keep secrets out of config; use `doctor --offline`; distinguish `generate-skills` from `agent setup`; explain detected hosts, `--agent`, `--all`, `--dry-run`, `--yes`, durable-copy default, the retained `--copy` flag, empty detection, rerunning setup to refresh, and post-install verification.
 
 - [ ] **Step 2: Run the focused test and verify RED**
 
@@ -384,7 +456,7 @@ git add apps/cli/src/agent-skills.ts apps/cli/test/agent-skills.test.ts skills/o
 git commit -m "feat: guide OPSI skill refresh and local state"
 ```
 
-### Task 6: Run improved agent evaluations and refactor guidance
+### Task 7: Run improved agent evaluations and refactor guidance
 
 **Files:**
 - Modify: `docs/superpowers/evaluations/2026-07-20-agent-skill-capability-audit.md`
@@ -433,7 +505,7 @@ git add apps/cli/src/agent-skills.ts apps/cli/test/agent-skills.test.ts skills d
 git commit -m "test: verify OPSI skill capability guidance"
 ```
 
-### Task 7: Add release metadata and complete repository verification
+### Task 8: Add release metadata and complete repository verification
 
 **Files:**
 - Create: `.changeset/complete-agent-skill-guidance.md`
@@ -482,7 +554,7 @@ git add .changeset/complete-agent-skill-guidance.md
 git commit -m "chore: document complete agent skill guidance"
 ```
 
-### Task 8: Independent review and pull request
+### Task 9: Independent review and pull request
 
 **Files:**
 - Review all changes from `origin/main...HEAD`.

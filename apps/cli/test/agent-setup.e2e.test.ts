@@ -92,11 +92,9 @@ describe("agent setup", () => {
     };
 
     await expect(
-      runCli(
-        ["agent", "setup", "--agent", "codex", "claude-code", "--copy", "--yes", "--json"],
-        value.io,
-        { agentInstallerRunner: runner },
-      ),
+      runCli(["agent", "setup", "--agent", "codex", "claude-code", "--yes", "--json"], value.io, {
+        agentInstallerRunner: runner,
+      }),
     ).resolves.toBe(0);
 
     expect(runner.run).toHaveBeenCalledOnce();

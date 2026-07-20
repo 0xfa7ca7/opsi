@@ -55,7 +55,7 @@ describe("real pinned agent installer integration", () => {
         home,
         env: { ...process.env, HOME: home, NO_COLOR: "1" },
         version: "1.2.3",
-        request: { agents: ["universal"], copy: true },
+        request: { agents: ["universal"] },
         runner,
         registry,
         interactive: true,
