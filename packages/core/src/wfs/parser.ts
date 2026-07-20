@@ -48,6 +48,7 @@ export function parseWfsCapabilities(
   const stack: string[] = [];
   const operations = new Set<string>();
   const outputFormats = new Set<string>();
+  let outputContextDepth: number | undefined;
   const layers: WfsLayer[] = [];
   let current:
     { name?: string; title?: string; defaultCrs?: string; otherCrs: string[] } | undefined;
@@ -67,6 +68,11 @@ export function parseWfsCapabilities(
           const name = tag.attributes.name?.value;
           if (name !== undefined) operations.add(name);
         }
+        if (
+          tag.local === "OutputFormats" ||
+          (tag.local === "Parameter" && tag.attributes.name?.value.toLowerCase() === "outputformat")
+        )
+          outputContextDepth = stack.length;
         if (tag.local === "FeatureType") current = { otherCrs: [] };
       });
       parser.on("text", (value) => {
@@ -93,11 +99,12 @@ export function parseWfsCapabilities(
           }
         }
         if (
+          outputContextDepth !== undefined &&
           (tag.local === "Value" || tag.local === "Format") &&
-          stack.some((part) => part === "OutputFormats" || part === "Parameter") &&
           value
         )
           outputFormats.add(value);
+        if (outputContextDepth === stack.length) outputContextDepth = undefined;
         stack.pop();
         text = "";
       });

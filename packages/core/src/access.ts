@@ -167,6 +167,17 @@ export class ResourceAccessService {
           return dataDescriptor(canonical, "archive", "zip", {
             entries: (error.context?.choices as readonly string[]) ?? [],
           });
+        if (
+          error instanceof OpsiError &&
+          ["INVALID_TABULAR_DATA", "INVALID_XML_DATA", "PARSE_ERROR"].includes(error.code)
+        )
+          return {
+            ...dataDescriptor(canonical, "archive", "zip"),
+            limitations: [
+              "Only one non-nested supported ZIP entry is extracted per operation.",
+              "The selected entry must still pass format parsing or validation.",
+            ],
+          };
         throw error;
       }
     }

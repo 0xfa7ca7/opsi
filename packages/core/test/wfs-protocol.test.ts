@@ -54,13 +54,14 @@ describe("bounded WFS protocol", () => {
   it("parses capabilities, XSD fields, counts, and exceptions", () => {
     const capabilities = parseWfsCapabilities(`<?xml version="1.0"?>
       <wfs:WFS_Capabilities xmlns:wfs="http://www.opengis.net/wfs/2.0" version="2.0.0">
-        <ows:OperationsMetadata xmlns:ows="http://www.opengis.net/ows/1.1"><ows:Operation name="GetFeature"/></ows:OperationsMetadata>
+        <ows:OperationsMetadata xmlns:ows="http://www.opengis.net/ows/1.1"><ows:Operation name="GetFeature"/><ows:Parameter name="outputFormat"><ows:AllowedValues><ows:Value>csv</ows:Value></ows:AllowedValues></ows:Parameter><ows:Parameter name="AcceptVersions"><ows:AllowedValues><ows:Value>2.0.0</ows:Value></ows:AllowedValues></ows:Parameter></ows:OperationsMetadata>
         <wfs:FeatureTypeList><wfs:FeatureType><wfs:Name>si:roads</wfs:Name><wfs:Title>Roads</wfs:Title>
         <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::3794</wfs:DefaultCRS><wfs:OtherCRS>EPSG:4326</wfs:OtherCRS></wfs:FeatureType></wfs:FeatureTypeList>
       </wfs:WFS_Capabilities>`);
     expect(capabilities).toMatchObject({
       version: "2.0.0",
       operations: ["GetFeature"],
+      outputFormats: ["csv"],
       layers: [
         {
           name: "si:roads",

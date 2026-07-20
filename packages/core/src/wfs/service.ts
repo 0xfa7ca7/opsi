@@ -223,7 +223,7 @@ export class WfsService {
   private async checked(
     input: string,
     options: WfsSelectionOptions,
-  ): Promise<{ resolved: ResolvedWfs; version: WfsVersion }> {
+  ): Promise<{ resolved: ResolvedWfs; capabilities: WfsCapabilities; version: WfsVersion }> {
     const resolved = await this.resolve(input);
     const inspected = await this.inspect(input, options);
     const fields = await this.schema(input, options);
@@ -236,12 +236,22 @@ export class WfsService {
           exitCode: EXIT_CODES.INVALID_INPUT,
           context: { property, choices: [...names] },
         });
-    return { resolved, version: inspected.capabilities.version };
+    return {
+      resolved,
+      capabilities: inspected.capabilities,
+      version: inspected.capabilities.version,
+    };
   }
 
   async preview(input: string, options: WfsSelectionOptions): Promise<WfsPreviewResult> {
     const checked = await this.checked(input, options);
     const limit = options.limit ?? 20;
+    const outputFormat =
+      checked.capabilities.outputFormats.find((candidate) => candidate.toLowerCase() === "csv") ??
+      checked.capabilities.outputFormats.find(
+        (candidate) => candidate.toLowerCase() === "text/csv",
+      ) ??
+      "text/csv";
     const bytes = await this.fetch(
       checked.resolved,
       {
@@ -250,7 +260,7 @@ export class WfsService {
         layer: options.layer,
         limit: limit + 1,
         startIndex: options.startIndex ?? 0,
-        outputFormat: "text/csv",
+        outputFormat,
         ...(options.properties === undefined ? {} : { properties: options.properties }),
         ...(options.filters === undefined ? {} : { filters: options.filters }),
         ...(options.bbox === undefined ? {} : { bbox: options.bbox }),
