@@ -25,6 +25,7 @@ import { registerCommandManifest } from "./command-manifest.js";
 import { registerConfigCommand } from "./commands/config.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerCompletionCommand } from "./commands/completion.js";
+import { registerGenerateSkillsCommand } from "./commands/generate-skills.js";
 
 function requestInterval(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
@@ -117,5 +118,6 @@ export function createProgram(
   registerConfigCommand(program, context);
   registerDoctorCommand(program, context, client);
   registerCompletionCommand(program, context);
+  registerGenerateSkillsCommand(program, context);
   return program;
 }

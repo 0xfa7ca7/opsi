@@ -137,6 +137,7 @@ describe("complete command surface", () => {
         "config path",
         "doctor",
         "completion",
+        "generate-skills",
       ]),
     );
   });
@@ -176,6 +177,7 @@ describe("complete command surface", () => {
       "convert",
       "dataset",
       "doctor",
+      "generate-skills",
       "download",
       "open",
       "preview",

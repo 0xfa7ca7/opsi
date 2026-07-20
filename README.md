@@ -162,7 +162,29 @@ JSON responses use a stable `{ schemaVersion, data, meta, error? }` envelope. Re
 
 ## Using opsi with agents
 
-Coding agents can use the same command surface as people and scripts. Start with `--help`, request structured output, and keep results focused with field and row limits:
+The repository ships a complete repertoire of [Agent Skills](docs/skills.md): a main `opsi` orchestrator, shared safety guidance, and focused skills for every command area. Install all skills with a compatible skill installer:
+
+```sh
+npx skills add https://github.com/0xfa7ca7/opsi
+```
+
+Or install only a focused skill and its `opsi-shared` prerequisite:
+
+```sh
+npx skills add https://github.com/0xfa7ca7/opsi/tree/main/skills/opsi-analysis
+npx skills add https://github.com/0xfa7ca7/opsi/tree/main/skills/opsi-shared
+```
+
+Compatible agent hosts select `opsi` automatically from your request. Depending on the host, you may also invoke the main orchestrator as `/opsi`, `@opsi`, or `$opsi`; these are agent-host forms, not shell commands. The skills use the installed CLI and do not add a model runtime or provider dependency to `opsi`.
+
+An installed CLI can generate the same repertoire locally:
+
+```sh
+opsi generate-skills
+opsi generate-skills --output-dir ~/.agents/skills --json
+```
+
+Agents use the same command surface as people and scripts. They should start with `--help`, request structured output, and keep results focused with field and row limits:
 
 ```sh
 opsi --help

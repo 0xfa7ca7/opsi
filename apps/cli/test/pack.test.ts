@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { chmod, mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -264,6 +264,19 @@ describe("canonical npm tarball", () => {
     const metadata = JSON.parse(await tarText("package.json")) as { readonly version: string };
     expect((await execute(binary, ["--version"], { cwd: root })).stdout).toBe(
       `${metadata.version}\n`,
+    );
+    const generatedSkills = join(root, "generated skills");
+    const generated = await execute(
+      binary,
+      ["generate-skills", "--output-dir", generatedSkills, "--json"],
+      { cwd: root },
+    );
+    expect(JSON.parse(generated.stdout)).toMatchObject({ data: { count: 10 } });
+    expect(await readFile(join(generatedSkills, "opsi", "SKILL.md"), "utf8")).toContain(
+      "name: opsi",
+    );
+    expect(await readFile(join(generatedSkills, "opsi-analysis", "SKILL.md"), "utf8")).toContain(
+      "opsi query",
     );
     const datasetListHelp = (await execute(binary, ["dataset", "list", "--help"], { cwd: root }))
       .stdout;
