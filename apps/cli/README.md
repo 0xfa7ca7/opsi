@@ -33,6 +33,8 @@ DuckDB is an optional native dependency. Catalogue, configuration, and completio
 
 For project-local use, run `npm install klopsi` and invoke the CLI with `npx klopsi`. See the [installation guide](https://github.com/0xfa7ca7/klopsi/blob/main/docs/installation.md) for release verification and troubleshooting.
 
+Run bare `klopsi` for guided getting-started steps, example discovery commands, environment checks, and an invitation to install KLOPSI skills for detected AI agents. Use `klopsi --help` when you want the complete command reference instead.
+
 ## Quick start
 
 Search the catalogue and inspect a dataset:
@@ -90,6 +92,8 @@ klopsi agent setup
 ```
 
 Use `--yes` for unattended detected-host setup, `--agent <ids...>` for explicit hosts, `--all` for every globally installable profile, or `--dry-run` to preview the operation. An empty detection result fails safely instead of expanding `--yes` to every profile. Setup installs durable copies because its generated source is temporary.
+
+Human setup output uses readable agent names and separate installed-skill, detail, and next-step sections. Interactive terminals receive restrained color; `NO_COLOR` and redirected output remain clean plain text. Structured output retains its stable automation-oriented data.
 
 To refresh a stale repertoire, preview the exact target with `klopsi agent setup --agent <id> --dry-run --json`, then rerun without `--dry-run` after authorization. After a successful exit, confirm that structured output lists only the requested `agents` and the complete `skills` repertoire. Generate the same portable skill tree without installing it with `klopsi generate-skills --output-dir <directory>`.
 
