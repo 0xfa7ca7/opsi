@@ -18,7 +18,7 @@ const registry: AgentHostRegistry = {
 };
 
 async function fixture(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "opsi-real-agent-setup-"));
+  const root = await mkdtemp(join(tmpdir(), "klopsi-real-agent-setup-"));
   temporaryDirectories.push(root);
   return root;
 }
@@ -67,7 +67,7 @@ describe("real pinned agent installer integration", () => {
       expect.arrayContaining(["--agent", "universal", "--copy", "--yes"]),
     );
     expect(`${installerResult?.stdout}\n${installerResult?.stderr}`).not.toContain("find-skills");
-    for (const skill of ["opsi", "opsi-shared", "opsi-analysis", "opsi-diagnostics"]) {
+    for (const skill of ["klopsi", "klopsi-shared", "klopsi-analysis", "klopsi-diagnostics"]) {
       expect(await readFile(join(home, ".agents", "skills", skill, "SKILL.md"), "utf8")).toContain(
         `name: ${skill}`,
       );

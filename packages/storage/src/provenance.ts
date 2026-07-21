@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { lstat, open, readFile, rename, rm } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { z } from "zod";
 
 const SECRET_PARAMETERS =
@@ -79,8 +79,8 @@ async function digest(path: string): Promise<string> {
   for await (const chunk of createReadStream(path)) hash.update(chunk);
   return hash.digest("hex");
 }
-function integrity(message: string, cause?: unknown): OpsiError {
-  return new OpsiError({
+function integrity(message: string, cause?: unknown): KlopsiError {
+  return new KlopsiError({
     code: "PROVENANCE_INTEGRITY_FAILURE",
     message,
     exitCode: EXIT_CODES.INTEGRITY_FAILURE,

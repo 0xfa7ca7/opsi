@@ -1,10 +1,10 @@
-# OPSI Agent Skill Capability Evaluation
+# KLOPSI Agent Skill Capability Evaluation
 
 ## Method
 
 On 2026-07-20, three fresh, isolated evaluators were each given one public-user
 workflow prompt. Each prompt expressly prohibited reading any file below
-`skills/` and `apps/cli/src/agent-skills.ts`; evaluators could use `opsi --help`,
+`skills/` and `apps/cli/src/agent-skills.ts`; evaluators could use `klopsi --help`,
 subcommand help, and public documentation only. They were also instructed not
 to modify files. The evaluator responses below are transcribed verbatim and
 scored solely against the stated rubrics.
@@ -13,7 +13,7 @@ scored solely against the stated rubrics.
 
 Prompt:
 
-> Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `opsi --help`, subcommand help, and public docs. A user asks: “Find a Slovenian traffic dataset, choose a usable resource even if it is ZIP, XML, or XLSX, inspect it safely, validate it, run a bounded read-only aggregation, export the result, and prove where the output came from. Network access may be unavailable after discovery.” Give the exact OPSI command sequence, decision points for ambiguous ZIP/XML/XLSX inputs, structured-output choices, offline transition, overwrite behavior, failure handling, and final verification. Do not modify files.
+> Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `klopsi --help`, subcommand help, and public docs. A user asks: “Find a Slovenian traffic dataset, choose a usable resource even if it is ZIP, XML, or XLSX, inspect it safely, validate it, run a bounded read-only aggregation, export the result, and prove where the output came from. Network access may be unavailable after discovery.” Give the exact KLOPSI command sequence, decision points for ambiguous ZIP/XML/XLSX inputs, structured-output choices, offline transition, overwrite behavior, failure handling, and final verification. Do not modify files.
 
 Rubric (13 points): bounded search; exact dataset/resource handoff; `resource inspect` or bounded preview; `--entry`; `--record-path`; `--sheet`; validation; read-only bounded query; query export; overwrite authorization; offline behavior; provenance verification; structured stdout/stderr/exit handling.
 
@@ -33,37 +33,37 @@ Verbatim evaluator response:
 > Use the validated traffic-infrastructure dataset **“Seznam parkirišč v Občini Trbovlje”**:
 >
 > - Dataset: `7627d311-f8a2-43cd-abe6-ca63b7c9d8ba`
-> - Usable CSV resource: `opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7`
+> - Usable CSV resource: `klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7`
 > - Live bounded preview showed 18 parking sites; validation returned `valid: true` (only a mixed-type-price warning).
 > - A bounded aggregation returns 17 free sites/591 spaces/4 EV spaces and 1 paid site/78 spaces/2 EV spaces.
 >
 > Run from an existing empty working directory such as `./traffic-run`:
 >
 > ```sh
-> opsi --json --fields id,title search "parkirišča" --limit 50
-> opsi --json dataset show 7627d311-f8a2-43cd-abe6-ca63b7c9d8ba
-> opsi --json dataset resources 7627d311-f8a2-43cd-abe6-ca63b7c9d8ba
-> opsi --json resource show f233bc56-b13e-4e15-b257-c65b719732c7
-> opsi --json resource headers f233bc56-b13e-4e15-b257-c65b719732c7
-> opsi --json resource inspect opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
-> opsi --json resource preview opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 --limit 5
-> opsi --json validate opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
+> klopsi --json --fields id,title search "parkirišča" --limit 50
+> klopsi --json dataset show 7627d311-f8a2-43cd-abe6-ca63b7c9d8ba
+> klopsi --json dataset resources 7627d311-f8a2-43cd-abe6-ca63b7c9d8ba
+> klopsi --json resource show f233bc56-b13e-4e15-b257-c65b719732c7
+> klopsi --json resource headers f233bc56-b13e-4e15-b257-c65b719732c7
+> klopsi --json resource inspect klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
+> klopsi --json resource preview klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 --limit 5
+> klopsi --json validate klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
 > ```
 >
 > ```sh
-> opsi --json --max-download-bytes 67108864 --http-timeout-ms 30000 \
->   download opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 \
+> klopsi --json --max-download-bytes 67108864 --http-timeout-ms 30000 \
+>   download klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 \
 >   --output ./traffic-run
 > ```
 >
 > Read the downloaded file path from the download JSON response; call it `$INPUT`. Once acquired, transition to local-only processing—no catalogue/cache/network dependency remains:
 >
 > ```sh
-> opsi --offline --json resource inspect "$INPUT"
-> opsi --offline --json resource preview "$INPUT" --limit 5
-> opsi --offline --json validate "$INPUT"
+> klopsi --offline --json resource inspect "$INPUT"
+> klopsi --offline --json resource preview "$INPUT" --limit 5
+> klopsi --offline --json validate "$INPUT"
 >
-> opsi --offline --json --query-row-limit 10 --query-timeout-ms 5000 \
+> klopsi --offline --json --query-row-limit 10 --query-timeout-ms 5000 \
 >   --duckdb-threads 1 \
 >   query "$INPUT" \
 >   --sql 'SELECT "Plačljivo" AS placljivo,
@@ -76,10 +76,10 @@ Verbatim evaluator response:
 >   --limit 10 \
 >   --output ./traffic-run/parking-summary.json
 >
-> opsi --offline --json provenance show "$INPUT"
-> opsi --offline --json provenance verify "$INPUT"
-> opsi --offline --json provenance show ./traffic-run/parking-summary.json
-> opsi --offline --json provenance verify ./traffic-run/parking-summary.json
+> klopsi --offline --json provenance show "$INPUT"
+> klopsi --offline --json provenance verify "$INPUT"
+> klopsi --offline --json provenance show ./traffic-run/parking-summary.json
+> klopsi --offline --json provenance verify ./traffic-run/parking-summary.json
 > ```
 >
 > `provenance show` for the summary proves the canonical resource ID/source URL, retrieved digest, and query transformation; `verify` recomputes the artifact SHA-256. JSON gives the stable `{schemaVersion,data,meta,error?}` envelope; inspect `data`, exit status, and stderr diagnostics—never scrape tables.
@@ -98,7 +98,7 @@ Verbatim evaluator response:
 
 Prompt:
 
-> Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `opsi --help`, subcommand help, and public docs. A user provides an OPSI WFS resource reference and asks you to discover its layers, inspect a layer, preview selected properties inside a bounding box, count matching features, and export a bounded filtered CSV without bypassing OPSI security. Give the exact safe command sequence, filter and CRS decisions, pagination or limit behavior, overwrite handling, forbidden fallbacks, and artifact verification. Do not modify files.
+> Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `klopsi --help`, subcommand help, and public docs. A user provides a KLOPSI WFS resource reference and asks you to discover its layers, inspect a layer, preview selected properties inside a bounding box, count matching features, and export a bounded filtered CSV without bypassing KLOPSI security. Give the exact safe command sequence, filter and CRS decisions, pagination or limit behavior, overwrite handling, forbidden fallbacks, and artifact verification. Do not modify files.
 
 Rubric (14 points): canonical reference; inspect; layers; schema; repeatable/comma-separated properties; typed `--filter-eq`; `--bbox`; `--crs`; bounded preview; count; bounded export; overwrite authorization; no raw HTTP/CQL/XML/transaction fallback; provenance verification.
 
@@ -139,19 +139,19 @@ Verbatim evaluator response:
 > Use canonical ref throughout and structured output:
 >
 > ```sh
-> R='opsi:resource:<UUID>'
-> opsi --json resource inspect "$R"      # optional access descriptor; confirm WFS / allowed actions
-> opsi --json service inspect "$R"       # service capabilities: negotiated version, advertised CRS/bounds/paging
-> opsi --json service layers "$R"        # select exact layer name L from result
-> opsi --json service schema "$R" --layer "$L"  # select exact properties P and typed filter fields
+> R='klopsi:resource:<UUID>'
+> klopsi --json resource inspect "$R"      # optional access descriptor; confirm WFS / allowed actions
+> klopsi --json service inspect "$R"       # service capabilities: negotiated version, advertised CRS/bounds/paging
+> klopsi --json service layers "$R"        # select exact layer name L from result
+> klopsi --json service schema "$R" --layer "$L"  # select exact properties P and typed filter fields
 > # Let C be an advertised CRS, and B a box expressed in it as minx,miny,maxx,maxy.
 > # Let F be a schema-valid typed equality field=value, Q a positive bounded page/export cap.
-> opsi --json service preview "$R" --layer "$L" --property id,name --filter-eq 'municipality=Ljubljana' --bbox 'minx,miny,maxx,maxy' --crs 'EPSG:xxxx' --limit 25 --start-index 0
-> opsi --json service count "$R" --layer "$L" --filter-eq 'municipality=Ljubljana' --bbox 'minx,miny,maxx,maxy' --crs 'EPSG:xxxx'
+> klopsi --json service preview "$R" --layer "$L" --property id,name --filter-eq 'municipality=Ljubljana' --bbox 'minx,miny,maxx,maxy' --crs 'EPSG:xxxx' --limit 25 --start-index 0
+> klopsi --json service count "$R" --layer "$L" --filter-eq 'municipality=Ljubljana' --bbox 'minx,miny,maxx,maxy' --crs 'EPSG:xxxx'
 > OUT='./exports/<layer>-bounded.csv' # must be a fresh/nonexistent regular path
-> opsi --json service export "$R" --layer "$L" --property id,name --filter-eq 'municipality=Ljubljana' --bbox 'minx,miny,maxx,maxy' --crs 'EPSG:xxxx' --limit 1000 --start-index 0 --output "$OUT"
-> opsi --json provenance show "$OUT"
-> opsi --json provenance verify "$OUT"
+> klopsi --json service export "$R" --layer "$L" --property id,name --filter-eq 'municipality=Ljubljana' --bbox 'minx,miny,maxx,maxy' --crs 'EPSG:xxxx' --limit 1000 --start-index 0 --output "$OUT"
+> klopsi --json provenance show "$OUT"
+> klopsi --json provenance verify "$OUT"
 > ```
 >
 > Use exact layer/properties/CRS returned by capabilities/schema; `--property` accepts comma-separated or repeatable values and preserves requested order. `--filter-eq` is repeatable and XSD-aware after schema validation, so no raw CQL/XML. Bbox is always `minx,miny,maxx,maxy` in the declared advertised CRS; let CLI negotiate WFS 2.0 → 1.1 → 1.0 and map params/axis semantics—don’t construct raw WFS URLs or reorder protocol params yourself.
@@ -166,7 +166,7 @@ Verbatim evaluator response:
 
 Prompt:
 
-> Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `opsi --help`, subcommand help, and public docs. A user says their installed OPSI skills are stale and omit WFS. They also want to diagnose OPSI offline, inspect raw and derived cache state without deleting data, verify configuration paths and values, preview which agent hosts would receive refreshed skills, then perform an explicitly authorized refresh for Codex only. Give the exact commands, symlink-versus-copy choice, non-interactive safeguards, and post-install verification. Do not modify files.
+> Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `klopsi --help`, subcommand help, and public docs. A user says their installed KLOPSI skills are stale and omit WFS. They also want to diagnose KLOPSI offline, inspect raw and derived cache state without deleting data, verify configuration paths and values, preview which agent hosts would receive refreshed skills, then perform an explicitly authorized refresh for Codex only. Give the exact commands, symlink-versus-copy choice, non-interactive safeguards, and post-install verification. Do not modify files.
 
 Rubric (13 points): `doctor --offline`; providers; cache info/list/verify; raw-versus-derived distinction; no prune/clear without authorization; config path/list/get; `agent setup --dry-run`; explicit `--agent codex`; `--yes`; symlink default versus `--copy`; `generate-skills` distinction; refresh/post-install verification.
 
@@ -185,10 +185,10 @@ unchanged):
 
 - Incorrect decision, verbatim: `Keep that default: it is the best choice for a normal local Codex installation and makes future refreshes track the installed repertoire.`
 - Accurate behavior: [`apps/cli/src/agent-setup.ts`](../../../apps/cli/src/agent-setup.ts)
-  generates skills in an `opsi-agent-setup-` temporary directory, invokes the
+  generates skills in an `klopsi-agent-setup-` temporary directory, invokes the
   installer without `--copy` by default, then removes that source directory.
   Default symlinks therefore point at deleted generated skills. An explicitly
-  authorized durable Codex refresh must use `opsi agent setup --agent codex
+  authorized durable Codex refresh must use `klopsi agent setup --agent codex
   --copy --yes --json` and verify the installed copy.
 
 This is a baseline product capability gap, not a Task 1 implementation item:
@@ -202,17 +202,17 @@ Verbatim evaluator response:
 > Use structured output and keep all diagnostics read-only:
 >
 > ```sh
-> opsi doctor --offline --json
-> opsi providers list --offline --json
+> klopsi doctor --offline --json
+> klopsi providers list --offline --json
 >
-> opsi cache info --json
-> opsi cache list --json
-> opsi cache verify --json
+> klopsi cache info --json
+> klopsi cache list --json
+> klopsi cache verify --json
 >
-> opsi config path --json
-> opsi config list --json
-> opsi config get offline --json
-> opsi config get query.rowLimit --json
+> klopsi config path --json
+> klopsi config list --json
+> klopsi config get offline --json
+> klopsi config get query.rowLimit --json
 > ```
 >
 > `doctor --offline` intentionally reports connectivity as `skip`; any `fail` or non-zero exit needs remediation. `cache info` separates totals, while `cache list` labels persistent catalogue/download objects as `raw` and rebuildable query stages as `duckdb-stage` (derived), including their expiry timestamps. `cache verify` checks content without mutation. Do not run `cache prune` or `cache clear` without separate authorization.
@@ -220,36 +220,36 @@ Verbatim evaluator response:
 > Preview all detected/supported hosts without writes:
 >
 > ```sh
-> opsi agent setup --all --yes --dry-run --json
+> klopsi agent setup --all --yes --dry-run --json
 > ```
 >
 > Then restrict the refresh preview to Codex:
 >
 > ```sh
-> opsi agent setup --agent codex --yes --dry-run --json
+> klopsi agent setup --agent codex --yes --dry-run --json
 > ```
 >
-> The installed CLI’s Codex dry-run lists the complete repertoire, including `opsi-services`, the WFS guide. It identifies the target as `codex`.
+> The installed CLI’s Codex dry-run lists the complete repertoire, including `klopsi-services`, the WFS guide. It identifies the target as `codex`.
 >
 > After the user explicitly authorizes the refresh, run:
 >
 > ```sh
-> opsi agent setup --agent codex --yes --json
+> klopsi agent setup --agent codex --yes --json
 > ```
 >
 > This refreshes only Codex, is non-interactive because of both explicit host selection and `--yes`, and uses symlinks by default. Keep that default: it is the best choice for a normal local Codex installation and makes future refreshes track the installed repertoire. Use a physical copy only when the Codex host cannot follow symlinks or must be self-contained:
 >
 > ```sh
-> opsi agent setup --agent codex --copy --yes --json
+> klopsi agent setup --agent codex --copy --yes --json
 > ```
 >
-> Verify the successful structured setup output reports `codex` and includes `opsi-services` among the installed skills; re-run the no-write Codex preview to compare the current planned repertoire:
+> Verify the successful structured setup output reports `codex` and includes `klopsi-services` among the installed skills; re-run the no-write Codex preview to compare the current planned repertoire:
 >
 > ```sh
-> opsi agent setup --agent codex --yes --dry-run --json
+> klopsi agent setup --agent codex --yes --dry-run --json
 > ```
 >
-> `opsi generate-skills --output-dir …` is different: it writes a portable generated skill tree but does not install or refresh Codex, so it is not needed for this refresh.
+> `klopsi generate-skills --output-dir …` is different: it writes a portable generated skill tree but does not install or refresh Codex, so it is not needed for this refresh.
 
 ## Final comparison
 
@@ -270,7 +270,7 @@ intentionally absent rather than empty.
 
 The same three prompts were rerun with the Task 7 replacement instruction:
 
-> Read skills/opsi/SKILL.md, skills/opsi-shared/SKILL.md, and every domain skill that the orchestrator routes for this request before answering.
+> Read skills/klopsi/SKILL.md, skills/klopsi-shared/SKILL.md, and every domain skill that the orchestrator routes for this request before answering.
 
 The evaluators were fresh, read-only agents. Scores below are factual checks
 against the original rubrics, not keyword matches.
@@ -278,8 +278,8 @@ against the original rubrics, not keyword matches.
 ### Scenario 1: Acquisition and analysis — Improved
 
 Evaluator: `/root/task_7_improved_evals/evaluate_acquisition` (completed,
-read-only). It read `opsi`, `opsi-shared`, `opsi-catalogue`, `opsi-resources`,
-`opsi-download`, `opsi-validation`, `opsi-analysis`, and `opsi-provenance`.
+read-only). It read `klopsi`, `klopsi-shared`, `klopsi-catalogue`, `klopsi-resources`,
+`klopsi-download`, `klopsi-validation`, `klopsi-analysis`, and `klopsi-provenance`.
 
 Score: **13/13**. The response preserves the exact dataset/resource handoff,
 uses a bounded search and preview, validates before download and locally after
@@ -295,37 +295,37 @@ Verbatim evaluator response:
 > Use the Slovenian traffic-infrastructure dataset “Seznam parkirišč v Občini Trbovlje”:
 >
 > - Dataset: `7627d311-f8a2-43cd-abe6-ca63b7c9d8ba`
-> - Usable CSV resource: `opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7`
+> - Usable CSV resource: `klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7`
 >
 > Run this from an existing empty directory such as `./traffic-run`:
 >
 > ```sh
-> opsi --json --fields id,title search "parkirišča" --limit 50
-> opsi --json dataset show 7627d311-f8a2-43cd-abe6-ca63b7c9d8ba
-> opsi --json dataset resources 7627d311-f8a2-43cd-abe6-ca63b7c9d8ba
-> opsi --json resource show f233bc56-b13e-4e15-b257-c65b719732c7
-> opsi --json resource headers f233bc56-b13e-4e15-b257-c65b719732c7
-> opsi --json resource inspect opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
-> opsi --json resource preview opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 --limit 5
-> opsi --json validate opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
+> klopsi --json --fields id,title search "parkirišča" --limit 50
+> klopsi --json dataset show 7627d311-f8a2-43cd-abe6-ca63b7c9d8ba
+> klopsi --json dataset resources 7627d311-f8a2-43cd-abe6-ca63b7c9d8ba
+> klopsi --json resource show f233bc56-b13e-4e15-b257-c65b719732c7
+> klopsi --json resource headers f233bc56-b13e-4e15-b257-c65b719732c7
+> klopsi --json resource inspect klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
+> klopsi --json resource preview klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 --limit 5
+> klopsi --json validate klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
 > ```
 >
 > Download with explicit network bounds. Read the downloaded artifact path from the JSON `data` response and use it as `$INPUT`.
 >
 > ```sh
-> opsi --json --max-download-bytes 67108864 --http-timeout-ms 30000 \
->   download opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 \
+> klopsi --json --max-download-bytes 67108864 --http-timeout-ms 30000 \
+>   download klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 \
 >   --output ./traffic-run
 > ```
 >
 > After acquisition, operate locally and offline:
 >
 > ```sh
-> opsi --offline --json resource inspect "$INPUT"
-> opsi --offline --json resource preview "$INPUT" --limit 5
-> opsi --offline --json validate "$INPUT"
+> klopsi --offline --json resource inspect "$INPUT"
+> klopsi --offline --json resource preview "$INPUT" --limit 5
+> klopsi --offline --json validate "$INPUT"
 >
-> opsi --offline --json --query-row-limit 10 --query-timeout-ms 5000 \
+> klopsi --offline --json --query-row-limit 10 --query-timeout-ms 5000 \
 >   --duckdb-threads 1 \
 >   query "$INPUT" \
 >   --sql 'SELECT "Plačljivo" AS placljivo,
@@ -338,10 +338,10 @@ Verbatim evaluator response:
 >   --limit 10 \
 >   --output ./traffic-run/parking-summary.json
 >
-> opsi --offline --json provenance show "$INPUT"
-> opsi --offline --json provenance verify "$INPUT"
-> opsi --offline --json provenance show ./traffic-run/parking-summary.json
-> opsi --offline --json provenance verify ./traffic-run/parking-summary.json
+> klopsi --offline --json provenance show "$INPUT"
+> klopsi --offline --json provenance verify "$INPUT"
+> klopsi --offline --json provenance show ./traffic-run/parking-summary.json
+> klopsi --offline --json provenance verify ./traffic-run/parking-summary.json
 > ```
 >
 > The query is read-only, has explicit result/time/thread bounds, and should produce the paid/free parking-site totals. `provenance show` for the summary records the canonical resource, source URL, retrieval digest, and query transformation; `provenance verify` recomputes the SHA-256 digest.
@@ -360,7 +360,7 @@ Verbatim evaluator response:
 ### Scenario 2: WFS access — Improved
 
 Evaluator: `/root/task_7_improved_evals/evaluate_wfs` (completed, read-only).
-It read `opsi`, `opsi-shared`, `opsi-services`, and `opsi-provenance`.
+It read `klopsi`, `klopsi-shared`, `klopsi-services`, and `klopsi-provenance`.
 
 Score: **14/14**. The response keeps the canonical reference, follows the
 inspect/layers/schema sequence, selects repeatable properties, accurately
@@ -372,10 +372,10 @@ verifies the export. Remaining gaps and unsafe suggestions: none.
 
 Verbatim evaluator response:
 
-> Use the exact canonical `opsi:resource:` reference supplied by OPSI; do not invent or alter it. First set only values confirmed by subsequent outputs:
+> Use the exact canonical `klopsi:resource:` reference supplied by KLOPSI; do not invent or alter it. First set only values confirmed by subsequent outputs:
 >
 > ```sh
-> RESOURCE='opsi:resource:REPLACE_WITH_THE_PROVIDED_REFERENCE'
+> RESOURCE='klopsi:resource:REPLACE_WITH_THE_PROVIDED_REFERENCE'
 > LAYER='REPLACE_WITH_A_NAME_RETURNED_BY_SERVICE_LAYERS'
 > PROPERTY_1='REPLACE_WITH_A_FIELD_FROM_SCHEMA'
 > PROPERTY_2='REPLACE_WITH_A_FIELD_FROM_SCHEMA'
@@ -390,9 +390,9 @@ Verbatim evaluator response:
 > Discover the service and select only names returned by it:
 >
 > ```sh
-> opsi --json service inspect "$RESOURCE"
-> opsi --json service layers "$RESOURCE"
-> opsi --json service schema "$RESOURCE" --layer "$LAYER"
+> klopsi --json service inspect "$RESOURCE"
+> klopsi --json service layers "$RESOURCE"
+> klopsi --json service schema "$RESOURCE" --layer "$LAYER"
 > ```
 >
 > Choose properties and the equality filter only from the layer schema. `--filter-eq` is typed lexical equality: values are coerced as boolean, number, or string; it is not an arbitrary CQL or XSD filter. The BBOX must be finite, and `--crs` must name the CRS in which those four BBOX coordinates are expressed—do not assume `EPSG:4326`.
@@ -400,7 +400,7 @@ Verbatim evaluator response:
 > Preview a small first page:
 >
 > ```sh
-> opsi --json service preview "$RESOURCE" \
+> klopsi --json service preview "$RESOURCE" \
 >   --layer "$LAYER" \
 >   --limit 25 \
 >   --start-index 0 \
@@ -414,7 +414,7 @@ Verbatim evaluator response:
 > Count the same selection before exporting:
 >
 > ```sh
-> opsi --json service count "$RESOURCE" \
+> klopsi --json service count "$RESOURCE" \
 >   --layer "$LAYER" \
 >   --filter-eq "$FILTER_FIELD=$FILTER_VALUE" \
 >   --bbox "$BBOX" \
@@ -424,7 +424,7 @@ Verbatim evaluator response:
 > After checking the preview and count, export one explicitly bounded CSV batch:
 >
 > ```sh
-> opsi --json service export "$RESOURCE" \
+> klopsi --json service export "$RESOURCE" \
 >   --layer "$LAYER" \
 >   --output "$OUTPUT" \
 >   --limit "$EXPORT_LIMIT" \
@@ -435,7 +435,7 @@ Verbatim evaluator response:
 >   --bbox "$BBOX" \
 >   --crs "$CRS"
 >
-> opsi provenance verify "$OUTPUT"
+> klopsi provenance verify "$OUTPUT"
 > ```
 >
 > `--start-index` is zero-based. Keep every preview and export finite with `--limit`; count is the full count of the constrained selection. Do not infer paging support from service inspection metadata. If a later page is needed, request it explicitly with a new `--start-index`, the same finite limit, and a different output filename.
@@ -445,13 +445,13 @@ Verbatim evaluator response:
 ### Scenario 3: Local state and agent refresh — Improved
 
 Evaluator: `/root/task_7_improved_evals/evaluate_local_refresh` (PASS,
-read-only). It read `opsi`, `opsi-shared`, `opsi-local-state`, and
-`opsi-diagnostics`.
+read-only). It read `klopsi`, `klopsi-shared`, `klopsi-local-state`, and
+`klopsi-diagnostics`.
 
 Initial score: **11/13**. It correctly used offline doctor, read-only cache and
 configuration commands, an explicit Codex dry run, `--agent codex --yes`, and
 the durable internal-copy behavior (with no unsupported public `--copy` flag).
-It omitted `opsi providers list --offline --json` and its post-install check
+It omitted `klopsi providers list --offline --json` and its post-install check
 incorrectly assumed that structured setup output reports an installed host
 path. The provider omission and unsupported path-based verification each lose
 one rubric point. Unsafe/unsupported suggestion: treating a nonexistent
@@ -466,15 +466,15 @@ Verbatim initial evaluator response:
 > First run the local-only diagnosis:
 >
 > ```sh
-> opsi doctor --offline --json
+> klopsi doctor --offline --json
 > ```
 >
 > Inspect cache state without deleting anything:
 >
 > ```sh
-> opsi cache info --json
-> opsi cache list --json
-> opsi cache verify --json
+> klopsi cache info --json
+> klopsi cache list --json
+> klopsi cache verify --json
 > ```
 >
 > In `cache list` output, distinguish:
@@ -482,42 +482,42 @@ Verbatim initial evaluator response:
 > - `raw`: cached source objects.
 > - `duckdb-stage`: rebuildable derived stages.
 >
-> Do not run `opsi cache prune` or `opsi cache clear`; both delete cache data.
+> Do not run `klopsi cache prune` or `klopsi cache clear`; both delete cache data.
 >
 > Check the validated, non-secret configuration location and values:
 >
 > ```sh
-> opsi config path --json
-> opsi config list --json
+> klopsi config path --json
+> klopsi config list --json
 > ```
 >
 > If you need to confirm an individual key returned by `config list`, use its exact dotted key:
 >
 > ```sh
-> opsi config get '<key-from-config-list>' --json
+> klopsi config get '<key-from-config-list>' --json
 > ```
 >
 > Preview the Codex-only refresh plan and its complete skill repertoire:
 >
 > ```sh
-> opsi agent setup --agent codex --dry-run --json
+> klopsi agent setup --agent codex --dry-run --json
 > ```
 >
-> This is the safe host preview: it explicitly selects only `codex` and reports the planned repertoire, including `opsi-services` for WFS. Do not use `--all`, and do not omit `--agent`; a dry run deliberately does not auto-detect hosts.
+> This is the safe host preview: it explicitly selects only `codex` and reports the planned repertoire, including `klopsi-services` for WFS. Do not use `--all`, and do not omit `--agent`; a dry run deliberately does not auto-detect hosts.
 >
 > With the stated authorization, refresh only Codex non-interactively:
 >
 > ```sh
-> opsi agent setup --agent codex --yes --json
+> klopsi agent setup --agent codex --yes --json
 > ```
 >
-> `--agent codex` prevents installation to other hosts; `--yes` accepts the selected host without an interactive prompt. OPSI installs durable copies of the generated skills, not symlinks—use that default copy-based installation. Do not use `generate-skills` unless you need a separate portable skill tree rather than a Codex installation.
+> `--agent codex` prevents installation to other hosts; `--yes` accepts the selected host without an interactive prompt. KLOPSI installs durable copies of the generated skills, not symlinks—use that default copy-based installation. Do not use `generate-skills` unless you need a separate portable skill tree rather than a Codex installation.
 >
 > Post-install, inspect the JSON result and confirm that it reports:
 >
 > - only the `codex` host;
 > - successful installation;
-> - the installed skill repertoire includes `opsi-services`;
+> - the installed skill repertoire includes `klopsi-services`;
 > - the reported installed host path contains every skill listed in that result.
 
 ## Refactor loop
@@ -528,14 +528,14 @@ and it proposed verification through an installed host path that setup does
 not report. The provider cue was corrected first; the later factual review and
 closure loop corrected the path guidance.
 
-**RED.** Added the focused generated-content assertion for `` `opsi providers
+**RED.** Added the focused generated-content assertion for `` `klopsi providers
 list --offline --json` `` in `apps/cli/test/agent-skills.test.ts`. Running
 `pnpm exec vitest run --project unit apps/cli/test/agent-skills.test.ts` failed
 exactly because the rendered diagnostics skill did not contain that command
 (24 passed, 1 failed).
 
 **GREEN.** Added the smallest renderer-registry instruction in
-`apps/cli/src/agent-skills.ts`: run `opsi providers list --offline --json` to
+`apps/cli/src/agent-skills.ts`: run `klopsi providers list --offline --json` to
 record registered providers without turning diagnosis into a network request.
 Ran `pnpm build`, regenerated the checked-in `skills/` tree with
 `node apps/cli/dist/main.js generate-skills --output-dir skills --json`, and
@@ -543,8 +543,8 @@ confirmed the deterministic skill-index content remains current. The focused
 unit test then passed (25/25).
 
 Fresh re-evaluator: `/root/task_7_improved_evals/reevaluate_local_refresh`
-(PASS, read-only). It read `opsi`, `opsi-shared`, `opsi-local-state`, and
-`opsi-diagnostics`.
+(PASS, read-only). It read `klopsi`, `klopsi-shared`, `klopsi-local-state`, and
+`klopsi-diagnostics`.
 
 Interim local-refresh score: **12/13**. The response adds the missing provider
 listing and its durable-copy explanation is factually current: `agent setup`
@@ -560,23 +560,23 @@ Verbatim fresh evaluator response:
 > Run these offline, read-only checks first:
 >
 > ```sh
-> opsi doctor --offline --json
-> opsi providers list --offline --json
+> klopsi doctor --offline --json
+> klopsi providers list --offline --json
 >
-> opsi cache info --offline --json
-> opsi cache list --offline --json
-> opsi cache verify --offline --json
+> klopsi cache info --offline --json
+> klopsi cache list --offline --json
+> klopsi cache verify --offline --json
 >
-> opsi config path --offline --json
-> opsi config list --offline --json
+> klopsi config path --offline --json
+> klopsi config list --offline --json
 > ```
 >
-> `cache list` distinguishes cached source material as `raw` from rebuildable derived DuckDB stages as `duckdb-stage`. Downloads written to your chosen download destination are separate from the cache. Do not run `opsi cache prune` or `opsi cache clear`: both delete data and are not needed here.
+> `cache list` distinguishes cached source material as `raw` from rebuildable derived DuckDB stages as `duckdb-stage`. Downloads written to your chosen download destination are separate from the cache. Do not run `klopsi cache prune` or `klopsi cache clear`: both delete data and are not needed here.
 >
 > To inspect one configured value, use a dotted key returned by `config list`, for example:
 >
 > ```sh
-> opsi config get query.rowLimit --offline --json
+> klopsi config get query.rowLimit --offline --json
 > ```
 >
 > Secrets are intentionally not persisted or displayed in configuration; provide them through environment variables only.
@@ -584,14 +584,14 @@ Verbatim fresh evaluator response:
 > Preview the exact Codex-only refresh plan:
 >
 > ```sh
-> opsi agent setup --agent codex --dry-run --json
+> klopsi agent setup --agent codex --dry-run --json
 > ```
 >
 > Confirm its JSON includes:
 >
 > - `"agents": ["codex"]`
 > - the complete `skills` repertoire
-> - `opsi-services` (the WFS skill)
+> - `klopsi-services` (the WFS skill)
 > - `"dryRun": true`
 >
 > This dry run deliberately does not detect or probe hosts; with `--agent codex`, it proves that Codex is the only requested target. Do not use `--all`, and do not use an unqualified `--yes`, since either can select more hosts than intended.
@@ -599,23 +599,23 @@ Verbatim fresh evaluator response:
 > With your explicit authorization, perform the non-interactive Codex-only refresh:
 >
 > ```sh
-> opsi agent setup --agent codex --yes --json
+> klopsi agent setup --agent codex --yes --json
 > ```
 >
-> `--agent codex` scopes the installation, and `--yes` prevents a prompt. OPSI uses durable copies, not symlinks: its generated source is temporary and removed after setup, so symlinks would be unsafe. `opsi generate-skills` is not a substitute—it only writes a portable tree and does not install it into Codex.
+> `--agent codex` scopes the installation, and `--yes` prevents a prompt. KLOPSI uses durable copies, not symlinks: its generated source is temporary and removed after setup, so symlinks would be unsafe. `klopsi generate-skills` is not a substitute—it only writes a portable tree and does not install it into Codex.
 >
-> After a successful exit (`0`), confirm the result’s `skills` array includes all eleven skills, particularly `opsi-services`. Then inspect the installed Codex tree:
+> After a successful exit (`0`), confirm the result’s `skills` array includes all eleven skills, particularly `klopsi-services`. Then inspect the installed Codex tree:
 >
 > ```sh
-> opsi_skill_root="${CODEX_HOME:-$HOME/.codex}/skills"
+> klopsi_skill_root="${CODEX_HOME:-$HOME/.codex}/skills"
 >
-> find "$opsi_skill_root" -maxdepth 2 -type f -name SKILL.md -print | sort
-> test -f "$opsi_skill_root/opsi-services/SKILL.md"
-> test ! -L "$opsi_skill_root/opsi-services"
-> test ! -L "$opsi_skill_root/opsi-services/SKILL.md"
+> find "$klopsi_skill_root" -maxdepth 2 -type f -name SKILL.md -print | sort
+> test -f "$klopsi_skill_root/klopsi-services/SKILL.md"
+> test ! -L "$klopsi_skill_root/klopsi-services"
+> test ! -L "$klopsi_skill_root/klopsi-services/SKILL.md"
 > ```
 >
-> The expected repertoire is `opsi`, `opsi-shared`, `opsi-catalogue`, `opsi-resources`, `opsi-download`, `opsi-validation`, `opsi-analysis`, `opsi-services`, `opsi-provenance`, `opsi-local-state`, and `opsi-diagnostics`.
+> The expected repertoire is `klopsi`, `klopsi-shared`, `klopsi-catalogue`, `klopsi-resources`, `klopsi-download`, `klopsi-validation`, `klopsi-analysis`, `klopsi-services`, `klopsi-provenance`, `klopsi-local-state`, and `klopsi-diagnostics`.
 
 ## Provisional comparison (superseded)
 
@@ -652,8 +652,8 @@ from the refresh recipe. The checked-in skills were rebuilt and regenerated;
 the focused unit suite passed 25/25.
 
 Closure evaluator: `/root/task_7_improved_evals/closure_reevaluate_local_refresh`
-(PASS, read-only). It read `opsi`, `opsi-shared`, `opsi-local-state`, and
-`opsi-diagnostics`.
+(PASS, read-only). It read `klopsi`, `klopsi-shared`, `klopsi-local-state`, and
+`klopsi-diagnostics`.
 
 Closure score: **13/13**. It includes all required offline diagnostics and
 local-state checks, explicitly scopes non-interactive setup to Codex, explains
@@ -667,23 +667,23 @@ Verbatim closure evaluator response:
 > Run these offline, non-mutating checks first:
 >
 > ```sh
-> opsi doctor --offline --json
-> opsi providers list --offline --json
+> klopsi doctor --offline --json
+> klopsi providers list --offline --json
 >
-> opsi cache info --offline --json
-> opsi cache list --offline --json
-> opsi cache verify --offline --json
+> klopsi cache info --offline --json
+> klopsi cache list --offline --json
+> klopsi cache verify --offline --json
 >
-> opsi config path --offline --json
-> opsi config list --offline --json
+> klopsi config path --offline --json
+> klopsi config list --offline --json
 > ```
 >
-> `cache list` labels cached source material as `raw` and rebuildable derived DuckDB stages as `duckdb-stage`. Files written by `opsi download` are separate destination files, not cache entries. Do not run `opsi cache prune` or `opsi cache clear`; both delete data and are not needed.
+> `cache list` labels cached source material as `raw` and rebuildable derived DuckDB stages as `duckdb-stage`. Files written by `klopsi download` are separate destination files, not cache entries. Do not run `klopsi cache prune` or `klopsi cache clear`; both delete data and are not needed.
 >
 > To inspect a specific persisted configuration value, use a dotted key returned by `config list`, for example:
 >
 > ```sh
-> opsi config get query.rowLimit --offline --json
+> klopsi config get query.rowLimit --offline --json
 > ```
 >
 > Secret-like values are intentionally neither persisted nor displayed; provide credentials only through environment variables.
@@ -691,33 +691,33 @@ Verbatim closure evaluator response:
 > Preview the exact Codex-only refresh:
 >
 > ```sh
-> opsi agent setup --agent codex --dry-run --json
+> klopsi agent setup --agent codex --dry-run --json
 > ```
 >
-> Confirm the JSON identifies only `codex`, has `dryRun: true`, and lists the complete repertoire including `opsi-services`—the WFS skill. The dry run deliberately does not auto-detect or probe hosts; explicit `--agent codex` proves the only requested target. Do not use `--all` or an unqualified `--yes`.
+> Confirm the JSON identifies only `codex`, has `dryRun: true`, and lists the complete repertoire including `klopsi-services`—the WFS skill. The dry run deliberately does not auto-detect or probe hosts; explicit `--agent codex` proves the only requested target. Do not use `--all` or an unqualified `--yes`.
 >
 > With the stated authorization, this is the non-interactive Codex-only refresh command:
 >
 > ```sh
-> opsi agent setup --agent codex --yes --json
+> klopsi agent setup --agent codex --yes --json
 > ```
 >
-> `--agent codex` scopes the install to Codex, and `--yes` prevents a prompt. OPSI installs durable copies, not symlinks: generated source files are temporary, so symlinks would be unsafe. There is no public `--copy` choice to add. `opsi generate-skills` only creates a portable skill tree; it does not refresh Codex.
+> `--agent codex` scopes the install to Codex, and `--yes` prevents a prompt. KLOPSI installs durable copies, not symlinks: generated source files are temporary, so symlinks would be unsafe. There is no public `--copy` choice to add. `klopsi generate-skills` only creates a portable skill tree; it does not refresh Codex.
 >
-> After exit code `0`, verify the structured setup output reports `codex` and includes all eleven skills, especially `opsi-services`:
+> After exit code `0`, verify the structured setup output reports `codex` and includes all eleven skills, especially `klopsi-services`:
 >
 > ```text
-> opsi
-> opsi-shared
-> opsi-catalogue
-> opsi-resources
-> opsi-download
-> opsi-validation
-> opsi-analysis
-> opsi-services
-> opsi-provenance
-> opsi-local-state
-> opsi-diagnostics
+> klopsi
+> klopsi-shared
+> klopsi-catalogue
+> klopsi-resources
+> klopsi-download
+> klopsi-validation
+> klopsi-analysis
+> klopsi-services
+> klopsi-provenance
+> klopsi-local-state
+> klopsi-diagnostics
 > ```
 >
 > If setup exits nonzero—or reports partial success—do not treat the refresh as complete; use its structured error details rather than guessing an install path.

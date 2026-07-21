@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as domain from "../src/index.js";
 import {
   EXIT_CODES,
-  OpsiError,
+  KlopsiError,
   datasetId,
   datasetReference,
   localFileReference,
@@ -54,20 +54,20 @@ describe("canonical references", () => {
   });
 
   it("round-trips a provider dataset reference", () => {
-    const reference = datasetReference(providerId("opsi"), datasetId("abc"));
-    expect(reference).toBe("opsi:dataset:abc");
+    const reference = datasetReference(providerId("klopsi"), datasetId("abc"));
+    expect(reference).toBe("klopsi:dataset:abc");
     expect(parseCanonicalReference(reference)).toEqual({
-      providerId: "opsi",
+      providerId: "klopsi",
       kind: "dataset",
       id: "abc",
     });
   });
 
   it("round-trips a provider resource reference", () => {
-    const reference = resourceReference(providerId("opsi"), resourceId("resource-1"));
-    expect(reference).toBe("opsi:resource:resource-1");
+    const reference = resourceReference(providerId("klopsi"), resourceId("resource-1"));
+    expect(reference).toBe("klopsi:resource:resource-1");
     expect(parseCanonicalReference(reference)).toEqual({
-      providerId: "opsi",
+      providerId: "klopsi",
       kind: "resource",
       id: "resource-1",
     });
@@ -83,7 +83,7 @@ describe("canonical references", () => {
     });
   });
 
-  it.each(["", "opsi:dataset:", "opsi:unknown:abc", "local:dataset:abc"])(
+  it.each(["", "klopsi:dataset:", "klopsi:unknown:abc", "local:dataset:abc"])(
     "rejects malformed canonical reference %j",
     (reference) => {
       expect(() => parseCanonicalReference(reference)).toThrowError(
@@ -112,7 +112,7 @@ it("exposes the stable provenance schema version", () => {
 });
 
 it("serializes a stable typed error without its cause", () => {
-  const error = new OpsiError({
+  const error = new KlopsiError({
     code: "RESOURCE_NOT_FOUND",
     message: "Resource missing",
     exitCode: 3,
@@ -126,14 +126,14 @@ it("serializes a stable typed error without its cause", () => {
 });
 
 it("serializes safe recovery arguments without a shell command", () => {
-  const error = new OpsiError({
+  const error = new KlopsiError({
     code: "ARCHIVE_ENTRY_REQUIRED",
     message: "Select an archive entry.",
     exitCode: EXIT_CODES.INVALID_INPUT,
     nextActions: [
       {
         action: "resource.preview",
-        argv: ["resource", "preview", "opsi:resource:r", "--entry", "data.csv", "--json"],
+        argv: ["resource", "preview", "klopsi:resource:r", "--entry", "data.csv", "--json"],
       },
     ],
   });

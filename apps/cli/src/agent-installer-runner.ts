@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process";
 import { createRequire } from "node:module";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import type {
   AgentInstallerRunner,
   AgentInstallerRunRequest,
@@ -21,12 +21,12 @@ export interface SkillsAgentInstallerRunnerOptions {
   readonly spawnProcess?: SpawnAgentInstallerProcess;
 }
 
-function unavailable(cause: unknown): OpsiError {
-  return new OpsiError({
+function unavailable(cause: unknown): KlopsiError {
+  return new KlopsiError({
     code: "AGENT_INSTALLER_UNAVAILABLE",
     message: "The pinned Agent Skills installer is unavailable.",
     exitCode: EXIT_CODES.UNSUPPORTED,
-    suggestion: "Reinstall opsi so its skills runtime dependency is present, then try again.",
+    suggestion: "Reinstall klopsi so its skills runtime dependency is present, then try again.",
     cause,
   });
 }

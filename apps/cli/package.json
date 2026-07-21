@@ -1,12 +1,12 @@
 {
-  "name": "opsi",
+  "name": "klopsi",
   "version": "0.0.1",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
   },
   "bin": {
-    "opsi": "dist/main.js"
+    "klopsi": "dist/main.js"
   },
   "exports": {
     ".": "./dist/main.js",
@@ -35,7 +35,7 @@
   ],
   "scripts": {
     "build": "tsup --config tsup.config.ts && node scripts/copy-public-declarations.mjs",
-    "typecheck": "pnpm --filter @opsi/domain --filter @opsi/config --filter @opsi/output --filter @opsi/storage --filter @opsi/data-engine --filter @opsi/provider-local --filter @opsi/core --filter @opsi/provider-opsi --filter @opsi/catalogue-snapshot build && tsc -p tsconfig.json --noEmit"
+    "typecheck": "pnpm --filter @klopsi/domain --filter @klopsi/config --filter @klopsi/output --filter @klopsi/storage --filter @klopsi/data-engine --filter @klopsi/provider-local --filter @klopsi/core --filter @klopsi/provider-klopsi --filter @klopsi/catalogue-snapshot build && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "commander": "15.0.0",
@@ -50,7 +50,7 @@
     "@duckdb/node-api": "1.5.4-r.1"
   },
   "devDependencies": {
-    "@opsi/catalogue-snapshot": "file:../../packages/catalogue-snapshot",
+    "@klopsi/catalogue-snapshot": "file:../../packages/catalogue-snapshot",
     "fflate": "0.8.2"
   }
 }

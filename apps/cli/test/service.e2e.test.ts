@@ -11,7 +11,7 @@ let baseUrl: string;
 let server: ReturnType<typeof createServer>;
 
 beforeAll(async () => {
-  home = await mkdtemp(join(tmpdir(), "opsi-service-e2e-"));
+  home = await mkdtemp(join(tmpdir(), "klopsi-service-e2e-"));
   server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
     if (url.pathname === "/resource_show") {
@@ -83,10 +83,10 @@ async function cli(args: readonly string[]) {
     env: {
       ...process.env,
       HOME: home,
-      OPSI_BASE_URL: baseUrl,
-      OPSI_CACHE_DIR: join(home, "cache"),
-      OPSI_OFFLINE: "0",
-      OPSI_REQUEST_INTERVAL_MS: "0",
+      KLOPSI_BASE_URL: baseUrl,
+      KLOPSI_CACHE_DIR: join(home, "cache"),
+      KLOPSI_OFFLINE: "0",
+      KLOPSI_REQUEST_INTERVAL_MS: "0",
       NO_COLOR: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -110,18 +110,18 @@ async function cli(args: readonly string[]) {
 const network = ["--allow-insecure-http", "--allow-private-network", "--json"] as const;
 
 describe("service CLI", () => {
-  it("lists layers, validates schema, previews, and counts through OPSI", async () => {
+  it("lists layers, validates schema, previews, and counts through KLOPSI", async () => {
     await expect(
-      cli(["service", "layers", "opsi:resource:wfs", ...network]),
+      cli(["service", "layers", "klopsi:resource:wfs", ...network]),
     ).resolves.toMatchObject({ exitCode: 0, json: { data: [{ name: "si:roads" }] } });
     await expect(
-      cli(["service", "schema", "opsi:resource:wfs", "--layer", "si:roads", ...network]),
+      cli(["service", "schema", "klopsi:resource:wfs", "--layer", "si:roads", ...network]),
     ).resolves.toMatchObject({ exitCode: 0, json: { data: [{ name: "id" }, { name: "name" }] } });
     await expect(
       cli([
         "service",
         "preview",
-        "opsi:resource:wfs",
+        "klopsi:resource:wfs",
         "--layer",
         "si:roads",
         "--property",
@@ -135,14 +135,14 @@ describe("service CLI", () => {
       json: { data: [{ id: "1", name: "Ljubljana" }], meta: { truncated: true } },
     });
     await expect(
-      cli(["service", "count", "opsi:resource:wfs", "--layer", "si:roads", ...network]),
+      cli(["service", "count", "klopsi:resource:wfs", "--layer", "si:roads", ...network]),
     ).resolves.toMatchObject({ exitCode: 0, json: { data: { count: 2 } } });
     const output = join(home, "roads.csv");
     await expect(
       cli([
         "service",
         "export",
-        "opsi:resource:wfs",
+        "klopsi:resource:wfs",
         "--layer",
         "si:roads",
         "--output",

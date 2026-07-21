@@ -18,7 +18,7 @@ const json = (response: ServerResponse, value: unknown) => {
   response.end(JSON.stringify(value));
 };
 beforeAll(async () => {
-  home = await mkdtemp(join(tmpdir(), "opsi-download-e2e-"));
+  home = await mkdtemp(join(tmpdir(), "klopsi-download-e2e-"));
   files = createServer((request, response) => {
     requests++;
     if (request.url === "/traffic.csv") {
@@ -165,11 +165,11 @@ async function cli(
     env: {
       ...process.env,
       HOME: home,
-      OPSI_CACHE_DIR: join(home, "cache"),
-      OPSI_DOWNLOAD_DIR: join(home, "downloads"),
-      OPSI_BASE_URL: apiUrl,
-      OPSI_OFFLINE: "0",
-      OPSI_REQUEST_INTERVAL_MS: "0",
+      KLOPSI_CACHE_DIR: join(home, "cache"),
+      KLOPSI_DOWNLOAD_DIR: join(home, "downloads"),
+      KLOPSI_BASE_URL: apiUrl,
+      KLOPSI_OFFLINE: "0",
+      KLOPSI_REQUEST_INTERVAL_MS: "0",
       NO_COLOR: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -334,7 +334,7 @@ describe("download, cache, offline, and provenance CLI", () => {
     expect(await readFile(join(directory, "second.txt"), "utf8")).toBe("second");
   });
 
-  it("runs the controlled discovery-to-provenance workflow without live OPSI", async () => {
+  it("runs the controlled discovery-to-provenance workflow without live KLOPSI", async () => {
     const directory = join(home, "controlled-workflow");
     await import("node:fs/promises").then(({ mkdir }) => mkdir(directory));
     await expect(cli(["search", "promet", "--json", "--limit", "1"])).resolves.toMatchObject({
@@ -346,7 +346,7 @@ describe("download, cache, offline, and provenance CLI", () => {
     await expect(
       cli([
         "download",
-        "opsi:resource:resource-traffic-csv-001",
+        "klopsi:resource:resource-traffic-csv-001",
         "--output",
         directory,
         "--allow-insecure-http",

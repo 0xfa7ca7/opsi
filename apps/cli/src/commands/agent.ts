@@ -1,4 +1,4 @@
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import type { Command } from "commander";
 import { homedir } from "node:os";
 import { setupAgents, type AgentInstallerRunner } from "../agent-setup.js";
@@ -13,8 +13,8 @@ interface AgentSetupCommandOptions {
   readonly dryRun?: boolean;
 }
 
-function noninteractiveSelectionRequired(): OpsiError {
-  return new OpsiError({
+function noninteractiveSelectionRequired(): KlopsiError {
+  return new KlopsiError({
     code: "AGENT_SETUP_NONINTERACTIVE_REQUIRED",
     message: "Non-interactive agent setup requires --yes, --agent, or --all.",
     exitCode: EXIT_CODES.INVALID_INPUT,
@@ -55,7 +55,7 @@ export function registerAgentCommand(
         ? {}
         : {
             confirmDetectedAgents: (agents: readonly string[]) =>
-              confirm(`Install OPSI skills for detected agents: ${agents.join(", ")}?`),
+              confirm(`Install KLOPSI skills for detected agents: ${agents.join(", ")}?`),
           }),
     });
     context.renderer?.write(result);

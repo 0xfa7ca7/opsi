@@ -45,7 +45,7 @@ async function compileSdkConsumer(directory: string): Promise<void> {
   await writeFile(
     join(directory, "consumer.ts"),
     `import {
-  OpsiClient,
+  KlopsiClient,
   ProviderRegistry,
   type CanonicalReference,
   type Dataset,
@@ -65,12 +65,12 @@ async function compileSdkConsumer(directory: string): Promise<void> {
   type SearchQuery,
   type ValidationIssue,
   type ValidationResult,
-} from 'opsi/sdk';
+} from 'klopsi/sdk';
 
-const providerId = 'opsi' as ProviderId;
+const providerId = 'klopsi' as ProviderId;
 const datasetId = 'traffic' as DatasetId;
 const resourceId = 'traffic-csv' as ResourceId;
-const reference = 'opsi:resource:traffic-csv' as CanonicalReference;
+const reference = 'klopsi:resource:traffic-csv' as CanonicalReference;
 const nextAction: NextAction = { action: 'resource.preview', argv: ['resource', 'preview', reference] };
 const access: ResourceAccessDescriptor = {
   input: reference,
@@ -145,7 +145,7 @@ const parsed: ParsedCanonicalReference = { providerId, kind: 'resource', id: res
 if (parsed.kind === 'resource') parsed.id.toUpperCase();
 
 const registry = new ProviderRegistry([]);
-const client: OpsiClient = new OpsiClient({
+const client: KlopsiClient = new KlopsiClient({
   registry,
   providerId,
   duckdbCache,
@@ -196,8 +196,8 @@ void [access.kind, dataset.providerMetadata?.raw.source, validation.schema?.fiel
 }
 
 beforeAll(async () => {
-  root = await mkdtemp(join(tmpdir(), "opsi-pack-"));
-  packDestination = process.env.OPSI_PACK_DESTINATION ?? root;
+  root = await mkdtemp(join(tmpdir(), "klopsi-pack-"));
+  packDestination = process.env.KLOPSI_PACK_DESTINATION ?? root;
   await mkdir(packDestination, { recursive: true });
   const packed = await execute("npm", ["pack", "--json", "--pack-destination", packDestination], {
     cwd: resolve(process.cwd(), "apps/cli"),
@@ -209,7 +209,7 @@ beforeAll(async () => {
   }>;
   tarball = join(packDestination, result[0]?.filename ?? "missing.tgz");
   files = result[0]?.files ?? [];
-  if (process.env.OPSI_PACK_DESTINATION !== undefined)
+  if (process.env.KLOPSI_PACK_DESTINATION !== undefined)
     await writeFile(join(packDestination, "pack.json"), `${JSON.stringify(result, null, 2)}\n`);
 });
 
@@ -242,7 +242,7 @@ describe("canonical npm tarball", () => {
 
     const metadata = JSON.parse(await tarText("package.json")) as Record<string, unknown>;
     expect(metadata).toMatchObject({
-      name: "opsi",
+      name: "klopsi",
       license: "MIT",
       engines: { node: ">=24.0.0" },
       repository: { type: "git" },
@@ -254,11 +254,11 @@ describe("canonical npm tarball", () => {
       const unpacked = await tarText(file.path);
       expect(unpacked).not.toMatch(/(?:\/Users\/|[A-Z]:\\|workspace:)/u);
       if (file.path.endsWith(".js")) {
-        expect(unpacked).not.toMatch(/(?:from\s*|import\s*\()\s*["']@opsi\//u);
-        expect(unpacked).not.toMatch(/import\.meta\.resolve\(\s*["']@opsi\//u);
+        expect(unpacked).not.toMatch(/(?:from\s*|import\s*\()\s*["']@klopsi\//u);
+        expect(unpacked).not.toMatch(/import\.meta\.resolve\(\s*["']@klopsi\//u);
       }
       if (file.path.endsWith(".d.ts"))
-        expect(unpacked).not.toMatch(/(?:@opsi\/|@duckdb\/node-api|from\s+["']zod["'])/u);
+        expect(unpacked).not.toMatch(/(?:@klopsi\/|@duckdb\/node-api|from\s+["']zod["'])/u);
       expect(unpacked).not.toMatch(/(?:api[_-]?key|token|secret)\s*[=:]\s*['"][^'"]+/iu);
     }
     const sdkDeclaration = await tarText("dist/sdk.d.ts");
@@ -279,7 +279,7 @@ describe("canonical npm tarball", () => {
       root,
       "node_modules",
       ".bin",
-      process.platform === "win32" ? "opsi.cmd" : "opsi",
+      process.platform === "win32" ? "klopsi.cmd" : "klopsi",
     );
     if (process.platform !== "win32") await chmod(binary, 0o755);
     expect((await stat(binary)).isFile()).toBe(true);
@@ -294,11 +294,11 @@ describe("canonical npm tarball", () => {
       { cwd: root },
     );
     expect(JSON.parse(generated.stdout)).toMatchObject({ data: { count: 11 } });
-    expect(await readFile(join(generatedSkills, "opsi", "SKILL.md"), "utf8")).toContain(
-      "name: opsi",
+    expect(await readFile(join(generatedSkills, "klopsi", "SKILL.md"), "utf8")).toContain(
+      "name: klopsi",
     );
-    expect(await readFile(join(generatedSkills, "opsi-analysis", "SKILL.md"), "utf8")).toContain(
-      "opsi query",
+    expect(await readFile(join(generatedSkills, "klopsi-analysis", "SKILL.md"), "utf8")).toContain(
+      "klopsi query",
     );
     const installer = await execute(
       process.execPath,
@@ -325,7 +325,7 @@ describe("canonical npm tarball", () => {
     const queryEnvironment = {
       ...process.env,
       HOME: root,
-      OPSI_CACHE_DIR: join(root, "cache"),
+      KLOPSI_CACHE_DIR: join(root, "cache"),
     };
     const queryArguments = ["query", csv, "--sql", "select 42 as answer", "--json"];
     const firstQuery = JSON.parse(
@@ -357,7 +357,7 @@ describe("canonical npm tarball", () => {
       [
         "--input-type=module",
         "-e",
-        "import('opsi/sdk').then(m=>{if(!m.OpsiClient||!m.ProviderRegistry)process.exit(1)})",
+        "import('klopsi/sdk').then(m=>{if(!m.KlopsiClient||!m.ProviderRegistry)process.exit(1)})",
       ],
       { cwd: root },
     );
@@ -366,7 +366,7 @@ describe("canonical npm tarball", () => {
   });
 
   it("reports a typed failure when optional DuckDB dependencies are omitted", async () => {
-    const omitted = await mkdtemp(join(tmpdir(), "opsi-pack-omitted-"));
+    const omitted = await mkdtemp(join(tmpdir(), "klopsi-pack-omitted-"));
     omittedRoot = omitted;
     await execute("npm", ["init", "-y"], { cwd: omitted });
     await execute("npm", ["install", "--omit=optional", tarball, "typescript@6.0.3"], {
@@ -377,7 +377,7 @@ describe("canonical npm tarball", () => {
       omitted,
       "node_modules",
       ".bin",
-      process.platform === "win32" ? "opsi.cmd" : "opsi",
+      process.platform === "win32" ? "klopsi.cmd" : "klopsi",
     );
     let nativeFailure: (Error & { code?: number; stdout?: string }) | undefined;
     try {

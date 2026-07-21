@@ -20,7 +20,7 @@ const requests: Array<{ readonly method: string; readonly path: string; readonly
   [];
 
 async function jsonFixture(name: string): Promise<unknown> {
-  const path = resolve(process.cwd(), `packages/testing/fixtures/opsi/${name}.json`);
+  const path = resolve(process.cwd(), `packages/testing/fixtures/klopsi/${name}.json`);
   return JSON.parse(await readFile(path, "utf8")) as unknown;
 }
 
@@ -38,7 +38,7 @@ function respond(response: ServerResponse, status: number, value: unknown): void
 }
 
 beforeAll(async () => {
-  temporaryHome = await mkdtemp(join(tmpdir(), "opsi-cli-e2e-"));
+  temporaryHome = await mkdtemp(join(tmpdir(), "klopsi-cli-e2e-"));
   fixtureServer = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
     const requestBody = await body(request);
@@ -87,11 +87,11 @@ async function cli(argv: readonly string[]): Promise<CliResult> {
       env: {
         ...process.env,
         HOME: temporaryHome,
-        OPSI_CACHE_DIR: join(temporaryHome, "cache"),
-        OPSI_DOWNLOAD_DIR: join(temporaryHome, "downloads"),
-        OPSI_BASE_URL: baseUrl,
-        OPSI_OFFLINE: "0",
-        OPSI_REQUEST_INTERVAL_MS: "0",
+        KLOPSI_CACHE_DIR: join(temporaryHome, "cache"),
+        KLOPSI_DOWNLOAD_DIR: join(temporaryHome, "downloads"),
+        KLOPSI_BASE_URL: baseUrl,
+        KLOPSI_OFFLINE: "0",
+        KLOPSI_REQUEST_INTERVAL_MS: "0",
         NO_COLOR: "1",
       },
       stdio: ["ignore", "pipe", "pipe"],
@@ -150,11 +150,11 @@ describe("catalogue CLI", () => {
     expect(projected).toMatchObject({
       exitCode: 0,
       stderr: "",
-      stdout: '{"name":"prometni-podatki","providerId":"opsi"}\n',
+      stdout: '{"name":"prometni-podatki","providerId":"klopsi"}\n',
     });
   });
 
-  it("searches OPSI through the controlled fixture server", async () => {
+  it("searches KLOPSI through the controlled fixture server", async () => {
     const result = await cli(["search", "promet", "--json", "--limit", "2"]);
 
     expect(result).toMatchObject({
@@ -165,8 +165,8 @@ describe("catalogue CLI", () => {
         data: [
           {
             id: "dataset-abc",
-            providerId: "opsi",
-            reference: "opsi:dataset:dataset-abc",
+            providerId: "klopsi",
+            reference: "klopsi:dataset:dataset-abc",
           },
         ],
       },
@@ -197,22 +197,22 @@ describe("catalogue CLI", () => {
   it("shows datasets, embedded resources, resources, and providers", async () => {
     await expect(cli(["dataset", "show", "dataset-abc", "--json"])).resolves.toMatchObject({
       exitCode: 0,
-      json: { data: { reference: "opsi:dataset:dataset-abc" } },
+      json: { data: { reference: "klopsi:dataset:dataset-abc" } },
     });
     await expect(cli(["dataset", "resources", "dataset-abc", "--json"])).resolves.toMatchObject({
       exitCode: 0,
-      json: { data: [{ reference: "opsi:resource:resource-1" }] },
+      json: { data: [{ reference: "klopsi:resource:resource-1" }] },
     });
     await expect(cli(["resource", "show", "resource-1", "--json"])).resolves.toMatchObject({
       exitCode: 0,
-      json: { data: { reference: "opsi:resource:resource-1" } },
+      json: { data: { reference: "klopsi:resource:resource-1" } },
     });
     await expect(cli(["providers", "list", "--json"])).resolves.toMatchObject({
       exitCode: 0,
       json: {
         data: [
+          { id: "klopsi", name: "KLOPSI" },
           { id: "local", name: "Local files", capabilities: ["resolve-resource"] },
-          { id: "opsi", name: "OPSI" },
         ],
       },
     });

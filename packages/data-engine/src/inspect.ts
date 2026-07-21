@@ -1,5 +1,5 @@
 import { stat } from "node:fs/promises";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { readDelimited, recordsToRows } from "./csv.js";
 import { detectFormat } from "./detect.js";
 import { previewWithDuckDb } from "./duckdb-import.js";
@@ -28,7 +28,7 @@ function supported(format: string): format is SupportedInputFormat {
 
 function unsupported(format: string): never {
   const archive = format === "zip";
-  throw new OpsiError({
+  throw new KlopsiError({
     code: archive ? "DOWNLOAD_ONLY_FORMAT" : "UNSUPPORTED_FORMAT",
     message: archive
       ? "ZIP archives are download-only and cannot be previewed directly."
@@ -109,7 +109,7 @@ export class DataEngine {
   async preview(input: DataInput, options: PreviewOptions = {}): Promise<DataPreview> {
     const limit = options.limit ?? this.defaultPreviewLimit;
     if (!Number.isSafeInteger(limit) || limit <= 0)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "INVALID_PREVIEW_LIMIT",
         message: "Preview row limit must be a positive integer.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -126,8 +126,8 @@ export class DataEngine {
           ...(detection.encoding === undefined ? {} : { encoding: detection.encoding }),
         });
       } catch (error) {
-        if (error instanceof OpsiError) throw error;
-        throw new OpsiError({
+        if (error instanceof KlopsiError) throw error;
+        throw new KlopsiError({
           code: "INVALID_TABULAR_DATA",
           message: "The delimited file cannot be parsed.",
           exitCode: EXIT_CODES.INTEGRITY_FAILURE,

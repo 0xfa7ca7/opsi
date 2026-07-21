@@ -6,9 +6,9 @@ import {
   type Dataset,
   type Resource,
   type SearchPage,
-} from "@opsi/domain";
+} from "@klopsi/domain";
 import { describe, expect, it, vi } from "vitest";
-import { OpsiClient, ProviderRegistry } from "../src/index.js";
+import { KlopsiClient, ProviderRegistry } from "../src/index.js";
 
 function provider(id = "fixture"): DataProvider {
   const provider = providerId(id);
@@ -40,7 +40,7 @@ describe("catalogue client", () => {
   it("routes catalogue methods through the selected provider", async () => {
     const fixture = provider();
     const registry = new ProviderRegistry([fixture]);
-    const client = new OpsiClient({ registry, providerId: "fixture" });
+    const client = new KlopsiClient({ registry, providerId: "fixture" });
 
     await expect(client.search({ text: "promet" })).resolves.toMatchObject({ total: 1 });
     await expect(client.datasets.get(datasetId("dataset-1"))).resolves.toMatchObject({

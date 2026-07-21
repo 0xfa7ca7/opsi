@@ -7,15 +7,15 @@
     "types": ["node"],
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
     "paths": {
-      "@opsi/catalogue-snapshot": ["../../packages/catalogue-snapshot/src/index.ts"],
-      "@opsi/config": ["../../packages/config/src/index.ts"],
-      "@opsi/core": ["../../packages/core/src/index.ts"],
-      "@opsi/data-engine": ["../../packages/data-engine/src/index.ts"],
-      "@opsi/domain": ["../../packages/domain/src/index.ts"],
-      "@opsi/output": ["../../packages/output/src/index.ts"],
-      "@opsi/provider-local": ["../../packages/providers/local/src/index.ts"],
-      "@opsi/provider-opsi": ["../../packages/providers/opsi/src/index.ts"],
-      "@opsi/storage": ["../../packages/storage/src/index.ts"]
+      "@klopsi/catalogue-snapshot": ["../../packages/catalogue-snapshot/src/index.ts"],
+      "@klopsi/config": ["../../packages/config/src/index.ts"],
+      "@klopsi/core": ["../../packages/core/src/index.ts"],
+      "@klopsi/data-engine": ["../../packages/data-engine/src/index.ts"],
+      "@klopsi/domain": ["../../packages/domain/src/index.ts"],
+      "@klopsi/output": ["../../packages/output/src/index.ts"],
+      "@klopsi/provider-local": ["../../packages/providers/local/src/index.ts"],
+      "@klopsi/provider-klopsi": ["../../packages/providers/klopsi/src/index.ts"],
+      "@klopsi/storage": ["../../packages/storage/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts", "tsup.config.ts"]

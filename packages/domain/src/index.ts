@@ -1,5 +1,5 @@
-export { EXIT_CODES, OpsiError } from "./errors.js";
-export type { ExitCode, FailureExitCode, OpsiErrorOptions } from "./errors.js";
+export { EXIT_CODES, KlopsiError } from "./errors.js";
+export type { ExitCode, FailureExitCode, KlopsiErrorOptions } from "./errors.js";
 export { duckDbMemoryLimitBytes, MAX_DUCKDB_MEMORY_BYTES } from "./duckdb-memory.js";
 export {
   datasetId,

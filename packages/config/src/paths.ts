@@ -25,15 +25,15 @@ function relocateHome(path: string, home: string | undefined): string {
 }
 
 export function resolveConfigPaths(options: ResolveConfigPathsOptions = {}): ConfigPaths {
-  const roots = envPaths("opsi", { suffix: "" });
+  const roots = envPaths("klopsi", { suffix: "" });
   const cwd = options.cwd ?? process.cwd();
   const configDir = relocateHome(roots.config, options.home);
   const cacheDir = relocateHome(roots.cache, options.home);
   const dataDir = relocateHome(roots.data, options.home);
 
   return {
-    projectFile: join(cwd, "opsi.config.json"),
-    userFile: join(configDir, "opsi.config.json"),
+    projectFile: join(cwd, "klopsi.config.json"),
+    userFile: join(configDir, "klopsi.config.json"),
     cacheDir,
     dataDir,
     downloadDir: join(dataDir, "downloads"),

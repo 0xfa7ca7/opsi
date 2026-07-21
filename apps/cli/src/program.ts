@@ -1,16 +1,16 @@
 import { Command } from "commander";
-import { OpsiClient, ProviderRegistry } from "@opsi/core";
-import { OpsiProvider, OpsiTransport, RequestScheduler } from "@opsi/provider-opsi";
-import { LocalProvider } from "@opsi/provider-local";
-import { ContentCache, ProvenanceStore } from "@opsi/storage";
-import type { DerivedArtifactPolicy } from "@opsi/storage";
-import { parseStorageBytes } from "@opsi/config";
+import { KlopsiClient, ProviderRegistry } from "@klopsi/core";
+import { KlopsiProvider, KlopsiTransport, RequestScheduler } from "@klopsi/provider-klopsi";
+import { LocalProvider } from "@klopsi/provider-local";
+import { ContentCache, ProvenanceStore } from "@klopsi/storage";
+import type { DerivedArtifactPolicy } from "@klopsi/storage";
+import { parseStorageBytes } from "@klopsi/config";
 import {
   CatalogueSnapshotClient,
   ContentCacheCatalogueSnapshotStore,
   DEFAULT_CATALOGUE_BASE_URL,
   StrictHttpsReader,
-} from "@opsi/catalogue-snapshot";
+} from "@klopsi/catalogue-snapshot";
 import { registerDatasetCommand } from "./commands/dataset.js";
 import { registerProvidersCommand } from "./commands/providers.js";
 import { registerResourceCommand } from "./commands/resource.js";
@@ -53,14 +53,14 @@ function createClient(
   context: CliContext,
   cache: ContentCache,
   duckdbCache: DerivedArtifactPolicy,
-): OpsiClient {
-  const intervalMs = requestInterval(context.io.env?.OPSI_REQUEST_INTERVAL_MS);
+): KlopsiClient {
+  const intervalMs = requestInterval(context.io.env?.KLOPSI_REQUEST_INTERVAL_MS);
   const configuration = context.configuration;
-  const provider = new OpsiProvider(
-    new OpsiTransport({
-      ...(context.io.env?.OPSI_BASE_URL === undefined
+  const provider = new KlopsiProvider(
+    new KlopsiTransport({
+      ...(context.io.env?.KLOPSI_BASE_URL === undefined
         ? {}
-        : { baseUrl: context.io.env.OPSI_BASE_URL }),
+        : { baseUrl: context.io.env.KLOPSI_BASE_URL }),
       ...(context.configuration?.http.timeoutMs === undefined
         ? {}
         : { timeoutMs: context.configuration.http.timeoutMs }),
@@ -73,7 +73,7 @@ function createClient(
     provider,
     new LocalProvider({ ...(context.io.cwd === undefined ? {} : { cwd: context.io.cwd }) }),
   ]);
-  return new OpsiClient({
+  return new KlopsiClient({
     registry,
     providerId: context.configuration?.provider ?? provider.descriptor.id,
     cache,
@@ -107,7 +107,7 @@ export function createProgram(
 ): Command {
   const program = new Command();
   program
-    .name("opsi")
+    .name("klopsi")
     .description("Discover and work with Slovenian public data")
     .version(context.version)
     .exitOverride()
@@ -120,7 +120,7 @@ export function createProgram(
   addGlobalOptions(program);
   registerCommandManifest(program);
   const duckdbCache = duckdbCachePolicy(context);
-  const cache = new ContentCache(context.configuration?.paths.cacheDir ?? ".opsi-cache", {
+  const cache = new ContentCache(context.configuration?.paths.cacheDir ?? ".klopsi-cache", {
     maxObjectBytes: Math.max(2 * 1024 * 1024 * 1024, duckdbCache.maxBytes),
   });
   const client = createClient(context, cache, duckdbCache);

@@ -1,5 +1,5 @@
-import type { OpsiClient } from "@opsi/core";
-import { EXIT_CODES, OpsiError, type SearchQuery, type SearchSort } from "@opsi/domain";
+import type { KlopsiClient } from "@klopsi/core";
+import { EXIT_CODES, KlopsiError, type SearchQuery, type SearchSort } from "@klopsi/domain";
 import { InvalidArgumentError, type Command } from "commander";
 import type { CliContext } from "../context.js";
 import { manifestCommand } from "../command-manifest.js";
@@ -33,8 +33,8 @@ function searchSort(values: readonly string[] | undefined): readonly SearchSort[
   });
 }
 
-function paginationError(message: string): OpsiError {
-  return new OpsiError({
+function paginationError(message: string): KlopsiError {
+  return new KlopsiError({
     code: "SEARCH_PAGINATION_INVALID",
     message,
     exitCode: EXIT_CODES.PROVIDER_FAILURE,
@@ -42,8 +42,8 @@ function paginationError(message: string): OpsiError {
   });
 }
 
-function resultLimitError(maximum: number): OpsiError {
-  return new OpsiError({
+function resultLimitError(maximum: number): KlopsiError {
+  return new KlopsiError({
     code: "SEARCH_RESULT_LIMIT_EXCEEDED",
     message: `Search --all is limited to ${maximum} results.`,
     exitCode: EXIT_CODES.INVALID_INPUT,
@@ -55,7 +55,7 @@ function resultLimitError(maximum: number): OpsiError {
 export function registerSearchCommand(
   program: Command,
   context: CliContext,
-  client: OpsiClient,
+  client: KlopsiClient,
 ): void {
   manifestCommand(program, "search").action(
     async (text: string | undefined, options: SearchOptions) => {

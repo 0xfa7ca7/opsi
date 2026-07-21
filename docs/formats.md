@@ -10,7 +10,7 @@ Signature evidence wins, then trusted media type, bounded decoded content, decla
 
 Delimited text uses strict streaming parsing, headers, detected encoding/dialect, rectangular rows, and formula warnings. JSON accepts bounded arrays/objects; NDJSON requires independent records. XLSX streams worksheets and requires `--sheet` when ambiguous. Parquet verifies signatures and uses DuckDB without extension installation. XML rows flatten qualified leaf paths and attributes consistently for preview, schema, validation, conversion, and query.
 
-Type inference distinguishes null, boolean, integer, number, date/datetime, and string conservatively; mixed/unsafe values fall back to string. Columns and cell/output bytes are bounded. Empty/malformed inputs return stable invalid/validation errors. Query and conversion staging creates an OPSI-owned `data` table using quoted paths; no user SQL participates in import statements.
+Type inference distinguishes null, boolean, integer, number, date/datetime, and string conservatively; mixed/unsafe values fall back to string. Columns and cell/output bytes are bounded. Empty/malformed inputs return stable invalid/validation errors. Query and conversion staging creates a KLOPSI-owned `data` table using quoted paths; no user SQL participates in import statements.
 
 ## Adding a format
 

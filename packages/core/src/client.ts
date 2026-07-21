@@ -1,26 +1,30 @@
-import type { SearchPage, SearchQuery } from "@opsi/domain";
+import type { SearchPage, SearchQuery } from "@klopsi/domain";
 import { DatasetCatalog, ProviderCatalog, ResourceCatalog } from "./catalog.js";
 import { ProviderRegistry } from "./registry.js";
 import { CacheService } from "./cache.js";
 import { DownloadService, type DownloadServiceOptions } from "./downloads.js";
-import { DerivedArtifactCache, type ContentCache, type DerivedArtifactPolicy } from "@opsi/storage";
+import {
+  DerivedArtifactCache,
+  type ContentCache,
+  type DerivedArtifactPolicy,
+} from "@klopsi/storage";
 import {
   DataEngine,
   type ArchiveLimits,
   type DataEngineOptions,
   type XmlLimits,
-} from "@opsi/data-engine";
+} from "@klopsi/data-engine";
 import { DataService } from "./data.js";
 import { ConversionService } from "./conversions.js";
 import { QueryService } from "./queries.js";
-import { DuckDbQueryRunner } from "@opsi/data-engine";
+import { DuckDbQueryRunner } from "@klopsi/data-engine";
 import { QueryDatabaseCache } from "./query-database-cache.js";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { WfsService } from "./wfs/service.js";
 import { ResourceAccessService } from "./access.js";
 
-export interface OpsiClientOptions {
+export interface KlopsiClientOptions {
   readonly registry: ProviderRegistry;
   readonly providerId: string;
   readonly downloads?: Omit<DownloadServiceOptions, "registry" | "providerId">;
@@ -39,7 +43,7 @@ function defaultQueryWorkerPath(): URL {
     : new URL("../../data-engine/dist/query-worker.js", import.meta.url);
 }
 
-export class OpsiClient {
+export class KlopsiClient {
   readonly datasets: DatasetCatalog;
   readonly resources: ResourceCatalog;
   readonly providers: ProviderCatalog;
@@ -53,7 +57,7 @@ export class OpsiClient {
   private readonly registry: ProviderRegistry;
   private readonly providerId: string;
 
-  constructor(options: OpsiClientOptions) {
+  constructor(options: KlopsiClientOptions) {
     this.registry = options.registry;
     this.providerId = options.providerId;
     this.datasets = new DatasetCatalog(this.registry, this.providerId);

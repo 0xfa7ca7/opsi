@@ -4,8 +4,8 @@ import { realpathSync } from "node:fs";
 import { mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { EXIT_CODES, OpsiError, type DataProvider } from "@opsi/domain";
-import { OpsiProvider, OpsiTransport, RequestScheduler } from "@opsi/provider-opsi";
+import { EXIT_CODES, KlopsiError, type DataProvider } from "@klopsi/domain";
+import { KlopsiProvider, KlopsiTransport, RequestScheduler } from "@klopsi/provider-klopsi";
 import {
   CATALOGUE_MAX_MANIFEST_BYTES,
   CATALOGUE_MAX_SNAPSHOT_BYTES,
@@ -108,8 +108,8 @@ export async function runPublisher(
 }
 
 function createDefaultProvider(): DataProvider {
-  return new OpsiProvider(
-    new OpsiTransport({
+  return new KlopsiProvider(
+    new KlopsiTransport({
       scheduler: new RequestScheduler(),
       timeoutMs: CATALOGUE_PROVIDER_TIMEOUT_MS,
     }),
@@ -151,7 +151,7 @@ function parseIndexBytes(bytes: Uint8Array): CatalogueIndex {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     return parseCatalogueIndex(JSON.parse(text) as unknown);
   } catch (error) {
-    if (error instanceof OpsiError) throw error;
+    if (error instanceof KlopsiError) throw error;
     throw snapshotInvalid("index");
   }
 }
@@ -174,8 +174,8 @@ async function writeJson(path: string, value: unknown): Promise<void> {
   await writeFile(path, `${JSON.stringify(value)}\n`, { encoding: "utf8", mode: 0o600 });
 }
 
-function invalidInput(field: string): OpsiError {
-  return new OpsiError({
+function invalidInput(field: string): KlopsiError {
+  return new KlopsiError({
     code: "INVALID_CATALOGUE_PUBLICATION_ARGUMENT",
     message: "The catalogue publisher arguments are invalid.",
     exitCode: EXIT_CODES.INVALID_INPUT,
@@ -184,7 +184,7 @@ function invalidInput(field: string): OpsiError {
 }
 
 export function formatPublisherError(error: unknown): string {
-  if (error instanceof OpsiError) return `${JSON.stringify(error.toJSON())}\n`;
+  if (error instanceof KlopsiError) return `${JSON.stringify(error.toJSON())}\n`;
   return `${error instanceof Error ? error.message : "Catalogue publication failed."}\n`;
 }
 
@@ -193,7 +193,7 @@ async function main(): Promise<void> {
     await runPublisher(process.argv.slice(2));
   } catch (error) {
     process.stderr.write(formatPublisherError(error));
-    process.exitCode = error instanceof OpsiError ? error.exitCode : 1;
+    process.exitCode = error instanceof KlopsiError ? error.exitCode : 1;
   }
 }
 

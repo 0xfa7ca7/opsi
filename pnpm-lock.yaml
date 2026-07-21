@@ -63,7 +63,7 @@ importers:
         specifier: 1.4.3
         version: 1.4.3
     devDependencies:
-      '@opsi/catalogue-snapshot':
+      '@klopsi/catalogue-snapshot':
         specifier: file:../../packages/catalogue-snapshot
         version: file:packages/catalogue-snapshot
       fflate:
@@ -76,13 +76,13 @@ importers:
 
   packages/catalogue-snapshot:
     dependencies:
-      '@opsi/domain':
+      '@klopsi/domain':
         specifier: workspace:*
         version: link:../domain
-      '@opsi/provider-opsi':
+      '@klopsi/provider-klopsi':
         specifier: workspace:*
-        version: link:../providers/opsi
-      '@opsi/storage':
+        version: link:../providers/klopsi
+      '@klopsi/storage':
         specifier: workspace:*
         version: link:../storage
       zod:
@@ -91,7 +91,7 @@ importers:
 
   packages/config:
     dependencies:
-      '@opsi/domain':
+      '@klopsi/domain':
         specifier: workspace:*
         version: link:../domain
       env-paths:
@@ -103,16 +103,16 @@ importers:
 
   packages/core:
     dependencies:
-      '@opsi/data-engine':
+      '@klopsi/data-engine':
         specifier: workspace:*
         version: link:../data-engine
-      '@opsi/domain':
+      '@klopsi/domain':
         specifier: workspace:*
         version: link:../domain
-      '@opsi/provider-local':
+      '@klopsi/provider-local':
         specifier: workspace:*
         version: link:../providers/local
-      '@opsi/storage':
+      '@klopsi/storage':
         specifier: workspace:*
         version: link:../storage
       saxes:
@@ -124,7 +124,7 @@ importers:
       '@duckdb/node-api':
         specifier: 1.5.4-r.1
         version: 1.5.4-r.1
-      '@opsi/domain':
+      '@klopsi/domain':
         specifier: workspace:*
         version: link:../domain
       csv-parse:
@@ -152,24 +152,24 @@ importers:
         specifier: 8.2.2
         version: 8.2.2
 
-  packages/providers/local:
+  packages/providers/klopsi:
     dependencies:
-      '@opsi/domain':
-        specifier: workspace:*
-        version: link:../../domain
-
-  packages/providers/opsi:
-    dependencies:
-      '@opsi/domain':
+      '@klopsi/domain':
         specifier: workspace:*
         version: link:../../domain
       zod:
         specifier: 4.4.3
         version: 4.4.3
 
+  packages/providers/local:
+    dependencies:
+      '@klopsi/domain':
+        specifier: workspace:*
+        version: link:../../domain
+
   packages/storage:
     dependencies:
-      '@opsi/domain':
+      '@klopsi/domain':
         specifier: workspace:*
         version: link:../domain
       ipaddr.js:
@@ -568,6 +568,9 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
+  '@klopsi/catalogue-snapshot@file:packages/catalogue-snapshot':
+    resolution: {directory: packages/catalogue-snapshot, type: directory}
+
   '@manypkg/find-root@1.1.0':
     resolution: {integrity: sha512-mki5uBvhHzO8kYYix/WRy2WX8S3B5wdVSc9D6KcU5lQNglP2yt58/VfLuAK49glRXChosY8ap2oJ1qgma3GUVA==}
 
@@ -591,9 +594,6 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
-
-  '@opsi/catalogue-snapshot@file:packages/catalogue-snapshot':
-    resolution: {directory: packages/catalogue-snapshot, type: directory}
 
   '@oxc-project/types@0.139.0':
     resolution: {integrity: sha512-r9gHphtCs+1M7J0pw6Sn/hh/Wpa/iQrOOkrNAlVLF/gHq+/CJmHIWKKUUhdWjcD6CIa8idarspCsASiXCXvFUw==}
@@ -2666,6 +2666,13 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
+  '@klopsi/catalogue-snapshot@file:packages/catalogue-snapshot':
+    dependencies:
+      '@klopsi/domain': link:packages/domain
+      '@klopsi/provider-klopsi': link:packages/providers/klopsi
+      '@klopsi/storage': link:packages/storage
+      zod: 4.4.3
+
   '@manypkg/find-root@1.1.0':
     dependencies:
       '@babel/runtime': 7.29.7
@@ -2700,13 +2707,6 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
-
-  '@opsi/catalogue-snapshot@file:packages/catalogue-snapshot':
-    dependencies:
-      '@opsi/domain': link:packages/domain
-      '@opsi/provider-opsi': link:packages/providers/opsi
-      '@opsi/storage': link:packages/storage
-      zod: 4.4.3
 
   '@oxc-project/types@0.139.0': {}
 

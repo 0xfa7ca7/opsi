@@ -1,12 +1,12 @@
 import { once } from "node:events";
 import { createServer, type RequestListener, type Server } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
-import { Downloader, type DownloadInput } from "@opsi/storage";
+import { Downloader, type DownloadInput } from "@klopsi/storage";
 import {
   DEFAULT_CATALOGUE_BASE_URL,
   StrictHttpsReader,
   parseCatalogueSnapshot,
-} from "@opsi/catalogue-snapshot";
+} from "@klopsi/catalogue-snapshot";
 
 const servers: Server[] = [];
 
@@ -45,7 +45,7 @@ function localReader(baseUrl: string, timeoutMs = 1_000): StrictHttpsReader {
 
 describe("StrictHttpsReader", () => {
   it("uses the fixed production catalogue origin by default", () => {
-    expect(DEFAULT_CATALOGUE_BASE_URL).toBe("https://0xfa7ca7.github.io/opsi/");
+    expect(DEFAULT_CATALOGUE_BASE_URL).toBe("https://0xfa7ca7.github.io/klopsi/");
     expect(() => new StrictHttpsReader()).not.toThrow();
   });
 

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { lstat, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import {
   COMMAND_MANIFEST,
   GLOBAL_OPTION_MANIFEST,
@@ -28,9 +28,9 @@ export interface AgentSkillDefinition {
 
 export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
-    name: "opsi",
+    name: "klopsi",
     description:
-      "Use when a Slovenian public-data or OPSI request needs the relevant skill selected.",
+      "Use when a Slovenian public-data or KLOPSI request needs the relevant skill selected.",
     commands: [],
     purpose:
       "Classify the request, load shared guidance, and select the smallest relevant domain skill or ordered set of skills.",
@@ -42,23 +42,23 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     capabilities: [],
     safety: [],
     related: [
-      "opsi-catalogue",
-      "opsi-resources",
-      "opsi-download",
-      "opsi-validation",
-      "opsi-analysis",
-      "opsi-services",
-      "opsi-provenance",
-      "opsi-local-state",
-      "opsi-diagnostics",
+      "klopsi-catalogue",
+      "klopsi-resources",
+      "klopsi-download",
+      "klopsi-validation",
+      "klopsi-analysis",
+      "klopsi-services",
+      "klopsi-provenance",
+      "klopsi-local-state",
+      "klopsi-diagnostics",
     ],
   },
   {
-    name: "opsi-shared",
+    name: "klopsi-shared",
     description:
-      "Use when any OPSI CLI skill needs shared installation, output, offline, safety, or error-handling guidance.",
+      "Use when any KLOPSI CLI skill needs shared installation, output, offline, safety, or error-handling guidance.",
     commands: [],
-    purpose: "Provide the common execution contract every OPSI domain skill must follow.",
+    purpose: "Provide the common execution contract every KLOPSI domain skill must follow.",
     workflows: [
       "Resolve the input, inspect it, preview a bounded sample, validate when useful, perform the requested operation, then verify important artifacts.",
     ],
@@ -67,14 +67,14 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Prefer structured output and bounded result sets.",
       "Honor offline requests and existing network safeguards.",
       "Confirm destructive or overwrite operations unless already explicitly authorized.",
-      "Do not fall back to curl or another raw HTTP client for an operation supported by opsi.",
+      "Do not fall back to curl or another raw HTTP client for an operation supported by klopsi.",
     ],
     related: [],
   },
   {
-    name: "opsi-catalogue",
+    name: "klopsi-catalogue",
     description:
-      "Use when discovering Slovenian public-data or OPSI datasets, metadata, resources, schemas, or public pages.",
+      "Use when discovering Slovenian public-data or KLOPSI datasets, metadata, resources, schemas, or public pages.",
     commands: [
       "search",
       "dataset list",
@@ -115,12 +115,12 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       },
     ],
     safety: ["Use explicit live catalogue traversal only when the user needs it."],
-    related: ["opsi-resources", "opsi-download", "opsi-validation"],
+    related: ["klopsi-resources", "klopsi-download", "klopsi-validation"],
   },
   {
-    name: "opsi-resources",
+    name: "klopsi-resources",
     description:
-      "Use when inspecting an OPSI resource, its secure access, headers, or bounded preview before the next step.",
+      "Use when inspecting a KLOPSI resource, its secure access, headers, or bounded preview before the next step.",
     commands: ["resource show", "resource inspect", "resource headers", "resource preview"],
     purpose: "Inspect a resource safely without committing to a full data workflow.",
     workflows: [
@@ -132,7 +132,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         id: "input-resolution",
         title: "Resolve the input",
         instructions: [
-          "Use a local path for local data and retain an exact `opsi:resource:` reference for provider data; do not invent either identifier.",
+          "Use a local path for local data and retain an exact `klopsi:resource:` reference for provider data; do not invent either identifier.",
           "Run `resource inspect` to learn supported access operations before choosing download, validation, WFS, or analysis.",
         ],
       },
@@ -141,7 +141,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         title: "Select safe access",
         instructions: [
           "Use `resource headers` for a secure provider-header probe and `resource preview` with a small `--limit` for a bounded content check.",
-          "Route a WFS resource to the services skill after inspection; do not replace OPSI access controls with direct HTTP.",
+          "Route a WFS resource to the services skill after inspection; do not replace KLOPSI access controls with direct HTTP.",
         ],
       },
       {
@@ -154,12 +154,12 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       },
     ],
     safety: ["Keep previews bounded and do not weaken network controls implicitly."],
-    related: ["opsi-catalogue", "opsi-download", "opsi-validation", "opsi-analysis"],
+    related: ["klopsi-catalogue", "klopsi-download", "klopsi-validation", "klopsi-analysis"],
   },
   {
-    name: "opsi-download",
+    name: "klopsi-download",
     description:
-      "Use when securely downloading an OPSI dataset or resource and choosing a destination or overwrite handling.",
+      "Use when securely downloading a KLOPSI dataset or resource and choosing a destination or overwrite handling.",
     commands: ["download"],
     purpose: "Download selected provider resources through the CLI's bounded secure downloader.",
     workflows: ["Resolve a canonical resource or dataset reference, then download it."],
@@ -190,12 +190,12 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       },
     ],
     safety: ["Confirm before replacing an existing artifact with --force."],
-    related: ["opsi-catalogue", "opsi-resources", "opsi-validation", "opsi-provenance"],
+    related: ["klopsi-catalogue", "klopsi-resources", "klopsi-validation", "klopsi-provenance"],
   },
   {
-    name: "opsi-validation",
+    name: "klopsi-validation",
     description:
-      "Use when checking local or provider data, or OPSI metadata, for integrity issues and remediation.",
+      "Use when checking local or provider data, or KLOPSI metadata, for integrity issues and remediation.",
     commands: ["validate"],
     purpose: "Validate data content or normalized metadata and explain actionable issues.",
     workflows: ["Validate downloaded content before analysis or conversion."],
@@ -226,10 +226,10 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       },
     ],
     safety: ["Treat integrity failures as non-retryable until the input changes."],
-    related: ["opsi-resources", "opsi-download", "opsi-analysis"],
+    related: ["klopsi-resources", "klopsi-download", "klopsi-analysis"],
   },
   {
-    name: "opsi-analysis",
+    name: "klopsi-analysis",
     description:
       "Use when querying or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports.",
     commands: ["query", "convert"],
@@ -276,10 +276,10 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Keep SQL read-only and bounded.",
       "Confirm before replacing an existing output with --force.",
     ],
-    related: ["opsi-resources", "opsi-validation", "opsi-provenance"],
+    related: ["klopsi-resources", "klopsi-validation", "klopsi-provenance"],
   },
   {
-    name: "opsi-services",
+    name: "klopsi-services",
     description:
       "Use when Slovenian public data is exposed through WFS and the request needs capabilities, layers, schemas, bounded feature previews, counts, or CSV exports.",
     commands: [
@@ -290,7 +290,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "service count",
       "service export",
     ],
-    purpose: "Access WFS feature services through bounded, schema-validated OPSI workflows.",
+    purpose: "Access WFS feature services through bounded, schema-validated KLOPSI workflows.",
     workflows: [
       "Inspect a canonical WFS resource, list layers, then inspect a selected layer schema.",
       "Preview or count a layer with typed equality filters before exporting bounded rows.",
@@ -300,7 +300,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         id: "wfs-sequence",
         title: "Inspect the WFS service and layer",
         instructions: [
-          "Keep the exact canonical `opsi:resource:` reference returned by OPSI; run `service inspect`, then `service layers`, then `service schema --layer <name>` before selecting features.",
+          "Keep the exact canonical `klopsi:resource:` reference returned by KLOPSI; run `service inspect`, then `service layers`, then `service schema --layer <name>` before selecting features.",
           "Use the layer schema to choose a layer and its available fields; do not infer feature bounds or paging support from service inspection metadata.",
         ],
       },
@@ -334,12 +334,12 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Use canonical resource references and bounded limits.",
       "Never send transaction requests, raw CQL, arbitrary XML filters, or direct HTTP calls.",
     ],
-    related: ["opsi-catalogue", "opsi-resources", "opsi-analysis", "opsi-provenance"],
+    related: ["klopsi-catalogue", "klopsi-resources", "klopsi-analysis", "klopsi-provenance"],
   },
   {
-    name: "opsi-provenance",
+    name: "klopsi-provenance",
     description:
-      "Use when inspecting or verifying OPSI artifact provenance, transformations, or integrity mismatches.",
+      "Use when inspecting or verifying KLOPSI artifact provenance, transformations, or integrity mismatches.",
     commands: ["provenance show", "provenance verify"],
     purpose: "Inspect recorded lineage and verify an artifact against its digest.",
     workflows: ["Verify every important downloaded, converted, or query-exported artifact."],
@@ -349,7 +349,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         title: "Inspect recorded lineage",
         instructions: [
           "Use `provenance show` to inspect an artifact's source, retrieval, and transformation record before explaining where it came from.",
-          "Compare the record with the exact local artifact and preserve canonical references returned by OPSI.",
+          "Compare the record with the exact local artifact and preserve canonical references returned by KLOPSI.",
         ],
       },
       {
@@ -362,11 +362,11 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       },
     ],
     safety: ["Do not dismiss a digest mismatch or mutate evidence before reporting it."],
-    related: ["opsi-download", "opsi-analysis"],
+    related: ["klopsi-download", "klopsi-analysis"],
   },
   {
-    name: "opsi-local-state",
-    description: "Use when inspecting or changing the OPSI cache or non-secret configuration.",
+    name: "klopsi-local-state",
+    description: "Use when inspecting or changing the KLOPSI cache or non-secret configuration.",
     commands: [
       "cache info",
       "cache list",
@@ -410,17 +410,17 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       },
     ],
     safety: ["Confirm cache clear or prune unless the exact mutation is already authorized."],
-    related: ["opsi-diagnostics"],
+    related: ["klopsi-diagnostics"],
   },
   {
-    name: "opsi-diagnostics",
+    name: "klopsi-diagnostics",
     description:
-      "Use when diagnosing OPSI, generating shell completion or Agent Skills, or performing agent setup.",
+      "Use when diagnosing KLOPSI, generating shell completion or Agent Skills, or performing agent setup.",
     commands: ["providers list", "doctor", "completion", "generate-skills", "agent setup"],
     purpose:
       "Generate installable Agent Skills, diagnose the CLI environment, and expose providers and shell integration.",
     workflows: [
-      "Use `opsi agent setup` to detect installed agent hosts and install the complete OPSI skill repertoire globally.",
+      "Use `klopsi agent setup` to detect installed agent hosts and install the complete KLOPSI skill repertoire globally.",
       "Setup copies generated skills before removing its temporary source, so completed installations remain durable.",
       "Use `--dry-run` to inspect the installation plan, or `--agent` when the target host IDs are already known.",
       "Run offline diagnostics first when network access is unavailable or unwanted.",
@@ -430,8 +430,8 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         id: "environment-diagnostics",
         title: "Diagnose the environment without network access",
         instructions: [
-          "Run `opsi doctor --offline --json` first when network access is unavailable or unwanted; offline mode skips the connectivity check while retaining local environment, cache, DuckDB, and format checks.",
-          "Run `opsi providers list --offline --json` to record the registered provider inventory without turning diagnosis into a network request.",
+          "Run `klopsi doctor --offline --json` first when network access is unavailable or unwanted; offline mode skips the connectivity check while retaining local environment, cache, DuckDB, and format checks.",
+          "Run `klopsi providers list --offline --json` to record the registered provider inventory without turning diagnosis into a network request.",
           "Read every failed or skipped check in structured output before changing the environment, configuration, or cache.",
         ],
       },
@@ -439,8 +439,8 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         id: "shell-integration",
         title: "Generate shell completion",
         instructions: [
-          "Use `opsi completion <bash|zsh|fish>` to print completion for the selected shell, then follow that shell's normal installation or sourcing workflow.",
-          "Regenerate completion after upgrading OPSI rather than editing generated completion output.",
+          "Use `klopsi completion <bash|zsh|fish>` to print completion for the selected shell, then follow that shell's normal installation or sourcing workflow.",
+          "Regenerate completion after upgrading KLOPSI rather than editing generated completion output.",
         ],
       },
       {
@@ -448,7 +448,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         title: "Generate a portable skill tree",
         instructions: [
           "`generate-skills` writes the complete portable repertoire to its output directory but does not install it into an agent host.",
-          "Use `opsi generate-skills --output-dir ./generated-skills --json` when another workflow needs a portable tree instead of a host installation.",
+          "Use `klopsi generate-skills --output-dir ./generated-skills --json` when another workflow needs a portable tree instead of a host installation.",
         ],
       },
       {
@@ -457,8 +457,8 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         instructions: [
           "Detected hosts are used only for a non-dry-run setup without `--agent` or `--all`; `--agent` selects explicit hosts, `--all` selects every supported host, and `--yes` accepts detected hosts for unattended setup.",
           "`--dry-run` reports the planned selection and repertoire without installing or detecting hosts. An empty detection result fails safely and never expands `--yes` to every supported host.",
-          "Use this refresh recipe: `opsi doctor --offline --json`; `opsi agent setup --agent codex --dry-run --json`; `opsi agent setup --agent codex --yes --json`.",
-          "`agent setup` installs or refreshes the complete repertoire for selected hosts as durable copies. Rerun `opsi agent setup` to refresh a stale repertoire, then verify in structured setup output that `agents` contains the requested host and `skills` contains the complete repertoire. Do not infer an installed host path or use a guessed filesystem location. `generate-skills` does not install or refresh Codex; use it only for a portable tree.",
+          "Use this refresh recipe: `klopsi doctor --offline --json`; `klopsi agent setup --agent codex --dry-run --json`; `klopsi agent setup --agent codex --yes --json`.",
+          "`agent setup` installs or refreshes the complete repertoire for selected hosts as durable copies. Rerun `klopsi agent setup` to refresh a stale repertoire, then verify in structured setup output that `agents` contains the requested host and `skills` contains the complete repertoire. Do not infer an installed host path or use a guessed filesystem location. `generate-skills` does not install or refresh Codex; use it only for a portable tree.",
         ],
       },
     ],
@@ -466,7 +466,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Do not turn a diagnostic check into a network request when offline was requested.",
       "In non-interactive use, require `--yes`, `--agent`, or `--all` before installing skills.",
     ],
-    related: ["opsi-local-state"],
+    related: ["klopsi-local-state"],
   },
 ] as const;
 
@@ -478,7 +478,7 @@ export function validateAgentSkills(
   const skillNames = skills.map((entry) => entry.name);
   const commandPaths = new Set(commands.map((entry) => entry.path));
 
-  for (const required of ["opsi", "opsi-shared"] as const) {
+  for (const required of ["klopsi", "klopsi-shared"] as const) {
     if (!skillNames.includes(required)) problems.push(`Missing required skill "${required}".`);
   }
 
@@ -489,10 +489,10 @@ export function validateAgentSkills(
     }
     if (seenNames.has(entry.name)) problems.push(`Duplicate skill name "${entry.name}".`);
     seenNames.add(entry.name);
-    if ((entry.name === "opsi" || entry.name === "opsi-shared") && entry.commands.length > 0) {
+    if ((entry.name === "klopsi" || entry.name === "klopsi-shared") && entry.commands.length > 0) {
       problems.push(`Reserved skill "${entry.name}" must not own commands.`);
     }
-    if (entry.name !== "opsi" && entry.name !== "opsi-shared" && entry.commands.length === 0) {
+    if (entry.name !== "klopsi" && entry.name !== "klopsi-shared" && entry.commands.length === 0) {
       problems.push(`Domain skill "${entry.name}" must own at least one command.`);
     }
     const seenCapabilityIds = new Set<string>();
@@ -610,7 +610,7 @@ function commandUsage(entry: CommandManifestEntry): string {
     .map((option) => option.flags)
     .join(" ");
   const optional = entry.options.some((option) => option.mandatory !== true) ? "[options]" : "";
-  return ["opsi", entry.path, commandArguments, requiredOptions, optional]
+  return ["klopsi", entry.path, commandArguments, requiredOptions, optional]
     .filter((part) => part.length > 0)
     .join(" ");
 }
@@ -673,22 +673,22 @@ function renderOrchestrator(definition: AgentSkillDefinition, version: string): 
     })
     .join("\n");
   return `${frontmatter(definition)}
-# OPSI orchestrator
+# KLOPSI orchestrator
 
-Use this skill as the main entry point for Slovenian public-data work with the \`opsi\` CLI. Generated for \`opsi\` ${version}.
+Use this skill as the main entry point for Slovenian public-data work with the \`klopsi\` CLI. Generated for \`klopsi\` ${version}.
 
 ## Route requests
 
-1. Read [opsi-shared](../opsi-shared/SKILL.md).
+1. Read [klopsi-shared](../klopsi-shared/SKILL.md).
 2. Classify the request and load the smallest relevant skill from this table.
 3. Load more than one domain skill only when the workflow crosses domains.
-4. Execute the documented \`opsi\` commands and summarize structured results.
+4. Execute the documented \`klopsi\` commands and summarize structured results.
 
 | Intent | Skill |
 | --- | --- |
 ${routes}
 
-Do not pass \`/opsi\`, \`@opsi\`, or \`$opsi\` to the shell. Those are host-specific ways to invoke this skill; shell commands begin with \`opsi\`.
+Do not pass \`/klopsi\`, \`@klopsi\`, or \`$klopsi\` to the shell. Those are host-specific ways to invoke this skill; shell commands begin with \`klopsi\`.
 
 ## End-to-end workflows
 
@@ -706,14 +706,14 @@ Do not pass \`/opsi\`, \`@opsi\`, or \`$opsi\` to the shell. Those are host-spec
 
 ### ${definition.workflows[2]}
 
-1. Run \`opsi agent setup --dry-run\` to inspect the planned selection and repertoire.
+1. Run \`klopsi agent setup --dry-run\` to inspect the planned selection and repertoire.
 2. With explicit authorization, select the intended host with \`--agent <id>\` and use \`--yes\` for non-interactive installation.
-3. Confirm the result includes the current repertoire, including \`opsi-services\`; use \`generate-skills\` only when a portable skill tree is needed rather than an installation.
+3. Confirm the result includes the current repertoire, including \`klopsi-services\`; use \`generate-skills\` only when a portable skill tree is needed rather than an installation.
 
 ## Routing rules
 
 - Prefer the narrowest skill that fully handles the request.
-- Inspect \`opsi <command> --help\` if runtime syntax might differ from the generated reference.
+- Inspect \`klopsi <command> --help\` if runtime syntax might differ from the generated reference.
 - Keep identifiers returned by the CLI exact; do not invent dataset or resource IDs.
 - Return a concise result grounded in stdout, stderr, and the process exit status.
 `;
@@ -731,17 +731,17 @@ ${rows}`;
 
 function renderShared(definition: AgentSkillDefinition, version: string): string {
   return `${frontmatter(definition)}
-# OPSI shared execution contract
+# KLOPSI shared execution contract
 
-Read this before using any OPSI domain skill. Generated for \`opsi\` ${version}.
+Read this before using any KLOPSI domain skill. Generated for \`klopsi\` ${version}.
 
 ## Install and discover
 
 \`\`\`sh
-npm install --global opsi
-opsi --version
-opsi --help
-opsi <command> --help
+npm install --global klopsi
+klopsi --version
+klopsi --help
+klopsi <command> --help
 \`\`\`
 
 Use the installed CLI as the source of truth when its help differs from generated skill text.
@@ -756,14 +756,14 @@ Use the installed CLI as the source of truth when its help differs from generate
 
 ## Default decision sequence
 
-1. Resolve a local path, a local:file reference, or an exact \`opsi:resource:\` reference.
+1. Resolve a local path, a local:file reference, or an exact \`klopsi:resource:\` reference.
 2. Inspect unknown inputs, then preview a bounded sample and validate when the next operation depends on content integrity.
 3. Download provider data before local-only work, then use \`--offline\` for the remaining local steps when network access is unavailable or unwanted.
 4. Perform the requested bounded operation and verify important artifacts with provenance.
 
 ## Input and selector choices
 
-- Use a local path for data already on disk and a canonical \`opsi:resource:\` reference for provider data; do not invent IDs or references.
+- Use a local path for data already on disk and a canonical \`klopsi:resource:\` reference for provider data; do not invent IDs or references.
 - Use one \`--entry\` or \`--record-path\` reported by resource inspect or the relevant operation's structured error/output; resource inspect can surface ZIP entries and XML record paths.
 - Without \`--sheet\`, XLSX resource preview, validate, or query emits \`SHEET_REQUIRED\` with \`context.sheets\` and a suggestion; use one listed sheet.
 
@@ -811,7 +811,7 @@ ${definition.safety.map((item) => `- ${item}`).join("\n")}
 
 - Quote paths and user-provided values safely.
 - Never print credentials, authorization headers, cookies, or secret environment values.
-- Use canonical references returned by \`opsi\` when available.
+- Use canonical references returned by \`klopsi\` when available.
 `;
 }
 
@@ -848,9 +848,9 @@ function renderDomainSkill(definition: AgentSkillDefinition, version: string): s
   return `${frontmatter(definition)}
 # ${definition.name}
 
-> **Prerequisite:** Read [opsi-shared](../opsi-shared/SKILL.md) before executing these commands.
+> **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before executing these commands.
 
-${definition.purpose} Generated for \`opsi\` ${version}.
+${definition.purpose} Generated for \`klopsi\` ${version}.
 
 ## Workflow
 
@@ -862,8 +862,8 @@ ${entries.map(renderCommand).join("\n")}${safety}${renderRelated(definition)}`;
 }
 
 function renderSkill(definition: AgentSkillDefinition, version: string): string {
-  if (definition.name === "opsi") return renderOrchestrator(definition, version);
-  if (definition.name === "opsi-shared") return renderShared(definition, version);
+  if (definition.name === "klopsi") return renderOrchestrator(definition, version);
+  if (definition.name === "klopsi-shared") return renderShared(definition, version);
   return renderDomainSkill(definition, version);
 }
 
@@ -879,9 +879,9 @@ export function renderAgentSkillsIndex(): string {
   const rows = AGENT_SKILLS.map(
     (entry) => `| [${entry.name}](../skills/${entry.name}/SKILL.md) | ${entry.description} |`,
   ).join("\n");
-  return `# OPSI Agent Skills
+  return `# KLOPSI Agent Skills
 
-Installable Agent Skills for using the OPSI CLI from compatible AI agents. Run \`opsi agent setup\` for automatic host detection and global installation of the complete repertoire. To manage a project-local installation manually, install the repertoire with a compatible Agent Skills installer, or install one focused domain skill and its \`opsi-shared\` prerequisite.
+Installable Agent Skills for using the KLOPSI CLI from compatible AI agents. Run \`klopsi agent setup\` for automatic host detection and global installation of the complete repertoire. To manage a project-local installation manually, install the repertoire with a compatible Agent Skills installer, or install one focused domain skill and its \`klopsi-shared\` prerequisite.
 
 | Skill | Description |
 | --- | --- |
@@ -901,8 +901,8 @@ export interface GenerateAgentSkillsResult {
   readonly skills: readonly string[];
 }
 
-function invalidSkillOutput(path: string, cause?: unknown): OpsiError {
-  return new OpsiError({
+function invalidSkillOutput(path: string, cause?: unknown): KlopsiError {
+  return new KlopsiError({
     code: "SKILL_OUTPUT_INVALID",
     message: `The Agent Skills output must be a writable directory: ${path}`,
     exitCode: EXIT_CODES.INVALID_INPUT,
@@ -917,7 +917,7 @@ async function ensurePlainDirectory(path: string): Promise<void> {
     const metadata = await lstat(path);
     if (!metadata.isDirectory() || metadata.isSymbolicLink()) throw invalidSkillOutput(path);
   } catch (error) {
-    if (error instanceof OpsiError) throw error;
+    if (error instanceof KlopsiError) throw error;
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "EEXIST" || code === "ENOTDIR") throw invalidSkillOutput(path, error);
     throw error;
@@ -951,8 +951,8 @@ export async function generateAgentSkills(
       await writeSkillFile(join(directory, "SKILL.md"), content);
     }
   } catch (error) {
-    if (error instanceof OpsiError) throw error;
-    throw new OpsiError({
+    if (error instanceof KlopsiError) throw error;
+    throw new KlopsiError({
       code: "SKILL_GENERATION_FAILED",
       message: `Agent Skills could not be written to ${outputDirectory}.`,
       exitCode: EXIT_CODES.INTERNAL,

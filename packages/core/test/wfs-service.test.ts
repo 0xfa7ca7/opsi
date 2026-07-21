@@ -1,5 +1,11 @@
 import { writeFile } from "node:fs/promises";
-import { datasetId, providerId, resourceId, type DataProvider, type Resource } from "@opsi/domain";
+import {
+  datasetId,
+  providerId,
+  resourceId,
+  type DataProvider,
+  type Resource,
+} from "@klopsi/domain";
 import { describe, expect, it, vi } from "vitest";
 import { ProviderRegistry } from "../src/registry.js";
 import { WfsService } from "../src/wfs/service.js";

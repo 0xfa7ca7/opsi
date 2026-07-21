@@ -1,4 +1,4 @@
-import type { CliConfigurationOptions, OutputFormat } from "@opsi/config";
+import type { CliConfigurationOptions, OutputFormat } from "@klopsi/config";
 import type { Command } from "commander";
 import { registerGlobalOptions } from "./command-manifest.js";
 

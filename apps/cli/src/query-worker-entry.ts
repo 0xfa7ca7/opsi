@@ -1,3 +1,3 @@
-import { startQueryWorker } from "@opsi/data-engine";
+import { startQueryWorker } from "@klopsi/data-engine";
 
 startQueryWorker();

@@ -1,8 +1,8 @@
-# OPSI Agent Skill Capability Audit Implementation Plan
+# KLOPSI Agent Skill Capability Audit Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the generated OPSI Agent Skills teach the complete public CLI capability surface through concise, user-focused routing, decision guidance, workflows, and recovery rules.
+**Goal:** Make the generated KLOPSI Agent Skills teach the complete public CLI capability surface through concise, user-focused routing, decision guidance, workflows, and recovery rules.
 
 **Architecture:** Preserve the existing orchestrator/shared/nine-domain topology and the command manifest as the syntax source of truth. Add structured capability-guide metadata to the skill registry, render it deterministically ahead of command syntax, and protect both structural and behavioral coverage with unit tests, exact-byte drift checks, and fresh-agent application evaluations.
 
@@ -10,12 +10,12 @@
 
 ## Global Constraints
 
-- Cover the complete public `opsi` CLI; do not add TypeScript SDK or contributor guidance.
+- Cover the complete public `klopsi` CLI; do not add TypeScript SDK or contributor guidance.
 - Keep every manifest command owned by exactly one domain skill.
 - Preserve the existing eleven-skill topology and one-level cross-references.
 - Keep generated frontmatter limited to `name` and `description`; every description begins with `Use when` and contains only discovery triggers.
 - Preserve CLI safety bounds, structured output, offline behavior, network controls, mutation confirmation, and exit categories.
-- `opsi agent setup` must leave a durable installed skill tree after its temporary generated source is removed.
+- `klopsi agent setup` must leave a durable installed skill tree after its temporary generated source is removed.
 - Keep generated files deterministic, below 500 lines each, and free of secrets, placeholders, and machine-specific paths.
 - Use baseline and improved fresh-agent evaluations before claiming that guidance is effective.
 - Follow test-driven development for renderer and registry behavior.
@@ -37,7 +37,7 @@
 - Modify `README.md`: clarify repertoire refresh and verification for stale installations.
 - Modify `apps/cli/README.md`: mirror the concise installed-package refresh guidance.
 - Create `docs/superpowers/evaluations/2026-07-20-agent-skill-capability-audit.md`: record evaluation prompts, rubrics, baseline failures, improved results, and any refactor loop.
-- Create `.changeset/complete-agent-skill-guidance.md`: record the user-visible skill improvement as a patch for `opsi`.
+- Create `.changeset/complete-agent-skill-guidance.md`: record the user-visible skill improvement as a patch for `klopsi`.
 
 ### Task 1: Establish fresh-agent baseline evaluations
 
@@ -53,7 +53,7 @@
 Dispatch a fresh agent with this exact prompt:
 
 ```text
-Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `opsi --help`, subcommand help, and public docs. A user asks: “Find a Slovenian traffic dataset, choose a usable resource even if it is ZIP, XML, or XLSX, inspect it safely, validate it, run a bounded read-only aggregation, export the result, and prove where the output came from. Network access may be unavailable after discovery.” Give the exact OPSI command sequence, decision points for ambiguous ZIP/XML/XLSX inputs, structured-output choices, offline transition, overwrite behavior, failure handling, and final verification. Do not modify files.
+Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `klopsi --help`, subcommand help, and public docs. A user asks: “Find a Slovenian traffic dataset, choose a usable resource even if it is ZIP, XML, or XLSX, inspect it safely, validate it, run a bounded read-only aggregation, export the result, and prove where the output came from. Network access may be unavailable after discovery.” Give the exact KLOPSI command sequence, decision points for ambiguous ZIP/XML/XLSX inputs, structured-output choices, offline transition, overwrite behavior, failure handling, and final verification. Do not modify files.
 ```
 
 Score one point for each of: bounded search; exact dataset/resource handoff; `resource inspect` or bounded preview; `--entry`; `--record-path`; `--sheet`; validation; read-only bounded query; query export; overwrite authorization; offline behavior; provenance verification; structured stdout/stderr/exit handling. Maximum: 13.
@@ -63,7 +63,7 @@ Score one point for each of: bounded search; exact dataset/resource handoff; `re
 Dispatch a fresh agent with this exact prompt:
 
 ```text
-Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `opsi --help`, subcommand help, and public docs. A user provides an OPSI WFS resource reference and asks you to discover its layers, inspect a layer, preview selected properties inside a bounding box, count matching features, and export a bounded filtered CSV without bypassing OPSI security. Give the exact safe command sequence, filter and CRS decisions, pagination or limit behavior, overwrite handling, forbidden fallbacks, and artifact verification. Do not modify files.
+Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `klopsi --help`, subcommand help, and public docs. A user provides a KLOPSI WFS resource reference and asks you to discover its layers, inspect a layer, preview selected properties inside a bounding box, count matching features, and export a bounded filtered CSV without bypassing KLOPSI security. Give the exact safe command sequence, filter and CRS decisions, pagination or limit behavior, overwrite handling, forbidden fallbacks, and artifact verification. Do not modify files.
 ```
 
 Score one point for each of: canonical reference; inspect; layers; schema; repeatable/comma-separated properties; typed `--filter-eq`; `--bbox`; `--crs`; bounded preview; count; bounded export; overwrite authorization; no raw HTTP/CQL/XML/transaction fallback; provenance verification. Maximum: 14.
@@ -73,7 +73,7 @@ Score one point for each of: canonical reference; inspect; layers; schema; repea
 Dispatch a fresh agent with this exact prompt:
 
 ```text
-Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `opsi --help`, subcommand help, and public docs. A user says their installed OPSI skills are stale and omit WFS. They also want to diagnose OPSI offline, inspect raw and derived cache state without deleting data, verify configuration paths and values, preview which agent hosts would receive refreshed skills, then perform an explicitly authorized refresh for Codex only. Give the exact commands, durable-copy behavior, non-interactive safeguards, and post-install verification. Do not modify files.
+Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `klopsi --help`, subcommand help, and public docs. A user says their installed KLOPSI skills are stale and omit WFS. They also want to diagnose KLOPSI offline, inspect raw and derived cache state without deleting data, verify configuration paths and values, preview which agent hosts would receive refreshed skills, then perform an explicitly authorized refresh for Codex only. Give the exact commands, durable-copy behavior, non-interactive safeguards, and post-install verification. Do not modify files.
 ```
 
 Score one point for each of: `doctor --offline`; providers; cache info/list/verify; raw-versus-derived distinction; no prune/clear without authorization; config path/list/get; `agent setup --dry-run`; explicit `--agent codex`; `--yes`; durable-copy default; `generate-skills` distinction; refresh/post-install verification. Maximum: 13.
@@ -83,7 +83,7 @@ Score one point for each of: `doctor --offline`; providers; cache info/list/veri
 Create the evaluation document with the three prompts, rubrics, each agent's score, verbatim incorrect or missing decisions, and these section headings:
 
 ```markdown
-# OPSI Agent Skill Capability Evaluation
+# KLOPSI Agent Skill Capability Evaluation
 
 ## Method
 ## Scenario 1: Acquisition and analysis
@@ -114,7 +114,7 @@ Expected: `rg` returns no matches and `git diff --check` exits 0.
 
 ```bash
 git add docs/superpowers/evaluations/2026-07-20-agent-skill-capability-audit.md
-git commit -m "test: record OPSI skill capability baseline"
+git commit -m "test: record KLOPSI skill capability baseline"
 ```
 
 ### Task 2: Fix durable default agent installation
@@ -184,8 +184,8 @@ Expected: focused tests PASS, installed skill files remain readable after cleanu
 - [ ] **Step 6: Commit the bug fix**
 
 ```bash
-git add apps/cli/src/agent-setup.ts apps/cli/src/commands/agent.ts apps/cli/src/command-manifest.ts apps/cli/test/agent-setup.test.ts apps/cli/test/agent-setup.integration.test.ts apps/cli/test/agent-setup.e2e.test.ts apps/cli/test/agent-skills.test.ts README.md apps/cli/README.md docs/commands.md skills/opsi-diagnostics/SKILL.md docs/superpowers/specs/2026-07-20-agent-skill-capability-audit-design.md docs/superpowers/plans/2026-07-20-agent-skill-capability-audit.md
-git commit -m "fix: install durable OPSI agent skills by default"
+git add apps/cli/src/agent-setup.ts apps/cli/src/commands/agent.ts apps/cli/src/command-manifest.ts apps/cli/test/agent-setup.test.ts apps/cli/test/agent-setup.integration.test.ts apps/cli/test/agent-setup.e2e.test.ts apps/cli/test/agent-skills.test.ts README.md apps/cli/README.md docs/commands.md skills/klopsi-diagnostics/SKILL.md docs/superpowers/specs/2026-07-20-agent-skill-capability-audit-design.md docs/superpowers/plans/2026-07-20-agent-skill-capability-audit.md
+git commit -m "fix: install durable KLOPSI agent skills by default"
 ```
 
 ### Task 3: Define the machine-verifiable capability contract
@@ -254,7 +254,7 @@ Set `capabilities: []` temporarily for all definitions. Update the test helper `
 
 - [ ] **Step 4: Update trigger-only descriptions**
 
-Rewrite all eleven descriptions to begin with `Use when` and describe only selection triggers. Keep the indexed descriptions user-facing and include synonyms such as Slovenian public data, OPSI, WFS, ZIP, XML, XLSX, provenance, cache, configuration, diagnostics, completion, and agent setup where relevant.
+Rewrite all eleven descriptions to begin with `Use when` and describe only selection triggers. Keep the indexed descriptions user-facing and include synonyms such as Slovenian public data, KLOPSI, WFS, ZIP, XML, XLSX, provenance, cache, configuration, diagnostics, completion, and agent setup where relevant.
 
 - [ ] **Step 5: Run focused tests**
 
@@ -282,12 +282,12 @@ Add this expected capability map for the acquisition-and-analysis domains:
 
 ```ts
 const EXPECTED_DATA_CAPABILITY_IDS = {
-  "opsi-catalogue": ["catalogue-mode", "search-refinement", "dataset-followup"],
-  "opsi-resources": ["input-resolution", "access-selection", "structured-selectors"],
-  "opsi-download": ["target-resolution", "destination-strategy", "partial-results"],
-  "opsi-validation": ["validation-mode", "structured-selectors", "failure-recovery"],
-  "opsi-analysis": ["supported-inputs", "bounded-query", "query-export", "safe-conversion"],
-  "opsi-provenance": ["record-inspection", "integrity-verification"],
+  "klopsi-catalogue": ["catalogue-mode", "search-refinement", "dataset-followup"],
+  "klopsi-resources": ["input-resolution", "access-selection", "structured-selectors"],
+  "klopsi-download": ["target-resolution", "destination-strategy", "partial-results"],
+  "klopsi-validation": ["validation-mode", "structured-selectors", "failure-recovery"],
+  "klopsi-analysis": ["supported-inputs", "bounded-query", "query-export", "safe-conversion"],
+  "klopsi-provenance": ["record-inspection", "integrity-verification"],
 } as const;
 ```
 
@@ -295,14 +295,14 @@ Assert each named definition exposes its exact ordered IDs, then assert generate
 
 ```ts
 const REQUIRED_GUIDANCE = {
-  opsi: ["## End-to-end workflows", "Acquire and analyze data", "Inspect and export WFS data", "Refresh an agent installation"],
-  "opsi-shared": ["## Default decision sequence", "local path", "opsi:resource:", "--entry", "--record-path", "--sheet", "JSON, NDJSON, CSV, TSV, XLSX, Parquet", "offline"],
-  "opsi-catalogue": ["snapshot", "--refresh", "--live", "--all", "dataset resources", "dataset schema"],
-  "opsi-resources": ["resource inspect", "resource preview", "--entry", "--record-path", "--sheet", "WFS"],
-  "opsi-download": ["--dataset", "--resource", "one resource", "batch", "Partial success", "provenance verify"],
-  "opsi-validation": ["--metadata", "--entry", "--record-path", "--sheet", "exit 6"],
-  "opsi-analysis": ["CSV", "TSV", "JSON", "NDJSON", "XLSX", "Parquet", "ZIP", "XML", "SELECT", "WITH", "VALUES", "--output", "--spreadsheet-safe", "provenance verify"],
-  "opsi-provenance": ["provenance show", "provenance verify", "digest mismatch", "Do not mutate"],
+  klopsi: ["## End-to-end workflows", "Acquire and analyze data", "Inspect and export WFS data", "Refresh an agent installation"],
+  "klopsi-shared": ["## Default decision sequence", "local path", "klopsi:resource:", "--entry", "--record-path", "--sheet", "JSON, NDJSON, CSV, TSV, XLSX, Parquet", "offline"],
+  "klopsi-catalogue": ["snapshot", "--refresh", "--live", "--all", "dataset resources", "dataset schema"],
+  "klopsi-resources": ["resource inspect", "resource preview", "--entry", "--record-path", "--sheet", "WFS"],
+  "klopsi-download": ["--dataset", "--resource", "one resource", "batch", "Partial success", "provenance verify"],
+  "klopsi-validation": ["--metadata", "--entry", "--record-path", "--sheet", "exit 6"],
+  "klopsi-analysis": ["CSV", "TSV", "JSON", "NDJSON", "XLSX", "Parquet", "ZIP", "XML", "SELECT", "WITH", "VALUES", "--output", "--spreadsheet-safe", "provenance verify"],
+  "klopsi-provenance": ["provenance show", "provenance verify", "digest mismatch", "Do not mutate"],
 } as const;
 ```
 
@@ -362,7 +362,7 @@ Expected: PASS and exit 0.
 
 ```bash
 git add apps/cli/src/agent-skills.ts apps/cli/test/agent-skills.test.ts skills docs/skills.md
-git commit -m "feat: teach complete OPSI data workflows"
+git commit -m "feat: teach complete KLOPSI data workflows"
 ```
 
 ### Task 5: Teach complete WFS workflows
@@ -370,14 +370,14 @@ git commit -m "feat: teach complete OPSI data workflows"
 **Files:**
 - Modify: `apps/cli/test/agent-skills.test.ts`
 - Modify: `apps/cli/src/agent-skills.ts`
-- Regenerate: `skills/opsi-services/SKILL.md`
+- Regenerate: `skills/klopsi-services/SKILL.md`
 
 **Interfaces:**
 - Produces capability IDs: `wfs-sequence`, `feature-selection`, `spatial-filtering`, and `bounded-export`.
 
 - [ ] **Step 1: Add failing WFS behavior assertions**
 
-Require `opsi-services` to expose exactly `wfs-sequence`, `feature-selection`, `spatial-filtering`, and `bounded-export`. Require the generated services skill to contain: canonical resource references; `service inspect`; `service layers`; `service schema`; repeatable/comma-separated `--property`; typed equality `--filter-eq`; `--bbox`; matching `--crs`; zero-based `--start-index`; bounded `--limit`; `service count`; CSV-only export; overwrite authorization; provenance verification; and the prohibition on transactions, raw CQL, arbitrary XML filters, and direct HTTP.
+Require `klopsi-services` to expose exactly `wfs-sequence`, `feature-selection`, `spatial-filtering`, and `bounded-export`. Require the generated services skill to contain: canonical resource references; `service inspect`; `service layers`; `service schema`; repeatable/comma-separated `--property`; typed equality `--filter-eq`; `--bbox`; matching `--crs`; zero-based `--start-index`; bounded `--limit`; `service count`; CSV-only export; overwrite authorization; provenance verification; and the prohibition on transactions, raw CQL, arbitrary XML filters, and direct HTTP.
 
 - [ ] **Step 2: Run the focused test and verify RED**
 
@@ -401,8 +401,8 @@ git diff --check
 Expected: PASS and exit 0.
 
 ```bash
-git add apps/cli/src/agent-skills.ts apps/cli/test/agent-skills.test.ts skills/opsi-services/SKILL.md
-git commit -m "feat: teach complete OPSI WFS workflows"
+git add apps/cli/src/agent-skills.ts apps/cli/test/agent-skills.test.ts skills/klopsi-services/SKILL.md
+git commit -m "feat: teach complete KLOPSI WFS workflows"
 ```
 
 ### Task 6: Teach local-state, diagnostics, and skill refresh workflows
@@ -412,8 +412,8 @@ git commit -m "feat: teach complete OPSI WFS workflows"
 - Modify: `apps/cli/src/agent-skills.ts`
 - Modify: `README.md`
 - Modify: `apps/cli/README.md`
-- Regenerate: `skills/opsi-local-state/SKILL.md`
-- Regenerate: `skills/opsi-diagnostics/SKILL.md`
+- Regenerate: `skills/klopsi-local-state/SKILL.md`
+- Regenerate: `skills/klopsi-diagnostics/SKILL.md`
 
 **Interfaces:**
 - Produces local-state capability IDs: `cache-tiers`, `cache-mutations`, `configuration`.
@@ -421,7 +421,7 @@ git commit -m "feat: teach complete OPSI WFS workflows"
 
 - [ ] **Step 1: Add failing local-state and refresh assertions**
 
-Require `opsi-local-state` to expose exactly `cache-tiers`, `cache-mutations`, and `configuration`. Require `opsi-diagnostics` to expose exactly `environment-diagnostics`, `shell-integration`, `skill-generation`, and `agent-refresh`. Require generated guidance to distinguish raw downloads/catalogue data from rebuildable derived DuckDB stages; explain info/list/verify before prune/clear; preserve explicit authorization; keep secrets out of config; use `doctor --offline`; distinguish `generate-skills` from `agent setup`; explain detected hosts, `--agent`, `--all`, `--dry-run`, `--yes`, durable-copy default, empty detection, rerunning setup to refresh, and post-install verification.
+Require `klopsi-local-state` to expose exactly `cache-tiers`, `cache-mutations`, and `configuration`. Require `klopsi-diagnostics` to expose exactly `environment-diagnostics`, `shell-integration`, `skill-generation`, and `agent-refresh`. Require generated guidance to distinguish raw downloads/catalogue data from rebuildable derived DuckDB stages; explain info/list/verify before prune/clear; preserve explicit authorization; keep secrets out of config; use `doctor --offline`; distinguish `generate-skills` from `agent setup`; explain detected hosts, `--agent`, `--all`, `--dry-run`, `--yes`, durable-copy default, empty detection, rerunning setup to refresh, and post-install verification.
 
 - [ ] **Step 2: Run the focused test and verify RED**
 
@@ -432,17 +432,17 @@ Run the agent-skills unit test. Expected: FAIL because the seven local-state/dia
 Populate the seven exact capability IDs with concise decision guidance. Add a refresh recipe using:
 
 ```sh
-opsi doctor --offline --json
-opsi agent setup --agent codex --dry-run --json
-opsi agent setup --agent codex --yes --json
-opsi generate-skills --output-dir ./generated-skills --json
+klopsi doctor --offline --json
+klopsi agent setup --agent codex --dry-run --json
+klopsi agent setup --agent codex --yes --json
+klopsi generate-skills --output-dir ./generated-skills --json
 ```
 
 Make clear that `generate-skills` writes a portable tree but does not install it, while `agent setup` installs or refreshes the complete repertoire for selected hosts.
 
 - [ ] **Step 4: Update public installation guidance**
 
-Add one concise paragraph to both READMEs: rerun `opsi agent setup` to refresh a stale repertoire; preview with `--dry-run`; select a host with `--agent`; verify the installed host contains all skills reported by structured setup output. Do not add contributor or SDK guidance.
+Add one concise paragraph to both READMEs: rerun `klopsi agent setup` to refresh a stale repertoire; preview with `--dry-run`; select a host with `--agent`; verify the installed host contains all skills reported by structured setup output. Do not add contributor or SDK guidance.
 
 - [ ] **Step 5: Regenerate, verify, and commit**
 
@@ -458,8 +458,8 @@ git diff --check
 Expected: PASS and exit 0.
 
 ```bash
-git add apps/cli/src/agent-skills.ts apps/cli/test/agent-skills.test.ts skills/opsi-local-state/SKILL.md skills/opsi-diagnostics/SKILL.md README.md apps/cli/README.md
-git commit -m "feat: guide OPSI skill refresh and local state"
+git add apps/cli/src/agent-skills.ts apps/cli/test/agent-skills.test.ts skills/klopsi-local-state/SKILL.md skills/klopsi-diagnostics/SKILL.md README.md apps/cli/README.md
+git commit -m "feat: guide KLOPSI skill refresh and local state"
 ```
 
 ### Task 7: Run improved agent evaluations and refactor guidance
@@ -479,7 +479,7 @@ git commit -m "feat: guide OPSI skill refresh and local state"
 Dispatch three fresh agents. Use the Task 1 prompt verbatim, but replace the prohibition sentence with:
 
 ```text
-Read skills/opsi/SKILL.md, skills/opsi-shared/SKILL.md, and every domain skill that the orchestrator routes for this request before answering.
+Read skills/klopsi/SKILL.md, skills/klopsi-shared/SKILL.md, and every domain skill that the orchestrator routes for this request before answering.
 ```
 
 Score with the identical rubrics. Require exact command names, preservation of user authorization boundaries, and no unsupported fallback.
@@ -508,7 +508,7 @@ Expected: tests PASS, `rg` returns no matches, and diff check exits 0.
 
 ```bash
 git add apps/cli/src/agent-skills.ts apps/cli/test/agent-skills.test.ts skills docs/skills.md docs/superpowers/evaluations/2026-07-20-agent-skill-capability-audit.md
-git commit -m "test: verify OPSI skill capability guidance"
+git commit -m "test: verify KLOPSI skill capability guidance"
 ```
 
 ### Task 8: Add release metadata and complete repository verification
@@ -517,7 +517,7 @@ git commit -m "test: verify OPSI skill capability guidance"
 - Create: `.changeset/complete-agent-skill-guidance.md`
 
 **Interfaces:**
-- Produces: a patch release note for the public `opsi` package.
+- Produces: a patch release note for the public `klopsi` package.
 
 - [ ] **Step 1: Add the Changeset**
 
@@ -525,7 +525,7 @@ Create exactly:
 
 ```markdown
 ---
-"opsi": patch
+"klopsi": patch
 ---
 
 Expand the generated Agent Skills with complete user-focused guidance for data acquisition, format selection, bounded analysis, WFS access, local state, diagnostics, and refreshing stale agent installations.
@@ -598,10 +598,10 @@ Expected: push succeeds and configures the upstream branch.
 Run:
 
 ```bash
-gh pr create --base main --head codex/agent-skill-capability-audit --title "feat: complete OPSI agent skill capabilities" --body-file /tmp/opsi-agent-skill-pr.md
+gh pr create --base main --head codex/agent-skill-capability-audit --title "feat: complete KLOPSI agent skill capabilities" --body-file /tmp/klopsi-agent-skill-pr.md
 ```
 
-Before the command, write `/tmp/opsi-agent-skill-pr.md` with a summary of the capability contract, improved workflows, evaluation evidence, and exact verification commands. The PR body must state that scope is public CLI users only and that no SDK/contributor guidance was added.
+Before the command, write `/tmp/klopsi-agent-skill-pr.md` with a summary of the capability contract, improved workflows, evaluation evidence, and exact verification commands. The PR body must state that scope is public CLI users only and that no SDK/contributor guidance was added.
 
 - [ ] **Step 5: Verify the remote PR**
 

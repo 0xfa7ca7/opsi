@@ -1,5 +1,5 @@
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
-import type { OpsiClient, WfsNetworkOptions, WfsSelectionOptions } from "@opsi/core";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
+import type { KlopsiClient, WfsNetworkOptions, WfsSelectionOptions } from "@klopsi/core";
 import type { Command } from "commander";
 import type { CliContext } from "../context.js";
 import { manifestCommand } from "../command-manifest.js";
@@ -28,7 +28,7 @@ function selection(options: SelectionArguments): WfsSelectionOptions {
   for (const candidate of options.filterEq ?? []) {
     const index = candidate.indexOf("=");
     if (index <= 0)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "WFS_FILTER_INVALID",
         message: "Equality filters must use field=value.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -44,7 +44,7 @@ function selection(options: SelectionArguments): WfsSelectionOptions {
   if (options.bbox !== undefined) {
     const values = options.bbox.split(",").map(Number);
     if (values.length !== 4 || values.some((value) => !Number.isFinite(value)))
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "WFS_BBOX_INVALID",
         message: "--bbox requires four finite comma-separated coordinates.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -67,7 +67,7 @@ function selection(options: SelectionArguments): WfsSelectionOptions {
 export function registerServiceCommand(
   program: Command,
   context: CliContext,
-  client: OpsiClient,
+  client: KlopsiClient,
 ): void {
   manifestCommand(program, "service inspect").action(
     async (resource: string, options: SelectionArguments) =>

@@ -13,9 +13,9 @@ import {
   type QueryResult,
   type SupportedInputFormat,
   type TabularStage,
-} from "@opsi/data-engine";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
-import type { DerivedArtifactCache, DerivedArtifactIdentity } from "@opsi/storage";
+} from "@klopsi/data-engine";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
+import type { DerivedArtifactCache, DerivedArtifactIdentity } from "@klopsi/storage";
 
 export const QUERY_STAGE_VERSION = "1";
 export const QUERY_STAGE_DUCKDB_VERSION = "1.5.4-r.1";
@@ -49,7 +49,7 @@ export interface QueryDatabaseCacheOptions {
   readonly verify?: typeof verifyStagedDatabase;
   readonly makeTemporaryDirectory?: () => Promise<string>;
   readonly removeTemporaryDirectory?: (path: string) => Promise<void>;
-  readonly xmlLimits?: import("@opsi/data-engine").XmlLimits;
+  readonly xmlLimits?: import("@klopsi/data-engine").XmlLimits;
 }
 
 export interface QueryDatabaseResult extends QueryResult {
@@ -73,8 +73,8 @@ function supported(format: string): format is SupportedInputFormat {
   return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"].includes(format);
 }
 
-function cleanupFailure(failures: readonly unknown[], operationError: unknown): OpsiError {
-  return new OpsiError({
+function cleanupFailure(failures: readonly unknown[], operationError: unknown): KlopsiError {
+  return new KlopsiError({
     code: "QUERY_CLEANUP_FAILED",
     message: "Query resources could not be fully cleaned up.",
     exitCode: EXIT_CODES.QUERY_FAILURE,
@@ -108,11 +108,11 @@ export class QueryDatabaseCache {
     };
     try {
       directory = await (this.options.makeTemporaryDirectory?.() ??
-        mkdtemp(join(tmpdir(), "opsi-query-")));
+        mkdtemp(join(tmpdir(), "klopsi-query-")));
       const databasePath = join(directory, "data.duckdb");
       const detection = await detectFormat(source);
       if (!supported(detection.format))
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "UNSUPPORTED_CONVERSION_FORMAT",
           message: `The detected format '${detection.format}' cannot be converted.`,
           exitCode: EXIT_CODES.UNSUPPORTED,
@@ -263,7 +263,7 @@ export class QueryDatabaseCache {
     }
     if (operationError !== undefined) throw operationError;
     if (result === undefined)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "QUERY_FAILED",
         message: "The query completed without a result.",
         exitCode: EXIT_CODES.QUERY_FAILURE,

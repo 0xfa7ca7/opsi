@@ -2,15 +2,15 @@ import { createHash } from "node:crypto";
 import { lstat, mkdtemp, open, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { DataEngine, type DataRow } from "@opsi/data-engine";
+import { DataEngine, type DataRow } from "@klopsi/data-engine";
 import {
   EXIT_CODES,
-  OpsiError,
+  KlopsiError,
   parseCanonicalReference,
   resourceId,
   type ResourceId,
-} from "@opsi/domain";
-import { Downloader, publishArtifactPair, type DownloadLimits } from "@opsi/storage";
+} from "@klopsi/domain";
+import { Downloader, publishArtifactPair, type DownloadLimits } from "@klopsi/storage";
 import type { ProviderRegistry } from "../registry.js";
 import { buildWfsUrl } from "./url.js";
 import {
@@ -52,7 +52,7 @@ interface ResolvedWfs {
   readonly headers?: Readonly<Record<string, string>>;
 }
 
-function serviceException(bytes: Buffer): OpsiError | undefined {
+function serviceException(bytes: Buffer): KlopsiError | undefined {
   return bytes.toString("utf8", 0, Math.min(bytes.length, 256)).trimStart().startsWith("<")
     ? parseWfsException(bytes)
     : undefined;
@@ -82,7 +82,7 @@ export class WfsService {
     if (input.includes(":")) {
       const reference = parseCanonicalReference(input);
       if (reference.kind !== "resource")
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "RESOURCE_REFERENCE_REQUIRED",
           message: "WFS operations require a resource reference.",
           exitCode: EXIT_CODES.INVALID_INPUT,
@@ -94,7 +94,7 @@ export class WfsService {
     const resource = await provider.getResource(id);
     const resolved = await provider.resolveResource(resource);
     if (resolved.kind !== "service" || resource.format?.trim().toLowerCase() === "wms")
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "WFS_RESOURCE_REQUIRED",
         message: "The selected resource is not a WFS service.",
         exitCode: EXIT_CODES.UNSUPPORTED,
@@ -113,12 +113,12 @@ export class WfsService {
     network: WfsNetworkOptions,
   ): Promise<Buffer> {
     if (this.options.offline)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "OFFLINE_CACHE_MISS",
         message: "Offline mode has no cached WFS response for this request.",
         exitCode: EXIT_CODES.NOT_FOUND,
       });
-    const directory = await mkdtemp(join(tmpdir(), "opsi-wfs-"));
+    const directory = await mkdtemp(join(tmpdir(), "klopsi-wfs-"));
     const destination = join(directory, "response");
     try {
       const url = buildWfsUrl(resolved.url, query);
@@ -149,7 +149,7 @@ export class WfsService {
     const resolved = await this.resolve(input);
     let capabilities = this.capabilitiesCache.get(resolved.canonical);
     if (capabilities === undefined) {
-      let negotiationError: OpsiError | undefined;
+      let negotiationError: KlopsiError | undefined;
       for (const version of ["2.0.0", "1.1.0", "1.0.0"] as const) {
         const bytes = await this.fetch(resolved, { version, request: "GetCapabilities" }, network);
         const exception = serviceException(bytes);
@@ -161,7 +161,7 @@ export class WfsService {
           capabilities = parseWfsCapabilities(bytes);
           break;
         } catch (error) {
-          if (!(error instanceof OpsiError) || error.code !== "WFS_VERSION_UNSUPPORTED")
+          if (!(error instanceof KlopsiError) || error.code !== "WFS_VERSION_UNSUPPORTED")
             throw error;
           negotiationError = error;
         }
@@ -169,7 +169,7 @@ export class WfsService {
       if (capabilities === undefined)
         throw (
           negotiationError ??
-          new OpsiError({
+          new KlopsiError({
             code: "WFS_VERSION_UNSUPPORTED",
             message: "The service did not negotiate WFS 2.0.0, 1.1.0, or 1.0.0.",
             exitCode: EXIT_CODES.UNSUPPORTED,
@@ -191,7 +191,7 @@ export class WfsService {
     const resolved = await this.resolve(input);
     const inspected = await this.inspect(input, options);
     if (!inspected.capabilities.layers.some((layer) => layer.name === options.layer))
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "WFS_LAYER_NOT_FOUND",
         message: "The WFS layer is not advertised by the service.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -230,7 +230,7 @@ export class WfsService {
     const names = new Set(fields.map((field) => field.name));
     for (const property of [...(options.properties ?? []), ...Object.keys(options.filters ?? {})])
       if (!names.has(property))
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "WFS_FIELD_NOT_FOUND",
           message: "A selected WFS field is not present in the schema.",
           exitCode: EXIT_CODES.INVALID_INPUT,
@@ -270,7 +270,7 @@ export class WfsService {
     );
     const exception = serviceException(bytes);
     if (exception !== undefined) throw exception;
-    const directory = await mkdtemp(join(tmpdir(), "opsi-wfs-preview-"));
+    const directory = await mkdtemp(join(tmpdir(), "klopsi-wfs-preview-"));
     const path = join(directory, "features.csv");
     try {
       const handle = await open(path, "wx", 0o600);
@@ -330,13 +330,13 @@ export class WfsService {
     try {
       const details = await lstat(output);
       if (!details.isFile() || details.isSymbolicLink())
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "UNSAFE_SERVICE_DESTINATION",
           message: "The WFS export destination is not a regular file.",
           exitCode: EXIT_CODES.INVALID_INPUT,
         });
       if (options.force !== true)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "SERVICE_DESTINATION_EXISTS",
           message: "The WFS export destination already exists.",
           exitCode: EXIT_CODES.INVALID_INPUT,

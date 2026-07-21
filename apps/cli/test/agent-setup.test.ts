@@ -23,7 +23,7 @@ function registry(
   };
 }
 
-async function temporaryDirectory(prefix = "opsi-agent-setup-test-"): Promise<string> {
+async function temporaryDirectory(prefix = "klopsi-agent-setup-test-"): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), prefix));
   temporaryDirectories.push(directory);
   return directory;
@@ -78,7 +78,7 @@ describe("agent setup orchestration", () => {
       scope: "global",
       selection: "detected",
       dryRun: true,
-      skills: expect.arrayContaining(["opsi", "opsi-analysis", "opsi-shared"]),
+      skills: expect.arrayContaining(["klopsi", "klopsi-analysis", "klopsi-shared"]),
     });
     expect(createTemporaryDirectory).not.toHaveBeenCalled();
     expect(runner.run).not.toHaveBeenCalled();
@@ -91,8 +91,8 @@ describe("agent setup orchestration", () => {
       run: vi.fn(async (request) => {
         sourceDirectory = request.arguments[1] ?? "";
         expect(request).toMatchObject({ cwd, env: { NO_COLOR: "1" }, interactive: false });
-        expect(await readFile(join(sourceDirectory, "opsi", "SKILL.md"), "utf8")).toContain(
-          "Generated for `opsi` 1.2.3",
+        expect(await readFile(join(sourceDirectory, "klopsi", "SKILL.md"), "utf8")).toContain(
+          "Generated for `klopsi` 1.2.3",
         );
         return { exitCode: 0, stdout: "installed", stderr: "" };
       }),
@@ -113,7 +113,7 @@ describe("agent setup orchestration", () => {
       installer: "skills@1.5.19",
       scope: "global",
       selection: ["codex"],
-      skills: expect.arrayContaining(["opsi", "opsi-shared"]),
+      skills: expect.arrayContaining(["klopsi", "klopsi-shared"]),
       dryRun: false,
     });
     expect(runner.run).toHaveBeenCalledOnce();

@@ -2,16 +2,16 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { OpsiClient } from "../src/client.js";
+import { KlopsiClient } from "../src/client.js";
 import { ProviderRegistry } from "../src/registry.js";
 import {
-  OpsiError,
+  KlopsiError,
   datasetId,
   providerId,
   resourceId,
   type DataProvider,
   type Resource,
-} from "@opsi/domain";
+} from "@klopsi/domain";
 
 const temporary: string[] = [];
 afterEach(async () =>
@@ -19,7 +19,7 @@ afterEach(async () =>
 );
 
 async function fixture(name: string, contents: string): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "opsi-access-"));
+  const directory = await mkdtemp(join(tmpdir(), "klopsi-access-"));
   temporary.push(directory);
   const path = join(directory, name);
   await writeFile(path, contents);
@@ -27,9 +27,9 @@ async function fixture(name: string, contents: string): Promise<string> {
 }
 
 describe("resource access guidance", () => {
-  it("describes local data with OPSI-only next actions", async () => {
+  it("describes local data with KLOPSI-only next actions", async () => {
     const path = await fixture("rows.csv", "id,name\n1,Ljubljana\n");
-    const client = new OpsiClient({ registry: new ProviderRegistry(), providerId: "opsi" });
+    const client = new KlopsiClient({ registry: new ProviderRegistry(), providerId: "klopsi" });
     const descriptor = await client.access.inspect(path);
     expect(descriptor).toMatchObject({
       kind: "local",
@@ -45,7 +45,7 @@ describe("resource access guidance", () => {
       "rows.xml",
       "<root><a><id>1</id></a><a><id>2</id></a><b><id>3</id></b><b><id>4</id></b></root>",
     );
-    const client = new OpsiClient({ registry: new ProviderRegistry(), providerId: "opsi" });
+    const client = new KlopsiClient({ registry: new ProviderRegistry(), providerId: "klopsi" });
     await expect(client.access.inspect(path)).resolves.toMatchObject({
       detectedFormat: "xml",
       selections: { recordPaths: ["/root/a", "/root/b"] },
@@ -76,12 +76,12 @@ describe("resource access guidance", () => {
       listDatasetResources: async () => [],
       resolveResource: async () => ({ resource, kind: "archive", url: resource.url }),
     };
-    const client = new OpsiClient({
+    const client = new KlopsiClient({
       registry: new ProviderRegistry([provider]),
       providerId: "fixture",
     });
     client.data.preview = async () => {
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "INVALID_TABULAR_DATA",
         message: "malformed",
         exitCode: 6,

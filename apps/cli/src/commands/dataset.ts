@@ -1,6 +1,6 @@
-import type { OpsiClient } from "@opsi/core";
-import type { CatalogueSnapshotClient } from "@opsi/catalogue-snapshot";
-import { datasetId, EXIT_CODES, OpsiError, parseCanonicalReference } from "@opsi/domain";
+import type { KlopsiClient } from "@klopsi/core";
+import type { CatalogueSnapshotClient } from "@klopsi/catalogue-snapshot";
+import { datasetId, EXIT_CODES, KlopsiError, parseCanonicalReference } from "@klopsi/domain";
 import type { Command } from "commander";
 import type { CliContext } from "../context.js";
 import { registerDatasetOpenCommand } from "./open.js";
@@ -13,8 +13,8 @@ interface DatasetListOptions {
   readonly refresh?: boolean;
 }
 
-function datasetListPaginationError(): OpsiError {
-  return new OpsiError({
+function datasetListPaginationError(): KlopsiError {
+  return new KlopsiError({
     code: "DATASET_LIST_PAGINATION_INVALID",
     message: "The provider returned a non-advancing dataset list page.",
     exitCode: EXIT_CODES.PROVIDER_FAILURE,
@@ -22,8 +22,8 @@ function datasetListPaginationError(): OpsiError {
   });
 }
 
-function liveOfflineError(): OpsiError {
-  return new OpsiError({
+function liveOfflineError(): KlopsiError {
+  return new KlopsiError({
     code: "CATALOGUE_LIVE_OFFLINE",
     message: "Live dataset listing is unavailable in offline mode.",
     exitCode: EXIT_CODES.INVALID_INPUT,
@@ -31,8 +31,8 @@ function liveOfflineError(): OpsiError {
   });
 }
 
-function refreshOfflineError(): OpsiError {
-  return new OpsiError({
+function refreshOfflineError(): KlopsiError {
+  return new KlopsiError({
     code: "CATALOGUE_REFRESH_OFFLINE",
     message: "Catalogue snapshot refresh is unavailable in offline mode.",
     exitCode: EXIT_CODES.INVALID_INPUT,
@@ -40,12 +40,12 @@ function refreshOfflineError(): OpsiError {
   });
 }
 
-function unsupportedSnapshotFields(fields: readonly string[]): OpsiError {
-  return new OpsiError({
+function unsupportedSnapshotFields(fields: readonly string[]): KlopsiError {
+  return new KlopsiError({
     code: "CATALOGUE_SNAPSHOT_FIELD_UNSUPPORTED",
     message: "The catalogue snapshot does not contain every selected field.",
     exitCode: EXIT_CODES.INVALID_INPUT,
-    suggestion: "Use only id, title, and name, or add --live to query OPSI directly.",
+    suggestion: "Use only id, title, and name, or add --live to query KLOPSI directly.",
     context: { fields },
   });
 }
@@ -74,7 +74,7 @@ async function listSnapshotDatasets(
   );
 }
 
-async function listLiveDatasets(context: CliContext, client: OpsiClient): Promise<void> {
+async function listLiveDatasets(context: CliContext, client: KlopsiClient): Promise<void> {
   const buffered = [];
   let offset = 0;
   let total = 0;
@@ -114,7 +114,7 @@ async function listLiveDatasets(context: CliContext, client: OpsiClient): Promis
 export function registerDatasetCommand(
   program: Command,
   context: CliContext,
-  client: OpsiClient,
+  client: KlopsiClient,
   catalogue?: Pick<CatalogueSnapshotClient, "list">,
 ): void {
   registerDatasetOpenCommand(program, context, client);
@@ -173,7 +173,7 @@ export function registerDatasetCommand(
       let selected = options.resource;
       if (selected === undefined) {
         if (tabular.length !== 1)
-          throw new OpsiError({
+          throw new KlopsiError({
             code: "AMBIGUOUS_RESOURCE",
             message: "Dataset schema requires an explicit resource selection.",
             exitCode: EXIT_CODES.INVALID_INPUT,
@@ -184,13 +184,13 @@ export function registerDatasetCommand(
       }
       const selectedId = selected.includes(":") ? parseCanonicalReference(selected) : undefined;
       if (selectedId !== undefined && selectedId.kind !== "resource")
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "RESOURCE_REFERENCE_REQUIRED",
           message: "--resource must identify a resource.",
           exitCode: EXIT_CODES.INVALID_INPUT,
         });
       if (selectedId?.kind === "resource" && selectedId.providerId !== value.providerId)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "RESOURCE_PROVIDER_MISMATCH",
           message: "Selected resource provider does not match the dataset provider.",
           exitCode: EXIT_CODES.INVALID_INPUT,
@@ -199,7 +199,7 @@ export function registerDatasetCommand(
       const matchId = selectedId?.kind === "resource" ? `${selectedId.id}` : selected;
       const resource = value.resources.find((candidate) => `${candidate.id}` === matchId);
       if (resource === undefined)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "RESOURCE_NOT_IN_DATASET",
           message: `Resource '${matchId}' is not part of dataset '${id}'.`,
           exitCode: EXIT_CODES.INVALID_INPUT,

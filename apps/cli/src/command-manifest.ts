@@ -1,4 +1,4 @@
-import { duckDbMemoryLimitBytes } from "@opsi/domain";
+import { duckDbMemoryLimitBytes } from "@klopsi/domain";
 import { Argument, Command, InvalidArgumentError, Option } from "commander";
 
 type ParserKind = "positive" | "nonnegative" | "collect" | "duckdb-memory";
@@ -62,7 +62,7 @@ export const GLOBAL_OPTION_MANIFEST: readonly CommandOptionManifest[] = [
     parser: "collect",
     defaultValue: [],
   }),
-  option("--provider <id>", "select provider", { choices: ["opsi", "local"] }),
+  option("--provider <id>", "select provider", { choices: ["klopsi", "local"] }),
   option("--offline", "disable network access"),
   option("--cache-dir <path>", "override cache directory"),
   option("--download-dir <path>", "override download directory"),
@@ -110,7 +110,7 @@ export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
     [],
     [
       option("--refresh", "refresh the published catalogue snapshot", { conflicts: ["live"] }),
-      option("--live", "query OPSI directly using paginated requests", {
+      option("--live", "query KLOPSI directly using paginated requests", {
         conflicts: ["refresh"],
       }),
     ],
@@ -336,13 +336,13 @@ export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
   ]),
   leaf(
     "generate-skills",
-    "Generate installable Agent Skills for the opsi CLI",
+    "Generate installable Agent Skills for the klopsi CLI",
     [],
     [option("--output-dir <path>", "directory that receives generated skills")],
   ),
   leaf(
     "agent setup",
-    "Install OPSI Agent Skills for detected agent hosts",
+    "Install KLOPSI Agent Skills for detected agent hosts",
     [],
     [
       option("--agent <ids...>", "target explicit agent installer IDs"),

@@ -1,7 +1,7 @@
 import { closeSync, openSync, writeSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import type { DuckDBInstance, DuckDBTypeId, DuckDBConnection } from "@duckdb/node-api";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { detectFormat } from "./detect.js";
 import { sqlString } from "./sql-path.js";
 import type { DataInput, FormatDetection, SupportedInputFormat, ValidationIssue } from "./types.js";
@@ -90,7 +90,7 @@ async function xlsxAsNdjson(
     if (descriptor !== undefined) closeSync(descriptor);
   }
   if (!sawHeader || !sawRow)
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "EMPTY_TABULAR_INPUT",
       message: "The selected XLSX sheet has no data rows to convert.",
       exitCode: EXIT_CODES.INVALID_INPUT,
@@ -114,7 +114,7 @@ export async function stageTabularInput(options: {
   const detection = options.detection ?? (await detectFormat(options.input));
   options.signal?.throwIfAborted();
   if (!supported(detection.format))
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "UNSUPPORTED_CONVERSION_FORMAT",
       message: `The detected format '${detection.format}' cannot be converted.`,
       exitCode: EXIT_CODES.UNSUPPORTED,
@@ -203,7 +203,7 @@ export async function stageTabularInput(options: {
     options.signal?.throwIfAborted();
     connection = await instance.connect();
     options.signal?.throwIfAborted();
-    // This is an OPSI-owned statement. Only the path literal is variable and is
+    // This is a KLOPSI-owned statement. Only the path literal is variable and is
     // quoted by sqlString; no user SQL reaches the staging connection.
     await connection.run(
       `CREATE TABLE data AS SELECT * FROM ${sourceExpression(stagedFormat, stagedSource, detection)}`,
@@ -214,7 +214,7 @@ export async function stageTabularInput(options: {
       typeId: result.columnTypeId(index),
     }));
     if (columns.length === 0)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "EMPTY_TABULAR_INPUT",
         message: "The input has no columns to convert.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -265,7 +265,7 @@ export async function verifyStagedDatabase(databasePath: string): Promise<void> 
       .map((row) => row.table_name)
       .filter((name): name is string => typeof name === "string");
     if (tableNames.length !== 1 || tableNames[0] !== "data")
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "STAGED_DATABASE_INVALID",
         message: "The staged DuckDB database does not contain exactly one data table.",
         exitCode: EXIT_CODES.QUERY_FAILURE,
@@ -273,9 +273,9 @@ export async function verifyStagedDatabase(databasePath: string): Promise<void> 
       });
   } catch (error) {
     operationError =
-      error instanceof OpsiError
+      error instanceof KlopsiError
         ? error
-        : new OpsiError({
+        : new KlopsiError({
             code: "STAGED_DATABASE_INVALID",
             message: "The staged DuckDB database could not be verified.",
             exitCode: EXIT_CODES.QUERY_FAILURE,
@@ -296,7 +296,7 @@ export async function verifyStagedDatabase(databasePath: string): Promise<void> 
       }
     }
     if (failures.length > 0)
-      operationError = new OpsiError({
+      operationError = new KlopsiError({
         code: "STAGED_DATABASE_CLEANUP_FAILED",
         message: "The staged DuckDB verification resources could not be closed.",
         exitCode: EXIT_CODES.QUERY_FAILURE,

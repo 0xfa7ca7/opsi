@@ -10,9 +10,9 @@ import { registerDatasetOpenCommand } from "../src/commands/open.js";
 import { normalizeError } from "../src/errors.js";
 import { handleDoctorReport, runDoctorChecks, type DoctorReport } from "../src/commands/doctor.js";
 import { Command } from "commander";
-import type { OpsiClient } from "@opsi/core";
+import type { KlopsiClient } from "@klopsi/core";
 import { COMMAND_MANIFEST, registerCommandManifest } from "../src/command-manifest.js";
-import { Renderer } from "@opsi/output";
+import { Renderer } from "@klopsi/output";
 import { completionScript } from "../src/commands/completion.js";
 
 const temporaryDirectories: string[] = [];
@@ -22,22 +22,22 @@ async function completeWithZsh(input: string, cwd: string): Promise<string> {
   const completionDirectory = join(cwd, "zsh-functions");
   const candidateLog = join(cwd, "zsh-candidates.log");
   await mkdir(completionDirectory, { recursive: true });
-  await writeFile(join(completionDirectory, "_opsi"), completionScript("zsh"));
+  await writeFile(join(completionDirectory, "_klopsi"), completionScript("zsh"));
   const harness = `
 zmodload zsh/zpty
 zpty -b completion zsh -f -i
 integer attempts=0
 typeset ready chunk output
-zpty -w completion "stty -echo; PS1=''; RPS1=''; fpath=(\${(q)1} $fpath); autoload -Uz compinit; compinit -D; setopt AUTO_LIST LIST_AMBIGUOUS; cd -- \${(q)2}; print -r -- __OPSI_''INITIALIZED__"
+zpty -w completion "stty -echo; PS1=''; RPS1=''; fpath=(\${(q)1} $fpath); autoload -Uz compinit; compinit -D; setopt AUTO_LIST LIST_AMBIGUOUS; cd -- \${(q)2}; print -r -- __KLOPSI_''INITIALIZED__"
 attempts=0
-until zpty -r -m completion ready '*__OPSI_INITIALIZED__*'; do
+until zpty -r -m completion ready '*__KLOPSI_INITIALIZED__*'; do
   (( attempts += 1 ))
   (( attempts > 200 )) && exit 2
   sleep 0.01
 done
-zpty -w completion 'function compadd { print -r -- "$@" >> '"\${(q)4}"'; builtin compadd "$@" }; function __opsi_completion_ready { zle -D zle-line-init; print -r -- __OPSI_\${:-COMPLETION_READY__} }; zle -N zle-line-init __opsi_completion_ready'
+zpty -w completion 'function compadd { print -r -- "$@" >> '"\${(q)4}"'; builtin compadd "$@" }; function __klopsi_completion_ready { zle -D zle-line-init; print -r -- __KLOPSI_\${:-COMPLETION_READY__} }; zle -N zle-line-init __klopsi_completion_ready'
 attempts=0
-until zpty -r -m completion ready '*__OPSI_COMPLETION_READY__*'; do
+until zpty -r -m completion ready '*__KLOPSI_COMPLETION_READY__*'; do
   (( attempts += 1 ))
   (( attempts > 200 )) && exit 2
   sleep 0.01
@@ -70,7 +70,7 @@ async function fixture(): Promise<{
   readonly cwd: string;
   readonly home: string;
 }> {
-  const cwd = await mkdtemp(join(tmpdir(), "opsi-complete-surface-"));
+  const cwd = await mkdtemp(join(tmpdir(), "klopsi-complete-surface-"));
   temporaryDirectories.push(cwd);
   const home = join(cwd, "home");
   await mkdir(home, { recursive: true });
@@ -224,7 +224,9 @@ describe("complete command surface", () => {
     const pathEnvelope = JSON.parse(value.stdout.splice(0).join("")) as {
       data: { user: string; project: string };
     };
-    expect(pathEnvelope).toMatchObject({ data: { project: join(value.cwd, "opsi.config.json") } });
+    expect(pathEnvelope).toMatchObject({
+      data: { project: join(value.cwd, "klopsi.config.json") },
+    });
     expect(await readFile(pathEnvelope.data.user, "utf8")).not.toMatch(/apiKey|token|secret/iu);
   });
 
@@ -271,7 +273,7 @@ describe("complete command surface", () => {
       io: value.io,
       version: "1.0.0",
       configuration: {
-        provider: "opsi",
+        provider: "klopsi",
         output: "json" as const,
         locale: "sl-SI",
         offline: false,
@@ -287,7 +289,7 @@ describe("complete command surface", () => {
       search: async () => {
         throw new Error("controlled connectivity failure");
       },
-    } as unknown as OpsiClient;
+    } as unknown as KlopsiClient;
     const report = await runDoctorChecks(context, client, false);
     expect(report.status).toBe("fail");
     expect(report.checks).toEqual(
@@ -342,13 +344,13 @@ describe("complete command surface", () => {
       datasets: {
         get: async () => ({
           id: "dataset-traffic-001",
-          providerId: "opsi",
+          providerId: "klopsi",
           title: "Traffic",
           resources: [],
           providerMetadata: { raw: { name: "traffic-data" } },
         }),
       },
-    } as unknown as OpsiClient;
+    } as unknown as KlopsiClient;
     registerDatasetOpenCommand(
       parent,
       { io: value.io, version: "1.0.0", openUrl: async (url) => void opened.push(url) },
@@ -398,7 +400,7 @@ describe("complete command surface", () => {
     const output = value.stdout.join("");
     expect(output).toContain("dataset");
     expect(output).toContain(shell === "fish" ? "-l 'json'" : "--json");
-    expect(output).toContain("opsi");
+    expect(output).toContain("klopsi");
     if (shell === "bash") expect(output).toContain('case "$COMP_LINE"');
     if (shell === "zsh") {
       expect(output).not.toContain("# enum choices:");
@@ -424,19 +426,23 @@ describe("complete command surface", () => {
   const functionalZshCompletionTest: typeof it = process.platform === "darwin" ? it : it.skip;
 
   functionalZshCompletionTest.each([
-    ["top-level command", "opsi val", "validate"],
-    ["nested command", "opsi dataset sch", "schema"],
-    ["enum option", "opsi convert input.csv --to par", "parquet"],
-    ["path argument", "opsi convert zsh-unique", "zsh-unique.csv"],
-    ["global option before command", "opsi --offline convert input.csv --to par", "parquet"],
-    ["command option", "opsi search --lim", "--limit"],
-    ["colon-bearing option", "opsi search --sort field:direction --lim", "--limit"],
+    ["top-level command", "klopsi val", "validate"],
+    ["nested command", "klopsi dataset sch", "schema"],
+    ["enum option", "klopsi convert input.csv --to par", "parquet"],
+    ["path argument", "klopsi convert zsh-unique", "zsh-unique.csv"],
+    ["global option before command", "klopsi --offline convert input.csv --to par", "parquet"],
+    ["command option", "klopsi search --lim", "--limit"],
+    ["colon-bearing option", "klopsi search --sort field:direction --lim", "--limit"],
     [
       "top-level option-value collision",
-      "opsi --cache-dir convert convert input.csv --to par",
+      "klopsi --cache-dir convert convert input.csv --to par",
       "parquet",
     ],
-    ["nested option-value collision", "opsi dataset --cache-dir schema schema --res", "--resource"],
+    [
+      "nested option-value collision",
+      "klopsi dataset --cache-dir schema schema --res",
+      "--resource",
+    ],
   ])("functionally completes %s in zsh", async (_name, input, expected) => {
     const value = await fixture();
     await writeFile(join(value.cwd, "zsh-unique.csv"), "answer\n42\n");
@@ -448,7 +454,7 @@ describe("complete command surface", () => {
   it("keeps help/version output stack-free and non-interactive", async () => {
     const value = await fixture();
     await expect(runCli(["--help"], value.io)).resolves.toBe(0);
-    expect(value.stdout.join("")).toContain("Usage: opsi");
+    expect(value.stdout.join("")).toContain("Usage: klopsi");
     expect(value.stderr).toEqual([]);
 
     value.stdout.splice(0);

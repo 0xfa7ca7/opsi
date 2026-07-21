@@ -15,8 +15,8 @@ import {
   serializeSnapshot,
   type CatalogueManifest,
   type CatalogueSnapshot,
-} from "@opsi/catalogue-snapshot";
-import { ContentCache, canonicalCacheKey, type MetadataValidators } from "@opsi/storage";
+} from "@klopsi/catalogue-snapshot";
+import { ContentCache, canonicalCacheKey, type MetadataValidators } from "@klopsi/storage";
 
 const NOW = new Date("2026-07-13T12:00:00.000Z");
 const roots: string[] = [];
@@ -47,7 +47,7 @@ async function listen(handler: RequestListener): Promise<string> {
 }
 
 async function cacheRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "opsi-catalogue-client-"));
+  const root = await mkdtemp(join(tmpdir(), "klopsi-catalogue-client-"));
   roots.push(root);
   return root;
 }

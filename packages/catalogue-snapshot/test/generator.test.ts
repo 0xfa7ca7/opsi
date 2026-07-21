@@ -1,15 +1,15 @@
 import {
   datasetId,
   EXIT_CODES,
-  OpsiError,
+  KlopsiError,
   providerId,
   type DataProvider,
   type DatasetSummary,
   type SearchPage,
   type SearchQuery,
-} from "@opsi/domain";
+} from "@klopsi/domain";
 import { describe, expect, it, vi } from "vitest";
-import { generateCatalogueSnapshot } from "@opsi/catalogue-snapshot";
+import { generateCatalogueSnapshot } from "@klopsi/catalogue-snapshot";
 
 const generatedAt = "2026-07-13T12:00:00.000Z";
 
@@ -114,11 +114,11 @@ describe("generateCatalogueSnapshot", () => {
   });
 
   it("adds the failing page offset to provider diagnostics", async () => {
-    const upstream = new OpsiError({
+    const upstream = new KlopsiError({
       code: "PROVIDER_REQUEST_FAILED",
-      message: "OPSI response body timed out.",
+      message: "KLOPSI response body timed out.",
       exitCode: EXIT_CODES.PROVIDER_FAILURE,
-      context: { provider: "opsi", operation: "package_search", status: 200 },
+      context: { provider: "klopsi", operation: "package_search", status: 200 },
       cause: new Error("secret upstream response body"),
     });
     const search = vi.fn(async (query: SearchQuery): Promise<SearchPage> => {
@@ -136,14 +136,14 @@ describe("generateCatalogueSnapshot", () => {
       received = error;
     }
 
-    expect(received).toBeInstanceOf(OpsiError);
-    if (!(received instanceof OpsiError)) throw new Error("expected OpsiError");
+    expect(received).toBeInstanceOf(KlopsiError);
+    if (!(received instanceof KlopsiError)) throw new Error("expected KlopsiError");
     expect(received.toJSON()).toEqual({
       code: "PROVIDER_REQUEST_FAILED",
-      message: "OPSI response body timed out.",
+      message: "KLOPSI response body timed out.",
       exitCode: EXIT_CODES.PROVIDER_FAILURE,
       context: {
-        provider: "opsi",
+        provider: "klopsi",
         operation: "package_search",
         status: 200,
         offset: 300,
@@ -168,7 +168,7 @@ describe("generateCatalogueSnapshot", () => {
 function dataset(id: string, title: string, name: unknown): DatasetSummary {
   return {
     id: datasetId(id),
-    providerId: providerId("opsi"),
+    providerId: providerId("klopsi"),
     title,
     providerMetadata: { raw: name === undefined ? {} : { name } },
   };

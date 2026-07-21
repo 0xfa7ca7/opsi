@@ -20,7 +20,7 @@ describe("catalogue snapshot workflow", () => {
     expect(generate).toContain("      ref: ${{ github.event.repository.default_branch }}");
     expect(verify).toContain("      ref: ${{ github.event.repository.default_branch }}");
     expect(workflow.match(/pnpm install --frozen-lockfile/gu)).toHaveLength(2);
-    const dependencyBuild = /- run: pnpm --filter @opsi\/catalogue-snapshot\.\.\. build/gu;
+    const dependencyBuild = /- run: pnpm --filter @klopsi\/catalogue-snapshot\.\.\. build/gu;
     expect(generate.match(dependencyBuild)).toHaveLength(1);
     expect(verify.match(dependencyBuild)).toHaveLength(1);
   });
@@ -51,11 +51,11 @@ describe("catalogue snapshot workflow", () => {
     expect(generate).toContain("          path: site");
     expect(generate).toContain("          retention-days: 2");
     expect(deploy).toContain("          name: catalogue-site");
-    expect(deploy).toContain("          path: publish/opsi");
+    expect(deploy).toContain("          path: publish/klopsi");
     expect(deploy).toContain("CATALOGUE_DEPLOY_KEY: ${{ secrets.CATALOGUE_DEPLOY_KEY }}");
     expect(deploy).toContain("git@github.com:0xfa7ca7/0xfa7ca7.github.io.git");
     expect(deploy).toContain("git checkout --orphan gh-pages");
-    expect(deploy).toContain("git add --all -- opsi");
+    expect(deploy).toContain("git add --all -- klopsi");
     expect(deploy).toContain("git push --force origin HEAD:gh-pages");
     expect(deploy).toContain(
       "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl",
@@ -106,7 +106,7 @@ describe("catalogue snapshot workflow", () => {
 
     expect(verify).toMatch(/node packages\/catalogue-snapshot\/dist\/verify-entry\.js/u);
     expect(verify).toMatch(/for attempt in \$\(seq 1 12\)/u);
-    expect(verify).toMatch(/--base-url\s+"https:\/\/0xfa7ca7\.github\.io\/opsi\/"/u);
+    expect(verify).toMatch(/--base-url\s+"https:\/\/0xfa7ca7\.github\.io\/klopsi\/"/u);
     expect(verify).toMatch(
       /--expected-sha256\s+"\$\{\{\s*needs\.generate\.outputs\.sha256\s*\}\}"/u,
     );

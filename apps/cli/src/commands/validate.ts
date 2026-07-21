@@ -1,5 +1,5 @@
-import { validateDatasetMetadata, validateResourceMetadata, type OpsiClient } from "@opsi/core";
-import { EXIT_CODES, OpsiError, parseCanonicalReference } from "@opsi/domain";
+import { validateDatasetMetadata, validateResourceMetadata, type KlopsiClient } from "@klopsi/core";
+import { EXIT_CODES, KlopsiError, parseCanonicalReference } from "@klopsi/domain";
 import type { Command } from "commander";
 import type { CliContext } from "../context.js";
 import { manifestCommand } from "../command-manifest.js";
@@ -7,7 +7,7 @@ import { manifestCommand } from "../command-manifest.js";
 export function registerValidateCommand(
   program: Command,
   context: CliContext,
-  client: OpsiClient,
+  client: KlopsiClient,
 ): void {
   manifestCommand(program, "validate").action(
     async (
@@ -33,7 +33,7 @@ export function registerValidateCommand(
       if (!validation.valid)
         if (context.configuration?.output === "human") context.renderer?.write(validation.issues);
       if (!validation.valid)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "VALIDATION_FAILED",
           message: `Validation found ${validation.errors.length} error(s).`,
           exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -45,13 +45,13 @@ export function registerValidateCommand(
   );
 }
 
-async function validateMetadata(input: string, client: OpsiClient) {
+async function validateMetadata(input: string, client: KlopsiClient) {
   const reference = parseCanonicalReference(input);
   if (reference.kind === "dataset")
     return validateDatasetMetadata(await client.datasets.get(reference.id, reference.providerId));
   if (reference.kind === "resource")
     return validateResourceMetadata(await client.resources.get(reference.id, reference.providerId));
-  throw new OpsiError({
+  throw new KlopsiError({
     code: "METADATA_REFERENCE_REQUIRED",
     message: "Metadata validation requires a canonical dataset or resource reference.",
     exitCode: EXIT_CODES.INVALID_INPUT,

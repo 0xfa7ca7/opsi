@@ -1,7 +1,7 @@
 // ExcelJS is CommonJS; its interop is intentionally isolated in this adapter.
 import type ExcelJS from "exceljs";
 import { createRequire } from "node:module";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { recordsToRows } from "./csv.js";
 import type { DataRow, ValidationIssue } from "./types.js";
 
@@ -60,7 +60,7 @@ async function streamingReader(
   const workbook = entry("xl/workbook.xml");
   const sharedStrings = entry("xl/sharedStrings.xml");
   if (sharedStrings !== undefined && sharedStrings.uncompressedSize > sharedStringsByteLimit)
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "XLSX_SHARED_STRINGS_TOO_LARGE",
       message: "The XLSX shared-string table exceeds the bounded preview limit.",
       exitCode: EXIT_CODES.UNSUPPORTED,
@@ -134,7 +134,7 @@ export async function previewXlsx(
 }> {
   if (sheet === undefined || sheet.trim().length === 0) {
     const sheets = await listSheets(path, sharedStringsByteLimit);
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "SHEET_REQUIRED",
       message: "XLSX preview requires an explicit sheet selection.",
       exitCode: EXIT_CODES.INVALID_INPUT,
@@ -166,7 +166,7 @@ export async function previewXlsx(
     break;
   }
   if (!found)
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "SHEET_NOT_FOUND",
       message: `XLSX sheet '${sheet}' was not found.`,
       exitCode: EXIT_CODES.NOT_FOUND,
@@ -199,7 +199,7 @@ export async function scanXlsx(
 ): Promise<void> {
   if (sheet === undefined || sheet.trim().length === 0) {
     const sheets = await listSheets(path, options.sharedStringsByteLimit);
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "SHEET_REQUIRED",
       message: "XLSX validation requires an explicit sheet selection.",
       exitCode: EXIT_CODES.INVALID_INPUT,
@@ -224,7 +224,7 @@ export async function scanXlsx(
         values.push(cellValue(row.getCell(column), warnings, row.number));
       if (columns === undefined) {
         if (values.length > options.maxColumns)
-          throw new OpsiError({
+          throw new KlopsiError({
             code: "VALIDATION_COLUMN_LIMIT",
             message: "XLSX header exceeds the column limit.",
             exitCode: 5,
@@ -271,7 +271,7 @@ export async function scanXlsx(
         while (expanded.length < values.length)
           expanded.push(`extra_column_${expanded.length + 1}`);
         if (expanded.length > options.maxColumns)
-          throw new OpsiError({
+          throw new KlopsiError({
             code: "VALIDATION_COLUMN_LIMIT",
             message: "XLSX row exceeds the column limit.",
             exitCode: 5,
@@ -283,7 +283,7 @@ export async function scanXlsx(
     break;
   }
   if (!found)
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "SHEET_NOT_FOUND",
       message: `XLSX sheet '${sheet}' was not found.`,
       exitCode: EXIT_CODES.NOT_FOUND,

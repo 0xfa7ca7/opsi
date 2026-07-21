@@ -12,16 +12,16 @@ import {
   type PreviewOptions,
   type SupportedDataFormat,
   type ArchiveLimits,
-} from "@opsi/data-engine";
+} from "@klopsi/data-engine";
 import {
   EXIT_CODES,
-  OpsiError,
+  KlopsiError,
   parseCanonicalReference,
   resourceId,
   type ResourceId,
-} from "@opsi/domain";
-import { LocalProvider } from "@opsi/provider-local";
-import type { OpsiClient } from "./client.js";
+} from "@klopsi/domain";
+import { LocalProvider } from "@klopsi/provider-local";
+import type { KlopsiClient } from "./client.js";
 
 export interface DataResolutionOptions {
   readonly allowInsecureHttp?: boolean;
@@ -44,7 +44,7 @@ export class DataService {
   private readonly local: LocalProvider;
 
   constructor(
-    private readonly client: OpsiClient,
+    private readonly client: KlopsiClient,
     private readonly engine: DataEngine = new DataEngine(),
     options: { readonly cwd?: string; readonly archiveLimits?: ArchiveLimits } = {},
   ) {
@@ -60,7 +60,7 @@ export class DataService {
   ): Promise<T> {
     let directory: string | undefined;
     const temporaryDirectory = async (): Promise<string> => {
-      directory ??= await mkdtemp(join(tmpdir(), "opsi-data-"));
+      directory ??= await mkdtemp(join(tmpdir(), "klopsi-data-"));
       return directory;
     };
     const prepare = async (source: DataInput): Promise<DataInput> => {
@@ -70,9 +70,9 @@ export class DataService {
       try {
         inspection = await inspectArchive(detection.path, this.archiveLimits, options.entry);
       } catch (error) {
-        if (error instanceof OpsiError && error.code === "ARCHIVE_ENTRY_REQUIRED") {
+        if (error instanceof KlopsiError && error.code === "ARCHIVE_ENTRY_REQUIRED") {
           const choices = (error.context?.choices as readonly string[] | undefined) ?? [];
-          throw new OpsiError({
+          throw new KlopsiError({
             code: error.code,
             message: error.message,
             exitCode: error.exitCode,
@@ -107,7 +107,7 @@ export class DataService {
       const reference = parseCanonicalReference(input);
       if (reference.kind === "file") return runLocal(await this.local.resolve(input));
       if (reference.kind !== "resource")
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "RESOURCE_REFERENCE_REQUIRED",
           message: "This data operation requires a resource or local file reference.",
           exitCode: EXIT_CODES.INVALID_INPUT,
@@ -119,13 +119,13 @@ export class DataService {
       try {
         return await runLocal(await this.local.resolve(input));
       } catch (error) {
-        if (!(error instanceof OpsiError) || error.code !== "LOCAL_FILE_NOT_FOUND") throw error;
+        if (!(error instanceof KlopsiError) || error.code !== "LOCAL_FILE_NOT_FOUND") throw error;
       }
       id = resourceId(input);
     }
     const resource = await this.client.resources.get(id, selectedProviderId);
     if (this.client.downloads === undefined)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "DOWNLOAD_SERVICE_UNAVAILABLE",
         message: "Resource data cannot be resolved because downloads are unavailable.",
         exitCode: EXIT_CODES.UNSUPPORTED,

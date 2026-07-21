@@ -1,4 +1,4 @@
-import { ConfigStore, resolveConfigPaths } from "@opsi/config";
+import { ConfigStore, resolveConfigPaths } from "@klopsi/config";
 import type { Command } from "commander";
 import type { CliContext } from "../context.js";
 import { manifestCommand } from "../command-manifest.js";

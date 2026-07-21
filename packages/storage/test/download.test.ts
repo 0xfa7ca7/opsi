@@ -11,7 +11,7 @@ import {
   SafeDispatcherFactory,
   assertPublicAddressSet,
   safeFilename,
-} from "@opsi/storage";
+} from "@klopsi/storage";
 
 const roots: string[] = [];
 const servers: Server[] = [];
@@ -34,7 +34,7 @@ async function listen(handler: RequestListener): Promise<string> {
   return `http://127.0.0.1:${address.port}`;
 }
 async function destination(name = "file.txt"): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "opsi-download-"));
+  const directory = await mkdtemp(join(tmpdir(), "klopsi-download-"));
   roots.push(directory);
   return join(directory, name);
 }
@@ -159,7 +159,7 @@ describe("Downloader", () => {
     await once(server, "listening");
     const address = server.address();
     if (address === null || typeof address === "string") throw new Error("listen failed");
-    const directory = await mkdtemp(join(tmpdir(), "opsi-download-"));
+    const directory = await mkdtemp(join(tmpdir(), "klopsi-download-"));
     roots.push(directory);
     const destination = join(directory, "file.txt");
     await expect(
@@ -187,7 +187,7 @@ describe("Downloader", () => {
     await once(server, "listening");
     const address = server.address();
     if (address === null || typeof address === "string") throw new Error("listen failed");
-    const directory = await mkdtemp(join(tmpdir(), "opsi-download-"));
+    const directory = await mkdtemp(join(tmpdir(), "klopsi-download-"));
     roots.push(directory);
     const result = await new Downloader().download({
       url: `http://127.0.0.1:${address.port}/start`,

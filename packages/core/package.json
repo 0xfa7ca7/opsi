@@ -1,5 +1,5 @@
 {
-  "name": "@opsi/core",
+  "name": "@klopsi/core",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -17,10 +17,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@opsi/data-engine": "workspace:*",
-    "@opsi/domain": "workspace:*",
-    "@opsi/provider-local": "workspace:*",
-    "@opsi/storage": "workspace:*",
+    "@klopsi/data-engine": "workspace:*",
+    "@klopsi/domain": "workspace:*",
+    "@klopsi/provider-local": "workspace:*",
+    "@klopsi/storage": "workspace:*",
     "saxes": "6.0.0"
   }
 }

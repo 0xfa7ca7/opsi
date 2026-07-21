@@ -1,32 +1,32 @@
-# opsi
+# klopsi
 
 **One CLI for Slovenian public data — built for people, scripts, and agents.**
 
-Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and download resources, safely select ZIP/XML data, query read-only WFS services, and analyze tabular data locally with DuckDB. Structured output, bounded operations, and built-in help make `opsi` straightforward to use from a terminal, an automated workflow, or a coding agent.
+Search Slovenia's [KLOPSI](https://podatki.gov.si/) catalogue, inspect and download resources, safely select ZIP/XML data, query read-only WFS services, and analyze tabular data locally with DuckDB. Structured output, bounded operations, and built-in help make `klopsi` straightforward to use from a terminal, an automated workflow, or a coding agent.
 
 [![CI](https://github.com/0xfa7ca7/opsi/actions/workflows/ci.yml/badge.svg)](https://github.com/0xfa7ca7/opsi/actions/workflows/ci.yml)
 [![Node.js 24+](https://img.shields.io/badge/Node.js-24%2B-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 > [!IMPORTANT]
-> `opsi` is under active development. Expect breaking changes before v1.0.
+> `klopsi` is under active development. Expect breaking changes before v1.0.
 
 ## Contents
 
-- [Why opsi?](#why-opsi)
+- [Why klopsi?](#why-klopsi)
 - [Installation](#installation)
 - [Quick start](#quick-start)
 - [Command overview](#command-overview)
 - [Working with data](#working-with-data)
 - [Automation and structured output](#automation-and-structured-output)
-- [Using opsi with agents](#using-opsi-with-agents)
+- [Using klopsi with agents](#using-klopsi-with-agents)
 - [Offline use](#offline-use)
 - [Security](#security)
 - [TypeScript SDK](#typescript-sdk)
 - [Documentation](#documentation)
 - [Development](#development)
 
-## Why opsi?
+## Why klopsi?
 
 - **One end-to-end workflow.** Discover a dataset, inspect its resources, download the data, validate it, query it, and convert it without switching tools.
 - **Predictable automation.** Choose JSON, NDJSON, CSV, or TSV output; keep result data on stdout; and branch on stable exit categories.
@@ -49,25 +49,25 @@ DuckDB is an optional native dependency. Catalogue, configuration, and completio
 Install the supported release globally:
 
 ```sh
-npm install --global opsi
+npm install --global klopsi
 ```
 
 Confirm the installation:
 
 ```sh
-opsi --version
-opsi doctor --offline
+klopsi --version
+klopsi doctor --offline
 ```
 
-For project-local use, run `npm install opsi` and invoke the CLI with `npx opsi`.
+For project-local use, run `npm install klopsi` and invoke the CLI with `npx klopsi`.
 
 ### Install from source
 
 To build the current source checkout instead:
 
 ```sh
-git clone https://github.com/0xfa7ca7/opsi.git
-cd opsi
+git clone https://github.com/0xfa7ca7/opsi.git klopsi
+cd klopsi
 corepack enable
 corepack prepare pnpm@11.11.0 --activate
 pnpm install --frozen-lockfile
@@ -82,23 +82,23 @@ See the [installation guide](docs/installation.md) for supported targets, releas
 Search the catalogue and inspect a dataset:
 
 ```sh
-opsi search promet --limit 5
-opsi dataset show DATASET_ID --json
-opsi dataset resources DATASET_ID
+klopsi search promet --limit 5
+klopsi dataset show DATASET_ID --json
+klopsi dataset resources DATASET_ID
 ```
 
 Replace `DATASET_ID` with an ID returned by `search`, then download one of its resources:
 
 ```sh
-opsi download opsi:resource:RESOURCE_ID --output ./downloads
+klopsi download klopsi:resource:RESOURCE_ID --output ./downloads
 ```
 
 Replace `RESOURCE_ID` with an ID returned by `dataset resources`. Use the downloaded filename to preview, validate, and query the data:
 
 ```sh
-opsi resource preview ./downloads/data.csv --limit 10
-opsi validate ./downloads/data.csv --json
-opsi query ./downloads/data.csv \
+klopsi resource preview ./downloads/data.csv --limit 10
+klopsi validate ./downloads/data.csv --json
+klopsi query ./downloads/data.csv \
   --sql "select * from data limit 10" \
   --json
 ```
@@ -106,41 +106,41 @@ opsi query ./downloads/data.csv \
 Convert the resource to Parquet and verify its provenance:
 
 ```sh
-opsi convert ./downloads/data.csv \
+klopsi convert ./downloads/data.csv \
   --to parquet \
   --output ./downloads/data.parquet
 
-opsi provenance verify ./downloads/data.parquet --json
+klopsi provenance verify ./downloads/data.parquet --json
 ```
 
-Run `opsi --help` or read the [complete command reference](docs/commands.md) for every command, option, and exit category.
+Run `klopsi --help` or read the [complete command reference](docs/commands.md) for every command, option, and exit category.
 
 ## Command overview
 
-| Goal                          | Command                                                     |
-| ----------------------------- | ----------------------------------------------------------- |
-| Search the catalogue          | `opsi search [text]`                                        |
-| List datasets quickly         | `opsi dataset list`                                         |
-| Inspect a dataset             | `opsi dataset show <id>`                                    |
-| List dataset resources        | `opsi dataset resources <id>`                               |
-| Inspect or preview a resource | `opsi resource show <id>` / `opsi resource preview <input>` |
-| Download data                 | `opsi download <ids...>`                                    |
-| Validate data or metadata     | `opsi validate <input>`                                     |
-| Query tabular data            | `opsi query <input> --sql <statement>`                      |
-| Convert formats               | `opsi convert <input> --to <format> --output <path>`        |
-| Verify provenance             | `opsi provenance verify <path>`                             |
-| Inspect local state           | `opsi cache info` / `opsi config list`                      |
-| Diagnose the installation     | `opsi doctor`                                               |
-| Generate shell completion     | `opsi completion <bash\|zsh\|fish>`                         |
-| Set up detected AI agents     | `opsi agent setup`                                          |
+| Goal                          | Command                                                         |
+| ----------------------------- | --------------------------------------------------------------- |
+| Search the catalogue          | `klopsi search [text]`                                          |
+| List datasets quickly         | `klopsi dataset list`                                           |
+| Inspect a dataset             | `klopsi dataset show <id>`                                      |
+| List dataset resources        | `klopsi dataset resources <id>`                                 |
+| Inspect or preview a resource | `klopsi resource show <id>` / `klopsi resource preview <input>` |
+| Download data                 | `klopsi download <ids...>`                                      |
+| Validate data or metadata     | `klopsi validate <input>`                                       |
+| Query tabular data            | `klopsi query <input> --sql <statement>`                        |
+| Convert formats               | `klopsi convert <input> --to <format> --output <path>`          |
+| Verify provenance             | `klopsi provenance verify <path>`                               |
+| Inspect local state           | `klopsi cache info` / `klopsi config list`                      |
+| Diagnose the installation     | `klopsi doctor`                                                 |
+| Generate shell completion     | `klopsi completion <bash\|zsh\|fish>`                           |
+| Set up detected AI agents     | `klopsi agent setup`                                            |
 
-`opsi dataset list` reads a compact, centrally published catalogue snapshot by default. Use `--refresh` to check for a current snapshot or `--live` to query OPSI directly. The command never silently falls back to a live query. See the [catalogue service guide](docs/catalogue-service.md) for details.
+`klopsi dataset list` reads a compact, centrally published catalogue snapshot by default. Use `--refresh` to check for a current snapshot or `--live` to query KLOPSI directly. The command never silently falls back to a live query. See the [catalogue service guide](docs/catalogue-service.md) for details.
 
 ## Working with data
 
-`opsi` can inspect and validate resilient CSV/TSV-style data (UTF-8/UTF-16, comma/tab/semicolon/pipe), JSON, NDJSON, XLSX, Parquet, bounded XML records, and one safely selected data entry inside a ZIP. Use `--entry` for ambiguous archives and `--record-path` for ambiguous XML. Read-only WFS workflows expose layers, schemas, bounded previews, counts, and CSV exports without leaving OPSI.
+`klopsi` can inspect and validate resilient CSV/TSV-style data (UTF-8/UTF-16, comma/tab/semicolon/pipe), JSON, NDJSON, XLSX, Parquet, bounded XML records, and one safely selected data entry inside a ZIP. Use `--entry` for ambiguous archives and `--record-path` for ambiguous XML. Read-only WFS workflows expose layers, schemas, bounded previews, counts, and CSV exports without leaving KLOPSI.
 
-The first query for a source imports it into a rebuildable DuckDB stage; later queries over identical bytes and the same XLSX sheet reuse that stage. JSON query metadata reports `cache.status` as `miss`, `hit`, or `bypass`. The derived cache defaults to a 10 GB budget and 30-day sliding lifetime, and its entries are visible through `opsi cache info|list|verify|prune|clear`. Derived eviction never removes raw downloads or catalogue data merely to satisfy the DuckDB budget.
+The first query for a source imports it into a rebuildable DuckDB stage; later queries over identical bytes and the same XLSX sheet reuse that stage. JSON query metadata reports `cache.status` as `miss`, `hit`, or `bypass`. The derived cache defaults to a 10 GB budget and 30-day sliding lifetime, and its entries are visible through `klopsi cache info|list|verify|prune|clear`. Derived eviction never removes raw downloads or catalogue data merely to satisfy the DuckDB budget.
 
 | Capability | Behavior                                                                        |
 | ---------- | ------------------------------------------------------------------------------- |
@@ -157,24 +157,24 @@ XLSX formulas are treated as data and are never executed. See [format support](d
 Human-readable tables are the interactive default. For scripts and pipelines, select `--json`, `--ndjson`, `--csv`, `--tsv`, or `--output-format`:
 
 ```sh
-opsi search promet --fields id,title --json --limit 5
-opsi dataset list --ndjson
-NO_COLOR=1 opsi providers list --csv
+klopsi search promet --fields id,title --json --limit 5
+klopsi dataset list --ndjson
+NO_COLOR=1 klopsi providers list --csv
 ```
 
 JSON responses use a stable `{ schemaVersion, data, meta, error? }` envelope. Query metadata includes the transparent DuckDB stage-cache status. Results go to stdout; warnings and diagnostics go to stderr. Stable exit categories let scripts distinguish invalid input, missing data, provider failures, validation errors, query failures, and partial success without parsing messages.
 
-## Using opsi with agents
+## Using klopsi with agents
 
-The repository ships a complete repertoire of [Agent Skills](docs/skills.md): a main `opsi` orchestrator, shared safety guidance, and focused skills for every command area. After installing the CLI, let OPSI detect supported agent hosts and install the complete repertoire globally:
+The repository ships a complete repertoire of [Agent Skills](docs/skills.md): a main `klopsi` orchestrator, shared safety guidance, and focused skills for every command area. After installing the CLI, let KLOPSI detect supported agent hosts and install the complete repertoire globally:
 
 ```sh
-opsi agent setup
+klopsi agent setup
 ```
 
-Interactive setup asks for confirmation when more than one host is detected. For unattended setup, accept the detected hosts with `--yes`, target explicit installer IDs with `--agent codex claude-code`, or target every globally installable profile with `--all`. If detection finds no host, choose one explicitly with `--agent` or `--all`; `--yes` never expands an empty detection result. Use `--dry-run` to preview the plan. Setup always copies skills durably into agent directories because its generated source is temporary. Setup uses the pinned installer shipped with OPSI, does not invoke `npx`, does not offer unrelated remote skills, and does not create `.agents` or `skills-lock.json` in the current project.
+Interactive setup asks for confirmation when more than one host is detected. For unattended setup, accept the detected hosts with `--yes`, target explicit installer IDs with `--agent codex claude-code`, or target every globally installable profile with `--all`. If detection finds no host, choose one explicitly with `--agent` or `--all`; `--yes` never expands an empty detection result. Use `--dry-run` to preview the plan. Setup always copies skills durably into agent directories because its generated source is temporary. Setup uses the pinned installer shipped with KLOPSI, does not invoke `npx`, does not offer unrelated remote skills, and does not create `.agents` or `skills-lock.json` in the current project.
 
-To refresh a stale repertoire, rerun `opsi agent setup`; preview the intended update with `--dry-run`, choose a host with `--agent`, and verify that the installed host contains every skill reported by the structured setup output.
+To refresh a stale repertoire, rerun `klopsi agent setup`; preview the intended update with `--dry-run`, choose a host with `--agent`, and verify that the installed host contains every skill reported by the structured setup output.
 
 For a project-local installation, use a compatible Agent Skills installer directly:
 
@@ -182,29 +182,29 @@ For a project-local installation, use a compatible Agent Skills installer direct
 npx skills add https://github.com/0xfa7ca7/opsi
 ```
 
-Or install only a focused skill and its `opsi-shared` prerequisite:
+Or install only a focused skill and its `klopsi-shared` prerequisite:
 
 ```sh
-npx skills add https://github.com/0xfa7ca7/opsi/tree/main/skills/opsi-analysis
-npx skills add https://github.com/0xfa7ca7/opsi/tree/main/skills/opsi-shared
+npx skills add https://github.com/0xfa7ca7/opsi/tree/main/skills/klopsi-analysis
+npx skills add https://github.com/0xfa7ca7/opsi/tree/main/skills/klopsi-shared
 ```
 
-Compatible agent hosts select `opsi` automatically from your request. Depending on the host, you may also invoke the main orchestrator as `/opsi`, `@opsi`, or `$opsi`; these are agent-host forms, not shell commands. The skills use the installed CLI and do not add a model runtime or provider dependency to `opsi`.
+Compatible agent hosts select `klopsi` automatically from your request. Depending on the host, you may also invoke the main orchestrator as `/klopsi`, `@klopsi`, or `$klopsi`; these are agent-host forms, not shell commands. The skills use the installed CLI and do not add a model runtime or provider dependency to `klopsi`.
 
 An installed CLI can also generate the same repertoire into a directory without installing it:
 
 ```sh
-opsi generate-skills
-opsi generate-skills --output-dir ~/.agents/skills --json
+klopsi generate-skills
+klopsi generate-skills --output-dir ~/.agents/skills --json
 ```
 
 Agents use the same command surface as people and scripts. They should start with `--help`, request structured output, and keep results focused with field and row limits:
 
 ```sh
-opsi --help
-opsi search promet --fields id,title --json --limit 5
-opsi dataset show DATASET_ID --json
-opsi resource preview ./downloads/data.csv --limit 20 --json
+klopsi --help
+klopsi search promet --fields id,title --json --limit 5
+klopsi dataset show DATASET_ID --json
+klopsi resource preview ./downloads/data.csv --limit 20 --json
 ```
 
 For reliable agent workflows:
@@ -213,16 +213,16 @@ For reliable agent workflows:
 - Use `--fields` and command-specific limits to keep context small and predictable.
 - Read results from stdout, diagnostics from stderr, and use the process exit status for control flow.
 - Pass `--offline` when the agent must not make network requests.
-- Run `opsi <command> --help` to inspect available arguments before constructing a command.
+- Run `klopsi <command> --help` to inspect available arguments before constructing a command.
 
 ## Offline use
 
-Warm the cache during an online run, then pass `--offline` or set `OPSI_OFFLINE=1`:
+Warm the cache during an online run, then pass `--offline` or set `KLOPSI_OFFLINE=1`:
 
 ```sh
-opsi dataset list --refresh --json
-opsi dataset list --offline --json
-OPSI_OFFLINE=1 opsi resource preview opsi:resource:RESOURCE_ID --json
+klopsi dataset list --refresh --json
+klopsi dataset list --offline --json
+KLOPSI_OFFLINE=1 klopsi resource preview klopsi:resource:RESOURCE_ID --json
 ```
 
 Offline commands never make network requests. Operations that require uncached metadata or content fail with a typed cache-miss error. Catalogue snapshots must remain valid and no more than 24 hours old.
@@ -235,14 +235,14 @@ Read the [security model](docs/security.md) and [security policy](SECURITY.md) b
 
 ## TypeScript SDK
 
-The dependency-clean `opsi/sdk` entry point exports `OpsiClient`, `ProviderRegistry`, and public domain types. Supply a provider that implements the public `DataProvider` contract:
+The dependency-clean `klopsi/sdk` entry point exports `KlopsiClient`, `ProviderRegistry`, and public domain types. Supply a provider that implements the public `DataProvider` contract:
 
 ```ts
-import { OpsiClient, ProviderRegistry, type DataProvider } from "opsi/sdk";
+import { KlopsiClient, ProviderRegistry, type DataProvider } from "klopsi/sdk";
 
-export function createClient(provider: DataProvider): OpsiClient {
+export function createClient(provider: DataProvider): KlopsiClient {
   const registry = new ProviderRegistry([provider]);
-  return new OpsiClient({
+  return new KlopsiClient({
     registry,
     providerId: provider.descriptor.id,
   });
@@ -275,7 +275,7 @@ pnpm lint
 pnpm format:check
 ```
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a change. Normal tests use local fixtures and do not contact OPSI.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a change. Normal tests use local fixtures and do not contact KLOPSI.
 
 ## License
 

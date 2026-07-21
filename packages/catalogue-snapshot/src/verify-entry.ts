@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import {
   CATALOGUE_MAX_MANIFEST_BYTES,
   CATALOGUE_MAX_SNAPSHOT_BYTES,
@@ -45,7 +45,7 @@ export async function runPublicVerifier(
     manifest.sha256 !== args.expectedSha256 ||
     manifest.generatedAt !== args.expectedGeneratedAt
   ) {
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "CATALOGUE_DEPLOYMENT_MISMATCH",
       message: "The public catalogue does not match the expected deployment.",
       exitCode: EXIT_CODES.PROVIDER_FAILURE,
@@ -86,13 +86,13 @@ function parseManifestBytes(bytes: Uint8Array): CatalogueManifest {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     return parseCatalogueManifest(JSON.parse(text) as unknown);
   } catch (error) {
-    if (error instanceof OpsiError) throw error;
+    if (error instanceof KlopsiError) throw error;
     throw snapshotInvalid("manifest");
   }
 }
 
-function invalidInput(field: string): OpsiError {
-  return new OpsiError({
+function invalidInput(field: string): KlopsiError {
+  return new KlopsiError({
     code: "INVALID_CATALOGUE_VERIFIER_ARGUMENT",
     message: "The catalogue verifier arguments are invalid.",
     exitCode: EXIT_CODES.INVALID_INPUT,
@@ -107,7 +107,7 @@ async function main(): Promise<void> {
     process.stderr.write(
       `${error instanceof Error ? error.message : "Public verification failed."}\n`,
     );
-    process.exitCode = error instanceof OpsiError ? error.exitCode : 1;
+    process.exitCode = error instanceof KlopsiError ? error.exitCode : 1;
   }
 }
 

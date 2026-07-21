@@ -2,9 +2,9 @@
 
 import { readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { loadConfiguration, resolveConfigPaths } from "@opsi/config";
-import { EXIT_CODES, type ExitCode } from "@opsi/domain";
-import { Renderer } from "@opsi/output";
+import { loadConfiguration, resolveConfigPaths } from "@klopsi/config";
+import { EXIT_CODES, type ExitCode } from "@klopsi/domain";
+import { Renderer } from "@klopsi/output";
 import { CommanderError } from "commander";
 import { processIo, type CliIo } from "./context.js";
 import { handleRuntimeError } from "./errors.js";

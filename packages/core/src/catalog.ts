@@ -4,7 +4,7 @@ import {
   type ProviderDescriptor,
   type Resource,
   type ResourceId,
-} from "@opsi/domain";
+} from "@klopsi/domain";
 import type { ProviderRegistry } from "./registry.js";
 
 export class DatasetCatalog {

@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { stageTabularInput, type QueryResult } from "@opsi/data-engine";
-import { ContentCache, DerivedArtifactCache } from "@opsi/storage";
+import { stageTabularInput, type QueryResult } from "@klopsi/data-engine";
+import { ContentCache, DerivedArtifactCache } from "@klopsi/storage";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryDatabaseCache } from "../src/query-database-cache.js";
 
@@ -11,7 +11,7 @@ let directory: string;
 let input: string;
 
 beforeEach(async () => {
-  directory = await mkdtemp(join(tmpdir(), "opsi-core-query-cache-"));
+  directory = await mkdtemp(join(tmpdir(), "klopsi-core-query-cache-"));
   input = join(directory, "source.csv");
   await writeFile(input, "name,value\na,1\nb,2\n");
 });

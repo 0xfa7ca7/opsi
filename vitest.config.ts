@@ -4,15 +4,15 @@ import { fileURLToPath } from "node:url";
 const workspacePackage = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
 const workspaceResolve = {
   alias: {
-    "@opsi/catalogue-snapshot": workspacePackage("./packages/catalogue-snapshot/src/index.ts"),
-    "@opsi/config": workspacePackage("./packages/config/src/index.ts"),
-    "@opsi/core": workspacePackage("./packages/core/src/index.ts"),
-    "@opsi/domain": workspacePackage("./packages/domain/src/index.ts"),
-    "@opsi/data-engine": workspacePackage("./packages/data-engine/src/index.ts"),
-    "@opsi/output": workspacePackage("./packages/output/src/index.ts"),
-    "@opsi/provider-local": workspacePackage("./packages/providers/local/src/index.ts"),
-    "@opsi/provider-opsi": workspacePackage("./packages/providers/opsi/src/index.ts"),
-    "@opsi/storage": workspacePackage("./packages/storage/src/index.ts"),
+    "@klopsi/catalogue-snapshot": workspacePackage("./packages/catalogue-snapshot/src/index.ts"),
+    "@klopsi/config": workspacePackage("./packages/config/src/index.ts"),
+    "@klopsi/core": workspacePackage("./packages/core/src/index.ts"),
+    "@klopsi/domain": workspacePackage("./packages/domain/src/index.ts"),
+    "@klopsi/data-engine": workspacePackage("./packages/data-engine/src/index.ts"),
+    "@klopsi/output": workspacePackage("./packages/output/src/index.ts"),
+    "@klopsi/provider-local": workspacePackage("./packages/providers/local/src/index.ts"),
+    "@klopsi/provider-klopsi": workspacePackage("./packages/providers/klopsi/src/index.ts"),
+    "@klopsi/storage": workspacePackage("./packages/storage/src/index.ts"),
   },
 };
 

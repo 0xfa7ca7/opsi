@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import * as publisher from "../src/publish-entry.js";
 
 const { formatPublisherError } = publisher;
@@ -11,8 +11,8 @@ describe("catalogue publisher diagnostics", () => {
     ).toBe(90_000);
   });
 
-  it("emits structured OpsiError details without serializing nested causes", () => {
-    const error = new OpsiError({
+  it("emits structured KlopsiError details without serializing nested causes", () => {
+    const error = new KlopsiError({
       code: "CATALOGUE_COUNT_REDUCTION",
       message: "Catalogue count reduction exceeds the safety threshold.",
       exitCode: EXIT_CODES.PROVIDER_FAILURE,

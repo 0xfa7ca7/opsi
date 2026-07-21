@@ -4,7 +4,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { hostname } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { canonicalCacheKey } from "./cache-layout.js";
 
 interface Owner {
@@ -111,7 +111,7 @@ export class CacheLock {
     const identityResolver = options.processStartIdentity ?? osProcessStartIdentity;
     const processStartIdentity = await identityResolver(process.pid);
     if (processStartIdentity === undefined)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "PROCESS_IDENTITY_UNAVAILABLE",
         message: "Unable to determine process start identity for cache locking.",
         exitCode: EXIT_CODES.INTERNAL,
@@ -176,7 +176,7 @@ export class CacheLock {
         }
       }
       if (Date.now() >= deadline)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "CACHE_LOCK_TIMEOUT",
           message: "Timed out waiting for a cache lock.",
           exitCode: EXIT_CODES.INTERNAL,

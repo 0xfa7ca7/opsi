@@ -7,7 +7,7 @@ import { detectFormat } from "../src/index.js";
 const temporary: string[] = [];
 
 async function fileNamed(name: string, contents: string | Uint8Array): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "opsi-detect-"));
+  const directory = await mkdtemp(join(tmpdir(), "klopsi-detect-"));
   temporary.push(directory);
   const path = join(directory, name);
   await writeFile(path, contents);

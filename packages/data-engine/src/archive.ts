@@ -1,6 +1,6 @@
 import { open, rm } from "node:fs/promises";
 import { extname } from "node:path";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { unzip, type Reader, type ZipEntry } from "unzipit";
 
 export interface ArchiveLimits {
@@ -89,7 +89,7 @@ function unsafe(entry: ZipEntry, limits: ArchiveLimits): string | undefined {
 function assertEntry(entry: ZipEntry, limits: ArchiveLimits): void {
   const reason = unsafe(entry, limits);
   if (reason !== undefined)
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "UNSAFE_ARCHIVE_ENTRY",
       message: "The ZIP archive contains an unsafe entry.",
       exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -106,7 +106,7 @@ function assertEntry(entry: ZipEntry, limits: ArchiveLimits): void {
     entry.size > limits.maxExpandedBytes ||
     ratio > limits.maxCompressionRatio
   )
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "ARCHIVE_LIMIT_EXCEEDED",
       message: "The ZIP archive entry exceeds a configured safety limit.",
       exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -126,8 +126,8 @@ async function withArchive<T>(
   try {
     return await operation((await unzip(reader)).entries);
   } catch (error) {
-    if (error instanceof OpsiError) throw error;
-    throw new OpsiError({
+    if (error instanceof KlopsiError) throw error;
+    throw new KlopsiError({
       code: "INVALID_ARCHIVE_DATA",
       message: "The ZIP archive cannot be read.",
       exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -146,7 +146,7 @@ export async function inspectArchive(
   return withArchive(path, async (records) => {
     const values = Object.values(records).filter((entry) => !entry.isDirectory);
     if (values.length > limits.maxEntries)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "ARCHIVE_LIMIT_EXCEEDED",
         message: "The ZIP archive contains too many entries.",
         exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -163,20 +163,20 @@ export async function inspectArchive(
       .sort((left, right) => left.path.localeCompare(right.path));
     const candidates = entries.filter((entry) => entry.supported).map((entry) => entry.path);
     if (candidates.length === 0)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "ARCHIVE_NO_SUPPORTED_ENTRY",
         message: "The ZIP archive contains no supported data entry.",
         exitCode: EXIT_CODES.UNSUPPORTED,
       });
     if (selected !== undefined && !candidates.includes(selected))
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "ARCHIVE_ENTRY_NOT_FOUND",
         message: "The selected ZIP archive entry is not a supported data entry.",
         exitCode: EXIT_CODES.INVALID_INPUT,
         context: { entry: selected, choices: candidates },
       });
     if (selected === undefined && candidates.length > 1)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "ARCHIVE_ENTRY_REQUIRED",
         message: "The ZIP archive contains multiple supported data entries.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -195,7 +195,7 @@ export async function extractArchiveEntry(
   return withArchive(archivePath, async (records) => {
     const entry = records[selected];
     if (entry === undefined || entry.isDirectory)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "ARCHIVE_ENTRY_NOT_FOUND",
         message: "The selected ZIP archive entry does not exist.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -204,7 +204,7 @@ export async function extractArchiveEntry(
     assertEntry(entry, limits);
     const bytes = Buffer.from(await entry.arrayBuffer());
     if (bytes.length > limits.maxSelectedBytes)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "ARCHIVE_LIMIT_EXCEEDED",
         message: "The extracted ZIP entry exceeds the byte limit.",
         exitCode: EXIT_CODES.INTEGRITY_FAILURE,

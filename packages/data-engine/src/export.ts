@@ -67,7 +67,7 @@ export async function exportStage(
       options = "FORMAT PARQUET";
       break;
   }
-  // This is an OPSI-owned COPY template. select is assembled exclusively from
+  // This is a KLOPSI-owned COPY template. select is assembled exclusively from
   // the staged table's quoted identifiers and fixed spreadsheet-safe CASEs.
   await stage.connection.run(`COPY (${select}) TO ${destination} (${options})`);
 }

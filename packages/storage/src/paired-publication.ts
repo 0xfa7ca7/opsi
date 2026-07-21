@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { link, lstat, open, rename, rm, unlink } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { CacheLock } from "./cache-lock.js";
 
 export type PairPublicationPoint =
@@ -22,7 +22,7 @@ async function existsRegular(path: string): Promise<boolean> {
   try {
     const details = await lstat(path);
     if (!details.isFile() || details.isSymbolicLink())
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "UNSAFE_ARTIFACT_DESTINATION",
         message: "The publication destination is not a regular file.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -50,8 +50,8 @@ async function syncDirectory(path: string): Promise<void> {
 function destinationExists(
   code = "ARTIFACT_DESTINATION_EXISTS",
   exitCode: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 = EXIT_CODES.INVALID_INPUT,
-): OpsiError {
-  return new OpsiError({
+): KlopsiError {
+  return new KlopsiError({
     code,
     message: "The artifact or its provenance sidecar already exists.",
     exitCode,
@@ -65,8 +65,8 @@ function recoveryError(
   failures: readonly unknown[],
   recoveryPaths: readonly string[],
   operationError?: unknown,
-): OpsiError {
-  return new OpsiError({
+): KlopsiError {
+  return new KlopsiError({
     code,
     message,
     exitCode: EXIT_CODES.INTEGRITY_FAILURE,

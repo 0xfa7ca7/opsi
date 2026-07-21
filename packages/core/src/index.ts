@@ -1,6 +1,6 @@
 export { DatasetCatalog, ProviderCatalog, ResourceCatalog } from "./catalog.js";
-export { OpsiClient } from "./client.js";
-export type { OpsiClientOptions } from "./client.js";
+export { KlopsiClient } from "./client.js";
+export type { KlopsiClientOptions } from "./client.js";
 export { ProviderRegistry } from "./registry.js";
 export { DownloadService } from "./downloads.js";
 export type { DownloadServiceOptions, ResourceDownloadOptions } from "./downloads.js";
@@ -43,4 +43,4 @@ export type {
   WfsVersion,
 } from "./wfs/index.js";
 export { ResourceAccessService } from "./access.js";
-export type { ArchiveLimits, XmlLimits } from "@opsi/data-engine";
+export type { ArchiveLimits, XmlLimits } from "@klopsi/data-engine";

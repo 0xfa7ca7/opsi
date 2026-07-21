@@ -1,4 +1,4 @@
-import { OpsiError } from "./errors.js";
+import { KlopsiError } from "./errors.js";
 
 declare const providerIdBrand: unique symbol;
 declare const datasetIdBrand: unique symbol;
@@ -14,7 +14,7 @@ export type CanonicalReference = string & {
 
 function nonEmptyId<T extends string>(value: string, label: string): T {
   if (value.trim().length === 0) {
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "INVALID_ID",
       message: `${label} cannot be empty`,
       exitCode: 2,
@@ -27,7 +27,7 @@ function nonEmptyId<T extends string>(value: string, label: string): T {
 export function providerId(value: string): ProviderId {
   const id = nonEmptyId<ProviderId>(value, "Provider ID");
   if (id.includes(":")) {
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "INVALID_ID",
       message: "Provider ID cannot contain ':'",
       exitCode: 2,
@@ -109,8 +109,8 @@ export function parseCanonicalReference(reference: string): ParsedCanonicalRefer
   return { providerId: providerId(provider), kind: "resource", id: resourceId(id) };
 }
 
-function invalidReference(reference: string): OpsiError {
-  return new OpsiError({
+function invalidReference(reference: string): KlopsiError {
+  return new KlopsiError({
     code: "INVALID_REFERENCE",
     message: `Invalid canonical reference: ${reference}`,
     exitCode: 2,

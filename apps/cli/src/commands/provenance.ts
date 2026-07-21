@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import { ProvenanceStore } from "@opsi/storage";
+import { ProvenanceStore } from "@klopsi/storage";
 import type { CliContext } from "../context.js";
 import { manifestCommand } from "../command-manifest.js";
 

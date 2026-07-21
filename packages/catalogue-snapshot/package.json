@@ -1,5 +1,5 @@
 {
-  "name": "@opsi/catalogue-snapshot",
+  "name": "@klopsi/catalogue-snapshot",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -19,9 +19,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@opsi/domain": "workspace:*",
-    "@opsi/provider-opsi": "workspace:*",
-    "@opsi/storage": "workspace:*",
+    "@klopsi/domain": "workspace:*",
+    "@klopsi/provider-klopsi": "workspace:*",
+    "@klopsi/storage": "workspace:*",
     "zod": "4.4.3"
   }
 }

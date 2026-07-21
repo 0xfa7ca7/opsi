@@ -7,7 +7,7 @@ import { DEFAULT_XML_LIMITS, DataEngine, discoverXmlRecords, previewXml } from "
 const temporary: string[] = [];
 
 async function xml(contents: string): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "opsi-xml-"));
+  const directory = await mkdtemp(join(tmpdir(), "klopsi-xml-"));
   temporary.push(directory);
   const path = join(directory, "fixture.xml");
   await writeFile(path, contents);
@@ -68,7 +68,7 @@ describe("bounded XML records", () => {
   });
 
   it("decodes UTF-16 XML before bounded record discovery", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "opsi-xml-"));
+    const directory = await mkdtemp(join(tmpdir(), "klopsi-xml-"));
     temporary.push(directory);
     const path = join(directory, "utf16.xml");
     await writeFile(

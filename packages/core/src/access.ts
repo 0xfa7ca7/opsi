@@ -1,14 +1,14 @@
-import { detectFormat, inspectArchive, type DetectedInputFormat } from "@opsi/data-engine";
+import { detectFormat, inspectArchive, type DetectedInputFormat } from "@klopsi/data-engine";
 import {
   EXIT_CODES,
-  OpsiError,
+  KlopsiError,
   parseCanonicalReference,
   resourceId,
   type ResourceAccessDescriptor,
   type ResourceId,
-} from "@opsi/domain";
-import { LocalProvider } from "@opsi/provider-local";
-import type { OpsiClient } from "./client.js";
+} from "@klopsi/domain";
+import { LocalProvider } from "@klopsi/provider-local";
+import type { KlopsiClient } from "./client.js";
 import type { ProviderRegistry } from "./registry.js";
 import type { DataResolutionOptions } from "./data.js";
 
@@ -49,7 +49,7 @@ function dataDescriptor(
 export class ResourceAccessService {
   private readonly local: LocalProvider;
   constructor(
-    private readonly client: OpsiClient,
+    private readonly client: KlopsiClient,
     private readonly registry: ProviderRegistry,
     private readonly providerId: string,
     cwd = process.cwd(),
@@ -70,7 +70,7 @@ export class ResourceAccessService {
             const archive = await inspectArchive(detection.path);
             return dataDescriptor(input, "archive", "zip", { entries: archive.candidates });
           } catch (error) {
-            if (error instanceof OpsiError && error.code === "ARCHIVE_ENTRY_REQUIRED")
+            if (error instanceof KlopsiError && error.code === "ARCHIVE_ENTRY_REQUIRED")
               return dataDescriptor(input, "archive", "zip", {
                 entries: (error.context?.choices as readonly string[]) ?? [],
               });
@@ -82,7 +82,7 @@ export class ResourceAccessService {
             const preview = await this.client.data.preview(input, { ...options, limit: 1 });
             return dataDescriptor(input, "local", preview.format);
           } catch (error) {
-            if (error instanceof OpsiError && error.code === "XML_RECORD_PATH_REQUIRED")
+            if (error instanceof KlopsiError && error.code === "XML_RECORD_PATH_REQUIRED")
               return {
                 ...dataDescriptor(input, "local", "xml", {
                   recordPaths: (error.context?.choices as readonly string[]) ?? [],
@@ -103,7 +103,7 @@ export class ResourceAccessService {
         }
         return dataDescriptor(input, "local", detection.format);
       } catch (error) {
-        if (!(error instanceof OpsiError) || error.code !== "LOCAL_FILE_NOT_FOUND") throw error;
+        if (!(error instanceof KlopsiError) || error.code !== "LOCAL_FILE_NOT_FOUND") throw error;
       }
     }
     let id: ResourceId;
@@ -111,7 +111,7 @@ export class ResourceAccessService {
     if (input.includes(":")) {
       const reference = parseCanonicalReference(input);
       if (reference.kind !== "resource")
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "RESOURCE_REFERENCE_REQUIRED",
           message: "Resource inspection requires a resource or local file.",
           exitCode: EXIT_CODES.INVALID_INPUT,
@@ -163,12 +163,12 @@ export class ResourceAccessService {
         await this.client.data.preview(canonical, { ...options, limit: 1 });
         return dataDescriptor(canonical, "archive", "zip");
       } catch (error) {
-        if (error instanceof OpsiError && error.code === "ARCHIVE_ENTRY_REQUIRED")
+        if (error instanceof KlopsiError && error.code === "ARCHIVE_ENTRY_REQUIRED")
           return dataDescriptor(canonical, "archive", "zip", {
             entries: (error.context?.choices as readonly string[]) ?? [],
           });
         if (
-          error instanceof OpsiError &&
+          error instanceof KlopsiError &&
           ["INVALID_TABULAR_DATA", "INVALID_XML_DATA", "PARSE_ERROR"].includes(error.code)
         )
           return {

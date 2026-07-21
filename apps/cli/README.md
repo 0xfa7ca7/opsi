@@ -1,17 +1,17 @@
-# opsi
+# klopsi
 
 **One CLI for Slovenian public data — built for people, scripts, and agents.**
 
-Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and download resources, safely select ZIP/XML data, query read-only WFS services, and analyze tabular data locally with DuckDB. Structured output, bounded operations, and built-in help make `opsi` straightforward to use from a terminal, an automated workflow, or a coding agent.
+Search Slovenia's [KLOPSI](https://podatki.gov.si/) catalogue, inspect and download resources, safely select ZIP/XML data, query read-only WFS services, and analyze tabular data locally with DuckDB. Structured output, bounded operations, and built-in help make `klopsi` straightforward to use from a terminal, an automated workflow, or a coding agent.
 
 [![CI](https://github.com/0xfa7ca7/opsi/actions/workflows/ci.yml/badge.svg)](https://github.com/0xfa7ca7/opsi/actions/workflows/ci.yml)
 [![Node.js 24+](https://img.shields.io/badge/Node.js-24%2B-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/0xfa7ca7/opsi/blob/main/LICENSE)
 
 > [!IMPORTANT]
-> `opsi` is under active development. Expect breaking changes before v1.0.
+> `klopsi` is under active development. Expect breaking changes before v1.0.
 
-## Why opsi?
+## Why klopsi?
 
 - **One end-to-end workflow.** Discover, inspect, download, validate, query, and convert public data without switching tools.
 - **Predictable automation.** Choose JSON, NDJSON, CSV, or TSV output and branch on stable exit categories.
@@ -24,32 +24,32 @@ Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and downloa
 Requires Node.js 24 or later. Supported releases target Linux x64 with glibc, macOS arm64, and Windows x64.
 
 ```sh
-npm install --global opsi
-opsi --version
-opsi doctor --offline
+npm install --global klopsi
+klopsi --version
+klopsi doctor --offline
 ```
 
 DuckDB is an optional native dependency. Catalogue, configuration, and completion commands remain available when a compatible binding cannot be installed; native data commands return `DUCKDB_UNAVAILABLE` with remediation guidance.
 
-For project-local use, run `npm install opsi` and invoke the CLI with `npx opsi`. See the [installation guide](https://github.com/0xfa7ca7/opsi/blob/main/docs/installation.md) for release verification and troubleshooting.
+For project-local use, run `npm install klopsi` and invoke the CLI with `npx klopsi`. See the [installation guide](https://github.com/0xfa7ca7/opsi/blob/main/docs/installation.md) for release verification and troubleshooting.
 
 ## Quick start
 
 Search the catalogue and inspect a dataset:
 
 ```sh
-opsi search promet --limit 5
-opsi dataset show DATASET_ID --json
-opsi dataset resources DATASET_ID
+klopsi search promet --limit 5
+klopsi dataset show DATASET_ID --json
+klopsi dataset resources DATASET_ID
 ```
 
 Download a returned resource, then preview, validate, and query it locally:
 
 ```sh
-opsi download opsi:resource:RESOURCE_ID --output ./downloads
-opsi resource preview ./downloads/data.csv --limit 10
-opsi validate ./downloads/data.csv --json
-opsi query ./downloads/data.csv \
+klopsi download klopsi:resource:RESOURCE_ID --output ./downloads
+klopsi resource preview ./downloads/data.csv --limit 10
+klopsi validate ./downloads/data.csv --json
+klopsi query ./downloads/data.csv \
   --sql "select * from data limit 10" \
   --json
 ```
@@ -57,59 +57,59 @@ opsi query ./downloads/data.csv \
 Convert the resource to Parquet and verify its provenance:
 
 ```sh
-opsi convert ./downloads/data.csv \
+klopsi convert ./downloads/data.csv \
   --to parquet \
   --output ./downloads/data.parquet
 
-opsi provenance verify ./downloads/data.parquet --json
+klopsi provenance verify ./downloads/data.parquet --json
 ```
 
-Run `opsi --help` or read the [complete command reference](https://github.com/0xfa7ca7/opsi/blob/main/docs/commands.md) for every command, option, and exit category.
+Run `klopsi --help` or read the [complete command reference](https://github.com/0xfa7ca7/opsi/blob/main/docs/commands.md) for every command, option, and exit category.
 
 ## Command overview
 
-| Goal                          | Command                                                     |
-| ----------------------------- | ----------------------------------------------------------- |
-| Search the catalogue          | `opsi search [text]`                                        |
-| Inspect a dataset             | `opsi dataset show <id>`                                    |
-| List dataset resources        | `opsi dataset resources <id>`                               |
-| Inspect or preview a resource | `opsi resource show <id>` / `opsi resource preview <input>` |
-| Download data                 | `opsi download <ids...>`                                    |
-| Validate data or metadata     | `opsi validate <input>`                                     |
-| Query tabular data            | `opsi query <input> --sql <statement>`                      |
-| Convert formats               | `opsi convert <input> --to <format> --output <path>`        |
-| Verify provenance             | `opsi provenance verify <path>`                             |
-| Diagnose the installation     | `opsi doctor`                                               |
+| Goal                          | Command                                                         |
+| ----------------------------- | --------------------------------------------------------------- |
+| Search the catalogue          | `klopsi search [text]`                                          |
+| Inspect a dataset             | `klopsi dataset show <id>`                                      |
+| List dataset resources        | `klopsi dataset resources <id>`                                 |
+| Inspect or preview a resource | `klopsi resource show <id>` / `klopsi resource preview <input>` |
+| Download data                 | `klopsi download <ids...>`                                      |
+| Validate data or metadata     | `klopsi validate <input>`                                       |
+| Query tabular data            | `klopsi query <input> --sql <statement>`                        |
+| Convert formats               | `klopsi convert <input> --to <format> --output <path>`          |
+| Verify provenance             | `klopsi provenance verify <path>`                               |
+| Diagnose the installation     | `klopsi doctor`                                                 |
 
-## Using opsi with agents
+## Using klopsi with agents
 
 Install the complete [Agent Skills repertoire](https://github.com/0xfa7ca7/opsi/blob/main/docs/skills.md) into automatically detected compatible agent hosts:
 
 ```sh
-opsi agent setup
+klopsi agent setup
 ```
 
 Use `--yes` for unattended detected-host setup, `--agent <ids...>` for explicit hosts, `--all` for every globally installable profile, or `--dry-run` to preview the operation. An empty detection result fails safely instead of expanding `--yes` to every profile. Setup installs durable copies because its generated source is temporary.
 
-To refresh a stale repertoire, preview the exact target with `opsi agent setup --agent <id> --dry-run --json`, then rerun without `--dry-run` after authorization. After a successful exit, confirm that structured output lists only the requested `agents` and the complete `skills` repertoire. Generate the same portable skill tree without installing it with `opsi generate-skills --output-dir <directory>`.
+To refresh a stale repertoire, preview the exact target with `klopsi agent setup --agent <id> --dry-run --json`, then rerun without `--dry-run` after authorization. After a successful exit, confirm that structured output lists only the requested `agents` and the complete `skills` repertoire. Generate the same portable skill tree without installing it with `klopsi generate-skills --output-dir <directory>`.
 
 Agents use the same CLI as people and scripts. Prefer structured output and bounded results:
 
 ```sh
-opsi search promet --fields id,title --json --limit 5
-opsi resource preview ./downloads/data.csv --limit 20 --json
+klopsi search promet --fields id,title --json --limit 5
+klopsi resource preview ./downloads/data.csv --limit 20 --json
 ```
 
 ## TypeScript SDK
 
-The dependency-clean `opsi/sdk` entry point exports `OpsiClient`, `ProviderRegistry`, and public domain types:
+The dependency-clean `klopsi/sdk` entry point exports `KlopsiClient`, `ProviderRegistry`, and public domain types:
 
 ```ts
-import { OpsiClient, ProviderRegistry, type DataProvider } from "opsi/sdk";
+import { KlopsiClient, ProviderRegistry, type DataProvider } from "klopsi/sdk";
 
-export function createClient(provider: DataProvider): OpsiClient {
+export function createClient(provider: DataProvider): KlopsiClient {
   const registry = new ProviderRegistry([provider]);
-  return new OpsiClient({ registry, providerId: provider.descriptor.id });
+  return new KlopsiClient({ registry, providerId: provider.descriptor.id });
 }
 ```
 

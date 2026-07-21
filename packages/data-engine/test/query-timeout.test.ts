@@ -9,7 +9,7 @@ let directory: string;
 let input: string;
 
 beforeEach(async () => {
-  directory = await mkdtemp(join(tmpdir(), "opsi-query-timeout-"));
+  directory = await mkdtemp(join(tmpdir(), "klopsi-query-timeout-"));
   input = join(directory, "data.csv");
   await writeFile(input, "value\n1\n");
 });
@@ -25,7 +25,7 @@ describe("DuckDbQueryRunner deadlines", () => {
     const runner = new DuckDbQueryRunner({
       workerPath: new URL("./fixtures/hanging-query-worker.mjs", import.meta.url),
       makeTemporaryDirectory: async () => {
-        invocationDirectory = await mkdtemp(join(tmpdir(), "opsi-query-injected-"));
+        invocationDirectory = await mkdtemp(join(tmpdir(), "klopsi-query-injected-"));
         return invocationDirectory;
       },
       stage: async (options) => {
@@ -53,7 +53,7 @@ describe("DuckDbQueryRunner deadlines", () => {
     const runner = new DuckDbQueryRunner({
       workerPath: new URL("./fixtures/hanging-query-worker.mjs", import.meta.url),
       makeTemporaryDirectory: async () => {
-        invocationDirectory = await mkdtemp(join(tmpdir(), "opsi-query-checkpoint-"));
+        invocationDirectory = await mkdtemp(join(tmpdir(), "klopsi-query-checkpoint-"));
         return invocationDirectory;
       },
       stage: async () =>
@@ -79,7 +79,7 @@ describe("DuckDbQueryRunner deadlines", () => {
     const runner = new DuckDbQueryRunner({
       workerPath: new URL("./fixtures/query-worker-source-entry.ts", import.meta.url),
       makeTemporaryDirectory: async () => {
-        retainedDirectory = await mkdtemp(join(tmpdir(), "opsi-query-cleanup-failure-"));
+        retainedDirectory = await mkdtemp(join(tmpdir(), "klopsi-query-cleanup-failure-"));
         return retainedDirectory;
       },
       removeTemporaryDirectory: async () => Promise.reject(new Error("sharing violation")),
@@ -149,7 +149,7 @@ describe("DuckDbQueryRunner deadlines", () => {
       workerPath: new URL("./fixtures/query-worker-source-entry.ts", import.meta.url),
       makeTemporaryDirectory: async () => {
         directoriesCreated += 1;
-        return await mkdtemp(join(tmpdir(), "opsi-query-preabort-"));
+        return await mkdtemp(join(tmpdir(), "klopsi-query-preabort-"));
       },
     });
     const controller = new AbortController();

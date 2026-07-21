@@ -1,7 +1,7 @@
 import { chmod, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { AGENT_SKILLS, generateAgentSkills } from "./agent-skills.js";
 import type { AgentHostRegistry } from "./agent-hosts.js";
 
@@ -57,8 +57,8 @@ export interface SetupAgentsOptions {
 function invalidSetupOptions(
   message: string,
   context?: Readonly<Record<string, unknown>>,
-): OpsiError {
-  return new OpsiError({
+): KlopsiError {
+  return new KlopsiError({
     code: "AGENT_SETUP_OPTIONS_INVALID",
     message,
     exitCode: EXIT_CODES.INVALID_INPUT,
@@ -105,7 +105,7 @@ export function buildAgentInstallerArguments(
     ...agents,
   ];
   arguments_.push("--copy");
-  // OPSI owns selection and confirmation. The pinned installer must never open its own prompts,
+  // KLOPSI owns selection and confirmation. The pinned installer must never open its own prompts,
   // because those include a follow-up offer to fetch an unrelated remote skill.
   arguments_.push("--yes");
   return arguments_;
@@ -117,7 +117,7 @@ function selection(request: AgentSetupRequest): AgentSetupResult["selection"] {
 }
 
 async function defaultTemporaryDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "opsi-agent-setup-"));
+  const directory = await mkdtemp(join(tmpdir(), "klopsi-agent-setup-"));
   try {
     await chmod(directory, 0o700);
     return directory;
@@ -162,7 +162,7 @@ export async function setupAgents(options: SetupAgentsOptions): Promise<AgentSet
             })),
           ];
   if (resolvedAgents.length === 0) {
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "AGENT_HOSTS_NOT_DETECTED",
       message: "No supported globally installable agent host was detected.",
       exitCode: EXIT_CODES.INVALID_INPUT,
@@ -178,7 +178,7 @@ export async function setupAgents(options: SetupAgentsOptions): Promise<AgentSet
   ) {
     const confirmed = await options.confirmDetectedAgents?.(resolvedAgents);
     if (confirmed !== true) {
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "AGENT_SETUP_CANCELLED",
         message: "Agent setup was cancelled before installation.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -206,7 +206,7 @@ export async function setupAgents(options: SetupAgentsOptions): Promise<AgentSet
     });
     const diagnostic = installerResult.stderr.trim() || installerResult.stdout.trim();
     if (/Failed to install\s+\d+/u.test(`${installerResult.stdout}\n${installerResult.stderr}`)) {
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "AGENT_SETUP_PARTIAL",
         message: "The Agent Skills installer could not install every selected target.",
         exitCode: EXIT_CODES.PARTIAL_SUCCESS,
@@ -215,9 +215,9 @@ export async function setupAgents(options: SetupAgentsOptions): Promise<AgentSet
       });
     }
     if (installerResult.exitCode !== 0) {
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "AGENT_SETUP_FAILED",
-        message: "The Agent Skills installer could not complete OPSI setup.",
+        message: "The Agent Skills installer could not complete KLOPSI setup.",
         exitCode: EXIT_CODES.INTERNAL,
         suggestion: "Review the installer diagnostic, correct the agent selection, and try again.",
         context: {
@@ -233,9 +233,9 @@ export async function setupAgents(options: SetupAgentsOptions): Promise<AgentSet
   try {
     await removeTemporaryDirectory(sourceDirectory);
   } catch (cleanupError) {
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "AGENT_SETUP_CLEANUP_FAILED",
-      message: "OPSI installed the skills but could not remove its temporary source.",
+      message: "KLOPSI installed the skills but could not remove its temporary source.",
       exitCode: EXIT_CODES.INTERNAL,
       suggestion: `Remove the temporary directory manually: ${sourceDirectory}`,
       context: { sourceDirectory },

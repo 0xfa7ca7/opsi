@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import ExcelJS from "exceljs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DataEngine } from "@opsi/data-engine";
+import { DataEngine } from "@klopsi/data-engine";
 
 interface CliResult {
   readonly exitCode: number;
@@ -18,7 +18,7 @@ let home: string;
 let input: string;
 
 beforeEach(async () => {
-  home = await mkdtemp(join(tmpdir(), "opsi-convert-e2e-"));
+  home = await mkdtemp(join(tmpdir(), "klopsi-convert-e2e-"));
   home = await realpath(home);
   input = join(home, "input.xlsx");
   const workbook = new ExcelJS.Workbook();
@@ -37,8 +37,8 @@ async function cli(argv: readonly string[]): Promise<CliResult> {
     env: {
       ...process.env,
       HOME: home,
-      OPSI_CACHE_DIR: join(home, "cache"),
-      OPSI_DOWNLOAD_DIR: join(home, "downloads"),
+      KLOPSI_CACHE_DIR: join(home, "cache"),
+      KLOPSI_DOWNLOAD_DIR: join(home, "downloads"),
       NO_COLOR: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],

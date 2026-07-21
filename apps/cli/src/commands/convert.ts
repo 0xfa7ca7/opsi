@@ -1,13 +1,13 @@
 import type { Command } from "commander";
-import type { OpsiClient } from "@opsi/core";
-import type { SupportedDataFormat } from "@opsi/data-engine";
+import type { KlopsiClient } from "@klopsi/core";
+import type { SupportedDataFormat } from "@klopsi/data-engine";
 import type { CliContext } from "../context.js";
 import { manifestCommand } from "../command-manifest.js";
 
 export function registerConvertCommand(
   program: Command,
   context: CliContext,
-  client: OpsiClient,
+  client: KlopsiClient,
 ): void {
   manifestCommand(program, "convert").action(
     async (

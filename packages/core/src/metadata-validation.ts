@@ -1,5 +1,9 @@
-import type { DataValidationResult, SupportedDataFormat, ValidationIssue } from "@opsi/data-engine";
-import type { Dataset, Resource } from "@opsi/domain";
+import type {
+  DataValidationResult,
+  SupportedDataFormat,
+  ValidationIssue,
+} from "@klopsi/data-engine";
+import type { Dataset, Resource } from "@klopsi/domain";
 
 function issue(
   code: string,

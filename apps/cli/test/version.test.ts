@@ -35,9 +35,9 @@ const internalPackages = [
 );
 
 describe("public CLI package", () => {
-  it("uses the public opsi identity while internal packages stay private", () => {
+  it("uses the public klopsi identity while internal packages stay private", () => {
     expect(packageMetadata).toMatchObject({
-      name: "opsi",
+      name: "klopsi",
       version: "0.0.1",
       engines: { node: ">=24.0.0" },
     });
@@ -61,7 +61,7 @@ describe("public CLI package", () => {
     expect(cliModule.readPackageVersion).toBeTypeOf("function");
     if (cliModule.readPackageVersion === undefined) return;
 
-    const directory = mkdtempSync(join(tmpdir(), "opsi-version-"));
+    const directory = mkdtempSync(join(tmpdir(), "klopsi-version-"));
     const metadataPath = join(directory, "package.json");
 
     try {

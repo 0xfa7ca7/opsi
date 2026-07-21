@@ -1,5 +1,5 @@
-export { OpsiClient, ProviderRegistry } from "@opsi/core";
-export type { OpsiClientOptions } from "@opsi/core";
+export { KlopsiClient, ProviderRegistry } from "@klopsi/core";
+export type { KlopsiClientOptions } from "@klopsi/core";
 export type {
   WfsCapabilities,
   WfsField,
@@ -11,7 +11,7 @@ export type {
   WfsVersion,
   ArchiveLimits,
   XmlLimits,
-} from "@opsi/core";
+} from "@klopsi/core";
 export type {
   CanonicalReference,
   Configuration,
@@ -41,4 +41,4 @@ export type {
   SearchSort,
   ValidationIssue,
   ValidationResult,
-} from "@opsi/domain";
+} from "@klopsi/domain";

@@ -31,18 +31,18 @@ jobs:
       - run: pnpm build
       - run: pnpm test:unit
         env:
-          OPSI_OFFLINE: "1"
+          KLOPSI_OFFLINE: "1"
       - run: pnpm test:integration
         env:
-          OPSI_OFFLINE: "1"
+          KLOPSI_OFFLINE: "1"
       - run: pnpm test:e2e
         env:
-          OPSI_OFFLINE: "1"
+          KLOPSI_OFFLINE: "1"
       - name: Create and test canonical tarball bytes
         run: mkdir -p artifacts && pnpm test:pack
         env:
-          OPSI_OFFLINE: "1"
-          OPSI_PACK_DESTINATION: ${{ github.workspace }}/artifacts
+          KLOPSI_OFFLINE: "1"
+          KLOPSI_PACK_DESTINATION: ${{ github.workspace }}/artifacts
       - name: Record canonical tarball checksum
         run: |
           TARBALL="$(find artifacts -name '*.tgz' -exec basename {} \; -quit)"
@@ -69,7 +69,7 @@ jobs:
       - run: pnpm build
       - run: pnpm exec vitest run --project cli-e2e apps/cli/test/complete-surface.e2e.test.ts -t "functionally completes"
         env:
-          OPSI_OFFLINE: "1"
+          KLOPSI_OFFLINE: "1"
 
   exact-install:
     needs: quality
@@ -120,11 +120,11 @@ jobs:
           mkdir install && cd install
           npm init -y
           npm install "$(find ../artifacts -name '*.tgz' -print -quit)"
-          ./node_modules/.bin/opsi --version
-          ./node_modules/.bin/opsi doctor --json --offline
+          ./node_modules/.bin/klopsi --version
+          ./node_modules/.bin/klopsi doctor --json --offline
           node -e "import('@duckdb/node-api').then(x=>console.log({binding:!!x.DuckDBInstance}))"
-          ./node_modules/.bin/opsi query ../packages/testing/fixtures/data/valid.csv --sql "select 42 as answer" --json
-          node -e "import('opsi/sdk').then(x=>console.log({sdk:!!x.OpsiClient}))"
+          ./node_modules/.bin/klopsi query ../packages/testing/fixtures/data/valid.csv --sql "select 42 as answer" --json
+          node -e "import('klopsi/sdk').then(x=>console.log({sdk:!!x.KlopsiClient}))"
 
   current-node-advisory:
     continue-on-error: true

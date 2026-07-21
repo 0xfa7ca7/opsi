@@ -1,10 +1,10 @@
 import {
   EXIT_CODES,
-  OpsiError,
+  KlopsiError,
   type DataProvider,
   type ProviderDescriptor,
   type ProviderId,
-} from "@opsi/domain";
+} from "@klopsi/domain";
 
 export class ProviderRegistry {
   private readonly providers = new Map<string, DataProvider>();
@@ -16,7 +16,7 @@ export class ProviderRegistry {
   register(provider: DataProvider): void {
     const id = provider.descriptor.id;
     if (this.providers.has(id)) {
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "DUPLICATE_PROVIDER",
         message: `Provider '${id}' is already registered.`,
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -29,11 +29,11 @@ export class ProviderRegistry {
   get(id: ProviderId | string): DataProvider {
     const provider = this.providers.get(id);
     if (provider === undefined) {
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "PROVIDER_NOT_FOUND",
         message: `Provider '${id}' is not registered.`,
         exitCode: EXIT_CODES.INVALID_INPUT,
-        suggestion: "Run 'opsi providers list' to see available providers.",
+        suggestion: "Run 'klopsi providers list' to see available providers.",
         context: { providerId: id },
       });
     }

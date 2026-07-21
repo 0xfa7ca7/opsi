@@ -3,7 +3,7 @@ import { Readable } from "node:stream";
 import { createHash } from "node:crypto";
 import { parse } from "csv-parse";
 import { extname } from "node:path";
-import { OpsiError } from "@opsi/domain";
+import { KlopsiError } from "@klopsi/domain";
 import { detectFormat } from "./detect.js";
 import { scanWithDuckDb } from "./duckdb-import.js";
 import { inferredType, type DataEngine } from "./inspect.js";
@@ -286,7 +286,7 @@ class StreamingDiagnostics {
   private retain(bytes: number): void {
     this.stateBytes += bytes;
     if (this.stateBytes > this.limits.maxStateBytes)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "VALIDATION_STATE_LIMIT",
         message: "Validation retained-state limit exceeded.",
         exitCode: 5,
@@ -300,7 +300,7 @@ class StreamingDiagnostics {
       return;
     }
     if (this.grouped.size >= this.limits.maxIssueGroups)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "VALIDATION_ISSUE_LIMIT",
         message: "Validation issue-group limit exceeded.",
         exitCode: 5,
@@ -311,7 +311,7 @@ class StreamingDiagnostics {
   }
   chargeHeader(columns: readonly string[], warnings: readonly ValidationIssue[]): void {
     if (columns.length > this.limits.maxColumns)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "VALIDATION_COLUMN_LIMIT",
         message: "Validation header exceeds the column limit.",
         exitCode: 5,
@@ -320,7 +320,7 @@ class StreamingDiagnostics {
     const serialized = JSON.stringify(columns);
     const bytes = Buffer.byteLength(serialized);
     if (bytes > this.limits.maxRecordBytes)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "VALIDATION_RECORD_TOO_LARGE",
         message: "Validation header exceeds the record byte limit.",
         exitCode: 5,
@@ -328,7 +328,7 @@ class StreamingDiagnostics {
       });
     this.totalBytes += bytes;
     if (this.totalBytes > this.limits.maxTotalBytes)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "VALIDATION_TOTAL_BYTES_LIMIT",
         message: "Validation total byte limit exceeded.",
         exitCode: 5,
@@ -344,7 +344,7 @@ class StreamingDiagnostics {
   ): void {
     const columns = Object.keys(row);
     if (columns.length > this.limits.maxColumns)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "VALIDATION_COLUMN_LIMIT",
         message: "Validation column limit exceeded.",
         exitCode: 5,
@@ -352,7 +352,7 @@ class StreamingDiagnostics {
         context: { limit: this.limits.maxColumns },
       });
     if (this.rows >= this.limits.maxRecords)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "VALIDATION_RECORD_LIMIT",
         message: "Validation record limit exceeded.",
         exitCode: 5,
@@ -362,7 +362,7 @@ class StreamingDiagnostics {
     const serialized = JSON.stringify(row);
     const bytes = Buffer.byteLength(serialized);
     if (bytes > this.limits.maxRecordBytes)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "VALIDATION_RECORD_TOO_LARGE",
         message: "A validation record exceeds the byte limit.",
         exitCode: 5,
@@ -371,7 +371,7 @@ class StreamingDiagnostics {
       });
     this.totalBytes += bytes;
     if (this.totalBytes > this.limits.maxTotalBytes)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "VALIDATION_TOTAL_BYTES_LIMIT",
         message: "Validation total byte limit exceeded.",
         exitCode: 5,
@@ -531,7 +531,7 @@ export async function validateData(
         )),
       );
     } catch (error) {
-      if (error instanceof OpsiError) throw error;
+      if (error instanceof KlopsiError) throw error;
       issues.push(
         issue(
           "MALFORMED_DELIMITED_DATA",
@@ -579,7 +579,7 @@ export async function validateData(
           limits.xmlLimits,
         );
         if (preview.truncated)
-          throw new OpsiError({
+          throw new KlopsiError({
             code: "VALIDATION_RECORD_LIMIT",
             message: "Validation record limit exceeded.",
             exitCode: 5,
@@ -593,7 +593,7 @@ export async function validateData(
       issues.push(...diagnostics.finish());
     } catch (error) {
       if (
-        error instanceof OpsiError &&
+        error instanceof KlopsiError &&
         [
           "SHEET_REQUIRED",
           "SHEET_NOT_FOUND",
@@ -625,7 +625,7 @@ export async function validateData(
     schema = await engine.inferSchema(source, options);
   } catch (error) {
     if (
-      error instanceof OpsiError &&
+      error instanceof KlopsiError &&
       [
         "SHEET_REQUIRED",
         "SHEET_NOT_FOUND",

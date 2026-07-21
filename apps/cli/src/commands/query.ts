@@ -1,12 +1,12 @@
 import type { Command } from "commander";
-import type { OpsiClient } from "@opsi/core";
+import type { KlopsiClient } from "@klopsi/core";
 import type { CliContext } from "../context.js";
 import { manifestCommand } from "../command-manifest.js";
 
 export function registerQueryCommand(
   program: Command,
   context: CliContext,
-  client: OpsiClient,
+  client: KlopsiClient,
 ): void {
   manifestCommand(program, "query").action(
     async (

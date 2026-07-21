@@ -15,7 +15,7 @@ import {
 } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import type { Readable } from "node:stream";
-import { EXIT_CODES, OpsiError, type MetadataCache } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError, type MetadataCache } from "@klopsi/domain";
 import { CacheLayout, canonicalCacheKey } from "./cache-layout.js";
 import { CacheLock } from "./cache-lock.js";
 
@@ -60,8 +60,8 @@ async function fileDigest(path: string): Promise<{ sha256: string; bytes: number
   }
   return { sha256: hash.digest("hex"), bytes };
 }
-function corrupt(message: string, cause?: unknown): OpsiError {
-  return new OpsiError({
+function corrupt(message: string, cause?: unknown): KlopsiError {
+  return new KlopsiError({
     code: "CACHE_CORRUPT",
     message,
     exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -71,7 +71,7 @@ function corrupt(message: string, cause?: unknown): OpsiError {
 function absoluteExpiry(value: string): string {
   const timestamp = typeof value === "string" ? Date.parse(value) : Number.NaN;
   if (Number.isNaN(timestamp))
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "CACHE_METADATA_EXPIRY_INVALID",
       message: "Cache metadata expiry must be a valid timestamp.",
       exitCode: EXIT_CODES.INVALID_INPUT,
@@ -159,7 +159,7 @@ export class ContentCache implements MetadataCache {
         const chunk = typeof raw === "string" ? Buffer.from(raw) : Buffer.from(raw);
         bytes += chunk.length;
         if (bytes > this.maxObjectBytes)
-          throw new OpsiError({
+          throw new KlopsiError({
             code: "CACHE_OBJECT_TOO_LARGE",
             message: "Cache object exceeds the configured byte limit.",
             exitCode: EXIT_CODES.INVALID_INPUT,
@@ -226,7 +226,7 @@ export class ContentCache implements MetadataCache {
       details = await lstat(path);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT")
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "CACHE_MISS",
           message: "Cached object not found.",
           exitCode: EXIT_CODES.NOT_FOUND,
@@ -301,7 +301,7 @@ export class ContentCache implements MetadataCache {
         try {
           const current = await lstat(destination);
           if (!current.isFile() || current.isSymbolicLink())
-            throw new OpsiError({
+            throw new KlopsiError({
               code: "UNSAFE_DOWNLOAD_DESTINATION",
               message: "The destination is not a regular file.",
               exitCode: EXIT_CODES.INVALID_INPUT,
@@ -315,7 +315,7 @@ export class ContentCache implements MetadataCache {
           await link(temp, destination);
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code === "EEXIST")
-            throw new OpsiError({
+            throw new KlopsiError({
               code: "DOWNLOAD_DESTINATION_EXISTS",
               message: "The destination already exists.",
               exitCode: EXIT_CODES.INVALID_INPUT,

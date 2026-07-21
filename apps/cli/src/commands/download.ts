@@ -1,12 +1,12 @@
 import {
   EXIT_CODES,
-  OpsiError,
+  KlopsiError,
   datasetId,
   parseCanonicalReference,
   resourceId,
   type ResourceId,
-} from "@opsi/domain";
-import type { OpsiClient } from "@opsi/core";
+} from "@klopsi/domain";
+import type { KlopsiClient } from "@klopsi/core";
 import { stat } from "node:fs/promises";
 import type { Command } from "commander";
 import type { CliContext } from "../context.js";
@@ -33,17 +33,17 @@ async function isExistingDirectory(path: string): Promise<boolean> {
 export function registerDownloadCommand(
   program: Command,
   context: CliContext,
-  client: OpsiClient,
+  client: KlopsiClient,
 ): void {
   manifestCommand(program, "download").action(async (ids: string[], options: Options) => {
     if (client.downloads === undefined)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "DOWNLOAD_UNAVAILABLE",
         message: "Downloads are unavailable.",
         exitCode: EXIT_CODES.INTERNAL,
       });
     if (options.destination !== undefined && options.output !== undefined)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "INVALID_DOWNLOAD_DESTINATION",
         message: "Use only one of --destination or --output.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -53,7 +53,7 @@ export function registerDownloadCommand(
     for (const id of ids) {
       const reference = id.includes(":") ? parseCanonicalReference(id) : undefined;
       if (reference?.kind === "file")
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "RESOURCE_REFERENCE_REQUIRED",
           message: "Download requires a dataset or resource reference.",
           exitCode: EXIT_CODES.INVALID_INPUT,
@@ -63,7 +63,7 @@ export function registerDownloadCommand(
         ((options.dataset === true && reference.kind !== "dataset") ||
           (options.resource === true && reference.kind !== "resource"))
       )
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "DOWNLOAD_SELECTOR_MISMATCH",
           message: "The explicit selector does not match the canonical reference kind.",
           exitCode: EXIT_CODES.INVALID_INPUT,
@@ -73,7 +73,7 @@ export function registerDownloadCommand(
         reference?.kind ??
         (options.dataset ? "dataset" : options.resource ? "resource" : undefined);
       if (kind === undefined)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "AMBIGUOUS_DOWNLOAD_REFERENCE",
           message: `Bare identifier '${id}' is ambiguous.`,
           exitCode: EXIT_CODES.INVALID_INPUT,
@@ -100,7 +100,7 @@ export function registerDownloadCommand(
       }
     }
     if (selections.length === 0)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "NO_DOWNLOAD_RESOURCES",
         message: "The selection contains no resources.",
         exitCode: EXIT_CODES.NOT_FOUND,
@@ -117,7 +117,7 @@ export function registerDownloadCommand(
       destination !== undefined &&
       !(await isExistingDirectory(destination))
     )
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "INVALID_DOWNLOAD_DESTINATION",
         message: "Multiple resources require an existing destination directory.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -142,7 +142,7 @@ export function registerDownloadCommand(
     }
     if (errors.length > 0) {
       if (results.length > 0)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "PARTIAL_DOWNLOAD",
           message: `${results.length} download(s) succeeded and ${errors.length} failed.`,
           exitCode: EXIT_CODES.PARTIAL_SUCCESS,

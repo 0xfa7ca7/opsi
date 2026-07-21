@@ -1,8 +1,8 @@
 import { constants } from "node:fs";
 import { open, rm } from "node:fs/promises";
 import { Readable } from "node:stream";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
-import { CacheLock, ContentCache } from "@opsi/storage";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
+import { CacheLock, ContentCache } from "@klopsi/storage";
 import {
   parseCatalogueManifest,
   parseCatalogueSnapshot,
@@ -80,7 +80,7 @@ export class ContentCacheCatalogueSnapshotStore implements CatalogueSnapshotStor
     try {
       await this.cache.getObject(manifest.sha256);
     } catch (error) {
-      if (!(error instanceof OpsiError)) throw error;
+      if (!(error instanceof KlopsiError)) throw error;
       if (error.code === "CACHE_CORRUPT") {
         const layout = await this.cache.layout();
         await rm(layout.objectPath(manifest.sha256), { recursive: true, force: true });
@@ -113,8 +113,8 @@ export class ContentCacheCatalogueSnapshotStore implements CatalogueSnapshotStor
   }
 }
 
-function corruptCache(): OpsiError {
-  return new OpsiError({
+function corruptCache(): KlopsiError {
+  return new KlopsiError({
     code: "CACHE_CORRUPT",
     message: "Cached catalogue snapshot metadata is invalid.",
     exitCode: EXIT_CODES.INTEGRITY_FAILURE,

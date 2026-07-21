@@ -8,7 +8,7 @@ import { DEFAULT_ARCHIVE_LIMITS, extractArchiveEntry, inspectArchive } from "../
 const temporary: string[] = [];
 
 async function archive(entries: Readonly<Record<string, string>>): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "opsi-archive-"));
+  const directory = await mkdtemp(join(tmpdir(), "klopsi-archive-"));
   temporary.push(directory);
   const path = join(directory, "fixture.zip");
   await writeFile(

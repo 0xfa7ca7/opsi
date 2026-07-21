@@ -14,7 +14,7 @@ async function fixture(): Promise<{
   readonly stdout: string[];
   readonly stderr: string[];
 }> {
-  const cwd = await mkdtemp(join(tmpdir(), "opsi-agent-setup-e2e-"));
+  const cwd = await mkdtemp(join(tmpdir(), "klopsi-agent-setup-e2e-"));
   temporaryDirectories.push(cwd);
   const home = join(cwd, "home");
   await mkdir(home, { recursive: true });
@@ -54,7 +54,7 @@ describe("agent setup", () => {
         installer: "skills@1.5.19",
         scope: "global",
         selection: "detected",
-        skills: expect.arrayContaining(["opsi", "opsi-analysis", "opsi-shared"]),
+        skills: expect.arrayContaining(["klopsi", "klopsi-analysis", "klopsi-shared"]),
         dryRun: true,
       },
     });
@@ -84,8 +84,8 @@ describe("agent setup", () => {
           "--copy",
           "--yes",
         ]);
-        expect(await readFile(join(sourceDirectory, "opsi", "SKILL.md"), "utf8")).toContain(
-          "name: opsi",
+        expect(await readFile(join(sourceDirectory, "klopsi", "SKILL.md"), "utf8")).toContain(
+          "name: klopsi",
         );
         return { exitCode: 0, stdout: "decorated installer output", stderr: "" };
       }),
@@ -199,7 +199,7 @@ describe("agent setup", () => {
     ).resolves.toBe(0);
 
     expect(confirm).toHaveBeenCalledWith(
-      "Install OPSI skills for detected agents: codex, claude-code?",
+      "Install KLOPSI skills for detected agents: codex, claude-code?",
     );
     expect(runner.run).toHaveBeenCalledWith(
       expect.objectContaining({

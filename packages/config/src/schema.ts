@@ -1,4 +1,4 @@
-import { duckDbMemoryLimitBytes, EXIT_CODES, OpsiError } from "@opsi/domain";
+import { duckDbMemoryLimitBytes, EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { z } from "zod";
 import { parseStorageBytes } from "./byte-size.js";
 
@@ -97,10 +97,10 @@ export const configurationSourceSchema = z.strictObject({
 });
 
 export type OutputFormat = z.infer<typeof outputFormatSchema>;
-export type OpsiConfiguration = z.infer<typeof configurationSchema>;
+export type KlopsiConfiguration = z.infer<typeof configurationSchema>;
 export type ConfigurationSource = z.infer<typeof configurationSourceSchema>;
 
-export function invalidConfiguration(cause: unknown): OpsiError {
+export function invalidConfiguration(cause: unknown): KlopsiError {
   const detail =
     cause instanceof z.ZodError
       ? cause.issues
@@ -110,7 +110,7 @@ export function invalidConfiguration(cause: unknown): OpsiError {
         ? cause.message
         : "The configuration could not be read.";
 
-  return new OpsiError({
+  return new KlopsiError({
     code: "INVALID_CONFIGURATION",
     message: `Invalid configuration: ${detail}`,
     exitCode: EXIT_CODES.INVALID_INPUT,
@@ -125,7 +125,7 @@ export function parseConfigurationSource(value: unknown): ConfigurationSource {
   return parsed.data;
 }
 
-export function parseConfiguration(value: unknown): OpsiConfiguration {
+export function parseConfiguration(value: unknown): KlopsiConfiguration {
   const parsed = configurationSchema.safeParse(value);
   if (!parsed.success) throw invalidConfiguration(parsed.error);
   return parsed.data;

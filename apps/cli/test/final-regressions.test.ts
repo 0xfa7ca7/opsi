@@ -1,9 +1,9 @@
 import { Command } from "commander";
 import { describe, expect, it, vi } from "vitest";
-import { datasetId, providerId, resourceId } from "@opsi/domain";
-import type { OpsiClient } from "@opsi/core";
-import { Renderer } from "@opsi/output";
-import type { CatalogueSnapshotClient } from "@opsi/catalogue-snapshot";
+import { datasetId, providerId, resourceId } from "@klopsi/domain";
+import type { KlopsiClient } from "@klopsi/core";
+import { Renderer } from "@klopsi/output";
+import type { CatalogueSnapshotClient } from "@klopsi/catalogue-snapshot";
 import {
   COMMAND_MANIFEST,
   GLOBAL_OPTION_MANIFEST,
@@ -28,7 +28,7 @@ function context(writes: string[] = []) {
 function datasetSummary(id: string, title: string, name: unknown) {
   return {
     id: datasetId(id),
-    providerId: providerId("opsi"),
+    providerId: providerId("klopsi"),
     title,
     description: `${title} description`,
     providerMetadata: { raw: { name } },
@@ -53,7 +53,7 @@ function catalogueClient(
   registerDatasetCommand(
     program,
     context(writes),
-    { search } as unknown as OpsiClient,
+    { search } as unknown as KlopsiClient,
     catalogue as Pick<CatalogueSnapshotClient, "list">,
   );
   return { catalogue, search, program };
@@ -73,7 +73,7 @@ describe("final command contracts", () => {
         },
         {
           flags: "--live",
-          description: "query OPSI directly using paginated requests",
+          description: "query KLOPSI directly using paginated requests",
           conflicts: ["refresh"],
         },
       ],
@@ -126,7 +126,7 @@ describe("final command contracts", () => {
     registerDatasetCommand(
       program,
       context(writes),
-      { search } as unknown as OpsiClient,
+      { search } as unknown as KlopsiClient,
       catalogue as Pick<CatalogueSnapshotClient, "list">,
     );
 
@@ -151,7 +151,7 @@ describe("final command contracts", () => {
         ...context(),
         configuration: { offline: true },
       } as unknown as ReturnType<typeof context>,
-      { search } as unknown as OpsiClient,
+      { search } as unknown as KlopsiClient,
       catalogue as Pick<CatalogueSnapshotClient, "list">,
     );
 
@@ -177,7 +177,7 @@ describe("final command contracts", () => {
         ...context(),
         configuration: { offline: true },
       } as unknown as ReturnType<typeof context>,
-      { search } as unknown as OpsiClient,
+      { search } as unknown as KlopsiClient,
       catalogue as Pick<CatalogueSnapshotClient, "list">,
     );
 
@@ -203,7 +203,7 @@ describe("final command contracts", () => {
     registerDatasetCommand(
       program,
       { ...context(), renderer },
-      { search: vi.fn() } as unknown as OpsiClient,
+      { search: vi.fn() } as unknown as KlopsiClient,
       catalogue as Pick<CatalogueSnapshotClient, "list">,
     );
 
@@ -239,7 +239,9 @@ describe("final command contracts", () => {
   it("traverses --all pages deterministically and emits one bounded result", async () => {
     const writes: string[] = [];
     const search = vi.fn(async ({ offset = 0 }: { offset?: number }) => ({
-      items: [{ id: datasetId(`d${offset}`), providerId: providerId("opsi"), title: `D${offset}` }],
+      items: [
+        { id: datasetId(`d${offset}`), providerId: providerId("klopsi"), title: `D${offset}` },
+      ],
       total: 3,
       limit: 1,
       offset,
@@ -247,7 +249,7 @@ describe("final command contracts", () => {
     }));
     const program = new Command();
     registerCommandManifest(program);
-    registerSearchCommand(program, context(writes), { search } as unknown as OpsiClient);
+    registerSearchCommand(program, context(writes), { search } as unknown as KlopsiClient);
     await program.parseAsync(["search", "x", "--all"], { from: "user" });
     expect(search.mock.calls.map(([query]) => query.offset ?? 0)).toEqual([0, 1, 2]);
     expect(JSON.parse(writes.join(""))).toMatchObject({
@@ -262,7 +264,7 @@ describe("final command contracts", () => {
     registerCommandManifest(program);
     registerSearchCommand(program, context(), {
       search: vi.fn(async () => page),
-    } as unknown as OpsiClient);
+    } as unknown as KlopsiClient);
     await expect(
       program.parseAsync(["search", "x", "--all"], { from: "user" }),
     ).rejects.toMatchObject({
@@ -292,7 +294,7 @@ describe("final command contracts", () => {
     );
     const program = new Command();
     registerCommandManifest(program);
-    registerDatasetCommand(program, context(writes), { search } as unknown as OpsiClient);
+    registerDatasetCommand(program, context(writes), { search } as unknown as KlopsiClient);
 
     await program.parseAsync(["dataset", "list", "--live"], { from: "user" });
 
@@ -339,7 +341,7 @@ describe("final command contracts", () => {
     registerCommandManifest(program);
     registerDatasetCommand(program, { ...context(), renderer }, {
       search,
-    } as unknown as OpsiClient);
+    } as unknown as KlopsiClient);
 
     await program.parseAsync(["dataset", "list", "--live"], { from: "user" });
 
@@ -375,7 +377,7 @@ describe("final command contracts", () => {
     registerCommandManifest(program);
     registerDatasetCommand(program, { ...context(), renderer }, {
       search,
-    } as unknown as OpsiClient);
+    } as unknown as KlopsiClient);
 
     await program.parseAsync(["dataset", "list", "--live"], { from: "user" });
 
@@ -394,7 +396,7 @@ describe("final command contracts", () => {
         offset: 0,
         nextOffset: 0,
       })),
-    } as unknown as OpsiClient);
+    } as unknown as KlopsiClient);
 
     await expect(
       program.parseAsync(["dataset", "list", "--live"], { from: "user" }),
@@ -411,7 +413,7 @@ describe("final command contracts", () => {
     registerCommandManifest(program);
     registerSearchCommand(program, context(), {
       search: vi.fn(async () => page),
-    } as unknown as OpsiClient);
+    } as unknown as KlopsiClient);
     await expect(
       program.parseAsync(["search", "x", "--all"], { from: "user" }),
     ).rejects.toMatchObject({
@@ -426,7 +428,7 @@ describe("final command contracts", () => {
     const resource = {
       id: resourceId("r1"),
       datasetId: datasetId("d1"),
-      providerId: providerId("opsi"),
+      providerId: providerId("klopsi"),
       title: "R",
       url: "https://example.test/r",
     };
@@ -434,7 +436,7 @@ describe("final command contracts", () => {
     const client = {
       datasets: { resources: vi.fn(async () => [resource]) },
       downloads: { resource: download },
-    } as unknown as OpsiClient;
+    } as unknown as KlopsiClient;
     const ambiguous = new Command();
     registerCommandManifest(ambiguous);
     registerDownloadCommand(ambiguous, context(), client);
@@ -452,7 +454,7 @@ describe("final command contracts", () => {
     registerCommandManifest(mismatch);
     registerDownloadCommand(mismatch, context(), client);
     await expect(
-      mismatch.parseAsync(["download", "opsi:resource:r1", "--dataset"], { from: "user" }),
+      mismatch.parseAsync(["download", "klopsi:resource:r1", "--dataset"], { from: "user" }),
     ).rejects.toMatchObject({ code: "DOWNLOAD_SELECTOR_MISMATCH", exitCode: 2 });
   });
 });

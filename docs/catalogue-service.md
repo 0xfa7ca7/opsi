@@ -1,13 +1,13 @@
 # Catalogue snapshot service
 
 The catalogue snapshot service publishes the compact, versioned catalogue used by normal
-`opsi dataset list` calls. Its architecture and trust boundaries are defined in the
+`klopsi dataset list` calls. Its architecture and trust boundaries are defined in the
 [catalogue snapshot design](superpowers/specs/2026-07-13-catalogue-snapshot-design.md) and
 [public hosting design](superpowers/specs/2026-07-14-public-catalogue-hosting-design.md).
 
 ## Public endpoints and freshness
 
-The production base URL is `https://0xfa7ca7.github.io/opsi/`. Version 1 publishes:
+The production base URL is `https://0xfa7ca7.github.io/klopsi/`. Version 1 publishes:
 
 - `v1/latest.json`: the current manifest consumed by clients;
 - `v1/snapshots/{generatedAt}.json`: immutable catalogue bytes referenced by a manifest, with
@@ -28,8 +28,8 @@ guaranteed.
 Generation, validation, scheduling, and deployment control remain in the public
 `0xfa7ca7/opsi` source repository. The workflow publishes only generated files to the public,
 data-only user-site repository `0xfa7ca7/0xfa7ca7.github.io`: its `gh-pages` branch contains
-the complete site beneath `opsi/`, which GitHub Pages serves at
-`https://0xfa7ca7.github.io/opsi/`. Do not copy the source checkout, a personal access token,
+the complete site beneath `klopsi/`, which GitHub Pages serves at
+`https://0xfa7ca7.github.io/klopsi/`. Do not copy the source checkout, a personal access token,
 or any long-lived credential into the public repository.
 
 Provision `0xfa7ca7/0xfa7ca7.github.io` as a **public** repository dedicated to generated data.
@@ -41,7 +41,7 @@ Create the repository-scoped deployment credential from a trusted machine:
 
 ```sh
 umask 077
-ssh-keygen -t ed25519 -C "opsi catalogue publisher" -N "" -f ./catalogue-deploy-key
+ssh-keygen -t ed25519 -C "klopsi catalogue publisher" -N "" -f ./catalogue-deploy-key
 ```
 
 Add `catalogue-deploy-key.pub` in the public repository under **Settings → Deploy keys → Add
@@ -64,7 +64,7 @@ file from the trusted machine.
 
 ## Enable branch-based GitHub Pages
 
-The source workflow uses the deploy key to force-push the generated `opsi/` tree to the public
+The source workflow uses the deploy key to force-push the generated `klopsi/` tree to the public
 repository's `gh-pages` branch; it does not use GitHub Pages OIDC or a Pages deployment action.
 After the first push creates that branch, open the public repository's **Settings → Pages**, set
 **Source** to **Deploy from a branch**, select `gh-pages` and `/(root)`, and save. GitHub documents
@@ -83,14 +83,14 @@ deployment, and every run checks out the repository's trusted default branch. Pu
 runs the static workflow contract and controlled fixtures, but never performs live catalogue
 generation or a Pages deployment.
 
-Live generation allows up to 90 seconds for each OPSI request attempt because a 300-record page
+Live generation allows up to 90 seconds for each KLOPSI request attempt because a 300-record page
 can exceed ten megabytes and the upstream gateway may continue streaming after its response
 headers arrive. Retryable operations retain their bounded retries, and the complete `generate`
 job has a 30-minute ceiling. Provider failures include the safe catalogue offset that failed;
 response bodies and nested transport causes are never written to workflow logs.
 
 The publisher rejects a candidate whose dataset count is more than 10 percent below the
-previous catalogue. Investigate the live OPSI catalogue and the failed run before overriding
+previous catalogue. Investigate the live KLOPSI catalogue and the failed run before overriding
 this guard. If the reduction is intentional, dispatch **Catalogue snapshot** manually from the
 default branch and select **Allow publishing a catalogue reduction greater than 10 percent**.
 Never use the override merely to bypass a timeout, partial traversal, malformed response, or
@@ -100,9 +100,9 @@ unexplained count change.
 
 Start with the failed job in the workflow run:
 
-- `generate`: inspect dependency/build errors, live OPSI traversal failures, invalid retained
-  index or snapshot errors, and `CATALOGUE_COUNT_REDUCTION`. `OPSI response body timed out`
-  identifies an exhausted response-body deadline, while `OPSI returned a non-JSON response`
+- `generate`: inspect dependency/build errors, live KLOPSI traversal failures, invalid retained
+  index or snapshot errors, and `CATALOGUE_COUNT_REDUCTION`. `KLOPSI response body timed out`
+  identifies an exhausted response-body deadline, while `KLOPSI returned a non-JSON response`
   identifies a completed body that could not be parsed as JSON. Use the reported `offset` to
   correlate repeated failures without logging upstream content. A failed generation does not
   change the public `gh-pages` branch.
@@ -126,12 +126,12 @@ assemble or deploy unverified site bytes by hand.
 Build the package and run the publisher integration test:
 
 ```sh
-pnpm --filter @opsi/catalogue-snapshot build
+pnpm --filter @klopsi/catalogue-snapshot build
 pnpm exec vitest run --project integration packages/catalogue-snapshot/test/publisher.integration.test.ts
 ```
 
 This test generates and verifies complete site artifacts against controlled local HTTP fixtures.
-It does not contact OPSI or GitHub Pages. The production publisher entry point performs a live
+It does not contact KLOPSI or GitHub Pages. The production publisher entry point performs a live
 catalogue traversal, so reserve it for the scheduled or explicitly approved manual workflow.
 
 ## Verify the public deployment
@@ -141,11 +141,11 @@ post-deployment verifier. To repeat that check locally, copy those expected valu
 then execute:
 
 ```sh
-pnpm --filter @opsi/catalogue-snapshot build
+pnpm --filter @klopsi/catalogue-snapshot build
 EXPECTED_SHA256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 EXPECTED_GENERATED_AT=2026-07-13T12:00:00.000Z
 node packages/catalogue-snapshot/dist/verify-entry.js \
-  --base-url "https://0xfa7ca7.github.io/opsi/" \
+  --base-url "https://0xfa7ca7.github.io/klopsi/" \
   --expected-sha256 "$EXPECTED_SHA256" \
   --expected-generated-at "$EXPECTED_GENERATED_AT"
 ```
@@ -155,6 +155,6 @@ snapshot pass schema, byte-count, SHA-256, timestamp, and expected-deployment ch
 end-to-end verification with a refreshed client read followed by a cached offline read:
 
 ```sh
-opsi dataset list --refresh --json
-opsi --offline dataset list --json
+klopsi dataset list --refresh --json
+klopsi --offline dataset list --json
 ```

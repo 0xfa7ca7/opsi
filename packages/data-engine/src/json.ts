@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createInterface } from "node:readline";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import type { DataRow } from "./types.js";
 
 function asRow(value: unknown): DataRow {
@@ -18,7 +18,7 @@ export async function previewNativeJson(
   try {
     value = JSON.parse(await readFile(path, "utf8")) as unknown;
   } catch (error) {
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "INVALID_JSON",
       message: "The JSON file cannot be parsed.",
       exitCode: EXIT_CODES.INVALID_INPUT,
@@ -43,7 +43,7 @@ export async function previewNdjson(
       try {
         rows.push(asRow(JSON.parse(line) as unknown));
       } catch (error) {
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "INVALID_NDJSON",
           message: "An NDJSON record cannot be parsed.",
           exitCode: EXIT_CODES.INVALID_INPUT,
@@ -78,7 +78,7 @@ export async function scanNdjson(
     try {
       parsed = JSON.parse(line) as unknown;
     } catch (error) {
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "INVALID_NDJSON",
         message: "An NDJSON record cannot be parsed.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -97,7 +97,7 @@ export async function scanNdjson(
       const end = newline === -1 ? chunk.length : newline;
       const segment = chunk.subarray(start, end);
       if (pending.length + segment.length > options.maxRecordBytes)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "VALIDATION_RECORD_TOO_LARGE",
           message: "An NDJSON record exceeds the validation byte limit.",
           exitCode: EXIT_CODES.UNSUPPORTED,
