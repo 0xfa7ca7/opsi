@@ -201,6 +201,16 @@ npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-analys
 npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-shared
 ```
 
+Prepared local data can be presented through two agent-authored and contract-verified workflow skills. Both create one self-contained offline HTML artifact: choose the static skill for a concise printable board or the interactive skill for bounded exploration across linked views. Install either focused workflow together with its shared contract and verifier:
+
+```sh
+npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-static-dashboard
+npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-interactive-dashboard
+npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-shared
+```
+
+This first version is agent-authored and contract-verified; it does not claim deterministic HTML rendering by the CLI. [Issue #28](https://github.com/0xfa7ca7/klopsi/issues/28) tracks a future deterministic CLI-backed renderer.
+
 Compatible agent hosts select `klopsi` automatically from your request. Depending on the host, you may also invoke the main orchestrator as `/klopsi`, `@klopsi`, or `$klopsi`; these are agent-host forms, not shell commands. The skills use the installed CLI and do not add a model runtime or provider dependency to `klopsi`.
 
 An installed CLI can also generate the same repertoire into a directory without installing it:

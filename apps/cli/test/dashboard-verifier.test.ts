@@ -277,6 +277,27 @@ describe("dashboard presentation verifier", () => {
     });
   });
 
+  it("returns at most 100 findings when more violations are collected", async () => {
+    const cappedVerifier = join(temporaryDirectory, "verify-dashboard-cap.mjs");
+    const instrumentedSource = DASHBOARD_VERIFIER_SOURCE.replace(
+      "const findings = [];",
+      "const findings = Array.from({ length: 101 }, (_value, index) => finding('TEST_' + index, 'Injected contract finding.'));",
+    );
+    await writeFile(cappedVerifier, instrumentedSource, "utf8");
+
+    const originalVerifier = verifierPath;
+    verifierPath = cappedVerifier;
+    try {
+      const result = await verify("valid-static.html", "static");
+      expect(result).toMatchObject({ exitCode: 1, valid: false });
+      expect(result.findings).toHaveLength(100);
+      expect(result.findings?.[0]?.code).toBe("TEST_0");
+      expect(result.findings?.[99]?.code).toBe("TEST_99");
+    } finally {
+      verifierPath = originalVerifier;
+    }
+  });
+
   it("detects prohibited network APIs in event-handler attributes", async () => {
     const withHandler = interactiveFixture.replace(
       "<body>",

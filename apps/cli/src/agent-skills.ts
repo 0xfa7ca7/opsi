@@ -47,6 +47,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     workflows: [
       "Acquire and analyze data",
       "Inspect and export WFS data",
+      "Analyze and present data",
       "Refresh an agent installation",
     ],
     capabilities: [],
@@ -59,6 +60,8 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "klopsi-analysis",
       "klopsi-services",
       "klopsi-provenance",
+      "klopsi-static-dashboard",
+      "klopsi-interactive-dashboard",
       "klopsi-local-state",
       "klopsi-diagnostics",
     ],
@@ -842,9 +845,15 @@ Do not pass \`/klopsi\`, \`@klopsi\`, or \`$klopsi\` to the shell. Those are hos
 
 ### ${definition.workflows[2]}
 
+1. Prepare a bounded local artifact with analysis or WFS export, then verify available provenance.
+2. Choose \`klopsi-static-dashboard\` for a concise printable board or \`klopsi-interactive-dashboard\` for bounded exploration across linked views.
+3. Generate one self-contained offline HTML file, disclose reductions and verification status, and run the shared dashboard verifier before handoff.
+
+### ${definition.workflows[3]}
+
 1. Run \`klopsi agent setup --dry-run\` to inspect the planned selection and repertoire.
 2. With explicit authorization, select the intended host with \`--agent <id>\` and use \`--yes\` for non-interactive installation.
-3. Confirm the result includes the current repertoire, including \`klopsi-services\`; use \`generate-skills\` only when a portable skill tree is needed rather than an installation.
+3. Confirm the result includes the complete reported repertoire; use \`generate-skills\` only when a portable skill tree is needed rather than an installation.
 
 ## Routing rules
 

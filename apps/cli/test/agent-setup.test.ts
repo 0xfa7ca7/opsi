@@ -94,6 +94,29 @@ describe("agent setup orchestration", () => {
         expect(await readFile(join(sourceDirectory, "klopsi", "SKILL.md"), "utf8")).toContain(
           "Generated for `klopsi` 1.2.3",
         );
+        expect(
+          await readFile(
+            join(sourceDirectory, "klopsi-shared", "scripts", "verify-dashboard.mjs"),
+            "utf8",
+          ),
+        ).toContain("const MAX_HTML_BYTES = 15 * 1024 * 1024;");
+        expect(
+          await readFile(
+            join(sourceDirectory, "klopsi-static-dashboard", "assets", "static-board.html"),
+            "utf8",
+          ),
+        ).toContain("{{PRESENTATION_MANIFEST_JSON}}");
+        expect(
+          await readFile(
+            join(
+              sourceDirectory,
+              "klopsi-interactive-dashboard",
+              "assets",
+              "interactive-dashboard.html",
+            ),
+            "utf8",
+          ),
+        ).toContain("data-klopsi-filter-region");
         return { exitCode: 0, stdout: "installed", stderr: "" };
       }),
     };

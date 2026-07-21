@@ -72,6 +72,31 @@ describe("real pinned agent installer integration", () => {
         `name: ${skill}`,
       );
     }
+    expect(
+      await readFile(
+        join(home, ".agents", "skills", "klopsi-shared", "scripts", "verify-dashboard.mjs"),
+        "utf8",
+      ),
+    ).toContain("const MAX_HTML_BYTES = 15 * 1024 * 1024;");
+    expect(
+      await readFile(
+        join(home, ".agents", "skills", "klopsi-static-dashboard", "assets", "static-board.html"),
+        "utf8",
+      ),
+    ).toContain("{{PRESENTATION_MANIFEST_JSON}}");
+    expect(
+      await readFile(
+        join(
+          home,
+          ".agents",
+          "skills",
+          "klopsi-interactive-dashboard",
+          "assets",
+          "interactive-dashboard.html",
+        ),
+        "utf8",
+      ),
+    ).toContain("data-klopsi-filter-region");
     await expect(access(join(cwd, ".agents"))).rejects.toMatchObject({ code: "ENOENT" });
     await expect(access(join(cwd, "skills-lock.json"))).rejects.toMatchObject({ code: "ENOENT" });
   });

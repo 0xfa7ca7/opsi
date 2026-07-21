@@ -465,6 +465,7 @@ describe("agent skill rendering", () => {
 
   it("renders a compact main orchestrator with intent routing", () => {
     const content = renderAgentSkillFiles("1.2.3").get("klopsi") ?? "";
+    const router = AGENT_SKILLS.find((entry) => entry.name === "klopsi");
 
     expect(content).toContain("## Route requests");
     expect(content).toContain("smallest relevant skill");
@@ -474,6 +475,21 @@ describe("agent skill rendering", () => {
       expect(content).toContain(`../${skillName}/SKILL.md`);
     }
     expect(content).toContain("Generate installable Agent Skills");
+    expect(router?.related).toEqual(
+      expect.arrayContaining(["klopsi-static-dashboard", "klopsi-interactive-dashboard"]),
+    );
+    expect(content).toContain("### Analyze and present data");
+    expect(content).toContain(
+      "1. Prepare a bounded local artifact with analysis or WFS export, then verify available provenance.",
+    );
+    expect(content).toContain(
+      "2. Choose `klopsi-static-dashboard` for a concise printable board or `klopsi-interactive-dashboard` for bounded exploration across linked views.",
+    );
+    expect(content).toContain(
+      "3. Generate one self-contained offline HTML file, disclose reductions and verification status, and run the shared dashboard verifier before handoff.",
+    );
+    expect(content).toContain("Confirm the result includes the complete reported repertoire");
+    expect(content).not.toContain("including `klopsi-services`");
     expect(content).not.toContain("### `search`");
   });
 

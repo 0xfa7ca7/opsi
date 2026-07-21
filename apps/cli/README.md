@@ -97,6 +97,16 @@ Human setup output uses readable agent names and separate installed-skill, detai
 
 To refresh a stale repertoire, preview the exact target with `klopsi agent setup --agent <id> --dry-run --json`, then rerun without `--dry-run` after authorization. After a successful exit, confirm that structured output lists only the requested `agents` and the complete `skills` repertoire. Generate the same portable skill tree without installing it with `klopsi generate-skills --output-dir <directory>`.
 
+The repertoire includes two agent-authored and contract-verified presentation workflows that create self-contained offline HTML from prepared local data. Install a focused static or interactive dashboard skill together with the shared presentation contract and verifier:
+
+```sh
+npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-static-dashboard
+npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-interactive-dashboard
+npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-shared
+```
+
+This first version is agent-authored and contract-verified, not deterministically rendered by a CLI command. [Issue #28](https://github.com/0xfa7ca7/klopsi/issues/28) tracks the future deterministic CLI-backed renderer.
+
 Agents use the same CLI as people and scripts. Prefer structured output and bounded results:
 
 ```sh
