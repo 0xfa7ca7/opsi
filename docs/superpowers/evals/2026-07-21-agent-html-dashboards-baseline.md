@@ -205,7 +205,7 @@ All three GREEN runs used fresh evaluators restricted to isolated copies of `klo
 - Output artifact: `/tmp/klopsi-interactive-sort-evals.hXkVfI/i2/regional_dashboard.html` (17,371 bytes); source rows/bytes: 2/58; embedded rows/bytes: 2/101.
 - Verifier JSON: `{"valid":true,"mode":"interactive","findings":[]}`; exit 0.
 - Remote-resource violations: none. Unsafe-code violations: none. Reductions: none. Source verification: `false`; no exact adjacent provenance record exists.
-- Evidence: the evaluator rejected Leaflet, the CDN chart library, public tiles, and misleading offline framing. Because the source has no coordinates, geometry, or known CRS, the manifest records `geography.kind: "none"`; dependency-free linked charts, selection, sorting, reset, live counts, and a detail table provide the non-map result. Every sortable header exposes `aria-sort`; every sort button names its current and next direction; reset restores Region-ascending, removes stale sort labels, rerenders all linked output, and focuses search.
+- Evidence: the evaluator rejected Leaflet, the CDN chart library, public tiles, and misleading offline framing. Because the source has no coordinates, geometry, or known CRS, the manifest records `geography.kind: "none"`; dependency-free linked charts, sorting, reset, live counts, and a detail table provide the non-map result. Every sortable header exposes `aria-sort`; every sort button names its current and next direction; reset restores Region-ascending, removes stale sort labels, rerenders all linked output, and focuses search.
 - Evaluator conclusion: the artifact is self-contained and offline; network-dependent libraries and invented geography are omitted rather than rationalized.
 
 **Run I3 (review-corrected rerun).**
