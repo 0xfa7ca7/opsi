@@ -7,7 +7,7 @@ description: "Use when querying or converting bounded data, including ZIP, XML, 
 
 > **Prerequisite:** Read [opsi-shared](../opsi-shared/SKILL.md) before executing these commands.
 
-Analyze tabular inputs with bounded read-only SQL or convert supported formats. Generated for `opsi` 0.2.0.
+Analyze tabular inputs with bounded read-only SQL or convert supported formats. Generated for `opsi` 0.0.1.
 
 ## Workflow
 

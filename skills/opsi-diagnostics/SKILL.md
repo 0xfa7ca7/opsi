@@ -7,7 +7,7 @@ description: "Use when diagnosing OPSI, generating shell completion or Agent Ski
 
 > **Prerequisite:** Read [opsi-shared](../opsi-shared/SKILL.md) before executing these commands.
 
-Generate installable Agent Skills, diagnose the CLI environment, and expose providers and shell integration. Generated for `opsi` 0.2.0.
+Generate installable Agent Skills, diagnose the CLI environment, and expose providers and shell integration. Generated for `opsi` 0.0.1.
 
 ## Workflow
 

@@ -7,7 +7,7 @@ description: "Use when Slovenian public data is exposed through WFS and the requ
 
 > **Prerequisite:** Read [opsi-shared](../opsi-shared/SKILL.md) before executing these commands.
 
-Access WFS feature services through bounded, schema-validated OPSI workflows. Generated for `opsi` 0.2.0.
+Access WFS feature services through bounded, schema-validated OPSI workflows. Generated for `opsi` 0.0.1.
 
 ## Workflow
 

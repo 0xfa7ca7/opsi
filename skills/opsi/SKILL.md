@@ -5,7 +5,7 @@ description: "Use when a Slovenian public-data or OPSI request needs the relevan
 
 # OPSI orchestrator
 
-Use this skill as the main entry point for Slovenian public-data work with the `opsi` CLI. Generated for `opsi` 0.2.0.
+Use this skill as the main entry point for Slovenian public-data work with the `opsi` CLI. Generated for `opsi` 0.0.1.
 
 ## Route requests
 

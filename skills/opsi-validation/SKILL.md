@@ -7,7 +7,7 @@ description: "Use when checking local or provider data, or OPSI metadata, for in
 
 > **Prerequisite:** Read [opsi-shared](../opsi-shared/SKILL.md) before executing these commands.
 
-Validate data content or normalized metadata and explain actionable issues. Generated for `opsi` 0.2.0.
+Validate data content or normalized metadata and explain actionable issues. Generated for `opsi` 0.0.1.
 
 ## Workflow
 
