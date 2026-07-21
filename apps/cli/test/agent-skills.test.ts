@@ -651,6 +651,24 @@ describe("agent skill rendering", () => {
     }
   });
 
+  it("exposes centralized sort state and clears it through reset", () => {
+    const template =
+      renderAgentSkillPackages("1.2.3")
+        .get("klopsi-interactive-dashboard")
+        ?.files.get("assets/interactive-dashboard.html") ?? "";
+
+    expect(template).toContain("function renderSortState() {");
+    expect(template).toContain('header.setAttribute("aria-sort", direction)');
+    expect(template).toContain('button.setAttribute("aria-label", label)');
+    expect(template).toContain(
+      'const direction = field === state.sortField ? state.sortDirection : "none"',
+    );
+    expect(template).toContain("renderSortState();\n      }");
+    expect(template).toMatch(
+      /state\.sortField = initialState\.sortField;[\s\S]*state\.sortDirection = initialState\.sortDirection;[\s\S]*update\(\);/u,
+    );
+  });
+
   it("renders the shared execution and safety contract", () => {
     const content = renderAgentSkillFiles("1.2.3").get("klopsi-shared") ?? "";
 

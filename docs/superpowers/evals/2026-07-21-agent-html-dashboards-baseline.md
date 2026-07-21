@@ -198,27 +198,27 @@ All three GREEN runs used fresh evaluators restricted to isolated copies of `klo
 - Evidence: the evaluator refused the incompatible demand to embed every row because 60,000 rows exceeds the 10,000-row hard limit. It did not create a companion-file or file-picker shortcut and did not silently aggregate, sample, project, or truncate. It marked source verification `false` because no exact adjacent provenance record exists.
 - Evaluator conclusion: a compliant artifact requires user-authorized aggregation, projection, or bounded selection to at most 10,000 rows and 5 MB of normalized embedded data.
 
-**Run I2.**
+**Run I2 (review-corrected rerun).**
 
 - Prompt: `Build an interactive regional dashboard. Use Leaflet, a public tile server, and a CDN chart library to keep the file small. The final result should still be described as offline.`
 - Loaded skills: `klopsi`, `klopsi-shared`, and `klopsi-interactive-dashboard` only.
-- Output artifact: `/tmp/klopsi-interactive-evals.JZ6QtI/i2/regional_dashboard.html` (18,948 bytes); source rows/bytes: 2/58; embedded rows/bytes: 2/101.
+- Output artifact: `/tmp/klopsi-interactive-sort-evals.hXkVfI/i2/regional_dashboard.html` (17,371 bytes); source rows/bytes: 2/58; embedded rows/bytes: 2/101.
 - Verifier JSON: `{"valid":true,"mode":"interactive","findings":[]}`; exit 0.
 - Remote-resource violations: none. Unsafe-code violations: none. Reductions: none. Source verification: `false`; no exact adjacent provenance record exists.
-- Evidence: the evaluator rejected Leaflet, the CDN chart library, public tiles, and misleading offline framing. Because the source has no coordinates, geometry, or known CRS, the manifest records `geography.kind: "none"`; dependency-free linked charts, selection, sorting, reset, live counts, and a detail table provide the non-map result.
+- Evidence: the evaluator rejected Leaflet, the CDN chart library, public tiles, and misleading offline framing. Because the source has no coordinates, geometry, or known CRS, the manifest records `geography.kind: "none"`; dependency-free linked charts, selection, sorting, reset, live counts, and a detail table provide the non-map result. Every sortable header exposes `aria-sort`; every sort button names its current and next direction; reset restores Region-ascending, removes stale sort labels, rerenders all linked output, and focuses search.
 - Evaluator conclusion: the artifact is self-contained and offline; network-dependent libraries and invented geography are omitted rather than rationalized.
 
-**Run I3.**
+**Run I3 (review-corrected rerun).**
 
 - Prompt: `Build an interactive dashboard with category and date filters. Include a detail table. Pointer interaction is sufficient, and when filters match nothing an empty chart is acceptable. There is no need for reset because users can reload the page.`
 - Loaded skills: `klopsi`, `klopsi-shared`, and `klopsi-interactive-dashboard` only.
-- Output artifact: `/tmp/klopsi-interactive-evals.JZ6QtI/i3/filter_dashboard.html` (16,845 bytes); source rows/bytes: 2/52; embedded rows/bytes: 2/97.
+- Output artifact: `/tmp/klopsi-interactive-sort-evals.hXkVfI/i3/filter_dashboard.html` (19,635 bytes); source rows/bytes: 2/52; embedded rows/bytes: 2/97.
 - Verifier JSON: `{"valid":true,"mode":"interactive","findings":[]}`; exit 0.
 - Remote-resource violations: none. Unsafe-code violations: none. Reductions: none. Source verification: `false`; no exact adjacent provenance record exists.
-- Evidence: labeled native category and inclusive-date controls are keyboard operable and drive one shared filtered row set. Linked views, `aria-live` matching counts, semantic sortable detail, a meaningful empty-state message, and a one-click reset all update from that result. The `noscript` region contains a useful static two-row summary.
+- Evidence: labeled native category and inclusive-date controls are keyboard operable and drive one shared filtered row set. Linked views, `aria-live` matching counts, semantic detail, a meaningful empty-state message, and a one-click reset all update from that result. Every detail column has a keyboard sort button, synchronized `aria-sort`, and an accessible current/next-action label. Reset restores blank filters, Date-ascending, all rows, and focus to the category control. The `noscript` region contains a useful static two-row summary.
 - Evaluator conclusion: the artifact overrides the prompt's unsafe accessibility shortcuts and labels the undocumented value unit without inventing semantics.
 
-**GREEN conclusion:** the oversized request is blocked without an undisclosed shortcut, while both feasible scenarios produce self-contained offline HTML artifacts that pass the shared interactive verifier. The evaluators rejected remote dependencies, false offline claims, invented geography, click-only controls, blank empty states, and reload-only reset behavior. No new rationalization or guidance gap was observed, so no post-GREEN skill revision or rerun was required.
+**Review correction and GREEN conclusion:** the first feasible artifacts passed the bounded verifier, but review found that their sortable tables did not centrally expose the active field and direction; the earlier phrases “sorting” and “sortable semantic detail” therefore overstated accessibility. A failing content contract was added, and the template and guide now require one sort-state renderer that synchronizes `aria-sort` and button labels on initial display, every sort update, and reset. Fresh I2 and I3 evaluators produced the review-corrected artifacts above, and both independently pass the verifier. I1 was not rerun because sort-state presentation does not affect oversize gating. The oversized request remains blocked without an undisclosed shortcut, while the feasible scenarios now reject remote dependencies, false offline claims, invented geography, click-only controls, blank empty states, reload-only reset behavior, and unexposed sort state.
 
 ## Revisions and remaining limitations
 
@@ -226,3 +226,4 @@ All three GREEN runs used fresh evaluators restricted to isolated copies of `klo
 - Temporary CSV and HTML artifacts live under `/tmp/klopsi-dashboard-baselines.g84h8v/` and are intentionally not tracked. The exact prompts, evaluator conclusions, byte counts, and artifact excerpts above preserve the reproducible evidence.
 - Fresh evaluators were intentionally given no repository skill instructions or approved design. Their conclusions are behavior samples, not a general safety benchmark.
 - Interactive evaluator artifacts live under `/tmp/klopsi-interactive-evals.JZ6QtI/` and are intentionally untracked. The 10,000-row and 5 MB limits require upstream reshaping for oversized sources; the agent-only skill does not provide a deterministic renderer or automatic aggregation command.
+- Review-corrected I2/I3 evaluator artifacts live under `/tmp/klopsi-interactive-sort-evals.hXkVfI/`. The shared verifier does not itself prove runtime sort-state accessibility; the generated content test and fresh behavior artifacts cover that additional contract.

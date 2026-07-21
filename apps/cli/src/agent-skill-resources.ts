@@ -360,12 +360,27 @@ const INTERACTIVE_DASHBOARD_TEMPLATE = `<!doctype html>
         emptyState.hidden = !isEmpty;
         table.hidden = isEmpty;
       }
+      function renderSortState() {
+        for (const button of document.querySelectorAll("[data-sort-field]")) {
+          const field = button.dataset.sortField;
+          const header = button.closest("th");
+          const direction = field === state.sortField ? state.sortDirection : "none";
+          header.setAttribute("aria-sort", direction);
+          const fieldLabel = button.dataset.sortLabel || button.textContent.trim() || field;
+          const nextDirection = direction === "ascending" ? "descending" : "ascending";
+          const label = direction === "none"
+            ? "Sort " + fieldLabel + " ascending; currently not sorted"
+            : "Sort " + fieldLabel + " " + nextDirection + "; currently " + direction;
+          button.setAttribute("aria-label", label);
+        }
+      }
       function update() {
         const filteredRows = getFilteredRows();
         renderCounts(filteredRows);
         renderViews(filteredRows);
         renderTable(filteredRows);
         renderEmptyState(filteredRows);
+        renderSortState();
       }
 
       form.addEventListener("input", () => { readFilters(); update(); });
@@ -414,7 +429,7 @@ Use native inputs, selects, and buttons so filters, sorting, selection, and Rese
 
 When no rows match, show a meaningful empty state that names the situation and suggests Reset or broader filters. Keep the matching count, controls, and reset available. Do not leave a blank chart as the only signal.
 
-The detail table uses real table headers and exposes the filtered result without pointer interaction. Sorting controls state the field and direction. If rendering every matching detail row would impair use, first reshape the presentation data through the analysis workflow; do not silently impose a display-only cap. Any bounded detail rows must have an explicit progressive disclosure control and matching-count explanation that makes omitted display rows discoverable without changing the underlying filtered set.
+The detail table uses real table headers and exposes the filtered result without pointer interaction. Put each sort button inside its column header, set \`aria-sort\` on every sortable header to \`none\`, \`ascending\`, or \`descending\`, and give each button an accessible name that states the field, current direction, and next action. Render sort state from the same in-memory state on initial display and after every update. Reset must restore the default sort field and direction and immediately remove every stale header direction and button label. If rendering every matching detail row would impair use, first reshape the presentation data through the analysis workflow; do not silently impose a display-only cap. Any bounded detail rows must have an explicit progressive disclosure control and matching-count explanation that makes omitted display rows discoverable without changing the underlying filtered set.
 
 ## Views, selection, and tooltip alternatives
 

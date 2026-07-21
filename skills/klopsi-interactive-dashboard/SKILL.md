@@ -35,6 +35,7 @@ Turn a bounded prepared local artifact into one offline exploratory HTML file wh
 
 - Keep one `state` object in memory. On each filter, search, range, sort, selection, or reset change, derive one filtered row array and pass it to counts, every linked view, the detail table, and the empty state so they cannot disagree.
 - Use visibly labeled native controls and buttons, preserve keyboard operation and visible focus, provide one-click reset to the documented initial state, keep the matching count in an `aria-live="polite"` region, and retain reset plus a meaningful message when no rows match.
+- Expose the centralized sort field and direction on every sortable table header with `aria-sort`, and keep each sort button's accessible name synchronized with its current and next action. Run the same sort-state renderer on initial display, every sort update, and reset so stale direction labels cannot survive.
 
 ### Verify and hand off
 

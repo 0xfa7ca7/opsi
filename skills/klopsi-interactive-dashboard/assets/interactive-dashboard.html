@@ -129,12 +129,27 @@
         emptyState.hidden = !isEmpty;
         table.hidden = isEmpty;
       }
+      function renderSortState() {
+        for (const button of document.querySelectorAll("[data-sort-field]")) {
+          const field = button.dataset.sortField;
+          const header = button.closest("th");
+          const direction = field === state.sortField ? state.sortDirection : "none";
+          header.setAttribute("aria-sort", direction);
+          const fieldLabel = button.dataset.sortLabel || button.textContent.trim() || field;
+          const nextDirection = direction === "ascending" ? "descending" : "ascending";
+          const label = direction === "none"
+            ? "Sort " + fieldLabel + " ascending; currently not sorted"
+            : "Sort " + fieldLabel + " " + nextDirection + "; currently " + direction;
+          button.setAttribute("aria-label", label);
+        }
+      }
       function update() {
         const filteredRows = getFilteredRows();
         renderCounts(filteredRows);
         renderViews(filteredRows);
         renderTable(filteredRows);
         renderEmptyState(filteredRows);
+        renderSortState();
       }
 
       form.addEventListener("input", () => { readFilters(); update(); });
