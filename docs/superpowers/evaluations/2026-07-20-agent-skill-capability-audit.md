@@ -33,7 +33,7 @@ Verbatim evaluator response:
 > Use the validated traffic-infrastructure dataset **“Seznam parkirišč v Občini Trbovlje”**:
 >
 > - Dataset: `7627d311-f8a2-43cd-abe6-ca63b7c9d8ba`
-> - Usable CSV resource: `klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7`
+> - Usable CSV resource: `opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7`
 > - Live bounded preview showed 18 parking sites; validation returned `valid: true` (only a mixed-type-price warning).
 > - A bounded aggregation returns 17 free sites/591 spaces/4 EV spaces and 1 paid site/78 spaces/2 EV spaces.
 >
@@ -45,14 +45,14 @@ Verbatim evaluator response:
 > klopsi --json dataset resources 7627d311-f8a2-43cd-abe6-ca63b7c9d8ba
 > klopsi --json resource show f233bc56-b13e-4e15-b257-c65b719732c7
 > klopsi --json resource headers f233bc56-b13e-4e15-b257-c65b719732c7
-> klopsi --json resource inspect klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
-> klopsi --json resource preview klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 --limit 5
-> klopsi --json validate klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
+> klopsi --json resource inspect opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
+> klopsi --json resource preview opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 --limit 5
+> klopsi --json validate opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
 > ```
 >
 > ```sh
 > klopsi --json --max-download-bytes 67108864 --http-timeout-ms 30000 \
->   download klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 \
+>   download opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 \
 >   --output ./traffic-run
 > ```
 >
@@ -98,7 +98,7 @@ Verbatim evaluator response:
 
 Prompt:
 
-> Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `klopsi --help`, subcommand help, and public docs. A user provides a KLOPSI WFS resource reference and asks you to discover its layers, inspect a layer, preview selected properties inside a bounding box, count matching features, and export a bounded filtered CSV without bypassing KLOPSI security. Give the exact safe command sequence, filter and CRS decisions, pagination or limit behavior, overwrite handling, forbidden fallbacks, and artifact verification. Do not modify files.
+> Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `klopsi --help`, subcommand help, and public docs. A user provides an OPSI WFS resource reference and asks you to discover its layers, inspect a layer, preview selected properties inside a bounding box, count matching features, and export a bounded filtered CSV without bypassing KLOPSI security. Give the exact safe command sequence, filter and CRS decisions, pagination or limit behavior, overwrite handling, forbidden fallbacks, and artifact verification. Do not modify files.
 
 Rubric (14 points): canonical reference; inspect; layers; schema; repeatable/comma-separated properties; typed `--filter-eq`; `--bbox`; `--crs`; bounded preview; count; bounded export; overwrite authorization; no raw HTTP/CQL/XML/transaction fallback; provenance verification.
 
@@ -139,7 +139,7 @@ Verbatim evaluator response:
 > Use canonical ref throughout and structured output:
 >
 > ```sh
-> R='klopsi:resource:<UUID>'
+> R='opsi:resource:<UUID>'
 > klopsi --json resource inspect "$R"      # optional access descriptor; confirm WFS / allowed actions
 > klopsi --json service inspect "$R"       # service capabilities: negotiated version, advertised CRS/bounds/paging
 > klopsi --json service layers "$R"        # select exact layer name L from result
@@ -295,7 +295,7 @@ Verbatim evaluator response:
 > Use the Slovenian traffic-infrastructure dataset “Seznam parkirišč v Občini Trbovlje”:
 >
 > - Dataset: `7627d311-f8a2-43cd-abe6-ca63b7c9d8ba`
-> - Usable CSV resource: `klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7`
+> - Usable CSV resource: `opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7`
 >
 > Run this from an existing empty directory such as `./traffic-run`:
 >
@@ -305,16 +305,16 @@ Verbatim evaluator response:
 > klopsi --json dataset resources 7627d311-f8a2-43cd-abe6-ca63b7c9d8ba
 > klopsi --json resource show f233bc56-b13e-4e15-b257-c65b719732c7
 > klopsi --json resource headers f233bc56-b13e-4e15-b257-c65b719732c7
-> klopsi --json resource inspect klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
-> klopsi --json resource preview klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 --limit 5
-> klopsi --json validate klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
+> klopsi --json resource inspect opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
+> klopsi --json resource preview opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 --limit 5
+> klopsi --json validate opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7
 > ```
 >
 > Download with explicit network bounds. Read the downloaded artifact path from the JSON `data` response and use it as `$INPUT`.
 >
 > ```sh
 > klopsi --json --max-download-bytes 67108864 --http-timeout-ms 30000 \
->   download klopsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 \
+>   download opsi:resource:f233bc56-b13e-4e15-b257-c65b719732c7 \
 >   --output ./traffic-run
 > ```
 >
@@ -372,10 +372,10 @@ verifies the export. Remaining gaps and unsafe suggestions: none.
 
 Verbatim evaluator response:
 
-> Use the exact canonical `klopsi:resource:` reference supplied by KLOPSI; do not invent or alter it. First set only values confirmed by subsequent outputs:
+> Use the exact canonical `opsi:resource:` reference supplied by KLOPSI; do not invent or alter it. First set only values confirmed by subsequent outputs:
 >
 > ```sh
-> RESOURCE='klopsi:resource:REPLACE_WITH_THE_PROVIDED_REFERENCE'
+> RESOURCE='opsi:resource:REPLACE_WITH_THE_PROVIDED_REFERENCE'
 > LAYER='REPLACE_WITH_A_NAME_RETURNED_BY_SERVICE_LAYERS'
 > PROPERTY_1='REPLACE_WITH_A_FIELD_FROM_SCHEMA'
 > PROPERTY_2='REPLACE_WITH_A_FIELD_FROM_SCHEMA'

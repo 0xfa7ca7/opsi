@@ -67,10 +67,10 @@ async function compileSdkConsumer(directory: string): Promise<void> {
   type ValidationResult,
 } from 'klopsi/sdk';
 
-const providerId = 'klopsi' as ProviderId;
+const providerId = 'opsi' as ProviderId;
 const datasetId = 'traffic' as DatasetId;
 const resourceId = 'traffic-csv' as ResourceId;
-const reference = 'klopsi:resource:traffic-csv' as CanonicalReference;
+const reference = 'opsi:resource:traffic-csv' as CanonicalReference;
 const nextAction: NextAction = { action: 'resource.preview', argv: ['resource', 'preview', reference] };
 const access: ResourceAccessDescriptor = {
   input: reference,

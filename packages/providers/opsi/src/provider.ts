@@ -16,9 +16,9 @@ import {
   type SearchQuery,
   type SearchSort,
 } from "@klopsi/domain";
-import { mapKlopsiDataset, mapKlopsiDatasetSummary } from "./map-dataset.js";
-import { mapKlopsiResource } from "./map-resource.js";
-import { KlopsiTransport } from "./transport.js";
+import { mapOpsiDataset, mapOpsiDatasetSummary } from "./map-dataset.js";
+import { mapOpsiResource } from "./map-resource.js";
+import { OpsiTransport } from "./transport.js";
 
 const DEFAULT_SORT = "relevance asc, metadata_modified desc";
 const SORT_FIELDS = new Set([
@@ -41,9 +41,9 @@ const SOLR_SPECIAL = /([+&|!(){}[\]^"~*?:\\/])/gu;
 function unsupported(capability: string): KlopsiError {
   return new KlopsiError({
     code: "PROVIDER_CAPABILITY_UNSUPPORTED",
-    message: `KLOPSI does not support ${capability}.`,
+    message: `OPSI does not support ${capability}.`,
     exitCode: EXIT_CODES.UNSUPPORTED,
-    context: { provider: "klopsi", capability },
+    context: { provider: "opsi", capability },
   });
 }
 
@@ -83,10 +83,10 @@ function sortQuery(sort: readonly SearchSort[] | undefined): string {
   return sort.map((item) => `${item.field} ${item.direction}`).join(", ");
 }
 
-export class KlopsiProvider implements DataProvider {
+export class OpsiProvider implements DataProvider {
   readonly descriptor: ProviderDescriptor = {
-    id: providerId("klopsi"),
-    name: "KLOPSI",
+    id: providerId("opsi"),
+    name: "OPSI",
     description: "Slovenian Open Data Portal",
     homepage: "https://podatki.gov.si/",
     capabilities: ["search", "dataset", "resource", "dataset-resources", "resolve-resource"],
@@ -96,7 +96,7 @@ export class KlopsiProvider implements DataProvider {
   private readonly offline: boolean;
   private readonly metadataTtlMs: number;
   constructor(
-    private readonly transport: KlopsiTransport = new KlopsiTransport(),
+    private readonly transport: OpsiTransport = new OpsiTransport(),
     options: {
       readonly metadataCache?: MetadataCache;
       readonly offline?: boolean;
@@ -109,7 +109,7 @@ export class KlopsiProvider implements DataProvider {
   }
 
   private async cached<T>(key: string, load: () => Promise<T>): Promise<T> {
-    const version = "klopsi-metadata-v1";
+    const version = "opsi-metadata-v1";
     const cached = await this.metadataCache?.get<T>(key, version);
     if (cached !== undefined) return cached;
     if (this.offline)
@@ -117,7 +117,7 @@ export class KlopsiProvider implements DataProvider {
         code: "OFFLINE_CACHE_MISS",
         message: "Offline mode has no cached metadata for this request.",
         exitCode: EXIT_CODES.NOT_FOUND,
-        context: { provider: "klopsi", key },
+        context: { provider: "opsi", key },
       });
     const value = await load();
     await this.metadataCache?.set(key, version, value, this.metadataTtlMs);
@@ -143,7 +143,7 @@ export class KlopsiProvider implements DataProvider {
     );
     const nextOffset = offset + result.results.length;
     return {
-      items: result.results.map(mapKlopsiDatasetSummary),
+      items: result.results.map(mapOpsiDatasetSummary),
       total: result.count,
       limit,
       offset,
@@ -153,18 +153,16 @@ export class KlopsiProvider implements DataProvider {
 
   async getDataset(id: DatasetId): Promise<Dataset> {
     return this.cached(`dataset:${id}`, async () =>
-      mapKlopsiDataset(
-        await this.transport.call("package_show", { id, use_default_schema: false }),
-      ),
+      mapOpsiDataset(await this.transport.call("package_show", { id, use_default_schema: false })),
     );
   }
 
   async getResource(id: ResourceId): Promise<Resource> {
     return this.cached(`resource:${id}`, async () => {
       const record = await this.transport.call("resource_show", { id });
-      if (record.package_id !== undefined) return mapKlopsiResource(record);
+      if (record.package_id !== undefined) return mapOpsiResource(record);
 
-      // KLOPSI's live resource_show response omits package_id. Resolve the
+      // OPSI's live resource_show response omits package_id. Resolve the
       // parent through the exact resource URL so canonical/bare resource
       // downloads retain correct dataset provenance.
       const pageSize = 10;
@@ -194,11 +192,11 @@ export class KlopsiProvider implements DataProvider {
       if (parent === undefined)
         throw new KlopsiError({
           code: "INVALID_PROVIDER_RESPONSE",
-          message: `KLOPSI resource ${record.id} has no resolvable parent dataset.`,
+          message: `OPSI resource ${record.id} has no resolvable parent dataset.`,
           exitCode: EXIT_CODES.PROVIDER_FAILURE,
-          context: { provider: "klopsi", resourceId: record.id },
+          context: { provider: "opsi", resourceId: record.id },
         });
-      return mapKlopsiResource(record, datasetId(parent.id));
+      return mapOpsiResource(record, datasetId(parent.id));
     });
   }
 

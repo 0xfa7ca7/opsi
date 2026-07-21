@@ -26,7 +26,7 @@ guaranteed.
 ## Public hosting and deploy key
 
 Generation, validation, scheduling, and deployment control remain in the public
-`0xfa7ca7/opsi` source repository. The workflow publishes only generated files to the public,
+`0xfa7ca7/klopsi` source repository. The workflow publishes only generated files to the public,
 data-only user-site repository `0xfa7ca7/0xfa7ca7.github.io`: its `gh-pages` branch contains
 the complete site beneath `klopsi/`, which GitHub Pages serves at
 `https://0xfa7ca7.github.io/klopsi/`. Do not copy the source checkout, a personal access token,
@@ -45,7 +45,7 @@ ssh-keygen -t ed25519 -C "klopsi catalogue publisher" -N "" -f ./catalogue-deplo
 ```
 
 Add `catalogue-deploy-key.pub` in the public repository under **Settings → Deploy keys → Add
-deploy key** and select **Allow write access**. In the public `0xfa7ca7/opsi` source repository, create
+deploy key** and select **Allow write access**. In the public `0xfa7ca7/klopsi` source repository, create
 the `catalogue-production` environment, configure its deployment branches and tags to allow only
 the trusted default branch (`main`), and add the private file as that environment's
 `CATALOGUE_DEPLOY_KEY` secret. Do not create a repository-level secret with this name. Delete both
@@ -83,14 +83,14 @@ deployment, and every run checks out the repository's trusted default branch. Pu
 runs the static workflow contract and controlled fixtures, but never performs live catalogue
 generation or a Pages deployment.
 
-Live generation allows up to 90 seconds for each KLOPSI request attempt because a 300-record page
+Live generation allows up to 90 seconds for each OPSI request attempt because a 300-record page
 can exceed ten megabytes and the upstream gateway may continue streaming after its response
 headers arrive. Retryable operations retain their bounded retries, and the complete `generate`
 job has a 30-minute ceiling. Provider failures include the safe catalogue offset that failed;
 response bodies and nested transport causes are never written to workflow logs.
 
 The publisher rejects a candidate whose dataset count is more than 10 percent below the
-previous catalogue. Investigate the live KLOPSI catalogue and the failed run before overriding
+previous catalogue. Investigate the live OPSI catalogue and the failed run before overriding
 this guard. If the reduction is intentional, dispatch **Catalogue snapshot** manually from the
 default branch and select **Allow publishing a catalogue reduction greater than 10 percent**.
 Never use the override merely to bypass a timeout, partial traversal, malformed response, or
@@ -100,9 +100,9 @@ unexplained count change.
 
 Start with the failed job in the workflow run:
 
-- `generate`: inspect dependency/build errors, live KLOPSI traversal failures, invalid retained
-  index or snapshot errors, and `CATALOGUE_COUNT_REDUCTION`. `KLOPSI response body timed out`
-  identifies an exhausted response-body deadline, while `KLOPSI returned a non-JSON response`
+- `generate`: inspect dependency/build errors, live OPSI traversal failures, invalid retained
+  index or snapshot errors, and `CATALOGUE_COUNT_REDUCTION`. `OPSI response body timed out`
+  identifies an exhausted response-body deadline, while `OPSI returned a non-JSON response`
   identifies a completed body that could not be parsed as JSON. Use the reported `offset` to
   correlate repeated failures without logging upstream content. A failed generation does not
   change the public `gh-pages` branch.
@@ -131,7 +131,7 @@ pnpm exec vitest run --project integration packages/catalogue-snapshot/test/publ
 ```
 
 This test generates and verifies complete site artifacts against controlled local HTTP fixtures.
-It does not contact KLOPSI or GitHub Pages. The production publisher entry point performs a live
+It does not contact OPSI or GitHub Pages. The production publisher entry point performs a live
 catalogue traversal, so reserve it for the scheduled or explicitly approved manual workflow.
 
 ## Verify the public deployment

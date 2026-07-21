@@ -2,7 +2,7 @@
 
 Search and inspect: `klopsi search promet --json --limit 5`, then `klopsi dataset show ID --json` and `klopsi dataset resources ID`.
 
-Download and reuse offline: `klopsi download klopsi:resource:ID --output ./downloads`, then set `KLOPSI_OFFLINE=1` or use `--offline` for cached catalogue work.
+Download and reuse offline: `klopsi download opsi:resource:ID --output ./downloads`, then set `KLOPSI_OFFLINE=1` or use `--offline` for cached catalogue work.
 
 Inspect and validate: `klopsi resource preview ./downloads/data.csv --limit 10 --json`; `klopsi validate ./downloads/data.csv --json`.
 
@@ -18,7 +18,7 @@ Create a directory, search, inspect, download by canonical reference, validate l
 WORKFLOW_TMP="$(mktemp -d)"
 klopsi search promet --json --limit 1
 klopsi dataset show dataset-traffic-001 --json
-klopsi download klopsi:resource:resource-traffic-csv-001 --output "$WORKFLOW_TMP"
+klopsi download opsi:resource:resource-traffic-csv-001 --output "$WORKFLOW_TMP"
 klopsi resource preview resource-traffic-csv-001 --json
 klopsi validate "$WORKFLOW_TMP/traffic.csv" --json
 klopsi query "$WORKFLOW_TMP/traffic.csv" --sql "select * from data limit 2" --json
@@ -42,6 +42,6 @@ Diagnose installations with `klopsi doctor --offline --json`. A `skip` connectiv
 
 ## ZIP, XML, and WFS
 
-Inspect capabilities before choosing an operation: `klopsi resource inspect klopsi:resource:ID --json`. For an ambiguous ZIP, use the returned choice exactly: `klopsi resource preview archive.zip --entry data/rows.csv --limit 10 --json`. For generic XML, select a returned record path: `klopsi query stations.xml --record-path /root/station --sql "select * from data limit 10" --json`.
+Inspect capabilities before choosing an operation: `klopsi resource inspect opsi:resource:ID --json`. For an ambiguous ZIP, use the returned choice exactly: `klopsi resource preview archive.zip --entry data/rows.csv --limit 10 --json`. For generic XML, select a returned record path: `klopsi query stations.xml --record-path /root/station --sql "select * from data limit 10" --json`.
 
-For WFS, keep the canonical resource reference throughout: `klopsi service layers klopsi:resource:ID --json`; `klopsi service schema klopsi:resource:ID --layer si:roads --json`; `klopsi service preview klopsi:resource:ID --layer si:roads --property id,name --limit 5 --json`; `klopsi service count klopsi:resource:ID --layer si:roads --filter-eq municipality=Ljubljana --json`. WFS is read-only: no transactions, raw CQL/XML filters, or raw HTTP fallback.
+For WFS, keep the canonical resource reference throughout: `klopsi service layers opsi:resource:ID --json`; `klopsi service schema opsi:resource:ID --layer si:roads --json`; `klopsi service preview opsi:resource:ID --layer si:roads --property id,name --limit 5 --json`; `klopsi service count opsi:resource:ID --layer si:roads --filter-eq municipality=Ljubljana --json`. WFS is read-only: no transactions, raw CQL/XML filters, or raw HTTP fallback.

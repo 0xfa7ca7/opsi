@@ -11,7 +11,7 @@ const workspaceResolve = {
     "@klopsi/data-engine": workspacePackage("./packages/data-engine/src/index.ts"),
     "@klopsi/output": workspacePackage("./packages/output/src/index.ts"),
     "@klopsi/provider-local": workspacePackage("./packages/providers/local/src/index.ts"),
-    "@klopsi/provider-klopsi": workspacePackage("./packages/providers/klopsi/src/index.ts"),
+    "@klopsi/provider-opsi": workspacePackage("./packages/providers/opsi/src/index.ts"),
     "@klopsi/storage": workspacePackage("./packages/storage/src/index.ts"),
   },
 };

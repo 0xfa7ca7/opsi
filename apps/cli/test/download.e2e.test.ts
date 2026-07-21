@@ -167,9 +167,9 @@ async function cli(
       HOME: home,
       KLOPSI_CACHE_DIR: join(home, "cache"),
       KLOPSI_DOWNLOAD_DIR: join(home, "downloads"),
-      KLOPSI_BASE_URL: apiUrl,
+      OPSI_BASE_URL: apiUrl,
       KLOPSI_OFFLINE: "0",
-      KLOPSI_REQUEST_INTERVAL_MS: "0",
+      OPSI_REQUEST_INTERVAL_MS: "0",
       NO_COLOR: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -334,7 +334,7 @@ describe("download, cache, offline, and provenance CLI", () => {
     expect(await readFile(join(directory, "second.txt"), "utf8")).toBe("second");
   });
 
-  it("runs the controlled discovery-to-provenance workflow without live KLOPSI", async () => {
+  it("runs the controlled discovery-to-provenance workflow without live OPSI", async () => {
     const directory = join(home, "controlled-workflow");
     await import("node:fs/promises").then(({ mkdir }) => mkdir(directory));
     await expect(cli(["search", "promet", "--json", "--limit", "1"])).resolves.toMatchObject({
@@ -346,7 +346,7 @@ describe("download, cache, offline, and provenance CLI", () => {
     await expect(
       cli([
         "download",
-        "klopsi:resource:resource-traffic-csv-001",
+        "opsi:resource:resource-traffic-csv-001",
         "--output",
         directory,
         "--allow-insecure-http",

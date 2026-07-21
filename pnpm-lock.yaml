@@ -79,9 +79,9 @@ importers:
       '@klopsi/domain':
         specifier: workspace:*
         version: link:../domain
-      '@klopsi/provider-klopsi':
+      '@klopsi/provider-opsi':
         specifier: workspace:*
-        version: link:../providers/klopsi
+        version: link:../providers/opsi
       '@klopsi/storage':
         specifier: workspace:*
         version: link:../storage
@@ -152,7 +152,13 @@ importers:
         specifier: 8.2.2
         version: 8.2.2
 
-  packages/providers/klopsi:
+  packages/providers/local:
+    dependencies:
+      '@klopsi/domain':
+        specifier: workspace:*
+        version: link:../../domain
+
+  packages/providers/opsi:
     dependencies:
       '@klopsi/domain':
         specifier: workspace:*
@@ -160,12 +166,6 @@ importers:
       zod:
         specifier: 4.4.3
         version: 4.4.3
-
-  packages/providers/local:
-    dependencies:
-      '@klopsi/domain':
-        specifier: workspace:*
-        version: link:../../domain
 
   packages/storage:
     dependencies:
@@ -2669,7 +2669,7 @@ snapshots:
   '@klopsi/catalogue-snapshot@file:packages/catalogue-snapshot':
     dependencies:
       '@klopsi/domain': link:packages/domain
-      '@klopsi/provider-klopsi': link:packages/providers/klopsi
+      '@klopsi/provider-opsi': link:packages/providers/opsi
       '@klopsi/storage': link:packages/storage
       zod: 4.4.3
 

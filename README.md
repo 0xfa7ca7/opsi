@@ -2,9 +2,9 @@
 
 **One CLI for Slovenian public data — built for people, scripts, and agents.**
 
-Search Slovenia's [KLOPSI](https://podatki.gov.si/) catalogue, inspect and download resources, safely select ZIP/XML data, query read-only WFS services, and analyze tabular data locally with DuckDB. Structured output, bounded operations, and built-in help make `klopsi` straightforward to use from a terminal, an automated workflow, or a coding agent.
+Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and download resources, safely select ZIP/XML data, query read-only WFS services, and analyze tabular data locally with DuckDB. Structured output, bounded operations, and built-in help make `klopsi` straightforward to use from a terminal, an automated workflow, or a coding agent.
 
-[![CI](https://github.com/0xfa7ca7/opsi/actions/workflows/ci.yml/badge.svg)](https://github.com/0xfa7ca7/opsi/actions/workflows/ci.yml)
+[![CI](https://github.com/0xfa7ca7/klopsi/actions/workflows/ci.yml/badge.svg)](https://github.com/0xfa7ca7/klopsi/actions/workflows/ci.yml)
 [![Node.js 24+](https://img.shields.io/badge/Node.js-24%2B-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -66,7 +66,7 @@ For project-local use, run `npm install klopsi` and invoke the CLI with `npx klo
 To build the current source checkout instead:
 
 ```sh
-git clone https://github.com/0xfa7ca7/opsi.git klopsi
+git clone https://github.com/0xfa7ca7/klopsi.git klopsi
 cd klopsi
 corepack enable
 corepack prepare pnpm@11.11.0 --activate
@@ -90,7 +90,7 @@ klopsi dataset resources DATASET_ID
 Replace `DATASET_ID` with an ID returned by `search`, then download one of its resources:
 
 ```sh
-klopsi download klopsi:resource:RESOURCE_ID --output ./downloads
+klopsi download opsi:resource:RESOURCE_ID --output ./downloads
 ```
 
 Replace `RESOURCE_ID` with an ID returned by `dataset resources`. Use the downloaded filename to preview, validate, and query the data:
@@ -134,7 +134,7 @@ Run `klopsi --help` or read the [complete command reference](docs/commands.md) f
 | Generate shell completion     | `klopsi completion <bash\|zsh\|fish>`                           |
 | Set up detected AI agents     | `klopsi agent setup`                                            |
 
-`klopsi dataset list` reads a compact, centrally published catalogue snapshot by default. Use `--refresh` to check for a current snapshot or `--live` to query KLOPSI directly. The command never silently falls back to a live query. See the [catalogue service guide](docs/catalogue-service.md) for details.
+`klopsi dataset list` reads a compact, centrally published catalogue snapshot by default. Use `--refresh` to check for a current snapshot or `--live` to query OPSI directly. The command never silently falls back to a live query. See the [catalogue service guide](docs/catalogue-service.md) for details.
 
 ## Working with data
 
@@ -179,14 +179,14 @@ To refresh a stale repertoire, rerun `klopsi agent setup`; preview the intended 
 For a project-local installation, use a compatible Agent Skills installer directly:
 
 ```sh
-npx skills add https://github.com/0xfa7ca7/opsi
+npx skills add https://github.com/0xfa7ca7/klopsi
 ```
 
 Or install only a focused skill and its `klopsi-shared` prerequisite:
 
 ```sh
-npx skills add https://github.com/0xfa7ca7/opsi/tree/main/skills/klopsi-analysis
-npx skills add https://github.com/0xfa7ca7/opsi/tree/main/skills/klopsi-shared
+npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-analysis
+npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-shared
 ```
 
 Compatible agent hosts select `klopsi` automatically from your request. Depending on the host, you may also invoke the main orchestrator as `/klopsi`, `@klopsi`, or `$klopsi`; these are agent-host forms, not shell commands. The skills use the installed CLI and do not add a model runtime or provider dependency to `klopsi`.
@@ -222,7 +222,7 @@ Warm the cache during an online run, then pass `--offline` or set `KLOPSI_OFFLIN
 ```sh
 klopsi dataset list --refresh --json
 klopsi dataset list --offline --json
-KLOPSI_OFFLINE=1 klopsi resource preview klopsi:resource:RESOURCE_ID --json
+KLOPSI_OFFLINE=1 klopsi resource preview opsi:resource:RESOURCE_ID --json
 ```
 
 Offline commands never make network requests. Operations that require uncached metadata or content fail with a typed cache-miss error. Catalogue snapshots must remain valid and no more than 24 hours old.
@@ -275,7 +275,7 @@ pnpm lint
 pnpm format:check
 ```
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a change. Normal tests use local fixtures and do not contact KLOPSI.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a change. Normal tests use local fixtures and do not contact OPSI.
 
 ## License
 

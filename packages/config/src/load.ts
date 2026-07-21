@@ -103,7 +103,7 @@ function environmentSource(env: NodeJS.ProcessEnv): MutableRecord {
         ttlDays: positiveInteger(env.KLOPSI_DUCKDB_CACHE_TTL_DAYS),
       },
     },
-    apiKey: env.KLOPSI_API_KEY,
+    apiKey: env.OPSI_API_KEY,
   };
 }
 
@@ -135,7 +135,7 @@ export async function loadConfiguration(
     });
   const runtimeEnv = options.env ?? process.env;
   const defaults: KlopsiConfiguration = {
-    provider: "klopsi",
+    provider: "opsi",
     output: "human",
     locale: "sl-SI",
     offline: false,

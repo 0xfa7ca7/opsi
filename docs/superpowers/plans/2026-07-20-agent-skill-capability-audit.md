@@ -63,7 +63,7 @@ Score one point for each of: bounded search; exact dataset/resource handoff; `re
 Dispatch a fresh agent with this exact prompt:
 
 ```text
-Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `klopsi --help`, subcommand help, and public docs. A user provides a KLOPSI WFS resource reference and asks you to discover its layers, inspect a layer, preview selected properties inside a bounding box, count matching features, and export a bounded filtered CSV without bypassing KLOPSI security. Give the exact safe command sequence, filter and CRS decisions, pagination or limit behavior, overwrite handling, forbidden fallbacks, and artifact verification. Do not modify files.
+Act as a user-facing data agent. Do not read any file under skills/ and do not read apps/cli/src/agent-skills.ts. You may inspect `klopsi --help`, subcommand help, and public docs. A user provides an OPSI WFS resource reference and asks you to discover its layers, inspect a layer, preview selected properties inside a bounding box, count matching features, and export a bounded filtered CSV without bypassing KLOPSI security. Give the exact safe command sequence, filter and CRS decisions, pagination or limit behavior, overwrite handling, forbidden fallbacks, and artifact verification. Do not modify files.
 ```
 
 Score one point for each of: canonical reference; inspect; layers; schema; repeatable/comma-separated properties; typed `--filter-eq`; `--bbox`; `--crs`; bounded preview; count; bounded export; overwrite authorization; no raw HTTP/CQL/XML/transaction fallback; provenance verification. Maximum: 14.
@@ -296,7 +296,7 @@ Assert each named definition exposes its exact ordered IDs, then assert generate
 ```ts
 const REQUIRED_GUIDANCE = {
   klopsi: ["## End-to-end workflows", "Acquire and analyze data", "Inspect and export WFS data", "Refresh an agent installation"],
-  "klopsi-shared": ["## Default decision sequence", "local path", "klopsi:resource:", "--entry", "--record-path", "--sheet", "JSON, NDJSON, CSV, TSV, XLSX, Parquet", "offline"],
+  "klopsi-shared": ["## Default decision sequence", "local path", "opsi:resource:", "--entry", "--record-path", "--sheet", "JSON, NDJSON, CSV, TSV, XLSX, Parquet", "offline"],
   "klopsi-catalogue": ["snapshot", "--refresh", "--live", "--all", "dataset resources", "dataset schema"],
   "klopsi-resources": ["resource inspect", "resource preview", "--entry", "--record-path", "--sheet", "WFS"],
   "klopsi-download": ["--dataset", "--resource", "one resource", "batch", "Partial success", "provenance verify"],

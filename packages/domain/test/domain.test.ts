@@ -54,20 +54,20 @@ describe("canonical references", () => {
   });
 
   it("round-trips a provider dataset reference", () => {
-    const reference = datasetReference(providerId("klopsi"), datasetId("abc"));
-    expect(reference).toBe("klopsi:dataset:abc");
+    const reference = datasetReference(providerId("opsi"), datasetId("abc"));
+    expect(reference).toBe("opsi:dataset:abc");
     expect(parseCanonicalReference(reference)).toEqual({
-      providerId: "klopsi",
+      providerId: "opsi",
       kind: "dataset",
       id: "abc",
     });
   });
 
   it("round-trips a provider resource reference", () => {
-    const reference = resourceReference(providerId("klopsi"), resourceId("resource-1"));
-    expect(reference).toBe("klopsi:resource:resource-1");
+    const reference = resourceReference(providerId("opsi"), resourceId("resource-1"));
+    expect(reference).toBe("opsi:resource:resource-1");
     expect(parseCanonicalReference(reference)).toEqual({
-      providerId: "klopsi",
+      providerId: "opsi",
       kind: "resource",
       id: "resource-1",
     });
@@ -83,7 +83,7 @@ describe("canonical references", () => {
     });
   });
 
-  it.each(["", "klopsi:dataset:", "klopsi:unknown:abc", "local:dataset:abc"])(
+  it.each(["", "opsi:dataset:", "opsi:unknown:abc", "local:dataset:abc"])(
     "rejects malformed canonical reference %j",
     (reference) => {
       expect(() => parseCanonicalReference(reference)).toThrowError(
@@ -133,7 +133,7 @@ it("serializes safe recovery arguments without a shell command", () => {
     nextActions: [
       {
         action: "resource.preview",
-        argv: ["resource", "preview", "klopsi:resource:r", "--entry", "data.csv", "--json"],
+        argv: ["resource", "preview", "opsi:resource:r", "--entry", "data.csv", "--json"],
       },
     ],
   });

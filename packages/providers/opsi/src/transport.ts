@@ -1,10 +1,10 @@
 import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { envelopeSchema } from "./contracts.js";
 import {
-  KLOPSI_OPERATIONS,
-  type KlopsiOperationInputs,
-  type KlopsiOperationName,
-  type KlopsiOperationResults,
+  OPSI_OPERATIONS,
+  type OpsiOperationInputs,
+  type OpsiOperationName,
+  type OpsiOperationResults,
 } from "./operations.js";
 import {
   RequestScheduler,
@@ -13,13 +13,13 @@ import {
   isRetryableStatus,
 } from "./scheduler.js";
 
-export const DEFAULT_KLOPSI_BASE_URL = "https://podatki.gov.si/api/gw/opsi-api-basic/2.2.3";
+export const DEFAULT_OPSI_BASE_URL = "https://podatki.gov.si/api/gw/opsi-api-basic/2.2.3";
 
-export type KlopsiFetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
+export type OpsiFetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
-export interface KlopsiTransportOptions {
+export interface OpsiTransportOptions {
   readonly baseUrl?: string;
-  readonly fetch?: KlopsiFetch;
+  readonly fetch?: OpsiFetch;
   readonly scheduler?: RequestScheduler;
   readonly timeoutMs?: number;
   readonly apiKey?: string;
@@ -31,7 +31,7 @@ function queryValue(value: unknown): string {
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   throw new KlopsiError({
     code: "INVALID_PROVIDER_REQUEST",
-    message: "KLOPSI query parameters must be scalar values.",
+    message: "OPSI query parameters must be scalar values.",
     exitCode: EXIT_CODES.INVALID_INPUT,
   });
 }
@@ -51,7 +51,7 @@ interface ProviderResponseContext {
 }
 
 function providerError(
-  operation: KlopsiOperationName,
+  operation: OpsiOperationName,
   message: string,
   cause?: unknown,
   kind: ProviderErrorKind = "request",
@@ -69,7 +69,7 @@ function providerError(
     message,
     exitCode: notFound ? EXIT_CODES.NOT_FOUND : EXIT_CODES.PROVIDER_FAILURE,
     context: {
-      provider: "klopsi",
+      provider: "opsi",
       operation,
       ...(responseContext === undefined
         ? {}
@@ -79,27 +79,27 @@ function providerError(
   });
 }
 
-function unsafeRedirect(operation: KlopsiOperationName, destination: URL): KlopsiError {
+function unsafeRedirect(operation: OpsiOperationName, destination: URL): KlopsiError {
   return new KlopsiError({
     code: "UNSAFE_PROVIDER_REDIRECT",
-    message: "KLOPSI attempted to redirect catalogue traffic outside its configured HTTPS origin.",
+    message: "OPSI attempted to redirect catalogue traffic outside its configured HTTPS origin.",
     exitCode: EXIT_CODES.PROVIDER_FAILURE,
-    suggestion: "Verify KLOPSI_BASE_URL and retry without following the unsafe redirect.",
-    context: { provider: "klopsi", operation, origin: destination.origin },
+    suggestion: "Verify OPSI_BASE_URL and retry without following the unsafe redirect.",
+    context: { provider: "opsi", operation, origin: destination.origin },
   });
 }
 
-export class KlopsiTransport {
+export class OpsiTransport {
   private readonly baseUrl: string;
-  private readonly fetch: KlopsiFetch;
+  private readonly fetch: OpsiFetch;
   private readonly scheduler: RequestScheduler;
   private readonly timeoutMs: number;
   private readonly apiKey: string | undefined;
   private readonly origin: string;
   private readonly maxRedirects: number;
 
-  constructor(options: KlopsiTransportOptions = {}) {
-    this.baseUrl = (options.baseUrl ?? DEFAULT_KLOPSI_BASE_URL).replace(/\/$/u, "");
+  constructor(options: OpsiTransportOptions = {}) {
+    this.baseUrl = (options.baseUrl ?? DEFAULT_OPSI_BASE_URL).replace(/\/$/u, "");
     this.fetch = options.fetch ?? globalThis.fetch;
     this.scheduler = options.scheduler ?? new RequestScheduler();
     this.timeoutMs = options.timeoutMs ?? 30_000;
@@ -109,25 +109,25 @@ export class KlopsiTransport {
     if (this.apiKey !== undefined && configuredUrl.protocol !== "https:")
       throw new KlopsiError({
         code: "INSECURE_API_KEY_ORIGIN",
-        message: "KLOPSI_API_KEY requires an HTTPS KLOPSI base URL.",
+        message: "OPSI_API_KEY requires an HTTPS OPSI base URL.",
         exitCode: EXIT_CODES.INVALID_INPUT,
-        suggestion: "Use an HTTPS KLOPSI_BASE_URL or remove KLOPSI_API_KEY.",
+        suggestion: "Use an HTTPS OPSI_BASE_URL or remove OPSI_API_KEY.",
         context: { origin: configuredUrl.origin },
       });
     this.maxRedirects = options.maxRedirects ?? 5;
   }
 
-  call<Operation extends KlopsiOperationName>(
+  call<Operation extends OpsiOperationName>(
     operation: Operation,
-    input: KlopsiOperationInputs[Operation],
+    input: OpsiOperationInputs[Operation],
     signal?: AbortSignal,
-  ): Promise<KlopsiOperationResults[Operation]> {
-    const definition = KLOPSI_OPERATIONS[operation];
+  ): Promise<OpsiOperationResults[Operation]> {
+    const definition = OPSI_OPERATIONS[operation];
     const parsedInput = definition.inputSchema.safeParse(input);
     if (!parsedInput.success) {
       throw new KlopsiError({
         code: "INVALID_PROVIDER_REQUEST",
-        message: `Invalid KLOPSI ${operation} input.`,
+        message: `Invalid OPSI ${operation} input.`,
         exitCode: EXIT_CODES.INVALID_INPUT,
         context: { operation, issues: parsedInput.error.issues },
         cause: parsedInput.error,
@@ -138,7 +138,7 @@ export class KlopsiTransport {
       .schedule(
         key,
         definition.retryable,
-        () => this.execute(operation, parsedInput.data as KlopsiOperationInputs[Operation], signal),
+        () => this.execute(operation, parsedInput.data as OpsiOperationInputs[Operation], signal),
         signal,
       )
       .catch((error: unknown) => {
@@ -150,12 +150,12 @@ export class KlopsiTransport {
       });
   }
 
-  private async execute<Operation extends KlopsiOperationName>(
+  private async execute<Operation extends OpsiOperationName>(
     operation: Operation,
-    input: KlopsiOperationInputs[Operation],
+    input: OpsiOperationInputs[Operation],
     signal?: AbortSignal,
-  ): Promise<KlopsiOperationResults[Operation]> {
-    const definition = KLOPSI_OPERATIONS[operation];
+  ): Promise<OpsiOperationResults[Operation]> {
+    const definition = OPSI_OPERATIONS[operation];
     const url = new URL(`${this.baseUrl}${definition.path}`);
     const init: RequestInit = { method: definition.method };
     if (definition.parameters === "query") {
@@ -190,7 +190,7 @@ export class KlopsiTransport {
         if (location === null) break;
         await response.body?.cancel();
         if (redirects >= this.maxRedirects)
-          throw providerError(operation, "KLOPSI exceeded the redirect limit.");
+          throw providerError(operation, "OPSI exceeded the redirect limit.");
         redirects += 1;
         let next: URL;
         try {
@@ -216,17 +216,12 @@ export class KlopsiTransport {
       }
     } catch (error) {
       if (error instanceof KlopsiError) throw error;
-      throw new RetryableRequestError(
-        "KLOPSI network request failed.",
-        undefined,
-        undefined,
-        error,
-      );
+      throw new RetryableRequestError("OPSI network request failed.", undefined, undefined, error);
     }
 
     if (isRetryableStatus(response.status)) {
       throw new RetryableRequestError(
-        `KLOPSI temporarily returned HTTP ${response.status}.`,
+        `OPSI temporarily returned HTTP ${response.status}.`,
         response.status,
         retryAfterMilliseconds(response.headers.get("retry-after")),
       );
@@ -243,7 +238,7 @@ export class KlopsiTransport {
       const invalidResponse = timeout.aborted
         ? providerError(
             operation,
-            "KLOPSI response body timed out.",
+            "OPSI response body timed out.",
             error,
             "request",
             responseContext,
@@ -251,14 +246,14 @@ export class KlopsiTransport {
         : error instanceof SyntaxError
           ? providerError(
               operation,
-              "KLOPSI returned a non-JSON response.",
+              "OPSI returned a non-JSON response.",
               error,
               "invalid-response",
               responseContext,
             )
           : providerError(
               operation,
-              "KLOPSI response body could not be read.",
+              "OPSI response body could not be read.",
               error,
               "request",
               responseContext,
@@ -275,7 +270,7 @@ export class KlopsiTransport {
     if (!parsed.success) {
       throw providerError(
         operation,
-        "KLOPSI returned an invalid response envelope.",
+        "OPSI returned an invalid response envelope.",
         parsed.error,
         "invalid-response",
       );
@@ -286,14 +281,14 @@ export class KlopsiTransport {
         response.status === 404 || /not found/iu.test(errorText) ? "not-found" : "request";
       throw providerError(
         operation,
-        parsed.data.error.message ?? `KLOPSI ${operation} request failed.`,
+        parsed.data.error.message ?? `OPSI ${operation} request failed.`,
         parsed.data.error,
         kind,
       );
     }
     if (!response.ok) {
-      throw providerError(operation, `KLOPSI returned HTTP ${response.status}.`);
+      throw providerError(operation, `OPSI returned HTTP ${response.status}.`);
     }
-    return parsed.data.result as KlopsiOperationResults[Operation];
+    return parsed.data.result as OpsiOperationResults[Operation];
   }
 }

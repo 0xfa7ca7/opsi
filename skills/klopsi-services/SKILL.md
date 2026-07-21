@@ -18,7 +18,7 @@ Access WFS feature services through bounded, schema-validated KLOPSI workflows. 
 
 ### Inspect the WFS service and layer
 
-- Keep the exact canonical `klopsi:resource:` reference returned by KLOPSI; run `service inspect`, then `service layers`, then `service schema --layer <name>` before selecting features.
+- Keep the exact canonical `opsi:resource:` reference returned by KLOPSI; run `service inspect`, then `service layers`, then `service schema --layer <name>` before selecting features.
 - Use the layer schema to choose a layer and its available fields; do not infer feature bounds or paging support from service inspection metadata.
 
 ### Select fields and matching features

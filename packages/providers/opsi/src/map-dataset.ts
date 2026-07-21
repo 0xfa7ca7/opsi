@@ -7,16 +7,16 @@ import {
   type License,
   type Organization,
 } from "@klopsi/domain";
-import type { KlopsiDatasetRecord } from "./contracts.js";
-import { mapKlopsiResource } from "./map-resource.js";
+import type { OpsiDatasetRecord } from "./contracts.js";
+import { mapOpsiResource } from "./map-resource.js";
 
-const KLOPSI_PROVIDER_ID = providerId("klopsi");
+const OPSI_PROVIDER_ID = providerId("opsi");
 
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-function mapOrganization(record: KlopsiDatasetRecord): Organization | undefined {
+function mapOrganization(record: OpsiDatasetRecord): Organization | undefined {
   const organization = record.organization;
   if (organization === null || organization === undefined) return undefined;
   const title = optionalString(organization.title);
@@ -29,14 +29,14 @@ function mapOrganization(record: KlopsiDatasetRecord): Organization | undefined 
   };
 }
 
-function mapLicense(record: KlopsiDatasetRecord): License | undefined {
+function mapLicense(record: OpsiDatasetRecord): License | undefined {
   const name = optionalString(record.license_title) ?? optionalString(record.license_id);
   if (name === undefined) return undefined;
   const id = optionalString(record.license_id);
   return { name, ...(id === undefined ? {} : { id }) };
 }
 
-export function mapKlopsiDatasetSummary(record: KlopsiDatasetRecord): DatasetSummary {
+export function mapOpsiDatasetSummary(record: OpsiDatasetRecord): DatasetSummary {
   const id = datasetId(record.id);
   const description = optionalString(record.notes);
   const organization = mapOrganization(record);
@@ -46,9 +46,9 @@ export function mapKlopsiDatasetSummary(record: KlopsiDatasetRecord): DatasetSum
   const resourceCount = record.resources?.length ?? record.num_resources;
   return {
     id,
-    providerId: KLOPSI_PROVIDER_ID,
+    providerId: OPSI_PROVIDER_ID,
     title: record.title,
-    reference: datasetReference(KLOPSI_PROVIDER_ID, id),
+    reference: datasetReference(OPSI_PROVIDER_ID, id),
     ...(description === undefined ? {} : { description }),
     ...(organization === undefined ? {} : { organization }),
     ...(license === undefined ? {} : { license }),
@@ -59,10 +59,10 @@ export function mapKlopsiDatasetSummary(record: KlopsiDatasetRecord): DatasetSum
   };
 }
 
-export function mapKlopsiDataset(record: KlopsiDatasetRecord): Dataset {
-  const summary = mapKlopsiDatasetSummary(record);
+export function mapOpsiDataset(record: OpsiDatasetRecord): Dataset {
+  const summary = mapOpsiDatasetSummary(record);
   return {
     ...summary,
-    resources: (record.resources ?? []).map((resource) => mapKlopsiResource(resource, summary.id)),
+    resources: (record.resources ?? []).map((resource) => mapOpsiResource(resource, summary.id)),
   };
 }

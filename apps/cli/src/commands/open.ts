@@ -9,7 +9,7 @@ function publicDatasetUrl(dataset: Dataset): URL {
   const slug = typeof rawName === "string" && rawName.length > 0 ? rawName : `${dataset.id}`;
   const url = new URL(`/dataset/${encodeURIComponent(slug)}`, "https://podatki.gov.si/");
   if (
-    dataset.providerId !== "klopsi" ||
+    dataset.providerId !== "opsi" ||
     url.protocol !== "https:" ||
     url.hostname !== "podatki.gov.si"
   )

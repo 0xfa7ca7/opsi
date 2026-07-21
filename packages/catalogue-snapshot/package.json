@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@klopsi/domain": "workspace:*",
-    "@klopsi/provider-klopsi": "workspace:*",
+    "@klopsi/provider-opsi": "workspace:*",
     "@klopsi/storage": "workspace:*",
     "zod": "4.4.3"
   }

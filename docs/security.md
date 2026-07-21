@@ -1,6 +1,6 @@
 # Security boundaries
 
-Network fetches require HTTPS and public DNS/IP results, revalidate redirects, limit redirect count/time/bytes, and sanitize filenames. KLOPSI catalogue redirects are restricted to the exact configured HTTPS origin and their intermediate bodies are cancelled. Explicit `--allow-insecure-http` and `--allow-private-network` overrides apply only to download/content commands. Existing files are not replaced without `--force`; atomic publication and checksum provenance detect partial or changed content.
+Network fetches require HTTPS and public DNS/IP results, revalidate redirects, limit redirect count/time/bytes, and sanitize filenames. OPSI catalogue redirects are restricted to the exact configured HTTPS origin and their intermediate bodies are cancelled. Explicit `--allow-insecure-http` and `--allow-private-network` overrides apply only to download/content commands. Existing files are not replaced without `--force`; atomic publication and checksum provenance detect partial or changed content.
 
 Queries admit one SELECT, WITH…SELECT, or VALUES statement, run in a worker with row/time/memory/thread/cell/output bounds, open the staged database read-only, disable external access and extensions, and terminate on cancellation. Output escapes terminal controls and optionally prefixes formula-like spreadsheet strings. Debug stacks require `--debug` and redact secret headers/values. No telemetry, analytics, AI provider, or hidden AI service exists.
 
@@ -28,7 +28,7 @@ metadata.
 Snapshot freshness is based on `generatedAt`, never download or cache time, and may not exceed
 24 hours. Offline mode accepts only a completely validated fresh cache. Missing, stale,
 malformed, oversized, or digest-invalid data fails closed, and normal mode never falls back to
-direct KLOPSI access. The explicit `--live` mode remains subject to the provider's normal network
+direct OPSI access. The explicit `--live` mode remains subject to the provider's normal network
 controls and is unavailable offline.
 
 GitHub Actions is the only npm publication path: `0.0.1` uses one short-lived token in the
@@ -48,6 +48,6 @@ SQL policy uses DuckDB statement extraction/preparation, rejects multiple/diagno
 
 ## Overrides, secrets, and reporting
 
-`--allow-insecure-http`, `--allow-private-network`, `--force`, and `--debug` never persist as relaxed defaults. Destructive cache operations require `--yes` in non-TTY or structured-output contexts; interactive human TTY commands may use the explicit `[y/N]` confirmation prompt. Non-TTY processes never prompt or hang for input. `KLOPSI_API_KEY` is environment-only, and config refuses secret-like keys. Errors omit causes/stacks by default; debug stacks pass terminal sanitation and redaction.
+`--allow-insecure-http`, `--allow-private-network`, `--force`, and `--debug` never persist as relaxed defaults. Destructive cache operations require `--yes` in non-TTY or structured-output contexts; interactive human TTY commands may use the explicit `[y/N]` confirmation prompt. Non-TTY processes never prompt or hang for input. `OPSI_API_KEY` is environment-only, and config refuses secret-like keys. Errors omit causes/stacks by default; debug stacks pass terminal sanitation and redaction.
 
 Report vulnerabilities privately through GitHub Security Advisories with affected version/platform, reproduction, and impact. Do not include live credentials or private datasets. Maintainers will coordinate validation, a supported-release fix, regression tests, advisory/CVE where appropriate, and release notes before public disclosure.

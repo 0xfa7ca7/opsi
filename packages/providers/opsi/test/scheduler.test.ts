@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { KlopsiTransport, RequestScheduler, RetryableRequestError } from "../src/index.js";
+import { OpsiTransport, RequestScheduler, RetryableRequestError } from "../src/index.js";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -103,7 +103,7 @@ describe("transport retry eligibility", () => {
         }
         return statusEnvelope();
       });
-      const transport = new KlopsiTransport({
+      const transport = new OpsiTransport({
         baseUrl: "https://example.invalid/fixture",
         fetch,
         scheduler: new RequestScheduler({
@@ -129,7 +129,7 @@ describe("transport retry eligibility", () => {
           { status: 500, headers: { "content-type": "application/json" } },
         ),
     );
-    const transport = new KlopsiTransport({
+    const transport = new OpsiTransport({
       baseUrl: "https://example.invalid/fixture",
       fetch,
       scheduler: new RequestScheduler({

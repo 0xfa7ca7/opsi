@@ -16,7 +16,7 @@ For a project-local installation run `npm install klopsi` and invoke `npx klopsi
 `id`, `title`, and `name`. The first online invocation needs GitHub Pages to serve a valid
 publication; subsequent invocations reuse its local cache while the snapshot remains no more
 than 24 hours old from `generatedAt`. `--refresh` checks the publication explicitly. The slower
-`--live` option bypasses the snapshot and queries KLOPSI directly; it is an explicit escape hatch,
+`--live` option bypasses the snapshot and queries OPSI directly; it is an explicit escape hatch,
 not an automatic fallback.
 
 For offline operation, populate the cache while online and then run
@@ -33,4 +33,4 @@ Download `klopsi-<version>.tgz` and `SHA256SUMS` from the GitHub Release, then r
 
 ## Troubleshooting
 
-`DUCKDB_UNAVAILABLE` means npm omitted or could not select the native binding. Confirm the supported OS/architecture, Node 24, a glibc Linux distribution, and that install did not use `--omit=optional`; remove `node_modules`/lock as appropriate and reinstall. Catalogue/config/completion remain available meanwhile. Permission failures identify cache/temp paths; use `klopsi config path`, verify ownership, or set `KLOPSI_CACHE_DIR`/`KLOPSI_DOWNLOAD_DIR`. Snapshot-unavailable or stale errors should be checked against cache freshness and the [service operations guide](catalogue-service.md); use `--live` only when direct current KLOPSI access is intended. Proxy/DNS failures appear only in online doctor/catalogue commands. KLOPSI CLI never needs an AI key and sends no telemetry.
+`DUCKDB_UNAVAILABLE` means npm omitted or could not select the native binding. Confirm the supported OS/architecture, Node 24, a glibc Linux distribution, and that install did not use `--omit=optional`; remove `node_modules`/lock as appropriate and reinstall. Catalogue/config/completion remain available meanwhile. Permission failures identify cache/temp paths; use `klopsi config path`, verify ownership, or set `KLOPSI_CACHE_DIR`/`KLOPSI_DOWNLOAD_DIR`. Snapshot-unavailable or stale errors should be checked against cache freshness and the [service operations guide](catalogue-service.md); use `--live` only when direct current OPSI access is intended. Proxy/DNS failures appear only in online doctor/catalogue commands. KLOPSI CLI never needs an AI key and sends no telemetry.

@@ -8,7 +8,7 @@ The release adds native, bounded adapters for resilient delimited text, ZIP-cont
 
 ## Goals
 
-- Let agents inspect every KLOPSI resource and receive a deterministic description of how it can be used.
+- Let agents inspect every OPSI resource and receive a deterministic description of how it can be used.
 - Preview, validate, query, and convert supported tabular files contained in ZIP archives.
 - Preview, validate, query, and convert bounded repeated records from generic XML documents.
 - Inspect and query WFS 1.0.0, 1.1.0, and 2.0.0 services without constructing raw URLs.
@@ -27,14 +27,14 @@ The release adds native, bounded adapters for resilient delimited text, ZIP-cont
 - Automatic weakening of HTTPS or private-network restrictions.
 - Complete support for every XML vocabulary or every vendor-specific WFS extension.
 
-## Evidence from live KLOPSI workflows
+## Evidence from live OPSI workflows
 
 The design is based on bounded calls through the installed `klopsi` 0.2.0 CLI:
 
-- The national budget resource `klopsi:resource:ed1d98c5-773c-4b13-a4ee-6d13ffe0911c` is declared CSV but downloads as UTF-16 LE, tab-separated text. Current preview exits 6 with `INVALID_TABULAR_DATA`.
-- The police traffic resource `klopsi:resource:d7ab0364-1571-4f7f-b4e6-e37a25713951` is a ZIP archive. Current preview exits 5 with `DOWNLOAD_ONLY_FORMAT`.
-- The ARSO air-quality resource `klopsi:resource:978f3d54-96d2-4167-a456-da7d9e0b8aec` is XML published over HTTP. Current preview correctly exits 2 with `INSECURE_DOWNLOAD_URL`; the new feature must retain that default.
-- The cadastre resource `klopsi:resource:93961fe9-2ddb-4667-a1c3-229d0deccf37` is WFS. Current preview exits 5 with `UNSUPPORTED_RESOURCE_KIND`, causing agents to reconstruct `DescribeFeatureType` and `GetFeature` calls outside KLOPSI.
+- The national budget resource `opsi:resource:ed1d98c5-773c-4b13-a4ee-6d13ffe0911c` is declared CSV but downloads as UTF-16 LE, tab-separated text. Current preview exits 6 with `INVALID_TABULAR_DATA`.
+- The police traffic resource `opsi:resource:d7ab0364-1571-4f7f-b4e6-e37a25713951` is a ZIP archive. Current preview exits 5 with `DOWNLOAD_ONLY_FORMAT`.
+- The ARSO air-quality resource `opsi:resource:978f3d54-96d2-4167-a456-da7d9e0b8aec` is XML published over HTTP. Current preview correctly exits 2 with `INSECURE_DOWNLOAD_URL`; the new feature must retain that default.
+- The cadastre resource `opsi:resource:93961fe9-2ddb-4667-a1c3-229d0deccf37` is WFS. Current preview exits 5 with `UNSUPPORTED_RESOURCE_KIND`, causing agents to reconstruct `DescribeFeatureType` and `GetFeature` calls outside KLOPSI.
 - PDF and HTML resources are reference documents rather than tabular inputs and must remain explicitly non-queryable.
 
 ## Architecture
@@ -64,7 +64,7 @@ Next actions use structured argument arrays rather than shell strings:
   "argv": [
     "service",
     "layers",
-    "klopsi:resource:93961fe9-2ddb-4667-a1c3-229d0deccf37",
+    "opsi:resource:93961fe9-2ddb-4667-a1c3-229d0deccf37",
     "--json"
   ]
 }

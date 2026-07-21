@@ -1,6 +1,6 @@
 ---
 name: klopsi-resources
-description: "Use when inspecting a KLOPSI resource, its secure access, headers, or bounded preview before the next step."
+description: "Use when inspecting an OPSI resource, its secure access, headers, or bounded preview before the next step."
 ---
 
 # klopsi-resources
@@ -18,7 +18,7 @@ Inspect a resource safely without committing to a full data workflow. Generated 
 
 ### Resolve the input
 
-- Use a local path for local data and retain an exact `klopsi:resource:` reference for provider data; do not invent either identifier.
+- Use a local path for local data and retain an exact `opsi:resource:` reference for provider data; do not invent either identifier.
 - Run `resource inspect` to learn supported access operations before choosing download, validation, WFS, or analysis.
 
 ### Select safe access

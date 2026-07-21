@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace every project-owned OPSI identity with KLopsi and prepare the unpublished `klopsi@0.0.1` package for its first npm release.
+**Goal:** Replace every product-owned OPSI identity with KLopsi, retain OPSI for the Slovenian government catalogue integration, and prepare the unpublished `klopsi@0.0.1` package for its first npm release.
 
-**Architecture:** Perform one coordinated namespace migration because manifests, workspace imports, public symbols, generated skills, CLI behavior, fixtures, and release assertions must agree atomically. Guard the migration with a repository-wide contract that permits the old string only inside exact external GitHub repository URLs until that repository is renamed.
+**Architecture:** Perform one coordinated product namespace migration because manifests, workspace imports, public symbols, generated skills, CLI behavior, and release assertions must agree atomically. Keep the first-party catalogue adapter under the OPSI identity and guard the product/provider boundary with explicit contract tests.
 
 **Tech Stack:** Node.js 24, TypeScript, pnpm 11, Vitest, tsup, GitHub Actions, npm CLI 11
 
@@ -12,9 +12,10 @@
 
 - Publish the unscoped npm package `klopsi@0.0.1`.
 - Expose only the `klopsi` CLI executable and `klopsi/sdk` SDK entry point.
-- Use `@klopsi/*` for every workspace package scope and `Klopsi` / `KLOPSI` / `klopsi` for project-owned symbols, constants, environment variables, paths, skills, fixtures, and prose.
+- Use `@klopsi/*` for every workspace package scope and `Klopsi` / `KLOPSI` / `klopsi` for product-owned symbols, constants, environment variables, paths, skills, and prose.
+- Use `@klopsi/provider-opsi`, `OpsiProvider`, `opsi` provider IDs and canonical references, `OPSI_*` provider settings, and OPSI fixtures/prose for the external Slovenian catalogue.
 - Do not add compatibility aliases or migrations for the former unreleased name.
-- Preserve `0xfa7ca7/opsi` only where it is the current externally controlled GitHub repository path.
+- Use `0xfa7ca7/klopsi` for all repository metadata and links.
 - Preserve upstream URLs and wire literals only when the remote Slovenian public-data service requires them.
 - Keep all third-party GitHub Actions pinned to their existing exact Node 24-compatible SHAs.
 - Keep version `0.0.1`; npm has not accepted a package version.
@@ -52,7 +53,7 @@ expect(readme).toContain("npm install --global klopsi");
 expect(readme).toContain('from "klopsi/sdk"');
 ```
 
-Add a tracked-file scan using `execFile("git", ["ls-files", "-z"])`. Exclude this migration design and implementation plan as factual records, and remove exact URL occurrences matching the current external repository `github.com/0xfa7ca7/opsi` before asserting that all other contents and paths contain none of `@opsi/`, word-bounded `Opsi`, `OPSI`, or `opsi`.
+Add a tracked-file scan using `execFile("git", ["ls-files", "-z"])`. Assert the KLopsi package/repository surface and OPSI provider surface independently. Reject former KLopsi-as-provider symbols, package paths, settings, provider IDs, and canonical references.
 
 - [ ] **Step 2: Run the focused test and verify RED**
 
@@ -74,14 +75,14 @@ git commit -m "test: define klopsi rename contract"
 ### Task 2: Rename project-owned paths, namespaces, and symbols
 
 **Files:**
-- Rename: `packages/providers/opsi/` to `packages/providers/klopsi/`
-- Rename: `packages/testing/fixtures/opsi/` to `packages/testing/fixtures/klopsi/`
+- Keep: `packages/providers/opsi/`
+- Keep: `packages/testing/fixtures/opsi/`
 - Rename: `skills/opsi/` and `skills/opsi-*/` to `skills/klopsi/` and `skills/klopsi-*/`
 - Modify: all tracked TypeScript, JSON, YAML, Markdown, shell, and lockfile text containing project-owned identities under `apps/`, `packages/`, `skills/`, `docs/`, `.github/`, plus root manifests and documentation
 
 **Interfaces:**
 - Consumes: `@opsi/*`, `Opsi*`, `OPSI*`, and `opsi` project identities
-- Produces: `@klopsi/*`, `Klopsi*`, `KLOPSI*`, and `klopsi` identities with unchanged runtime behavior
+- Produces: KLopsi product identities plus an OPSI provider adapter with unchanged runtime behavior
 
 - [ ] **Step 1: Rename every project-owned directory**
 
@@ -95,7 +96,7 @@ Expected: only the approved design/plan context or no project-owned path; no pro
 
 - [ ] **Step 2: Apply the mechanical identity mapping to tracked text**
 
-Apply these ordered substitutions to text files returned by ripgrep:
+Apply these ordered substitutions only to product-owned identities:
 
 ```text
 @opsi/  -> @klopsi/
@@ -104,7 +105,7 @@ OPSI    -> KLOPSI
 opsi    -> klopsi
 ```
 
-Then restore every changed `0xfa7ca7/klopsi` repository reference to the still-current external path `0xfa7ca7/opsi`. Do not restore any other old identity.
+Keep OPSI provider classes, IDs, canonical references, provider-specific environment variables, fixtures, and government-catalogue prose unchanged.
 
 - [ ] **Step 3: Regenerate and validate workspace metadata**
 
@@ -195,7 +196,7 @@ git commit -m "docs: align klopsi release experience"
 - Modify: `apps/cli/test/release-contract.test.ts`
 - Modify: `docs/superpowers/specs/2026-07-21-klopsi-rename-design.md`
 - Modify: `docs/superpowers/plans/2026-07-21-klopsi-rename.md`
-- External: GitHub issue in `0xfa7ca7/opsi`
+- External: GitHub issue in `0xfa7ca7/klopsi`
 
 **Interfaces:**
 - Consumes: complete rename from Tasks 2 and 3
@@ -208,7 +209,7 @@ rg --hidden -n -i '(^|[^[:alnum:]_])opsi([^[:alnum:]_]|$)|@opsi/' \
   -g '!.git/**' -g '!node_modules/**' -g '!**/dist/**'
 ```
 
-Review every result. Keep only current external `github.com/0xfa7ca7/opsi` references and the two migration records `docs/superpowers/specs/2026-07-21-klopsi-rename-design.md` and `docs/superpowers/plans/2026-07-21-klopsi-rename.md`; rewrite all other results.
+Review every result. Keep OPSI only where it refers to the Slovenian government catalogue/provider; rewrite any product identity that should be KLopsi.
 
 - [ ] **Step 2: Run the rename contract after allowlist review**
 

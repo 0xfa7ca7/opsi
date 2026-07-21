@@ -1,6 +1,6 @@
 ---
 name: klopsi
-description: "Use when a Slovenian public-data or KLOPSI request needs the relevant skill selected."
+description: "Use when a Slovenian public-data, OPSI catalogue, or KLOPSI CLI request needs the relevant skill selected."
 ---
 
 # KLOPSI orchestrator

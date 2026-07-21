@@ -116,9 +116,9 @@ describe("generateCatalogueSnapshot", () => {
   it("adds the failing page offset to provider diagnostics", async () => {
     const upstream = new KlopsiError({
       code: "PROVIDER_REQUEST_FAILED",
-      message: "KLOPSI response body timed out.",
+      message: "OPSI response body timed out.",
       exitCode: EXIT_CODES.PROVIDER_FAILURE,
-      context: { provider: "klopsi", operation: "package_search", status: 200 },
+      context: { provider: "opsi", operation: "package_search", status: 200 },
       cause: new Error("secret upstream response body"),
     });
     const search = vi.fn(async (query: SearchQuery): Promise<SearchPage> => {
@@ -140,10 +140,10 @@ describe("generateCatalogueSnapshot", () => {
     if (!(received instanceof KlopsiError)) throw new Error("expected KlopsiError");
     expect(received.toJSON()).toEqual({
       code: "PROVIDER_REQUEST_FAILED",
-      message: "KLOPSI response body timed out.",
+      message: "OPSI response body timed out.",
       exitCode: EXIT_CODES.PROVIDER_FAILURE,
       context: {
-        provider: "klopsi",
+        provider: "opsi",
         operation: "package_search",
         status: 200,
         offset: 300,
@@ -168,7 +168,7 @@ describe("generateCatalogueSnapshot", () => {
 function dataset(id: string, title: string, name: unknown): DatasetSummary {
   return {
     id: datasetId(id),
-    providerId: providerId("klopsi"),
+    providerId: providerId("opsi"),
     title,
     providerMetadata: { raw: name === undefined ? {} : { name } },
   };

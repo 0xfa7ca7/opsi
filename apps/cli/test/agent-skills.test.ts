@@ -67,7 +67,7 @@ const REQUIRED_GUIDANCE = {
   "klopsi-shared": [
     "## Default decision sequence",
     "local path",
-    "klopsi:resource:",
+    "opsi:resource:",
     "--entry",
     "--record-path",
     "--sheet",
@@ -467,7 +467,7 @@ describe("agent skill rendering", () => {
     ])
       expect(content).toContain(`### \`${command}\``);
     for (const guidance of [
-      "canonical `klopsi:resource:` reference",
+      "canonical `opsi:resource:` reference",
       "`service inspect`",
       "`service layers`",
       "`service schema --layer <name>`",

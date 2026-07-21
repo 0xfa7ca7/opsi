@@ -30,13 +30,18 @@ function longFlag(flags: string): string {
 }
 
 describe("clean CI and release contract", () => {
-  it("uses klopsi as the only project-owned identity", async () => {
+  it("uses klopsi for the product and OPSI for the government catalogue provider", async () => {
     const cliPackage = JSON.parse(await text("apps/cli/package.json")) as {
       name: string;
       bin: Record<string, string>;
+      repository: { type: string; url: string };
     };
     expect(cliPackage.name).toBe("klopsi");
     expect(cliPackage.bin).toEqual({ klopsi: "dist/main.js" });
+    expect(cliPackage.repository).toEqual({
+      type: "git",
+      url: "git+https://github.com/0xfa7ca7/klopsi.git",
+    });
 
     const release = await text(".github/workflows/release.yml");
     expect(release).toContain('test "$NAME" = "klopsi"');
@@ -47,29 +52,45 @@ describe("clean CI and release contract", () => {
     const readme = await text("README.md");
     expect(readme).toContain("npm install --global klopsi");
     expect(readme).toContain('from "klopsi/sdk"');
+    expect(readme).toContain("Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue");
 
-    const migrationRecords = new Set([
-      "docs/superpowers/specs/2026-07-21-klopsi-rename-design.md",
-      "docs/superpowers/plans/2026-07-21-klopsi-rename.md",
-    ]);
-    const formerLower = ["op", "si"].join("");
-    const formerTitle = ["Op", "si"].join("");
-    const formerUpper = formerLower.toUpperCase();
-    const formerRepository = `0xfa7ca7/${formerLower}`;
-    const formerUpstreamPath = `/api/gw/${formerLower}-api-basic/`;
-    const formerPath = new RegExp(`(^|/)${formerLower}(?=$|[-./])`, "iu");
-    const formerIdentity = new RegExp(
-      `@${formerLower}/|\\b${formerTitle}|\\b${formerUpper}|\\b${formerLower}\\b`,
-      "u",
-    );
     const { stdout } = await execFileAsync("git", ["ls-files", "-z"], { encoding: "utf8" });
-    for (const path of stdout.split("\0").filter(Boolean)) {
-      if (migrationRecords.has(path)) continue;
-      expect(path, path).not.toMatch(formerPath);
-      const content = (await text(path))
-        .replaceAll(formerRepository, "")
-        .replaceAll(formerUpstreamPath, "");
-      expect(content, path).not.toMatch(formerIdentity);
+    const paths = stdout.split("\0").filter(Boolean);
+    const productLower = ["klop", "si"].join("");
+    const productTitle = ["Klop", "si"].join("");
+    const productUpper = productLower.toUpperCase();
+    const formerRepository = `0xfa7ca7/${["op", "si"].join("")}`;
+    expect(paths).toContain("packages/providers/opsi/package.json");
+    expect(paths).toContain("packages/testing/fixtures/opsi/package-search.json");
+    expect(paths).not.toContain(`packages/providers/${productLower}/package.json`);
+    if (!paths.includes("packages/providers/opsi/package.json")) return;
+
+    const providerPackage = JSON.parse(await text("packages/providers/opsi/package.json")) as {
+      name: string;
+    };
+    expect(providerPackage.name).toBe("@klopsi/provider-opsi");
+
+    for (const path of paths) {
+      const content = await text(path);
+      expect(content, path).not.toContain(formerRepository);
+      for (const invalid of [
+        `@klopsi/provider-${productLower}`,
+        `${productTitle}Provider`,
+        `${productTitle}Transport`,
+        `${productTitle}Operation`,
+        `${productTitle}DatasetRecord`,
+        `${productTitle}ResourceRecord`,
+        `${productTitle}OrganizationRecord`,
+        `${productTitle}LicenseRecord`,
+        `${productTitle}TagRecord`,
+        `${productUpper}_BASE_URL`,
+        `${productUpper}_API_KEY`,
+        `${productUpper}_REQUEST_INTERVAL_MS`,
+        `providerId("${productLower}")`,
+        `${productLower}:dataset:`,
+        `${productLower}:resource:`,
+      ])
+        expect(content, path).not.toContain(invalid);
     }
   });
 
@@ -89,6 +110,7 @@ describe("clean CI and release contract", () => {
     };
     expect(cliPackage.scripts.typecheck).toContain("--filter @klopsi/data-engine");
     expect(cliPackage.scripts.typecheck).toContain("--filter @klopsi/provider-local");
+    expect(cliPackage.scripts.typecheck).toContain("--filter @klopsi/provider-opsi");
 
     const ci = await text(".github/workflows/ci.yml");
     expect(ci).toContain("rm -rf apps/cli/dist packages/*/dist packages/providers/*/dist");
@@ -235,8 +257,8 @@ describe("documentation contract", () => {
   it("documents installable Agent Skills and their generated release contract", async () => {
     const readme = await text("README.md");
     for (const expected of [
-      "npx skills add https://github.com/0xfa7ca7/opsi",
-      "npx skills add https://github.com/0xfa7ca7/opsi/tree/main/skills/klopsi-analysis",
+      "npx skills add https://github.com/0xfa7ca7/klopsi",
+      "npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-analysis",
       "klopsi generate-skills",
       "klopsi agent setup",
       "docs/skills.md",

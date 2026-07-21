@@ -20,7 +20,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/0xfa7ca7/opsi.git"
+    "url": "git+https://github.com/0xfa7ca7/klopsi.git"
   },
   "keywords": [
     "open-data",
@@ -35,7 +35,7 @@
   ],
   "scripts": {
     "build": "tsup --config tsup.config.ts && node scripts/copy-public-declarations.mjs",
-    "typecheck": "pnpm --filter @klopsi/domain --filter @klopsi/config --filter @klopsi/output --filter @klopsi/storage --filter @klopsi/data-engine --filter @klopsi/provider-local --filter @klopsi/core --filter @klopsi/provider-klopsi --filter @klopsi/catalogue-snapshot build && tsc -p tsconfig.json --noEmit"
+    "typecheck": "pnpm --filter @klopsi/domain --filter @klopsi/config --filter @klopsi/output --filter @klopsi/storage --filter @klopsi/data-engine --filter @klopsi/provider-local --filter @klopsi/core --filter @klopsi/provider-opsi --filter @klopsi/catalogue-snapshot build && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "commander": "15.0.0",

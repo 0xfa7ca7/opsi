@@ -9,7 +9,7 @@ Release tags must equal `v<package version>` and use the protected `npm` environ
 The repository is still unreleased; the first public npm and GitHub release is `klopsi@0.0.1` from tag `v0.0.1`. npm requires a package to exist before a trusted publisher can be configured, so this first version is the only token-authenticated release. Create a short-lived granular npm token that can publish new public packages and bypasses 2FA for automation, then store it as the `NPM_TOKEN` secret in the protected GitHub `npm` environment. Do not place it in a repository secret or local file.
 
 ```sh
-gh secret set NPM_TOKEN --env npm --repo 0xfa7ca7/opsi
+gh secret set NPM_TOKEN --env npm --repo 0xfa7ca7/klopsi
 ```
 
 Before creating the tag, confirm that the repository is public, the protected GitHub `npm` environment exists, and its custom deployment policy allows tags matching `v*` (policy type `tag`, not `branch`).
@@ -33,8 +33,8 @@ The tag starts both CI and the release workflow. The release job waits for the s
 After `klopsi@0.0.1` is verified on npm, configure the trusted publisher while signed in to npm with 2FA, then immediately delete the bootstrap secret:
 
 ```sh
-npm trust github klopsi --repo 0xfa7ca7/opsi --file release.yml --env npm --allow-publish
-gh secret delete NPM_TOKEN --env npm --repo 0xfa7ca7/opsi
+npm trust github klopsi --repo 0xfa7ca7/klopsi --file release.yml --env npm --allow-publish
+gh secret delete NPM_TOKEN --env npm --repo 0xfa7ca7/klopsi
 ```
 
 The workflow enforces this transition: `0.0.1` requires the secret, while every later version fails before publish if the secret still exists. Subsequent releases authenticate only through the `release.yml` OIDC trust relationship.
