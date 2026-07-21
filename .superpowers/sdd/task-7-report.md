@@ -19,11 +19,11 @@ Completed from base `11a4a51`.
 
 - Acquisition: 13/13. Exact canonical resource handoff, safe selectors, bounded local/offline query, authorization, structured output, and provenance were all present.
 - WFS: 14/14. The response correctly states lexical `--filter-eq` coercion and does not infer bounds/paging from inspection; it otherwise covers the full safe bounded-export workflow.
-- Local refresh: initial 12/13 because `providers list --offline` was omitted. A subsequent scorer caught an unsupported guessed Codex path, then a fresh evaluator omitted the `generate-skills` distinction (12/13). After two focused refinements, the closure evaluator scored 13/13. The durable-copy answer is correct for current behavior: copying is internal to `agent setup`; no public `--copy` flag exists.
+- Local refresh: initial 11/13 because `providers list --offline` was omitted and post-install verification relied on a nonexistent reported host path. The first rerun fixed providers but retained a guessed Codex path (12/13); the next avoided that path but omitted the `generate-skills` distinction (12/13). After the focused refinements, the closure evaluator scored 13/13. The durable-copy answer is correct for current behavior: copying is internal to `agent setup`; no public `--copy` flag exists.
 
 ## Refactor evidence
 
-- RED: added a generated-content assertion for `opsi providers list --offline --json`; focused unit test failed exactly because the rendered diagnostics skill lacked it (24 passed, 1 failed).
+- RED: added a generated-content assertion for `opsi providers list --offline --json`; the focused unit test failed exactly because the rendered diagnostics skill lacked it (24 passed, 1 failed). Later focused assertions against guessed installed-host paths and the omitted `generate-skills` distinction each failed before their source correction.
 - GREEN: added the provider-inventory instruction, then structured-result/no-guessed-path and `generate-skills` refresh-distinction instructions; rebuilt, regenerated `skills/`, and reran the focused test (25 passed).
 - Generated docs index was checked against the deterministic renderer by the drift test and remained current.
 

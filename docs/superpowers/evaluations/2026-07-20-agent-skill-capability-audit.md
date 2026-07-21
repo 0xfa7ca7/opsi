@@ -448,13 +448,18 @@ Evaluator: `/root/task_7_improved_evals/evaluate_local_refresh` (PASS,
 read-only). It read `opsi`, `opsi-shared`, `opsi-local-state`, and
 `opsi-diagnostics`.
 
-Initial score: **12/13**. It correctly used offline doctor, read-only cache and
-configuration commands, an explicit Codex dry run, `--agent codex --yes`, the
-durable internal-copy behavior (with no unsupported public `--copy` flag), and
-post-install repertoire verification. It omitted `opsi providers list
---offline --json`, the single missing rubric item. The omission was
-guidance-caused: `providers list` was rendered as a command but not stated in
-the offline diagnostic workflow. The refactor loop below closes it.
+Initial score: **11/13**. It correctly used offline doctor, read-only cache and
+configuration commands, an explicit Codex dry run, `--agent codex --yes`, and
+the durable internal-copy behavior (with no unsupported public `--copy` flag).
+It omitted `opsi providers list --offline --json` and its post-install check
+incorrectly assumed that structured setup output reports an installed host
+path. The provider omission and unsupported path-based verification each lose
+one rubric point. Unsafe/unsupported suggestion: treating a nonexistent
+reported host path as verification evidence. Both misses were guidance-caused:
+the provider command was not stated in the offline diagnostic workflow, while
+the refresh guide requested host-content verification without identifying the
+structured fields that setup actually reports. The refactor loops below close
+both gaps.
 
 Verbatim initial evaluator response:
 
@@ -517,8 +522,11 @@ Verbatim initial evaluator response:
 
 ## Refactor loop
 
-Observed miss: the initial local-refresh evaluation omitted the required offline
-provider inventory even though it was reading the diagnostics skill.
+Observed misses: the initial local-refresh evaluation omitted the required
+offline provider inventory even though it was reading the diagnostics skill,
+and it proposed verification through an installed host path that setup does
+not report. The provider cue was corrected first; the later factual review and
+closure loop corrected the path guidance.
 
 **RED.** Added the focused generated-content assertion for `` `opsi providers
 list --offline --json` `` in `apps/cli/test/agent-skills.test.ts`. Running
@@ -538,11 +546,14 @@ Fresh re-evaluator: `/root/task_7_improved_evals/reevaluate_local_refresh`
 (PASS, read-only). It read `opsi`, `opsi-shared`, `opsi-local-state`, and
 `opsi-diagnostics`.
 
-Final local-refresh score: **13/13**. The response adds the missing provider
-listing and otherwise meets the original rubric. Its durable-copy explanation
-is factually current: `agent setup` copies through its internal installer
-argument and exposes no user-facing `--copy` option. No remaining
-guidance-caused gaps or unsafe suggestions remain.
+Interim local-refresh score: **12/13**. The response adds the missing provider
+listing and its durable-copy explanation is factually current: `agent setup`
+copies through its internal installer argument and exposes no user-facing
+`--copy` option. It still loses the post-install-verification point because it
+guesses `${CODEX_HOME:-$HOME/.codex}/skills`, a location that setup does not
+report or authorize the evaluator to infer. Unsafe/unsupported suggestion: the
+guessed filesystem checks shown in the preserved transcript below. The later
+closure loop removes this defect.
 
 Verbatim fresh evaluator response:
 
@@ -606,23 +617,23 @@ Verbatim fresh evaluator response:
 >
 > The expected repertoire is `opsi`, `opsi-shared`, `opsi-catalogue`, `opsi-resources`, `opsi-download`, `opsi-validation`, `opsi-analysis`, `opsi-services`, `opsi-provenance`, `opsi-local-state`, and `opsi-diagnostics`.
 
-## Final comparison
+## Provisional comparison (superseded)
 
 | Scenario | Baseline score | Improved score | Maximum | Remaining misses | Unsafe suggestions |
 | --- | ---: | ---: | ---: | --- | --- |
 | Acquisition and analysis | 13 | 13 | 13 | None | None |
 | WFS access | 13 | 14 | 14 | None | None |
-| Local state and agent refresh | 12 | 13 | 13 | None after the focused provider-inventory refactor | None |
-| **Total** | **38** | **40** | **40** | **None** | **None** |
+| Local state and agent refresh | 12 | 12 | 13 | Unsupported guessed host path remains | Guessed `${CODEX_HOME:-$HOME/.codex}/skills` verification |
+| **Total** | **38** | **39** | **40** | **One interim miss** | **One unsupported path suggestion** |
 
 ## Refactor correction and closure
 
 The first fresh re-evaluator after the provider-inventory change
-(`/root/task_7_improved_evals/reevaluate_local_refresh`) was initially
-credited 13/13. A subsequent factual check found two defects in that response:
-it invented a Codex skill-tree path even though setup reports only structured
-`agents` and `skills`, and a later fresh evaluation omitted the
-`generate-skills` distinction. Those are not accepted as correct guidance.
+(`/root/task_7_improved_evals/reevaluate_local_refresh`) scores 12/13 because it
+invented a Codex skill-tree path even though setup reports only structured
+`agents` and `skills`. A later fresh evaluation avoided the path assumption but
+omitted the `generate-skills` distinction. Neither defect is accepted as
+correct guidance.
 
 The initial correction re-evaluator
 (`/root/task_7_improved_evals/final_reevaluate_local_refresh`, read-only) thus
