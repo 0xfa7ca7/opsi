@@ -25,10 +25,10 @@ jobs:
       sha256: ${{ steps.snapshot.outputs.sha256 }}
       generated-at: ${{ steps.snapshot.outputs.generated-at }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.repository.default_branch }}
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 24
       - run: corepack enable && corepack prepare pnpm@11.11.0 --activate
@@ -51,7 +51,7 @@ jobs:
             if (Number.isNaN(Date.parse(value.generatedAt))) throw new Error("invalid generation timestamp");
             process.stdout.write(`sha256=${value.sha256}\ngenerated-at=${value.generatedAt}\n`);
           ' >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: catalogue-site
           path: site
@@ -66,7 +66,7 @@ jobs:
     environment:
       name: catalogue-production
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: catalogue-site
           path: publish/opsi
@@ -114,10 +114,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.repository.default_branch }}
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 24
       - run: corepack enable && corepack prepare pnpm@11.11.0 --activate

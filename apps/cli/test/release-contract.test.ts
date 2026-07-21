@@ -70,7 +70,12 @@ describe("clean CI and release contract", () => {
   it("binds release bytes to the protected tag and creates GitHub Release assets", async () => {
     const release = await text(".github/workflows/release.yml");
     expect(release).toContain("environment: npm");
-    expect(release).toContain('test "$GITHUB_REF_PROTECTED" = "true"');
+    expect(release).not.toContain("GITHUB_REF_PROTECTED");
+    expect(release).toContain("Protect release tags");
+    expect(release).toContain("repos/$GITHUB_REPOSITORY/rulesets");
+    expect(release).toContain("X-GitHub-Api-Version: 2026-03-10");
+    expect(release).toContain('"refs/tags/v*"');
+    for (const rule of ["creation", "update", "deletion"]) expect(release).toContain(`"${rule}"`);
     expect(release).toContain("head_sha=$GITHUB_SHA");
     expect(release).toContain("event=push");
     expect(release).toContain("branch=$GITHUB_REF_NAME");
@@ -91,16 +96,17 @@ describe("clean CI and release contract", () => {
     expect(release).not.toContain("pnpm build");
   });
 
-  it("keeps required third-party actions pinned exactly", async () => {
-    const workflows = `${await text(".github/workflows/ci.yml")}\n${await text(".github/workflows/release.yml")}`;
+  it("keeps Node 24-compatible third-party actions pinned exactly", async () => {
+    const workflows = `${await text(".github/workflows/ci.yml")}\n${await text(".github/workflows/release.yml")}\n${await text(".github/workflows/catalogue-snapshot.yml")}`;
     for (const pin of [
-      "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
-      "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
-      "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
-      "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
-      "actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45",
+      "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+      "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+      "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+      "actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373",
     ])
       expect(workflows).toContain(pin);
+    expect(workflows).not.toContain("node-version: 20");
     expect(workflows).not.toMatch(/uses:\s+actions\/[\w-]+@v\d/gu);
   });
 });
@@ -142,6 +148,13 @@ describe("documentation contract", () => {
     expect(releases).toContain("Never run `npm publish` locally");
     expect(releases).toContain("npm trust github opsi");
     expect(releases).toContain("gh secret delete NPM_TOKEN --env npm");
+  });
+
+  it("documents audited tag recovery before an npm version exists", async () => {
+    const releases = await text("docs/releases.md");
+    expect(releases).toContain("npm still returns `E404`");
+    expect(releases).toContain("no GitHub Release exists");
+    expect(releases).toContain("retarget the annotated tag");
   });
 
   it("keeps the command reference synchronized with the normalized manifest", async () => {
