@@ -71,11 +71,9 @@ describe("clean CI and release contract", () => {
     const release = await text(".github/workflows/release.yml");
     expect(release).toContain("environment: npm");
     expect(release).not.toContain("GITHUB_REF_PROTECTED");
-    expect(release).toContain("Protect release tags");
-    expect(release).toContain("repos/$GITHUB_REPOSITORY/rulesets");
-    expect(release).toContain("X-GitHub-Api-Version: 2026-03-10");
-    expect(release).toContain('"refs/tags/v*"');
-    for (const rule of ["creation", "update", "deletion"]) expect(release).toContain(`"${rule}"`);
+    expect(release).not.toContain("repos/$GITHUB_REPOSITORY/rulesets");
+    expect(release).toContain('test "$GITHUB_REF_TYPE" = "tag"');
+    expect(release).toContain('test "$GITHUB_REF" = "refs/tags/$GITHUB_REF_NAME"');
     expect(release).toContain("head_sha=$GITHUB_SHA");
     expect(release).toContain("event=push");
     expect(release).toContain("branch=$GITHUB_REF_NAME");

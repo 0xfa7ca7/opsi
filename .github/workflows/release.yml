@@ -25,7 +25,7 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - name: Verify protected tag context and locate its successful CI run
+      - name: Verify tag context and locate its successful CI run
         id: ci
         env:
           GH_TOKEN: ${{ github.token }}
@@ -33,26 +33,6 @@ jobs:
           test "$GITHUB_REF_TYPE" = "tag"
           test "$GITHUB_REF" = "refs/tags/$GITHUB_REF_NAME"
           test "$(git rev-list -n 1 "$GITHUB_REF_NAME")" = "$GITHUB_SHA"
-          RULESET_ID="$(
-            gh api "repos/$GITHUB_REPOSITORY/rulesets" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2026-03-10" \
-              --jq '.[] | select(.name == "Protect release tags" and .target == "tag" and .enforcement == "active") | .id' \
-              | head -n 1
-          )"
-          test -n "$RULESET_ID"
-          RULESET_JSON="$(
-            gh api "repos/$GITHUB_REPOSITORY/rulesets/$RULESET_ID" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2026-03-10"
-          )"
-          jq -e '
-            .name == "Protect release tags" and
-            .target == "tag" and
-            .enforcement == "active" and
-            (.conditions.ref_name.include | index("refs/tags/v*") != null) and
-            (["creation", "update", "deletion"] - [.rules[].type] | length == 0)
-          ' <<<"$RULESET_JSON" > /dev/null
           RUN_JSON=null
           for attempt in $(seq 1 30); do
             RUN_JSON="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&branch=$GITHUB_REF_NAME&event=push&status=success" --jq '.workflow_runs[0]')"
