@@ -414,6 +414,18 @@ describe("agent skill rendering", () => {
     }
   });
 
+  it("guides batch downloads to an explicit existing destination directory", () => {
+    const content = renderAgentSkillFiles("1.2.3").get("opsi-download") ?? "";
+    const download = COMMAND_MANIFEST.find((entry) => entry.path === "download");
+
+    expect(content).toContain(
+      "For a batch, `--destination` or `--output` must name an existing directory; a file destination is valid for one resource only.",
+    );
+    expect(
+      download?.options.find((option) => option.flags.includes("--destination"))?.description,
+    ).toBe("destination path (a file for one resource, or an existing directory for a batch)");
+  });
+
   it("renders accurate refresh planning and structured-selector guidance", () => {
     const files = renderAgentSkillFiles("1.2.3");
     const orchestrator = files.get("opsi") ?? "";

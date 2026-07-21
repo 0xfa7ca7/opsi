@@ -167,7 +167,10 @@ export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
     [
       option("--dataset", "treat bare identifiers as datasets", { conflicts: ["resource"] }),
       option("--resource", "treat bare identifiers as resources", { conflicts: ["dataset"] }),
-      option("--destination <path>", "destination path (one resource only)"),
+      option(
+        "--destination <path>",
+        "destination path (a file for one resource, or an existing directory for a batch)",
+      ),
       option("--output <path>", "alias for --destination"),
       option("--force", "replace the requested regular file"),
       ...NETWORK_OPTIONS,

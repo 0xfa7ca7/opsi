@@ -22,8 +22,8 @@ Download selected provider resources through the CLI's bounded secure downloader
 
 ### Choose a destination
 
-- Use `--destination` or `--output` for one resource; use the configured download directory for a batch.
-- Do not use `--force` to replace an existing artifact unless that exact overwrite is authorized; verify the existing artifact first when it matters.
+- For a batch, `--destination` or `--output` must name an existing directory; a file destination is valid for one resource only.
+- Otherwise use the configured download directory; do not use `--force` to replace an existing artifact unless that exact overwrite is authorized, and verify the existing artifact first when it matters.
 
 ### Handle batch results
 
@@ -52,7 +52,7 @@ opsi download <ids...> [options]
 | --- | --- | --- | --- | --- |
 | `--dataset` | no | — | `--resource` | treat bare identifiers as datasets |
 | `--resource` | no | — | `--dataset` | treat bare identifiers as resources |
-| `--destination <path>` | no | path | — | destination path (one resource only) |
+| `--destination <path>` | no | path | — | destination path (a file for one resource, or an existing directory for a batch) |
 | `--output <path>` | no | path | — | alias for --destination |
 | `--force` | no | — | — | replace the requested regular file |
 | `--allow-insecure-http` | no | — | — | allow HTTP for this invocation |

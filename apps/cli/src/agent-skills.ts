@@ -176,8 +176,8 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         id: "destination-strategy",
         title: "Choose a destination",
         instructions: [
-          "Use `--destination` or `--output` for one resource; use the configured download directory for a batch.",
-          "Do not use `--force` to replace an existing artifact unless that exact overwrite is authorized; verify the existing artifact first when it matters.",
+          "For a batch, `--destination` or `--output` must name an existing directory; a file destination is valid for one resource only.",
+          "Otherwise use the configured download directory; do not use `--force` to replace an existing artifact unless that exact overwrite is authorized, and verify the existing artifact first when it matters.",
         ],
       },
       {
