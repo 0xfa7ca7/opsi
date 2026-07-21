@@ -45,6 +45,46 @@ afterEach(async () => {
 });
 
 describe("CLI runtime", () => {
+  it("shows guided onboarding for a bare human invocation", async () => {
+    const fixture = await fixtureIo();
+
+    await expect(runCli([], { ...fixture.io, env: { NO_COLOR: "1" } })).resolves.toBe(0);
+
+    const output = fixture.stdout.join("");
+    expect(output).toContain("KLOPSI");
+    expect(output).toContain("Get started");
+    expect(output).toContain("Use KLOPSI with your AI agent");
+    expect(output).toContain("klopsi agent setup");
+    expect(output).not.toContain("\u001b[");
+    expect(fixture.stderr).toEqual([]);
+  });
+
+  it("colors onboarding only for an enabled interactive terminal", async () => {
+    const fixture = await fixtureIo();
+    const interactiveIo = {
+      ...fixture.io,
+      env: {},
+      stdout: { isTTY: true, write: fixture.io.stdout.write },
+    };
+
+    await expect(runCli([], interactiveIo)).resolves.toBe(0);
+    expect(fixture.stdout.join("")).toContain("\u001b[");
+
+    fixture.stdout.splice(0);
+    await expect(runCli(["--no-color"], interactiveIo)).resolves.toBe(0);
+    expect(fixture.stdout.join("")).not.toContain("\u001b[");
+  });
+
+  it("keeps --help as the complete command reference", async () => {
+    const fixture = await fixtureIo();
+
+    await expect(runCli(["--help"], fixture.io)).resolves.toBe(0);
+
+    expect(fixture.stdout.join("")).toContain("Usage: klopsi");
+    expect(fixture.stdout.join("")).not.toContain("Use KLOPSI with your AI agent");
+    expect(fixture.stderr).toEqual([]);
+  });
+
   it("writes version output only to stdout and returns success", async () => {
     const fixture = await fixtureIo();
 
