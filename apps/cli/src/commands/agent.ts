@@ -1,10 +1,16 @@
 import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import type { Command } from "commander";
 import { homedir } from "node:os";
+import { AGENT_SKILLS } from "../agent-skills.js";
 import { setupAgents, type AgentInstallerRunner } from "../agent-setup.js";
+import {
+  renderAgentSetupConfirmation,
+  renderAgentSetupResult,
+} from "../agent-setup-presentation.js";
 import type { AgentHostRegistry } from "../agent-hosts.js";
 import { manifestCommand } from "../command-manifest.js";
 import type { CliContext } from "../context.js";
+import { createPresentation } from "../presentation.js";
 
 interface AgentSetupCommandOptions {
   readonly agent?: readonly string[];
@@ -30,6 +36,13 @@ export function registerAgentCommand(
 ): void {
   const confirm = context.io.confirm;
   manifestCommand(program, "agent setup").action(async (options: AgentSetupCommandOptions) => {
+    const color = context.configuration?.terminal.color ?? context.io.env?.NO_COLOR === undefined;
+    const stdoutPresentation = createPresentation({
+      color: color && context.io.stdout.isTTY === true,
+    });
+    const stderrPresentation = createPresentation({
+      color: color && context.io.stderr.isTTY === true,
+    });
     const interactive =
       context.configuration?.output === "human" && context.io.stdin?.isTTY === true;
     const hasNoninteractiveSelection =
@@ -54,10 +67,18 @@ export function registerAgentCommand(
       ...(confirm === undefined
         ? {}
         : {
-            confirmDetectedAgents: (agents: readonly string[]) =>
-              confirm(`Install KLOPSI skills for detected agents: ${agents.join(", ")}?`),
+            confirmDetectedAgents: (agents: readonly string[]) => {
+              context.io.stderr.write(
+                renderAgentSetupConfirmation(agents, AGENT_SKILLS.length, stderrPresentation),
+              );
+              return confirm("Install KLOPSI skills for these agents?");
+            },
           }),
     });
-    context.renderer?.write(result);
+    if (context.renderer?.format === "human") {
+      context.io.stdout.write(renderAgentSetupResult(result, stdoutPresentation));
+    } else {
+      context.renderer?.write(result);
+    }
   });
 }

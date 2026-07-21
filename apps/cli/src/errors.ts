@@ -2,6 +2,7 @@ import { EXIT_CODES, KlopsiError, type ExitCode } from "@klopsi/domain";
 import { renderDelimited, renderJson, renderNdjson, sanitizeTerminalText } from "@klopsi/output";
 import type { OutputFormat } from "@klopsi/config";
 import type { CliIo } from "./context.js";
+import { createPresentation } from "./presentation.js";
 
 const SECRET_VALUE = /((?:api[_-]?key|token|secret|authorization|cookie)\s*[=:]\s*)\S+/giu;
 
@@ -33,10 +34,16 @@ export function normalizeError(error: unknown): KlopsiError {
   });
 }
 
-export function writeReadableError(error: KlopsiError, io: CliIo, debug = false): void {
-  const lines = [`${error.code}: ${sanitizeTerminalText(error.message)}`];
+export function writeReadableError(
+  error: KlopsiError,
+  io: CliIo,
+  debug = false,
+  color = false,
+): void {
+  const presentation = createPresentation({ color: color && io.stderr.isTTY === true });
+  const lines = [presentation.heading(`${error.code}: ${sanitizeTerminalText(error.message)}`)];
   if (error.suggestion !== undefined) {
-    lines.push(`Suggestion: ${sanitizeTerminalText(error.suggestion)}`);
+    lines.push(`${presentation.command("Suggestion:")} ${sanitizeTerminalText(error.suggestion)}`);
   }
   if (debug && error.cause instanceof Error && error.cause.stack !== undefined) {
     lines.push(redact(sanitizeTerminalText(error.cause.stack)));
@@ -76,13 +83,17 @@ export function writeStructuredError(error: KlopsiError, io: CliIo, format: Outp
 export function handleRuntimeError(
   error: unknown,
   io: CliIo,
-  options: { readonly format?: OutputFormat; readonly debug?: boolean } = {},
+  options: {
+    readonly format?: OutputFormat;
+    readonly debug?: boolean;
+    readonly color?: boolean;
+  } = {},
 ): ExitCode {
   const klopsiError = normalizeError(error);
   if (options.format !== undefined && options.format !== "human") {
     writeStructuredError(klopsiError, io, options.format);
   } else {
-    writeReadableError(klopsiError, io, options.debug);
+    writeReadableError(klopsiError, io, options.debug, options.color);
   }
   return klopsiError.exitCode;
 }

@@ -37,6 +37,7 @@ export async function runCli(
 ): Promise<ExitCode> {
   const requestedFormat = requestedOutputFormat(argv);
   const debug = argv.includes("--debug");
+  let readableColor = io.env?.NO_COLOR === undefined && !argv.includes("--no-color");
 
   try {
     const location = {
@@ -50,6 +51,7 @@ export async function runCli(
       ...(io.env === undefined ? {} : { env: io.env }),
       cli: cliConfigurationFromArgv(argv),
     });
+    readableColor = configuration.terminal.color;
     const fields = selectedFields(argv);
     const renderer = new Renderer({
       format: configuration.output,
@@ -66,6 +68,7 @@ export async function runCli(
     return handleRuntimeError(error, io, {
       ...(requestedFormat === undefined ? {} : { format: requestedFormat }),
       debug,
+      color: readableColor,
     });
   }
 }
