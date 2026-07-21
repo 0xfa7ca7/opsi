@@ -516,6 +516,7 @@ describe("agent skill rendering", () => {
 
     for (const guidance of [
       "`opsi doctor --offline --json`",
+      "`opsi providers list --offline --json`",
       "`opsi agent setup --agent codex --dry-run --json`",
       "`opsi agent setup --agent codex --yes --json`",
       "`opsi generate-skills --output-dir ./generated-skills --json`",
@@ -529,7 +530,10 @@ describe("agent skill rendering", () => {
       "empty detection result",
       "durable copies",
       "Rerun `opsi agent setup` to refresh a stale repertoire",
-      "verify that the installed host contains every skill reported by structured setup output",
+      "`agents` contains the requested host",
+      "`skills` contains the complete repertoire",
+      "Do not infer an installed host path",
+      "`generate-skills` does not install or refresh Codex",
     ])
       expect(diagnostics).toContain(guidance);
   });

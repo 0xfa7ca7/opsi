@@ -431,6 +431,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         title: "Diagnose the environment without network access",
         instructions: [
           "Run `opsi doctor --offline --json` first when network access is unavailable or unwanted; offline mode skips the connectivity check while retaining local environment, cache, DuckDB, and format checks.",
+          "Run `opsi providers list --offline --json` to record the registered provider inventory without turning diagnosis into a network request.",
           "Read every failed or skipped check in structured output before changing the environment, configuration, or cache.",
         ],
       },
@@ -456,8 +457,8 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         instructions: [
           "Detected hosts are used only for a non-dry-run setup without `--agent` or `--all`; `--agent` selects explicit hosts, `--all` selects every supported host, and `--yes` accepts detected hosts for unattended setup.",
           "`--dry-run` reports the planned selection and repertoire without installing or detecting hosts. An empty detection result fails safely and never expands `--yes` to every supported host.",
-          "Use this refresh recipe: `opsi doctor --offline --json`; `opsi agent setup --agent codex --dry-run --json`; `opsi agent setup --agent codex --yes --json`; `opsi generate-skills --output-dir ./generated-skills --json`.",
-          "`agent setup` installs or refreshes the complete repertoire for selected hosts as durable copies. Rerun `opsi agent setup` to refresh a stale repertoire, then verify that the installed host contains every skill reported by structured setup output.",
+          "Use this refresh recipe: `opsi doctor --offline --json`; `opsi agent setup --agent codex --dry-run --json`; `opsi agent setup --agent codex --yes --json`.",
+          "`agent setup` installs or refreshes the complete repertoire for selected hosts as durable copies. Rerun `opsi agent setup` to refresh a stale repertoire, then verify in structured setup output that `agents` contains the requested host and `skills` contains the complete repertoire. Do not infer an installed host path or use a guessed filesystem location. `generate-skills` does not install or refresh Codex; use it only for a portable tree.",
         ],
       },
     ],
