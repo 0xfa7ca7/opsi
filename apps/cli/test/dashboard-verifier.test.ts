@@ -111,6 +111,26 @@ describe("dashboard presentation verifier", () => {
     });
   });
 
+  it("keeps the static fixture suitable for responsive, print, and non-script review", () => {
+    expect(staticFixture).toContain("@media (max-width:");
+    expect(staticFixture).toContain("@media print");
+    expect(staticFixture).toMatch(/<svg[^>]+role="img"[^>]+aria-labelledby=/u);
+    expect(staticFixture).toMatch(/<svg[\s\S]*?<title id=/u);
+    expect(staticFixture).toMatch(/<svg[\s\S]*?<desc id=/u);
+    expect(staticFixture).toContain("<table");
+  });
+
+  it("keeps the interactive fixture suitable for keyboard and state review", () => {
+    expect(interactiveFixture).toContain('aria-live="polite"');
+    expect(interactiveFixture).toContain("data-filter-field");
+    expect(interactiveFixture).toContain("data-sort-field");
+    expect(interactiveFixture).toContain("aria-sort");
+    expect(interactiveFixture).toContain("renderSortState");
+    expect(interactiveFixture).toContain("renderEmptyState");
+    expect(interactiveFixture).toContain("form.reset()");
+    expect(interactiveFixture).toMatch(/form\.querySelector\([^)]+\)\?\.focus\(\)/u);
+  });
+
   const expectedCodes = [
     "HTML_TOO_LARGE",
     "MANIFEST_MISSING",

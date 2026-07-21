@@ -227,3 +227,39 @@ All three GREEN runs used fresh evaluators restricted to isolated copies of `klo
 - Fresh evaluators were intentionally given no repository skill instructions or approved design. Their conclusions are behavior samples, not a general safety benchmark.
 - Interactive evaluator artifacts live under `/tmp/klopsi-interactive-evals.JZ6QtI/` and are intentionally untracked. The 10,000-row and 5 MB limits require upstream reshaping for oversized sources; the agent-only skill does not provide a deterministic renderer or automatic aggregation command.
 - Review-corrected I2/I3 evaluator artifacts live under `/tmp/klopsi-interactive-sort-evals.hXkVfI/`. The shared verifier does not itself prove runtime sort-state accessibility; the generated content test and fresh behavior artifacts cover that additional contract.
+
+## Manual verification
+
+Manual acceptance was performed on the two checked-in fixtures after Task 6. The selected default browser was Chrome through the installed browser extension. The browser binding did not expose the Chrome version, so no version number is claimed. Desktop checks used a 1920 × 929 CSS-pixel viewport. Narrow checks used a 390 × 844 override; Chrome reported a 375-pixel document client width after scrollbar allocation.
+
+### Verifier and fixture correction
+
+Both checked-in verifier commands exit 0:
+
+```json
+{"valid":true,"mode":"static","findings":[]}
+{"valid":true,"mode":"interactive","findings":[]}
+```
+
+Initial browser preflight found that the verifier fixtures were contract-minimal rather than complete acceptance artifacts: the static fixture had no responsive or print CSS, SVG, or exact-values table, while the interactive fixture only populated its table and could not filter, sort, reach its empty state through controls, or reset state. Two content-contract tests were added first and failed as expected. The fixtures were then completed without changing the production verifier. The focused verifier suite now passes 23 tests, and the final fixture sizes are 7,352 bytes static and 13,793 bytes interactive.
+
+### Static fixture
+
+- Desktop and narrow screenshots showed complete content. At 375 client pixels the two-column card grid becomes one column, the SVG and table remain within the viewport, document `scrollWidth` equals `clientWidth`, and a bounding-box scan reported no clipped main content.
+- The DOM heading sequence is one level-1 heading followed only by level-2 headings: Headline value, Largest category, Category comparison, Exact values, Method and disclosures, and Source verification and lineage.
+- The analytical SVG is exposed as an image with `aria-labelledby="comparison-title comparison-desc"`. Its title is `Values for categories A and B`; its description identifies the horizontal-bar form, two-row population, count unit, both exact values, and the principal comparison. The adjacent semantic table preserves the same two values.
+- The artifact contains only the inert `application/json` presentation manifest and no executable script. It therefore remains the same useful board when JavaScript is unavailable.
+- The print command was invoked with Command-P. The browser-control binding cannot inspect or capture Chrome's native print modal, so visual print-preview output is not claimed. The parsed print stylesheet does set 12 mm page margins, white paper, 10-point body text, full-width main content, `break-inside: avoid` for cards/table/SVG, and removes card shadows.
+
+### Interactive fixture
+
+- Desktop and 375-client-pixel narrow checks showed the filter panel, two linked summaries, semantic detail table, disclosures, and lineage without horizontal clipping. At the narrow breakpoint the linked-view grid becomes one column and controls expand to full width.
+- The category filter selected B and changed the polite live count, linked count, linked summary, and table together to one matching row. The labeled search control was then operated by typing `a`, producing `0 of 2 records match`, a zero linked count, an explanatory no-comparison summary, a visible useful empty-state message, and a hidden detail table. The category control is a labeled native `select`; the browser binding's native-popup keyboard events did not commit a selection, so its filter behavior was exercised through the binding's required native-select operation rather than overstated as a captured key sequence.
+- Reset was activated with Enter. It restored all categories, blank search, two matching rows, the hidden empty state, Category-ascending order, and `none` on the other sortable header, then focused `category-filter` as documented.
+- The Value sort control was activated with Enter. The table changed to B/1 then A/2, `aria-sort` changed from Category ascending to Value ascending, and both sort-button labels exposed current and next direction. A second Enter reversed the rows and exposed Value descending. A following reset restored Category ascending, cleared the stale Value direction, and focused the first filter.
+- The fixture has no selectable visual mark or view item, so selection behavior is intentionally not claimed. All actual filters, sort controls, reset, live counts, linked summaries, detail rows, and the empty state were exercised.
+- The `noscript` region contains a useful static summary with both exact rows, the comparison, and the no-omission disclosure. The browser binding does not expose a JavaScript-disable setting, and browser security policy rejected a script-disabled wrapper, so a live disabled-JavaScript rendering is not claimed; the summary was verified structurally in the loaded document.
+
+### Offline and network evidence
+
+The static and interactive DOMs contain no `src` or `href` resource URLs. Their CSPs set `connect-src 'none'`, and the interactive executable script contains no `fetch` or `XMLHttpRequest` path. Chrome's page-asset inventory reported zero script, stylesheet, font, image, video, or other assets for each fixture (the static fixture's one analytical SVG is inline). After the local HTTP server was stopped, the already loaded interactive artifact still reached the empty state and reset to the documented initial state with keyboard input; browser warning and error logs were empty. The binding does not expose the Chrome DevTools offline toggle, so the stopped-server interaction, zero subresource inventory, restrictive CSP, verifier results, and absence of network code are the recorded offline evidence.

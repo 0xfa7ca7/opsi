@@ -8,13 +8,212 @@
       content="default-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'"
     />
     <title>Verified dashboard fixture</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #17202a;
+        --muted: #52606d;
+        --paper: #f5f3ec;
+        --card: #ffffff;
+        --line: #d7dce2;
+        --accent: #075985;
+        --accent-soft: #dff2fa;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+      }
+      main {
+        width: min(960px, calc(100% - 2rem));
+        margin: 0 auto;
+        padding: 2rem 0 3rem;
+      }
+      h1,
+      h2,
+      p {
+        margin-top: 0;
+      }
+      h1 {
+        font-size: clamp(2rem, 7vw, 4rem);
+        line-height: 1.05;
+      }
+      .summary {
+        max-width: 68ch;
+        font-size: 1.1rem;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+        margin: 1.5rem 0;
+      }
+      .card {
+        min-width: 0;
+        padding: 1rem;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--card);
+        box-shadow: 0 8px 24px rgb(23 32 42 / 7%);
+      }
+      .card--wide {
+        grid-column: 1 / -1;
+      }
+      .metric {
+        display: block;
+        font-size: 2rem;
+        font-variant-numeric: tabular-nums;
+      }
+      svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        overflow: visible;
+      }
+      .bar {
+        fill: var(--accent);
+      }
+      .axis {
+        stroke: var(--ink);
+        stroke-width: 1;
+      }
+      .chart-label {
+        fill: var(--ink);
+        font:
+          16px system-ui,
+          sans-serif;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+      }
+      caption {
+        padding-bottom: 0.75rem;
+        text-align: left;
+        font-weight: 700;
+      }
+      th,
+      td {
+        padding: 0.65rem;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+      }
+      th {
+        background: var(--accent-soft);
+      }
+      @media (max-width: 620px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .card--wide {
+          grid-column: auto;
+        }
+      }
+      @media print {
+        @page {
+          margin: 12mm;
+        }
+        body {
+          background: #fff;
+          font-size: 10pt;
+        }
+        main {
+          width: 100%;
+          padding: 0;
+        }
+        .card,
+        table,
+        svg {
+          break-inside: avoid;
+          box-shadow: none;
+        }
+      }
+    </style>
   </head>
   <body>
     <main>
-      <h1>Verified dashboard fixture</h1>
-      <section data-klopsi-summary>Plain-language summary.</section>
-      <section data-klopsi-disclosures>No aggregation or sampling.</section>
-      <section data-klopsi-lineage>Source digest and verification status.</section>
+      <header>
+        <p>Static evidence board</p>
+        <h1>Verified dashboard fixture</h1>
+        <p class="summary" data-klopsi-summary>
+          Category A has the larger value: 2 compared with 1 for category B.
+        </p>
+      </header>
+
+      <section class="grid" aria-label="Headline findings and analytical view">
+        <article class="card">
+          <h2>Headline value</h2>
+          <strong class="metric">3</strong>
+          <p>Total count across two fixture rows.</p>
+        </article>
+        <article class="card">
+          <h2>Largest category</h2>
+          <strong class="metric">A</strong>
+          <p>Category A contributes two of the three total units.</p>
+        </article>
+        <article class="card card--wide">
+          <h2>Category comparison</h2>
+          <p>Question: How do the two fixture categories compare? Unit: count.</p>
+          <svg role="img" aria-labelledby="comparison-title comparison-desc" viewBox="0 0 640 270">
+            <title id="comparison-title">Values for categories A and B</title>
+            <desc id="comparison-desc">
+              Horizontal bar chart of two fixture rows in count units. Category A is 2 and category
+              B is 1, so A is twice B.
+            </desc>
+            <line class="axis" x1="120" y1="220" x2="600" y2="220"></line>
+            <text class="chart-label" x="20" y="91">Category A</text>
+            <rect class="bar" x="120" y="60" width="400" height="48"></rect>
+            <text class="chart-label" x="535" y="91">2</text>
+            <text class="chart-label" x="20" y="171">Category B</text>
+            <rect class="bar" x="120" y="140" width="200" height="48"></rect>
+            <text class="chart-label" x="335" y="171">1</text>
+          </svg>
+          <p>Takeaway: Category A is twice category B.</p>
+        </article>
+      </section>
+
+      <section class="card">
+        <h2>Exact values</h2>
+        <table>
+          <caption>
+            All two fixture rows; no rows are omitted.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Category</th>
+              <th scope="col">Value (count)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>A</td>
+              <td>2</td>
+            </tr>
+            <tr>
+              <td>B</td>
+              <td>1</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card" data-klopsi-disclosures>
+        <h2>Method and disclosures</h2>
+        <p>No aggregation, sampling, projection, exclusion, or geographic inference was applied.</p>
+      </section>
+      <section class="card" data-klopsi-lineage>
+        <h2>Source verification and lineage</h2>
+        <p>
+          Source: fixture.csv. The fixture digest and verified status are recorded in the manifest.
+        </p>
+      </section>
     </main>
     <script id="klopsi-presentation-manifest" type="application/json">
       {
