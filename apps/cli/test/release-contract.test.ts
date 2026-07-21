@@ -77,8 +77,12 @@ describe("clean CI and release contract", () => {
     expect(release).toContain("head_sha=$GITHUB_SHA");
     expect(release).toContain("event=push");
     expect(release).toContain("branch=$GITHUB_REF_NAME");
+    expect(release).toContain('if [ -n "$RUN_JSON" ]; then');
+    expect(release).toContain('test -n "$RUN_JSON"');
+    expect(release).not.toContain('test "$RUN_JSON" != "null"');
     expect(release).toContain('test "$CI_HEAD_SHA" = "$GITHUB_SHA"');
     expect(release).toContain('test "$CI_EVENT" = "push"');
+    expect(release).toContain('TARBALL="$(find "$GITHUB_WORKSPACE/artifacts"');
     expect(release).toMatch(/npm pack [^\n]+ --dry-run/u);
     expect(release).toContain("dist.integrity");
     expect(release).toContain("EXPECTED_INTEGRITY");

@@ -33,17 +33,20 @@ jobs:
           test "$GITHUB_REF_TYPE" = "tag"
           test "$GITHUB_REF" = "refs/tags/$GITHUB_REF_NAME"
           test "$(git rev-list -n 1 "$GITHUB_REF_NAME")" = "$GITHUB_SHA"
-          RUN_JSON=null
+          RUN_JSON=""
           for attempt in $(seq 1 30); do
-            RUN_JSON="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&branch=$GITHUB_REF_NAME&event=push&status=success" --jq '.workflow_runs[0]')"
-            test "$RUN_JSON" != "null" && break
+            RUN_JSON="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&branch=$GITHUB_REF_NAME&event=push&status=success" --jq '.workflow_runs[0] // empty')"
+            if [ -n "$RUN_JSON" ]; then
+              break
+            fi
             sleep 20
           done
+          test -n "$RUN_JSON"
           RUN_ID="$(jq -r '.id' <<<"$RUN_JSON")"
           CI_HEAD_SHA="$(jq -r '.head_sha' <<<"$RUN_JSON")"
           CI_EVENT="$(jq -r '.event' <<<"$RUN_JSON")"
           CI_HEAD_BRANCH="$(jq -r '.head_branch' <<<"$RUN_JSON")"
-          test "$RUN_ID" != "null"
+          test -n "$RUN_ID"
           test "$CI_HEAD_SHA" = "$GITHUB_SHA"
           test "$CI_EVENT" = "push"
           test "$CI_HEAD_BRANCH" = "$GITHUB_REF_NAME"
@@ -58,7 +61,7 @@ jobs:
         shell: bash
         run: |
           cd artifacts && sha256sum --check SHA256SUMS && cd ..
-          TARBALL="$(find artifacts -name '*.tgz' -print -quit)"
+          TARBALL="$(find "$GITHUB_WORKSPACE/artifacts" -name '*.tgz' -print -quit)"
           test -n "$TARBALL"
           npm pack "$TARBALL" --dry-run --json > artifacts/verified-pack.json
           VERSION="$(tar -xOf "$TARBALL" package/package.json | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>process.stdout.write(JSON.parse(s).version))')"
