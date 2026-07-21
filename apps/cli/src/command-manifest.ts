@@ -62,7 +62,7 @@ export const GLOBAL_OPTION_MANIFEST: readonly CommandOptionManifest[] = [
     parser: "collect",
     defaultValue: [],
   }),
-  option("--provider <id>", "select provider", { choices: ["klopsi", "local"] }),
+  option("--provider <id>", "select provider", { choices: ["opsi", "local"] }),
   option("--offline", "disable network access"),
   option("--cache-dir <path>", "override cache directory"),
   option("--download-dir <path>", "override download directory"),
@@ -110,7 +110,7 @@ export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
     [],
     [
       option("--refresh", "refresh the published catalogue snapshot", { conflicts: ["live"] }),
-      option("--live", "query KLOPSI directly using paginated requests", {
+      option("--live", "query OPSI directly using paginated requests", {
         conflicts: ["refresh"],
       }),
     ],

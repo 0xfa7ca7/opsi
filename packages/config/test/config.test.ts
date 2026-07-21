@@ -159,7 +159,7 @@ describe("configuration", () => {
   });
 
   it("loads API credentials from the environment without persisting them", async () => {
-    const options = await fixtureSources({ env: { KLOPSI_API_KEY: "environment-only" } });
+    const options = await fixtureSources({ env: { OPSI_API_KEY: "environment-only" } });
     const config = await loadConfiguration(options);
     const store = new ConfigStore(options.paths?.userFile ?? "");
 

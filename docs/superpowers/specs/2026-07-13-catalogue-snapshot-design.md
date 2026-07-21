@@ -2,11 +2,11 @@
 
 ## Objective
 
-Make `klopsi dataset list` a fast, deterministic catalogue operation for agents without sending every CLI installation through KLOPSI's slow, full-metadata pagination. Normal listing must use a reusable compact snapshot that is never more than 24 hours old. Direct live traversal remains available only when explicitly requested.
+Make `klopsi dataset list` a fast, deterministic catalogue operation for agents without sending every CLI installation through OPSI's slow, full-metadata pagination. Normal listing must use a reusable compact snapshot that is never more than 24 hours old. Direct live traversal remains available only when explicitly requested.
 
 ## Context
 
-KLOPSI currently contains 8,967 datasets. The live `package_search` gateway ignores field projection and returns complete dataset and resource metadata even when the caller needs only `id`, `title`, and `name`. A 300-record response measured approximately 15.1 MB and four seconds, implying roughly 451 MB across the catalogue. The provider also spaces request starts by seven seconds. A reliable full traversal therefore takes several minutes. A previous 1,000-record page size was reverted because it was unreliable.
+OPSI currently contains 8,967 datasets. The live `package_search` gateway ignores field projection and returns complete dataset and resource metadata even when the caller needs only `id`, `title`, and `name`. A 300-record response measured approximately 15.1 MB and four seconds, implying roughly 451 MB across the catalogue. The provider also spaces request starts by seven seconds. A reliable full traversal therefore takes several minutes. A previous 1,000-record page size was reverted because it was unreliable.
 
 The catalogue snapshot moves that expensive traversal into one centrally scheduled job. Clients download only a compact, validated static artifact and reuse it locally for up to 24 hours.
 
@@ -31,7 +31,7 @@ This work does not add a dynamic application server, silently launch background 
 
 A dedicated GitHub Actions workflow in this repository runs every six hours and through `workflow_dispatch`. It is separate from the pull-request quality pipeline and publishes a static catalogue through GitHub Pages. Running four times per day provides multiple retry opportunities before the 24-hour freshness boundary.
 
-The generator uses the same KLOPSI provider contracts and mapping code as the CLI. It traverses the live gateway serially with the proven 300-record page size, projects each record to `id`, `title`, and `name`, sorts deterministically by `name` and then `id` using Unicode code-unit comparison, and validates the complete collection before publishing. This ordering is independent of the process locale.
+The generator uses the same OPSI provider contracts and mapping code as the CLI. It traverses the live gateway serially with the proven 300-record page size, projects each record to `id`, `title`, and `name`, sorts deterministically by `name` and then `id` using Unicode code-unit comparison, and validates the complete collection before publishing. This ordering is independent of the process locale.
 
 Each successful run publishes:
 
@@ -116,15 +116,15 @@ of headroom for typed error propagation and cleanup within the under-ten-second 
 
 No records are emitted before complete validation, so an integrity failure cannot produce trusted-looking partial output. Concurrent invocations share the cache lock; after the first process publishes, waiting processes reuse that snapshot instead of downloading it again.
 
-The default mode never falls back to direct KLOPSI pagination. This prevents an agent command from unexpectedly changing from seconds to minutes.
+The default mode never falls back to direct OPSI pagination. This prevents an agent command from unexpectedly changing from seconds to minutes.
 
 ### `--refresh`
 
-`klopsi dataset list --refresh` ignores a fresh local snapshot and fetches the current published manifest and snapshot. It still enforces the 24-hour freshness requirement and does not contact KLOPSI directly. It conflicts with `--offline` and may reuse an unchanged cached snapshot when the remote manifest digest is identical.
+`klopsi dataset list --refresh` ignores a fresh local snapshot and fetches the current published manifest and snapshot. It still enforces the 24-hour freshness requirement and does not contact OPSI directly. It conflicts with `--offline` and may reuse an unchanged cached snapshot when the remote manifest digest is identical.
 
 ### `--live`
 
-`klopsi dataset list --live` explicitly uses the existing advancing 300-record KLOPSI pagination. It retains streaming behavior for human, NDJSON, CSV, and TSV output and buffering for JSON. It conflicts with `--refresh` and `--offline`.
+`klopsi dataset list --live` explicitly uses the existing advancing 300-record OPSI pagination. It retains streaming behavior for human, NDJSON, CSV, and TSV output and buffering for JSON. It conflicts with `--refresh` and `--offline`.
 
 ### Fields and formats
 
@@ -154,7 +154,7 @@ Failures are typed and actionable:
 - `CATALOGUE_SNAPSHOT_INTEGRITY`: byte length or SHA-256 did not match the manifest;
 - existing provider errors remain in use for `--live` failures.
 
-Snapshot retrieval failures exit with provider/network category 4. Unsupported snapshot fields and conflicting options exit with invalid-input category 2. Error suggestions direct users to retry, inspect service status, or explicitly use `--live` when current KLOPSI access is acceptable.
+Snapshot retrieval failures exit with provider/network category 4. Unsupported snapshot fields and conflicting options exit with invalid-input category 2. Error suggestions direct users to retry, inspect service status, or explicitly use `--live` when current OPSI access is acceptable.
 
 The CLI does not accept a stale snapshot on network failure and does not start a background process. This makes freshness, latency, and network behavior deterministic for agents.
 
@@ -186,7 +186,7 @@ The scheduled workflow has two jobs:
 1. `generate-and-deploy`
    - check out the trusted default branch;
    - install the pinned Node and pnpm toolchain from the lockfile;
-   - run the snapshot generator against KLOPSI;
+   - run the snapshot generator against OPSI;
    - validate the candidate and prior-count guard;
    - assemble the Pages artifact;
    - deploy with GitHub's OIDC-backed Pages action.
@@ -221,7 +221,7 @@ Before assembling a new Pages artifact, the workflow retrieves and validates the
 - malformed manifest, unsafe path, redirect, oversized body, digest mismatch, count mismatch, timestamp mismatch, duplicate IDs, and incorrect ordering fail;
 - concurrent refreshes coalesce through the cache lock;
 - a delayed manifest followed by a hanging snapshot fails within the shared observable bound;
-- no failure path invokes live KLOPSI pagination.
+- no failure path invokes live OPSI pagination.
 
 ### CLI tests
 
@@ -233,7 +233,7 @@ Before assembling a new Pages artifact, the workflow retrieves and validates the
 - explicit `--live` retains current pagination and streaming tests;
 - structured errors and exit categories.
 
-All automated tests use controlled fixtures. Normal tests never contact KLOPSI or GitHub Pages. The scheduled workflow performs the bounded live generation and public smoke test.
+All automated tests use controlled fixtures. Normal tests never contact OPSI or GitHub Pages. The scheduled workflow performs the bounded live generation and public smoke test.
 
 ## Performance acceptance criteria
 
@@ -241,7 +241,7 @@ All automated tests use controlled fixtures. Normal tests never contact KLOPSI o
 - A cold invocation makes at most one manifest and one snapshot request.
 - Snapshot networking shares one 8.5-second manifest/snapshot operation budget; the strict reader's 9.5-second default remains a per-request ceiling, and observable failure remains under ten seconds.
 - The compact snapshot remains below the configured maximum size.
-- Normal `dataset list` never calls KLOPSI directly.
+- Normal `dataset list` never calls OPSI directly.
 - No accepted snapshot is more than 24 hours old according to `generatedAt`.
 - Live traversal remains available only through `--live`.
 

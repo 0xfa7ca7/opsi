@@ -8,7 +8,7 @@ repository public would expose more than the catalogue data and is not required.
 
 ## Architecture
 
-Keep generation, validation, scheduling, and deployment control in the private `0xfa7ca7/opsi`
+Keep generation, validation, scheduling, and deployment control in the private `0xfa7ca7/klopsi`
 repository. Publish only the generated site beneath `klopsi/` in the separate public user-site
 repository `0xfa7ca7/0xfa7ca7.github.io` on its `gh-pages` branch. GitHub Pages serves that tree at
 the existing production URL, `https://0xfa7ca7.github.io/klopsi/`.
@@ -24,7 +24,7 @@ feature-ref dispatch access to the deployment credential.
 ## Publication flow
 
 The existing scheduled workflow continues to run every six hours and may also be dispatched
-manually. It builds the workspace dependency closure, traverses the live KLOPSI catalogue,
+manually. It builds the workspace dependency closure, traverses the live OPSI catalogue,
 validates the candidate against the prior public snapshot, and stages the complete site. A
 deployment job wraps the staged files beneath `klopsi/`, creates a single deterministic commit, and force-pushes it
 to the data repository's `gh-pages` branch. The job then waits for Pages to serve the exact

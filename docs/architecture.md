@@ -6,14 +6,14 @@ Extensions implement `DataProvider` using provider-neutral branded IDs, canonica
 
 ## Dependency direction and runtime flow
 
-The domain package has no infrastructure dependency. Core depends on domain ports and coordinates catalogues, downloads, data inspection, conversion, and query services. Provider adapters depend inward on domain contracts. Storage owns cache locking, safe filenames, DNS/IP policy, atomic downloads, hashes, and provenance. Data-engine owns detection and bounded handlers. The CLI is the outer composition root: it loads configuration, constructs the KLOPSI provider and services, selects rendering, and attaches action callbacks to commands created from the normalized manifest.
+The domain package has no infrastructure dependency. Core depends on domain ports and coordinates catalogues, downloads, data inspection, conversion, and query services. Provider adapters depend inward on domain contracts. Storage owns cache locking, safe filenames, DNS/IP policy, atomic downloads, hashes, and provenance. Data-engine owns detection and bounded handlers. The CLI is the outer composition root: it loads configuration, constructs the OPSI provider and services, selects rendering, and attaches action callbacks to commands created from the normalized manifest.
 
 A catalogue request flows CLI → `KlopsiClient` → `ProviderRegistry` → selected `DataProvider`; the provider validates upstream envelopes before mapping entities. A data request first resolves a local/canonical input, applies network policy where needed, stages content, invokes the selected handler, and returns domain-neutral rows/issues. Query hashes resolved content (or reuses a verified download digest), detects its format, and keys an immutable DuckDB stage by content, sheet, staging contract, and DuckDB compatibility version. A hit is linked or copied into a fresh invocation directory and opened read-only by the isolated worker; a miss stages once under a per-key build lock and publishes through the content-addressed cache. Output rendering is last so domain/core never knows terminal formats.
 
 Storage owns the DuckDB-agnostic derived-artifact policy: 30-day sliding expiry, once-daily touch throttling, expired-first/LRU pruning, and a default 10 GB derived-only budget. Data-engine owns writable staging, structural verification, and prepared read-only execution. Core coordinates lookup, single-builder publication, fallback, and `hit|miss|bypass` metadata. Cache objects are rebuildable performance artifacts, not a user database or an offline-content guarantee.
 
 Normal `dataset list` is the exception to the direct provider flow. A scheduled GitHub Actions
-publisher in the public `0xfa7ca7/opsi` source repository traverses KLOPSI every six hours, validates and
+publisher in the public `0xfa7ca7/klopsi` source repository traverses OPSI every six hours, validates and
 deterministically projects the catalogue to `id`, `title`, and `name`, then uses a
 repository-scoped deploy key to force-push only the generated site beneath `klopsi/` on the public,
 data-only `0xfa7ca7/0xfa7ca7.github.io` repository's `gh-pages` branch. Branch-based GitHub Pages

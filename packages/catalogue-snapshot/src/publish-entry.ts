@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { EXIT_CODES, KlopsiError, type DataProvider } from "@klopsi/domain";
-import { KlopsiProvider, KlopsiTransport, RequestScheduler } from "@klopsi/provider-klopsi";
+import { OpsiProvider, OpsiTransport, RequestScheduler } from "@klopsi/provider-opsi";
 import {
   CATALOGUE_MAX_MANIFEST_BYTES,
   CATALOGUE_MAX_SNAPSHOT_BYTES,
@@ -108,8 +108,8 @@ export async function runPublisher(
 }
 
 function createDefaultProvider(): DataProvider {
-  return new KlopsiProvider(
-    new KlopsiTransport({
+  return new OpsiProvider(
+    new OpsiTransport({
       scheduler: new RequestScheduler(),
       timeoutMs: CATALOGUE_PROVIDER_TIMEOUT_MS,
     }),

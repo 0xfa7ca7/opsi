@@ -3,7 +3,7 @@ import { createServer, type RequestListener, type Server } from "node:http";
 import { access, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { KlopsiProvider, KlopsiTransport, RequestScheduler } from "@klopsi/provider-klopsi";
+import { OpsiProvider, OpsiTransport, RequestScheduler } from "@klopsi/provider-opsi";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   CATALOGUE_SCHEMA_VERSION,
@@ -273,7 +273,7 @@ describe("public verifier", () => {
   });
 });
 
-async function fixtureRuntime(provider: KlopsiProvider): Promise<{
+async function fixtureRuntime(provider: OpsiProvider): Promise<{
   readonly output: string;
   readonly stdout: string[];
   readonly runtime: PublisherRuntime;
@@ -293,7 +293,7 @@ async function fixtureRuntime(provider: KlopsiProvider): Promise<{
   };
 }
 
-async function controlledProvider(count: number): Promise<KlopsiProvider> {
+async function controlledProvider(count: number): Promise<OpsiProvider> {
   const baseUrl = await listen(async (request, response) => {
     if (request.method !== "POST" || request.url !== "/package_search") {
       response.writeHead(404).end();
@@ -308,11 +308,11 @@ async function controlledProvider(count: number): Promise<KlopsiProvider> {
     response.setHeader("content-type", "application/json");
     response.end(JSON.stringify({ success: true, result: { count, results } }));
   });
-  const transport = new KlopsiTransport({
+  const transport = new OpsiTransport({
     baseUrl,
     scheduler: new RequestScheduler({ intervalMs: 0, maxRetries: 0 }),
   });
-  return new KlopsiProvider(transport);
+  return new OpsiProvider(transport);
 }
 
 async function previousSite(options: {

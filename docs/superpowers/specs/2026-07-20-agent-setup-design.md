@@ -22,7 +22,7 @@ Supported options are:
 - `--yes` to select all detected agents without confirmation.
 - `--dry-run` to return the planned setup without creating temporary files or invoking the installer.
 
-Setup is global by design. A machine-level agent installer should not add `.agents/`, agent-specific directories, or `skills-lock.json` to the user's current project. Project-scoped installation remains available through the documented `npx skills add https://github.com/0xfa7ca7/opsi` workflow.
+Setup is global by design. A machine-level agent installer should not add `.agents/`, agent-specific directories, or `skills-lock.json` to the user's current project. Project-scoped installation remains available through the documented `npx skills add https://github.com/0xfa7ca7/klopsi` workflow.
 
 ## Approaches considered
 

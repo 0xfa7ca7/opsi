@@ -30,7 +30,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
     name: "klopsi",
     description:
-      "Use when a Slovenian public-data or KLOPSI request needs the relevant skill selected.",
+      "Use when a Slovenian public-data, OPSI catalogue, or KLOPSI CLI request needs the relevant skill selected.",
     commands: [],
     purpose:
       "Classify the request, load shared guidance, and select the smallest relevant domain skill or ordered set of skills.",
@@ -74,7 +74,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
     name: "klopsi-catalogue",
     description:
-      "Use when discovering Slovenian public-data or KLOPSI datasets, metadata, resources, schemas, or public pages.",
+      "Use when discovering Slovenian public-data or OPSI datasets, metadata, resources, schemas, or public pages.",
     commands: [
       "search",
       "dataset list",
@@ -120,7 +120,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
     name: "klopsi-resources",
     description:
-      "Use when inspecting a KLOPSI resource, its secure access, headers, or bounded preview before the next step.",
+      "Use when inspecting an OPSI resource, its secure access, headers, or bounded preview before the next step.",
     commands: ["resource show", "resource inspect", "resource headers", "resource preview"],
     purpose: "Inspect a resource safely without committing to a full data workflow.",
     workflows: [
@@ -132,7 +132,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         id: "input-resolution",
         title: "Resolve the input",
         instructions: [
-          "Use a local path for local data and retain an exact `klopsi:resource:` reference for provider data; do not invent either identifier.",
+          "Use a local path for local data and retain an exact `opsi:resource:` reference for provider data; do not invent either identifier.",
           "Run `resource inspect` to learn supported access operations before choosing download, validation, WFS, or analysis.",
         ],
       },
@@ -159,7 +159,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
     name: "klopsi-download",
     description:
-      "Use when securely downloading a KLOPSI dataset or resource and choosing a destination or overwrite handling.",
+      "Use when securely downloading an OPSI dataset or resource and choosing a destination or overwrite handling.",
     commands: ["download"],
     purpose: "Download selected provider resources through the CLI's bounded secure downloader.",
     workflows: ["Resolve a canonical resource or dataset reference, then download it."],
@@ -195,7 +195,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
     name: "klopsi-validation",
     description:
-      "Use when checking local or provider data, or KLOPSI metadata, for integrity issues and remediation.",
+      "Use when checking local or provider data, or OPSI metadata, for integrity issues and remediation.",
     commands: ["validate"],
     purpose: "Validate data content or normalized metadata and explain actionable issues.",
     workflows: ["Validate downloaded content before analysis or conversion."],
@@ -300,7 +300,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         id: "wfs-sequence",
         title: "Inspect the WFS service and layer",
         instructions: [
-          "Keep the exact canonical `klopsi:resource:` reference returned by KLOPSI; run `service inspect`, then `service layers`, then `service schema --layer <name>` before selecting features.",
+          "Keep the exact canonical `opsi:resource:` reference returned by KLOPSI; run `service inspect`, then `service layers`, then `service schema --layer <name>` before selecting features.",
           "Use the layer schema to choose a layer and its available fields; do not infer feature bounds or paging support from service inspection metadata.",
         ],
       },
@@ -756,14 +756,14 @@ Use the installed CLI as the source of truth when its help differs from generate
 
 ## Default decision sequence
 
-1. Resolve a local path, a local:file reference, or an exact \`klopsi:resource:\` reference.
+1. Resolve a local path, a local:file reference, or an exact \`opsi:resource:\` reference.
 2. Inspect unknown inputs, then preview a bounded sample and validate when the next operation depends on content integrity.
 3. Download provider data before local-only work, then use \`--offline\` for the remaining local steps when network access is unavailable or unwanted.
 4. Perform the requested bounded operation and verify important artifacts with provenance.
 
 ## Input and selector choices
 
-- Use a local path for data already on disk and a canonical \`klopsi:resource:\` reference for provider data; do not invent IDs or references.
+- Use a local path for data already on disk and a canonical \`opsi:resource:\` reference for provider data; do not invent IDs or references.
 - Use one \`--entry\` or \`--record-path\` reported by resource inspect or the relevant operation's structured error/output; resource inspect can surface ZIP entries and XML record paths.
 - Without \`--sheet\`, XLSX resource preview, validate, or query emits \`SHEET_REQUIRED\` with \`context.sheets\` and a suggestion; use one listed sheet.
 

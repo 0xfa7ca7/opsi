@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { KlopsiClient, ProviderRegistry } from "@klopsi/core";
-import { KlopsiProvider, KlopsiTransport, RequestScheduler } from "@klopsi/provider-klopsi";
+import { OpsiProvider, OpsiTransport, RequestScheduler } from "@klopsi/provider-opsi";
 import { LocalProvider } from "@klopsi/provider-local";
 import { ContentCache, ProvenanceStore } from "@klopsi/storage";
 import type { DerivedArtifactPolicy } from "@klopsi/storage";
@@ -54,13 +54,13 @@ function createClient(
   cache: ContentCache,
   duckdbCache: DerivedArtifactPolicy,
 ): KlopsiClient {
-  const intervalMs = requestInterval(context.io.env?.KLOPSI_REQUEST_INTERVAL_MS);
+  const intervalMs = requestInterval(context.io.env?.OPSI_REQUEST_INTERVAL_MS);
   const configuration = context.configuration;
-  const provider = new KlopsiProvider(
-    new KlopsiTransport({
-      ...(context.io.env?.KLOPSI_BASE_URL === undefined
+  const provider = new OpsiProvider(
+    new OpsiTransport({
+      ...(context.io.env?.OPSI_BASE_URL === undefined
         ? {}
-        : { baseUrl: context.io.env.KLOPSI_BASE_URL }),
+        : { baseUrl: context.io.env.OPSI_BASE_URL }),
       ...(context.configuration?.http.timeoutMs === undefined
         ? {}
         : { timeoutMs: context.configuration.http.timeoutMs }),

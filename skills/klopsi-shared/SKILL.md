@@ -28,14 +28,14 @@ Use the installed CLI as the source of truth when its help differs from generate
 
 ## Default decision sequence
 
-1. Resolve a local path, a local:file reference, or an exact `klopsi:resource:` reference.
+1. Resolve a local path, a local:file reference, or an exact `opsi:resource:` reference.
 2. Inspect unknown inputs, then preview a bounded sample and validate when the next operation depends on content integrity.
 3. Download provider data before local-only work, then use `--offline` for the remaining local steps when network access is unavailable or unwanted.
 4. Perform the requested bounded operation and verify important artifacts with provenance.
 
 ## Input and selector choices
 
-- Use a local path for data already on disk and a canonical `klopsi:resource:` reference for provider data; do not invent IDs or references.
+- Use a local path for data already on disk and a canonical `opsi:resource:` reference for provider data; do not invent IDs or references.
 - Use one `--entry` or `--record-path` reported by resource inspect or the relevant operation's structured error/output; resource inspect can surface ZIP entries and XML record paths.
 - Without `--sheet`, XLSX resource preview, validate, or query emits `SHEET_REQUIRED` with `context.sheets` and a suggestion; use one listed sheet.
 
@@ -54,7 +54,7 @@ Use the installed CLI as the source of truth when its help differs from generate
 | `--tsv` | — | `--json`, `--ndjson`, `--csv`, `--output-format` | render TSV |
 | `--output-format <format>` | `table`, `json`, `ndjson`, `csv`, `tsv` | — | select output format |
 | `--fields <field>` | field | — | select output field (repeatable or comma-separated) |
-| `--provider <id>` | `klopsi`, `local` | — | select provider |
+| `--provider <id>` | `opsi`, `local` | — | select provider |
 | `--offline` | — | — | disable network access |
 | `--cache-dir <path>` | path | — | override cache directory |
 | `--download-dir <path>` | path | — | override download directory |

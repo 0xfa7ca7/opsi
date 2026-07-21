@@ -1,7 +1,7 @@
 import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 
 const LIVE_REMEDIATION =
-  "or use `klopsi dataset list --live` when direct KLOPSI access is acceptable.";
+  "or use `klopsi dataset list --live` when direct OPSI access is acceptable.";
 
 export function snapshotInvalid(field: string): KlopsiError {
   return new KlopsiError({

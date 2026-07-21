@@ -1,6 +1,6 @@
 ---
 name: klopsi-download
-description: "Use when securely downloading a KLOPSI dataset or resource and choosing a destination or overwrite handling."
+description: "Use when securely downloading an OPSI dataset or resource and choosing a destination or overwrite handling."
 ---
 
 # klopsi-download

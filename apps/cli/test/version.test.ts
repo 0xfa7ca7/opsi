@@ -49,7 +49,7 @@ describe("public CLI package", () => {
   it("binds releases to the canonical public repository", () => {
     expect(packageMetadata.repository).toEqual({
       type: "git",
-      url: "git+https://github.com/0xfa7ca7/opsi.git",
+      url: "git+https://github.com/0xfa7ca7/klopsi.git",
     });
   });
 

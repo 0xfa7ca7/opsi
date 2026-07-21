@@ -14,7 +14,7 @@
       "@klopsi/domain": ["../../packages/domain/src/index.ts"],
       "@klopsi/output": ["../../packages/output/src/index.ts"],
       "@klopsi/provider-local": ["../../packages/providers/local/src/index.ts"],
-      "@klopsi/provider-klopsi": ["../../packages/providers/klopsi/src/index.ts"],
+      "@klopsi/provider-opsi": ["../../packages/providers/opsi/src/index.ts"],
       "@klopsi/storage": ["../../packages/storage/src/index.ts"]
     }
   },

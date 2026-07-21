@@ -1,17 +1,17 @@
 import { z } from "zod";
 import {
-  klopsiDatasetSchema,
-  klopsiLicenseSchema,
-  klopsiOrganizationSchema,
-  klopsiResourceSchema,
-  klopsiTagSchema,
+  opsiDatasetSchema,
+  opsiLicenseSchema,
+  opsiOrganizationSchema,
+  opsiResourceSchema,
+  opsiTagSchema,
   packageSearchResultSchema,
   resourceSearchResultSchema,
-  type KlopsiDatasetRecord,
-  type KlopsiLicenseRecord,
-  type KlopsiOrganizationRecord,
-  type KlopsiResourceRecord,
-  type KlopsiTagRecord,
+  type OpsiDatasetRecord,
+  type OpsiLicenseRecord,
+  type OpsiOrganizationRecord,
+  type OpsiResourceRecord,
+  type OpsiTagRecord,
   type PackageSearchResult,
   type ResourceSearchResult,
 } from "./contracts.js";
@@ -34,7 +34,7 @@ export interface PackageSearchInput {
   readonly sort: string;
 }
 
-export interface KlopsiOperationInputs {
+export interface OpsiOperationInputs {
   readonly package_search: PackageSearchInput;
   readonly package_show: { readonly id: string; readonly use_default_schema: false };
   readonly package_list: { readonly limit?: number; readonly offset?: number };
@@ -77,24 +77,24 @@ export interface KlopsiOperationInputs {
   readonly site_read: Record<string, never>;
 }
 
-export interface KlopsiOperationResults {
+export interface OpsiOperationResults {
   readonly package_search: PackageSearchResult;
-  readonly package_show: KlopsiDatasetRecord;
+  readonly package_show: OpsiDatasetRecord;
   readonly package_list: readonly string[];
-  readonly current_package_list_with_resources: readonly KlopsiDatasetRecord[];
+  readonly current_package_list_with_resources: readonly OpsiDatasetRecord[];
   readonly package_autocomplete: readonly Readonly<Record<string, unknown>>[];
   readonly resource_search: ResourceSearchResult;
-  readonly resource_show: KlopsiResourceRecord;
-  readonly organization_list: readonly (string | KlopsiOrganizationRecord)[];
-  readonly tag_search: readonly KlopsiTagRecord[];
+  readonly resource_show: OpsiResourceRecord;
+  readonly organization_list: readonly (string | OpsiOrganizationRecord)[];
+  readonly tag_search: readonly OpsiTagRecord[];
   readonly tag_autocomplete: readonly string[];
-  readonly tag_list: readonly (string | KlopsiTagRecord)[];
-  readonly license_list: readonly KlopsiLicenseRecord[];
+  readonly tag_list: readonly (string | OpsiTagRecord)[];
+  readonly license_list: readonly OpsiLicenseRecord[];
   readonly status_show: Readonly<Record<string, unknown>>;
   readonly site_read: boolean;
 }
 
-export type KlopsiOperationName = keyof KlopsiOperationInputs;
+export type OpsiOperationName = keyof OpsiOperationInputs;
 export type ParameterLocation = "json" | "query" | "none";
 
 interface OperationDefinition {
@@ -113,7 +113,7 @@ const tagSearchInput = z.strictObject({
   vocabulary_id: z.string().optional(),
 });
 
-export const KLOPSI_OPERATIONS = {
+export const OPSI_OPERATIONS = {
   package_search: {
     method: "POST",
     path: "/package_search",
@@ -138,7 +138,7 @@ export const KLOPSI_OPERATIONS = {
     parameters: "query",
     retryable: true,
     inputSchema: z.strictObject({ id: z.string().min(1), use_default_schema: z.literal(false) }),
-    resultSchema: klopsiDatasetSchema,
+    resultSchema: opsiDatasetSchema,
   },
   package_list: {
     method: "GET",
@@ -154,7 +154,7 @@ export const KLOPSI_OPERATIONS = {
     parameters: "query",
     retryable: true,
     inputSchema: paginationInput,
-    resultSchema: z.array(klopsiDatasetSchema),
+    resultSchema: z.array(opsiDatasetSchema),
   },
   package_autocomplete: {
     method: "GET",
@@ -186,7 +186,7 @@ export const KLOPSI_OPERATIONS = {
     parameters: "query",
     retryable: true,
     inputSchema: z.strictObject({ id: z.string().min(1) }),
-    resultSchema: klopsiResourceSchema,
+    resultSchema: opsiResourceSchema,
   },
   organization_list: {
     method: "POST",
@@ -198,7 +198,7 @@ export const KLOPSI_OPERATIONS = {
       organizations: z.array(z.string()).optional(),
       all_fields: z.boolean().optional(),
     }),
-    resultSchema: z.array(z.union([z.string(), klopsiOrganizationSchema])),
+    resultSchema: z.array(z.union([z.string(), opsiOrganizationSchema])),
   },
   tag_search: {
     method: "POST",
@@ -206,7 +206,7 @@ export const KLOPSI_OPERATIONS = {
     parameters: "json",
     retryable: true,
     inputSchema: tagSearchInput,
-    resultSchema: z.array(klopsiTagSchema),
+    resultSchema: z.array(opsiTagSchema),
   },
   tag_autocomplete: {
     method: "POST",
@@ -226,7 +226,7 @@ export const KLOPSI_OPERATIONS = {
       vocabulary_id: z.string().optional(),
       all_fields: z.boolean().optional(),
     }),
-    resultSchema: z.array(z.union([z.string(), klopsiTagSchema])),
+    resultSchema: z.array(z.union([z.string(), opsiTagSchema])),
   },
   license_list: {
     method: "GET",
@@ -234,7 +234,7 @@ export const KLOPSI_OPERATIONS = {
     parameters: "none",
     retryable: true,
     inputSchema: emptyInput,
-    resultSchema: z.array(klopsiLicenseSchema),
+    resultSchema: z.array(opsiLicenseSchema),
   },
   status_show: {
     method: "GET",
@@ -252,4 +252,4 @@ export const KLOPSI_OPERATIONS = {
     inputSchema: emptyInput,
     resultSchema: z.boolean(),
   },
-} as const satisfies Record<KlopsiOperationName, OperationDefinition>;
+} as const satisfies Record<OpsiOperationName, OperationDefinition>;

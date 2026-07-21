@@ -8,9 +8,9 @@ import {
   type DatasetId,
   type Resource,
 } from "@klopsi/domain";
-import type { KlopsiResourceRecord } from "./contracts.js";
+import type { OpsiResourceRecord } from "./contracts.js";
 
-const KLOPSI_PROVIDER_ID = providerId("klopsi");
+const OPSI_PROVIDER_ID = providerId("opsi");
 
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
@@ -21,15 +21,15 @@ function optionalSize(value: unknown): number | undefined {
   return value;
 }
 
-export function mapKlopsiResource(record: KlopsiResourceRecord, parentId?: DatasetId): Resource {
+export function mapOpsiResource(record: OpsiResourceRecord, parentId?: DatasetId): Resource {
   const sourceDatasetId =
     parentId ?? (typeof record.package_id === "string" ? datasetId(record.package_id) : undefined);
   if (sourceDatasetId === undefined) {
     throw new KlopsiError({
       code: "INVALID_PROVIDER_RESPONSE",
-      message: `KLOPSI resource ${record.id} has no package_id.`,
+      message: `OPSI resource ${record.id} has no package_id.`,
       exitCode: EXIT_CODES.PROVIDER_FAILURE,
-      context: { provider: "klopsi", resourceId: record.id },
+      context: { provider: "opsi", resourceId: record.id },
     });
   }
   const id = resourceId(record.id);
@@ -41,10 +41,10 @@ export function mapKlopsiResource(record: KlopsiResourceRecord, parentId?: Datas
   return {
     id,
     datasetId: sourceDatasetId,
-    providerId: KLOPSI_PROVIDER_ID,
+    providerId: OPSI_PROVIDER_ID,
     title: optionalString(record.name) ?? record.id,
     url: record.url,
-    reference: resourceReference(KLOPSI_PROVIDER_ID, id),
+    reference: resourceReference(OPSI_PROVIDER_ID, id),
     ...(description === undefined ? {} : { description }),
     ...(format === undefined ? {} : { format }),
     ...(mediaType === undefined ? {} : { mediaType }),

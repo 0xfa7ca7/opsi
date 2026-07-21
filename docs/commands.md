@@ -2,7 +2,7 @@
 
 All commands send result data to stdout and warnings/diagnostics to stderr. Human tables are the interactive default. `--json`, `--ndjson`, `--csv`, `--tsv`, and `--output-format table|json|ndjson|csv|tsv` select machine output and are mutually exclusive. JSON uses `{schemaVersion,data,meta,error?}`. Stable exit categories are 0 success, 1 internal, 2 invalid input/configuration, 3 not found, 4 provider/network, 5 unsupported, 6 validation/integrity, 7 query, and 8 partial success. Stacks require `--debug` and are redacted.
 
-Global controls are `--provider klopsi|local`, repeatable/comma-separated `--fields`, `--offline`, `--cache-dir`, `--download-dir`, `--http-timeout-ms`, `--max-download-bytes`, `--preview-row-limit`, `--query-row-limit`, `--query-timeout-ms`, `--duckdb-memory-limit`, `--duckdb-threads`, `--quiet`, `--debug`, and `--no-color`. Field projection preserves the requested order in every output format. `NO_COLOR` also disables styling. Remote-content overrides `--allow-insecure-http` and `--allow-private-network` affect one invocation only.
+Global controls are `--provider opsi|local`, repeatable/comma-separated `--fields`, `--offline`, `--cache-dir`, `--download-dir`, `--http-timeout-ms`, `--max-download-bytes`, `--preview-row-limit`, `--query-row-limit`, `--query-timeout-ms`, `--duckdb-memory-limit`, `--duckdb-threads`, `--quiet`, `--debug`, and `--no-color`. Field projection preserves the requested order in every output format. `NO_COLOR` also disables styling. Remote-content overrides `--allow-insecure-http` and `--allow-private-network` affect one invocation only.
 
 ## Catalogue
 
@@ -18,9 +18,9 @@ Syntax: `klopsi dataset show <id>`. Returns complete normalized dataset metadata
 
 Syntax: `klopsi dataset list [--refresh|--live]`. By default, this reads the centrally published catalogue snapshot, using a valid local cache when available and otherwise downloading the current snapshot. Snapshots must be no more than 24 hours old. Snapshot mode supports exactly the fields `id`, human-readable `title`, and provider slug `name`; global `--fields` can select and reorder those fields. JSON metadata includes `total`, `count`, `source` (`snapshot-cache` or `snapshot-remote`), `generatedAt`, and `stale: false`.
 
-`--refresh` bypasses a fresh local snapshot and checks the published snapshot, but never queries KLOPSI directly; it is rejected in offline mode. Snapshot validation or retrieval failures are returned without a silent live fallback. In offline mode, normal listing succeeds only with a valid cached snapshot that is no more than 24 hours old; missing, invalid, and stale snapshots fail without network access.
+`--refresh` bypasses a fresh local snapshot and checks the published snapshot, but never queries OPSI directly; it is rejected in offline mode. Snapshot validation or retrieval failures are returned without a silent live fallback. In offline mode, normal listing succeeds only with a valid cached snapshot that is no more than 24 hours old; missing, invalid, and stale snapshots fail without network access.
 
-`--live` is the explicit, slower direct-KLOPSI mode. It uses advancing 300-row provider pages, conflicts with `--refresh`, and is rejected in offline mode. Only live human, NDJSON, CSV, and TSV output streams each provider page as it arrives; live JSON buffers one envelope with `total`, `count`, `pages`, and `source: "live"`. Invalid live pagination exits 4. Examples: `klopsi dataset list --fields name,id --json`, `klopsi dataset list --refresh --json`, and `klopsi dataset list --live --ndjson`.
+`--live` is the explicit, slower direct-OPSI mode. It uses advancing 300-row provider pages, conflicts with `--refresh`, and is rejected in offline mode. Only live human, NDJSON, CSV, and TSV output streams each provider page as it arrives; live JSON buffers one envelope with `total`, `count`, `pages`, and `source: "live"`. Invalid live pagination exits 4. Examples: `klopsi dataset list --fields name,id --json`, `klopsi dataset list --refresh --json`, and `klopsi dataset list --live --ndjson`.
 
 ### `dataset resources`
 
@@ -44,7 +44,7 @@ Syntax: `klopsi resource preview <input> [--limit <rows>] [--sheet <name>] [--en
 
 ### `resource inspect`
 
-Syntax: `klopsi resource inspect <input>`. Returns the resource kind/protocol, detected format, supported KLOPSI operations, selection choices, limitations, and safe next-action argv arrays. It does not recommend raw HTTP clients. Example: `klopsi resource inspect klopsi:resource:RESOURCE_ID --json`.
+Syntax: `klopsi resource inspect <input>`. Returns the resource kind/protocol, detected format, supported KLOPSI operations, selection choices, limitations, and safe next-action argv arrays. It does not recommend raw HTTP clients. Example: `klopsi resource inspect opsi:resource:RESOURCE_ID --json`.
 
 ### `resource headers`
 
@@ -52,13 +52,13 @@ Syntax: `klopsi resource headers <id>`. Securely probes remote status, headers, 
 
 ### `providers list`
 
-Syntax: `klopsi providers list`. Returns the registered `klopsi` catalogue provider and `local` file resolver with their names, homepages, and declared capabilities. `--provider local` is for local paths and `local:file:` references; catalogue operations return a typed unsupported-capability error. This command works without DuckDB. Example: `klopsi providers list --json`.
+Syntax: `klopsi providers list`. Returns the registered `opsi` catalogue provider and `local` file resolver with their names, homepages, and declared capabilities. `--provider local` is for local paths and `local:file:` references; catalogue operations return a typed unsupported-capability error. This command works without DuckDB. Example: `klopsi providers list --json`.
 
 ## Files and data
 
 ### `download`
 
-Syntax: `klopsi download <ids...> [--dataset|--resource] [--destination <path>|--output <path>] [--force]`. Canonical `provider:dataset:id` and `provider:resource:id` references are self-describing. Bare IDs require exactly one selector; dataset selection expands all embedded resources and an empty dataset exits 3. A directory receives sanitized provider filenames; a file path is valid for one selected resource. Each artifact and provenance sidecar is transactionally published without clobber races. Existing different content is not overwritten without `--force`. Partial batches exit 8. Examples: `klopsi download RESOURCE_ID --resource --output ./downloads --json` and `klopsi download klopsi:dataset:DATASET_ID --output ./downloads`.
+Syntax: `klopsi download <ids...> [--dataset|--resource] [--destination <path>|--output <path>] [--force]`. Canonical `provider:dataset:id` and `provider:resource:id` references are self-describing. Bare IDs require exactly one selector; dataset selection expands all embedded resources and an empty dataset exits 3. A directory receives sanitized provider filenames; a file path is valid for one selected resource. Each artifact and provenance sidecar is transactionally published without clobber races. Existing different content is not overwritten without `--force`. Partial batches exit 8. Examples: `klopsi download RESOURCE_ID --resource --output ./downloads --json` and `klopsi download opsi:dataset:DATASET_ID --output ./downloads`.
 
 ### `validate`
 
@@ -74,27 +74,27 @@ Syntax: `klopsi query <input> --sql <statement> [options]`. Only one read-only S
 
 ### `service inspect`
 
-Syntax: `klopsi service inspect <resource>`. Inspects a canonical WFS resource and reports the negotiated service version, supported operations, output formats, and advertised layers. The remote-content overrides apply for one invocation. Example: `klopsi service inspect klopsi:resource:ID --json`.
+Syntax: `klopsi service inspect <resource>`. Inspects a canonical WFS resource and reports the negotiated service version, supported operations, output formats, and advertised layers. The remote-content overrides apply for one invocation. Example: `klopsi service inspect opsi:resource:ID --json`.
 
 ### `service layers`
 
-Syntax: `klopsi service layers <resource>`. Lists the feature layers exposed by a canonical WFS resource. The remote-content overrides apply for one invocation. Example: `klopsi service layers klopsi:resource:ID --json`.
+Syntax: `klopsi service layers <resource>`. Lists the feature layers exposed by a canonical WFS resource. The remote-content overrides apply for one invocation. Example: `klopsi service layers opsi:resource:ID --json`.
 
 ### `service schema`
 
-Syntax: `klopsi service schema <resource> --layer <name>`. Describes the fields and types for one feature layer. The remote-content overrides apply for one invocation. Example: `klopsi service schema klopsi:resource:ID --layer si:roads --json`.
+Syntax: `klopsi service schema <resource> --layer <name>`. Describes the fields and types for one feature layer. The remote-content overrides apply for one invocation. Example: `klopsi service schema opsi:resource:ID --layer si:roads --json`.
 
 ### `service preview`
 
-Syntax: `klopsi service preview <resource> --layer <name> [options]`. `--limit` and nonnegative `--start-index` bound pagination. Repeatable/comma-separated `--property` selects fields, repeatable `--filter-eq field=value` applies typed equality filters, and `--bbox minx,miny,maxx,maxy` accepts an optional `--crs`. Raw CQL/XML filters are not supported. Example: `klopsi service preview klopsi:resource:ID --layer si:roads --property id,name --limit 5 --json`.
+Syntax: `klopsi service preview <resource> --layer <name> [options]`. `--limit` and nonnegative `--start-index` bound pagination. Repeatable/comma-separated `--property` selects fields, repeatable `--filter-eq field=value` applies typed equality filters, and `--bbox minx,miny,maxx,maxy` accepts an optional `--crs`. Raw CQL/XML filters are not supported. Example: `klopsi service preview opsi:resource:ID --layer si:roads --property id,name --limit 5 --json`.
 
 ### `service count`
 
-Syntax: `klopsi service count <resource> --layer <name> [options]`. Repeatable `--filter-eq field=value` applies typed equality filters, and `--bbox minx,miny,maxx,maxy` accepts an optional `--crs`. The operation is read-only and does not accept raw CQL/XML filters. Example: `klopsi service count klopsi:resource:ID --layer si:roads --filter-eq status=active --json`.
+Syntax: `klopsi service count <resource> --layer <name> [options]`. Repeatable `--filter-eq field=value` applies typed equality filters, and `--bbox minx,miny,maxx,maxy` accepts an optional `--crs`. The operation is read-only and does not accept raw CQL/XML filters. Example: `klopsi service count opsi:resource:ID --layer si:roads --filter-eq status=active --json`.
 
 ### `service export`
 
-Syntax: `klopsi service export <resource> --layer <name> --output <path> [options]`. Exports bounded CSV rows using `--limit`, nonnegative `--start-index`, repeatable/comma-separated `--property`, typed `--filter-eq field=value`, `--bbox`, and `--crs`. Existing regular files require `--force`. Write transactions and raw CQL/XML filters are not supported. Example: `klopsi service export klopsi:resource:ID --layer si:roads --limit 1000 --output roads.csv`.
+Syntax: `klopsi service export <resource> --layer <name> --output <path> [options]`. Exports bounded CSV rows using `--limit`, nonnegative `--start-index`, repeatable/comma-separated `--property`, typed `--filter-eq field=value`, `--bbox`, and `--crs`. Existing regular files require `--force`. Write transactions and raw CQL/XML filters are not supported. Example: `klopsi service export opsi:resource:ID --layer si:roads --limit 1000 --output roads.csv`.
 
 ### `provenance show`
 
@@ -136,7 +136,7 @@ Syntax: `klopsi config set <dotted-key> <JSON-or-string>`. The complete strict s
 
 ### `config list`
 
-Lists persisted user configuration only. It does not print `KLOPSI_API_KEY`. Example: `klopsi config list --json`.
+Lists persisted user configuration only. It does not print `OPSI_API_KEY`. Example: `klopsi config list --json`.
 
 ### `config path`
 
@@ -150,7 +150,7 @@ Syntax: `klopsi doctor [--offline]`. Aggregates Node, configuration, writable ca
 
 ### `completion`
 
-Syntax: `klopsi completion <bash|zsh|fish>`. Prints a static script generated from the normalized command manifest. It completes only known commands/options/enum/provider values plus local filesystem paths and never calls KLOPSI. Install with `klopsi completion bash > ~/.local/share/bash-completion/completions/klopsi`, the corresponding zsh `$fpath` file, or `~/.config/fish/completions/klopsi.fish`.
+Syntax: `klopsi completion <bash|zsh|fish>`. Prints a static script generated from the normalized command manifest. It completes only known commands/options/enum/provider values plus local filesystem paths and never calls OPSI. Install with `klopsi completion bash > ~/.local/share/bash-completion/completions/klopsi`, the corresponding zsh `$fpath` file, or `~/.config/fish/completions/klopsi.fish`.
 
 ### `generate-skills`
 

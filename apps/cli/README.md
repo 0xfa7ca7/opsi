@@ -2,11 +2,11 @@
 
 **One CLI for Slovenian public data — built for people, scripts, and agents.**
 
-Search Slovenia's [KLOPSI](https://podatki.gov.si/) catalogue, inspect and download resources, safely select ZIP/XML data, query read-only WFS services, and analyze tabular data locally with DuckDB. Structured output, bounded operations, and built-in help make `klopsi` straightforward to use from a terminal, an automated workflow, or a coding agent.
+Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and download resources, safely select ZIP/XML data, query read-only WFS services, and analyze tabular data locally with DuckDB. Structured output, bounded operations, and built-in help make `klopsi` straightforward to use from a terminal, an automated workflow, or a coding agent.
 
-[![CI](https://github.com/0xfa7ca7/opsi/actions/workflows/ci.yml/badge.svg)](https://github.com/0xfa7ca7/opsi/actions/workflows/ci.yml)
+[![CI](https://github.com/0xfa7ca7/klopsi/actions/workflows/ci.yml/badge.svg)](https://github.com/0xfa7ca7/klopsi/actions/workflows/ci.yml)
 [![Node.js 24+](https://img.shields.io/badge/Node.js-24%2B-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/0xfa7ca7/opsi/blob/main/LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/0xfa7ca7/klopsi/blob/main/LICENSE)
 
 > [!IMPORTANT]
 > `klopsi` is under active development. Expect breaking changes before v1.0.
@@ -31,7 +31,7 @@ klopsi doctor --offline
 
 DuckDB is an optional native dependency. Catalogue, configuration, and completion commands remain available when a compatible binding cannot be installed; native data commands return `DUCKDB_UNAVAILABLE` with remediation guidance.
 
-For project-local use, run `npm install klopsi` and invoke the CLI with `npx klopsi`. See the [installation guide](https://github.com/0xfa7ca7/opsi/blob/main/docs/installation.md) for release verification and troubleshooting.
+For project-local use, run `npm install klopsi` and invoke the CLI with `npx klopsi`. See the [installation guide](https://github.com/0xfa7ca7/klopsi/blob/main/docs/installation.md) for release verification and troubleshooting.
 
 ## Quick start
 
@@ -46,7 +46,7 @@ klopsi dataset resources DATASET_ID
 Download a returned resource, then preview, validate, and query it locally:
 
 ```sh
-klopsi download klopsi:resource:RESOURCE_ID --output ./downloads
+klopsi download opsi:resource:RESOURCE_ID --output ./downloads
 klopsi resource preview ./downloads/data.csv --limit 10
 klopsi validate ./downloads/data.csv --json
 klopsi query ./downloads/data.csv \
@@ -64,7 +64,7 @@ klopsi convert ./downloads/data.csv \
 klopsi provenance verify ./downloads/data.parquet --json
 ```
 
-Run `klopsi --help` or read the [complete command reference](https://github.com/0xfa7ca7/opsi/blob/main/docs/commands.md) for every command, option, and exit category.
+Run `klopsi --help` or read the [complete command reference](https://github.com/0xfa7ca7/klopsi/blob/main/docs/commands.md) for every command, option, and exit category.
 
 ## Command overview
 
@@ -83,7 +83,7 @@ Run `klopsi --help` or read the [complete command reference](https://github.com/
 
 ## Using klopsi with agents
 
-Install the complete [Agent Skills repertoire](https://github.com/0xfa7ca7/opsi/blob/main/docs/skills.md) into automatically detected compatible agent hosts:
+Install the complete [Agent Skills repertoire](https://github.com/0xfa7ca7/klopsi/blob/main/docs/skills.md) into automatically detected compatible agent hosts:
 
 ```sh
 klopsi agent setup
@@ -113,17 +113,17 @@ export function createClient(provider: DataProvider): KlopsiClient {
 }
 ```
 
-See [provider development](https://github.com/0xfa7ca7/opsi/blob/main/docs/providers.md), [format development](https://github.com/0xfa7ca7/opsi/blob/main/docs/formats.md), and [architecture](https://github.com/0xfa7ca7/opsi/blob/main/docs/architecture.md) for extension contracts.
+See [provider development](https://github.com/0xfa7ca7/klopsi/blob/main/docs/providers.md), [format development](https://github.com/0xfa7ca7/klopsi/blob/main/docs/formats.md), and [architecture](https://github.com/0xfa7ca7/klopsi/blob/main/docs/architecture.md) for extension contracts.
 
 ## Documentation
 
-- [Command reference](https://github.com/0xfa7ca7/opsi/blob/main/docs/commands.md)
-- [Recipes](https://github.com/0xfa7ca7/opsi/blob/main/docs/recipes.md)
-- [Configuration](https://github.com/0xfa7ca7/opsi/blob/main/docs/configuration.md)
-- [Installation and troubleshooting](https://github.com/0xfa7ca7/opsi/blob/main/docs/installation.md)
-- [Security model](https://github.com/0xfa7ca7/opsi/blob/main/docs/security.md)
-- [Agent Skills](https://github.com/0xfa7ca7/opsi/blob/main/docs/skills.md)
+- [Command reference](https://github.com/0xfa7ca7/klopsi/blob/main/docs/commands.md)
+- [Recipes](https://github.com/0xfa7ca7/klopsi/blob/main/docs/recipes.md)
+- [Configuration](https://github.com/0xfa7ca7/klopsi/blob/main/docs/configuration.md)
+- [Installation and troubleshooting](https://github.com/0xfa7ca7/klopsi/blob/main/docs/installation.md)
+- [Security model](https://github.com/0xfa7ca7/klopsi/blob/main/docs/security.md)
+- [Agent Skills](https://github.com/0xfa7ca7/klopsi/blob/main/docs/skills.md)
 
 ## License
 
-[MIT](https://github.com/0xfa7ca7/opsi/blob/main/LICENSE)
+[MIT](https://github.com/0xfa7ca7/klopsi/blob/main/LICENSE)

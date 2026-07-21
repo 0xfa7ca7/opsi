@@ -45,7 +45,7 @@ function unsupportedSnapshotFields(fields: readonly string[]): KlopsiError {
     code: "CATALOGUE_SNAPSHOT_FIELD_UNSUPPORTED",
     message: "The catalogue snapshot does not contain every selected field.",
     exitCode: EXIT_CODES.INVALID_INPUT,
-    suggestion: "Use only id, title, and name, or add --live to query KLOPSI directly.",
+    suggestion: "Use only id, title, and name, or add --live to query OPSI directly.",
     context: { fields },
   });
 }

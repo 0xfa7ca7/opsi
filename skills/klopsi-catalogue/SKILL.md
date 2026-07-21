@@ -1,6 +1,6 @@
 ---
 name: klopsi-catalogue
-description: "Use when discovering Slovenian public-data or KLOPSI datasets, metadata, resources, schemas, or public pages."
+description: "Use when discovering Slovenian public-data or OPSI datasets, metadata, resources, schemas, or public pages."
 ---
 
 # klopsi-catalogue
@@ -76,7 +76,7 @@ klopsi dataset list [options]
 | Option | Required | Values | Conflicts | Description |
 | --- | --- | --- | --- | --- |
 | `--refresh` | no | — | `--live` | refresh the published catalogue snapshot |
-| `--live` | no | — | `--refresh` | query KLOPSI directly using paginated requests |
+| `--live` | no | — | `--refresh` | query OPSI directly using paginated requests |
 
 
 ### `dataset show`

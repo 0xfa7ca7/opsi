@@ -2,15 +2,15 @@
 
 ## Decision
 
-Publish the public `klopsi` package from the public `0xfa7ca7/opsi` GitHub repository through the existing tag-triggered GitHub Actions workflow. Keep npm trusted publishing, the protected `npm` environment, exact tested-tarball verification, and provenance. Do not add an npm token or a local publishing path.
+Publish the public `klopsi` package from the public `0xfa7ca7/klopsi` GitHub repository through the existing tag-triggered GitHub Actions workflow. Keep npm trusted publishing, the protected `npm` environment, exact tested-tarball verification, and provenance. Do not add an npm token or a local publishing path.
 
 ## Repository identity
 
-The public package metadata and packaged documentation must identify `https://github.com/0xfa7ca7/opsi`. npm trusted publishing validates this repository identity against the GitHub OIDC claims. The Changesets base branch is `main`.
+The public package metadata and packaged documentation must identify `https://github.com/0xfa7ca7/klopsi`. npm trusted publishing validates this repository identity against the GitHub OIDC claims. The Changesets base branch is `main`.
 
 ## Public-source documentation
 
-User-facing architecture and catalogue operations documentation must describe `0xfa7ca7/opsi` as the public source repository. The separate `0xfa7ca7/0xfa7ca7.github.io` repository remains a generated-data-only deployment target, and its deploy key remains stored as a protected environment secret. Historical design and implementation-plan records remain unchanged because they document the earlier private-source decision.
+User-facing architecture and catalogue operations documentation must describe `0xfa7ca7/klopsi` as the public source repository. The separate `0xfa7ca7/0xfa7ca7.github.io` repository remains a generated-data-only deployment target, and its deploy key remains stored as a protected environment secret. Historical design and implementation-plan records remain unchanged because they document the earlier private-source decision.
 
 ## Verification
 

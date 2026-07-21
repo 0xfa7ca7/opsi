@@ -2,10 +2,10 @@ import { readFile } from "node:fs/promises";
 import { datasetId, KlopsiError, providerId, resourceId } from "@klopsi/domain";
 import { describe, expect, it, vi } from "vitest";
 import {
-  KlopsiProvider,
-  KlopsiTransport,
+  OpsiProvider,
+  OpsiTransport,
   RequestScheduler,
-  type KlopsiOperationInputs,
+  type OpsiOperationInputs,
 } from "../src/index.js";
 
 type FixtureName =
@@ -46,7 +46,7 @@ it("preserves the API key on a same-origin HTTPS redirect and cancels the redire
       headers: { "content-type": "application/json" },
     });
   });
-  const transport = new KlopsiTransport({
+  const transport = new OpsiTransport({
     baseUrl: "https://example.invalid/fixture",
     apiKey: "environment-secret",
     fetch,
@@ -86,7 +86,7 @@ it.each([
         headers: { location },
       }),
   );
-  const transport = new KlopsiTransport({
+  const transport = new OpsiTransport({
     baseUrl: "https://example.invalid/fixture",
     apiKey: "environment-secret",
     fetch,
@@ -106,11 +106,11 @@ it.each([
   [{ format: "WMS", mediaType: "application/xml" }, "service"],
 ])("classifies resolved resource evidence %j as %s", async (overrides, kind) => {
   const { transport } = fixtureTransport({});
-  const provider = new KlopsiProvider(transport);
+  const provider = new OpsiProvider(transport);
   const resource = {
     id: resourceId("r"),
     datasetId: datasetId("d"),
-    providerId: providerId("klopsi"),
+    providerId: providerId("opsi"),
     title: "resource",
     url: "https://example.test/file",
     ...overrides,
@@ -119,12 +119,12 @@ it.each([
 });
 
 async function fixture(name: FixtureName): Promise<unknown> {
-  const url = new URL(`../../../testing/fixtures/klopsi/${name}.json`, import.meta.url);
+  const url = new URL(`../../../testing/fixtures/opsi/${name}.json`, import.meta.url);
   return JSON.parse(await readFile(url, "utf8")) as unknown;
 }
 
 function fixtureTransport(responses: Readonly<Record<string, unknown>>): {
-  readonly transport: KlopsiTransport;
+  readonly transport: OpsiTransport;
   readonly requests: CapturedRequest[];
 } {
   const requests: CapturedRequest[] = [];
@@ -160,7 +160,7 @@ function fixtureTransport(responses: Readonly<Record<string, unknown>>): {
   });
   return {
     requests,
-    transport: new KlopsiTransport({
+    transport: new OpsiTransport({
       baseUrl: "https://example.invalid/fixture",
       fetch,
       scheduler: new RequestScheduler({ intervalMs: 0, maxRetries: 0 }),
@@ -168,12 +168,12 @@ function fixtureTransport(responses: Readonly<Record<string, unknown>>): {
   };
 }
 
-describe("KLOPSI provider contract", () => {
+describe("OPSI provider contract", () => {
   it("rejects an API key with a non-HTTPS base before fetch without exposing the secret", () => {
     const fetch = vi.fn();
     let received: unknown;
     try {
-      new KlopsiTransport({
+      new OpsiTransport({
         baseUrl: "http://127.0.0.1/fixture",
         apiKey: "must-never-leak",
         fetch,
@@ -193,7 +193,7 @@ describe("KLOPSI provider contract", () => {
     const { transport, requests } = fixtureTransport({
       "/package_search": await fixture("package-search"),
     });
-    const provider = new KlopsiProvider(transport);
+    const provider = new OpsiProvider(transport);
 
     await provider.search({ text: "promet", limit: 2, offset: 0, filters: { formats: [] } });
 
@@ -220,7 +220,7 @@ describe("KLOPSI provider contract", () => {
     const { transport, requests } = fixtureTransport({
       "/package_show": await fixture("package-show"),
     });
-    const provider = new KlopsiProvider(transport);
+    const provider = new OpsiProvider(transport);
 
     await provider.getDataset(datasetId("dataset-abc"));
 
@@ -267,7 +267,7 @@ describe("KLOPSI provider contract", () => {
 
     await expect(
       Promise.resolve().then(() =>
-        transport.call("package_search", input as KlopsiOperationInputs["package_search"]),
+        transport.call("package_search", input as OpsiOperationInputs["package_search"]),
       ),
     ).rejects.toMatchObject({ code: "INVALID_PROVIDER_REQUEST", exitCode: 2 });
     expect(requests).toEqual([]);
@@ -283,7 +283,7 @@ describe("KLOPSI provider contract", () => {
         transport.call("package_show", {
           id: "dataset-abc",
           use_default_schema: true,
-        } as unknown as KlopsiOperationInputs["package_show"]),
+        } as unknown as OpsiOperationInputs["package_show"]),
       ),
     ).rejects.toMatchObject({ code: "INVALID_PROVIDER_REQUEST", exitCode: 2 });
     expect(requests).toEqual([]);
@@ -335,7 +335,7 @@ describe("KLOPSI provider contract", () => {
     const { transport, requests } = fixtureTransport({
       "/package_search": await fixture("package-search"),
     });
-    const provider = new KlopsiProvider(transport);
+    const provider = new OpsiProvider(transport);
 
     await provider.search({
       filters: {
@@ -357,7 +357,7 @@ describe("KLOPSI provider contract", () => {
     const { transport } = fixtureTransport({
       "/package_search": await fixture("package-search"),
     });
-    const provider = new KlopsiProvider(transport);
+    const provider = new OpsiProvider(transport);
 
     await expect(
       provider.search({ sort: [{ field: "download_count", direction: "desc" }] }),
@@ -369,16 +369,16 @@ describe("KLOPSI provider contract", () => {
       "/package_show": await fixture("package-show"),
       "/resource_show": await fixture("resource-show"),
     });
-    const provider = new KlopsiProvider(transport);
+    const provider = new OpsiProvider(transport);
 
     const dataset = await provider.getDataset(datasetId("dataset-abc"));
     const resource = await provider.getResource(resourceId("resource-1"));
 
     expect(dataset).toMatchObject({
       id: "dataset-abc",
-      providerId: "klopsi",
+      providerId: "opsi",
       title: "Prometni podatki",
-      reference: "klopsi:dataset:dataset-abc",
+      reference: "opsi:dataset:dataset-abc",
       resourceCount: 1,
       providerMetadata: {
         raw: { bulk_download: "true", unknown_dataset_field: { nested: true } },
@@ -392,8 +392,8 @@ describe("KLOPSI provider contract", () => {
     expect(resource).toMatchObject({
       id: "resource-1",
       datasetId: "dataset-abc",
-      providerId: "klopsi",
-      reference: "klopsi:resource:resource-1",
+      providerId: "opsi",
+      reference: "opsi:resource:resource-1",
       providerMetadata: { raw: { unknown_resource_field: { keep: true } } },
     });
   });
@@ -402,7 +402,7 @@ describe("KLOPSI provider contract", () => {
     const { transport, requests } = fixtureTransport({
       "/package_show": await fixture("package-show"),
     });
-    const provider = new KlopsiProvider(transport);
+    const provider = new OpsiProvider(transport);
 
     const resources = await provider.listDatasetResources(datasetId("dataset-abc"));
 
@@ -441,7 +441,7 @@ describe("KLOPSI provider contract", () => {
     });
 
     await expect(
-      new KlopsiProvider(transport).getResource(resourceId("resource-live")),
+      new OpsiProvider(transport).getResource(resourceId("resource-live")),
     ).resolves.toMatchObject({
       id: "resource-live",
       datasetId: "dataset-live",
@@ -485,7 +485,7 @@ describe("KLOPSI provider contract", () => {
     });
 
     await expect(
-      new KlopsiProvider(transport).getResource(resourceId("resource-live")),
+      new OpsiProvider(transport).getResource(resourceId("resource-live")),
     ).resolves.toMatchObject({
       datasetId: "dataset-10",
     });
@@ -495,7 +495,7 @@ describe("KLOPSI provider contract", () => {
 
   it("maps a failed CKAN envelope to a stable provider error", async () => {
     const { transport } = fixtureTransport({ "/resource_show": await fixture("error") });
-    const provider = new KlopsiProvider(transport);
+    const provider = new OpsiProvider(transport);
 
     await expect(provider.getResource(resourceId("missing"))).rejects.toMatchObject({
       code: "RESOURCE_NOT_FOUND",
@@ -504,7 +504,7 @@ describe("KLOPSI provider contract", () => {
   });
 
   it("maps exhausted retryable HTTP failures to a stable provider failure", async () => {
-    const transport = new KlopsiTransport({
+    const transport = new OpsiTransport({
       baseUrl: "https://example.invalid/fixture",
       fetch: vi.fn(async () => new Response("temporarily unavailable", { status: 503 })),
       scheduler: new RequestScheduler({ intervalMs: 0, maxRetries: 0 }),
@@ -532,7 +532,7 @@ describe("KLOPSI provider contract", () => {
         headers: { "content-type": "application/json" },
       });
     });
-    const transport = new KlopsiTransport({
+    const transport = new OpsiTransport({
       baseUrl: "https://example.invalid/fixture",
       fetch,
       scheduler: new RequestScheduler({
@@ -573,7 +573,7 @@ describe("KLOPSI provider contract", () => {
         },
       );
     });
-    const transport = new KlopsiTransport({
+    const transport = new OpsiTransport({
       baseUrl: "https://example.invalid/fixture",
       fetch,
       scheduler: new RequestScheduler({
@@ -596,10 +596,10 @@ describe("KLOPSI provider contract", () => {
     if (!(received instanceof KlopsiError)) throw new Error("expected KlopsiError");
     expect(received.toJSON()).toEqual({
       code: "INVALID_PROVIDER_RESPONSE",
-      message: "KLOPSI returned a non-JSON response.",
+      message: "OPSI returned a non-JSON response.",
       exitCode: 4,
       context: {
-        provider: "klopsi",
+        provider: "opsi",
         operation: "status_show",
         status: 501,
         contentType: "text/plain; charset=utf-8",
@@ -629,7 +629,7 @@ describe("KLOPSI provider contract", () => {
         },
       );
     });
-    const transport = new KlopsiTransport({
+    const transport = new OpsiTransport({
       baseUrl: "https://example.invalid/fixture",
       fetch,
       timeoutMs: 10,
@@ -650,10 +650,10 @@ describe("KLOPSI provider contract", () => {
       }),
     ).rejects.toMatchObject({
       code: "PROVIDER_REQUEST_FAILED",
-      message: "KLOPSI response body timed out.",
+      message: "OPSI response body timed out.",
       exitCode: 4,
       context: {
-        provider: "klopsi",
+        provider: "opsi",
         operation: "package_search",
         status: 200,
         contentType: "application/json;charset=utf-8",
@@ -677,7 +677,7 @@ describe("KLOPSI provider contract", () => {
           },
         ),
     );
-    const transport = new KlopsiTransport({
+    const transport = new OpsiTransport({
       baseUrl: "https://example.invalid/fixture",
       fetch,
       scheduler: new RequestScheduler({ intervalMs: 0, maxRetries: 0 }),
@@ -704,10 +704,10 @@ describe("KLOPSI provider contract", () => {
     if (!(received instanceof KlopsiError)) throw new Error("expected KlopsiError");
     expect(received.toJSON()).toEqual({
       code: "PROVIDER_REQUEST_FAILED",
-      message: "KLOPSI response body could not be read.",
+      message: "OPSI response body could not be read.",
       exitCode: 4,
       context: {
-        provider: "klopsi",
+        provider: "opsi",
         operation: "package_search",
         status: 200,
         contentType: "application/json;charset=utf-8",
@@ -717,7 +717,7 @@ describe("KLOPSI provider contract", () => {
   });
 
   it("does not mislabel an invalid resource envelope as not found", async () => {
-    const transport = new KlopsiTransport({
+    const transport = new OpsiTransport({
       baseUrl: "https://example.invalid/fixture",
       fetch: vi.fn(
         async () =>
@@ -743,7 +743,7 @@ describe("KLOPSI provider contract", () => {
       await blocked;
       return new Response(JSON.stringify(await fixture("package-show")), { status: 200 });
     });
-    const transport = new KlopsiTransport({
+    const transport = new OpsiTransport({
       baseUrl: "https://example.invalid/fixture",
       fetch,
       scheduler: new RequestScheduler({ intervalMs: 0, maxRetries: 0 }),

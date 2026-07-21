@@ -121,9 +121,9 @@ async function cli(argv: readonly string[]): Promise<CliResult> {
       HOME: home,
       KLOPSI_CACHE_DIR: join(home, "cache"),
       KLOPSI_DOWNLOAD_DIR: join(home, "downloads"),
-      KLOPSI_BASE_URL: baseUrl,
+      OPSI_BASE_URL: baseUrl,
       KLOPSI_OFFLINE: "0",
-      KLOPSI_REQUEST_INTERVAL_MS: "0",
+      OPSI_REQUEST_INTERVAL_MS: "0",
       NO_COLOR: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -191,7 +191,7 @@ describe("data CLI", () => {
       cli([
         "resource",
         "preview",
-        "klopsi:resource:resource-zip",
+        "opsi:resource:resource-zip",
         "--entry",
         "rows.csv",
         "--allow-insecure-http",
@@ -237,7 +237,7 @@ describe("data CLI", () => {
       cli([
         "resource",
         "preview",
-        "klopsi:resource:resource-data",
+        "opsi:resource:resource-data",
         "--json",
         "--allow-private-network",
         "--allow-insecure-http",
@@ -315,7 +315,7 @@ describe("data CLI", () => {
 
   it("validates typed metadata without fetching resource content", async () => {
     await expect(
-      cli(["validate", "klopsi:dataset:dataset-data", "--metadata", "--json"]),
+      cli(["validate", "opsi:dataset:dataset-data", "--metadata", "--json"]),
     ).resolves.toMatchObject({ exitCode: 0, json: { data: { valid: true } } });
   });
 

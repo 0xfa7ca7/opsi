@@ -273,7 +273,7 @@ describe("complete command surface", () => {
       io: value.io,
       version: "1.0.0",
       configuration: {
-        provider: "klopsi",
+        provider: "opsi",
         output: "json" as const,
         locale: "sl-SI",
         offline: false,
@@ -344,7 +344,7 @@ describe("complete command surface", () => {
       datasets: {
         get: async () => ({
           id: "dataset-traffic-001",
-          providerId: "klopsi",
+          providerId: "opsi",
           title: "Traffic",
           resources: [],
           providerMetadata: { raw: { name: "traffic-data" } },

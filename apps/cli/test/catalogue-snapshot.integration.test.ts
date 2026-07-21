@@ -56,15 +56,15 @@ function fixture(
       stdout: { write: (chunk: string) => void stdout.push(chunk) },
       stderr: { write: (chunk: string) => void stderr.push(chunk) },
       env: {
-        KLOPSI_REQUEST_INTERVAL_MS: "0",
-        ...(options.baseUrl === undefined ? {} : { KLOPSI_BASE_URL: options.baseUrl }),
+        OPSI_REQUEST_INTERVAL_MS: "0",
+        ...(options.baseUrl === undefined ? {} : { OPSI_BASE_URL: options.baseUrl }),
       },
     },
     renderer,
     ...(options.offline === true
       ? {
           configuration: {
-            provider: "klopsi",
+            provider: "opsi",
             output: format,
             locale: "sl-SI",
             offline: true,

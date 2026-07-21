@@ -28,7 +28,7 @@ function context(writes: string[] = []) {
 function datasetSummary(id: string, title: string, name: unknown) {
   return {
     id: datasetId(id),
-    providerId: providerId("klopsi"),
+    providerId: providerId("opsi"),
     title,
     description: `${title} description`,
     providerMetadata: { raw: { name } },
@@ -73,7 +73,7 @@ describe("final command contracts", () => {
         },
         {
           flags: "--live",
-          description: "query KLOPSI directly using paginated requests",
+          description: "query OPSI directly using paginated requests",
           conflicts: ["refresh"],
         },
       ],
@@ -239,9 +239,7 @@ describe("final command contracts", () => {
   it("traverses --all pages deterministically and emits one bounded result", async () => {
     const writes: string[] = [];
     const search = vi.fn(async ({ offset = 0 }: { offset?: number }) => ({
-      items: [
-        { id: datasetId(`d${offset}`), providerId: providerId("klopsi"), title: `D${offset}` },
-      ],
+      items: [{ id: datasetId(`d${offset}`), providerId: providerId("opsi"), title: `D${offset}` }],
       total: 3,
       limit: 1,
       offset,
@@ -428,7 +426,7 @@ describe("final command contracts", () => {
     const resource = {
       id: resourceId("r1"),
       datasetId: datasetId("d1"),
-      providerId: providerId("klopsi"),
+      providerId: providerId("opsi"),
       title: "R",
       url: "https://example.test/r",
     };
@@ -454,7 +452,7 @@ describe("final command contracts", () => {
     registerCommandManifest(mismatch);
     registerDownloadCommand(mismatch, context(), client);
     await expect(
-      mismatch.parseAsync(["download", "klopsi:resource:r1", "--dataset"], { from: "user" }),
+      mismatch.parseAsync(["download", "opsi:resource:r1", "--dataset"], { from: "user" }),
     ).rejects.toMatchObject({ code: "DOWNLOAD_SELECTOR_MISMATCH", exitCode: 2 });
   });
 });

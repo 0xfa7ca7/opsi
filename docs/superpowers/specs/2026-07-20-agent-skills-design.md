@@ -13,7 +13,7 @@ Use a hybrid generated-and-curated design:
 - A small curated registry defines skill names, routing descriptions, command ownership, workflows, and safety notes.
 - The existing `GLOBAL_OPTION_MANIFEST` and `COMMAND_MANIFEST` remain the source of truth for CLI syntax, arguments, options, choices, conflicts, and command descriptions.
 - A deterministic renderer combines both sources into a complete skill tree.
-- Generated `skills/*/SKILL.md` files are checked into the repository so `npx skills add https://github.com/0xfa7ca7/opsi` can discover them without first installing the CLI.
+- Generated `skills/*/SKILL.md` files are checked into the repository so `npx skills add https://github.com/0xfa7ca7/klopsi` can discover them without first installing the CLI.
 - `klopsi generate-skills [--output-dir <path>]` writes the same tree for local installation and development.
 - Tests fail when a CLI command is unowned, multiply owned, rendered inaccurately, missing from the checked-in tree, or omitted from the npm package behavior.
 
@@ -91,8 +91,8 @@ For explicit narrow requests, a host may select a domain skill directly without 
 Update the main README with an Agent Skills section modeled on Google Workspace CLI:
 
 ```sh
-npx skills add https://github.com/0xfa7ca7/opsi
-npx skills add https://github.com/0xfa7ca7/opsi/tree/main/skills/klopsi-analysis
+npx skills add https://github.com/0xfa7ca7/klopsi
+npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-analysis
 ```
 
 Document automatic routing and the host-dependent `/klopsi`, `@klopsi`, or `$klopsi` forms without claiming every host implements every prefix. Link a generated `docs/skills.md` index that lists the full repertoire and its responsibilities.

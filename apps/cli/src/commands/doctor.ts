@@ -158,7 +158,7 @@ export async function runDoctorChecks(
     await capture(checks, "connectivity", async () => {
       const page = await client.search({ limit: 1 });
       return {
-        provider: context.configuration?.provider ?? "klopsi",
+        provider: context.configuration?.provider ?? "opsi",
         resultCount: page.items.length,
       };
     });

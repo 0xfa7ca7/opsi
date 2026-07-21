@@ -29,7 +29,7 @@ async function fixture(name: string, contents: string): Promise<string> {
 describe("resource access guidance", () => {
   it("describes local data with KLOPSI-only next actions", async () => {
     const path = await fixture("rows.csv", "id,name\n1,Ljubljana\n");
-    const client = new KlopsiClient({ registry: new ProviderRegistry(), providerId: "klopsi" });
+    const client = new KlopsiClient({ registry: new ProviderRegistry(), providerId: "opsi" });
     const descriptor = await client.access.inspect(path);
     expect(descriptor).toMatchObject({
       kind: "local",
@@ -45,7 +45,7 @@ describe("resource access guidance", () => {
       "rows.xml",
       "<root><a><id>1</id></a><a><id>2</id></a><b><id>3</id></b><b><id>4</id></b></root>",
     );
-    const client = new KlopsiClient({ registry: new ProviderRegistry(), providerId: "klopsi" });
+    const client = new KlopsiClient({ registry: new ProviderRegistry(), providerId: "opsi" });
     await expect(client.access.inspect(path)).resolves.toMatchObject({
       detectedFormat: "xml",
       selections: { recordPaths: ["/root/a", "/root/b"] },

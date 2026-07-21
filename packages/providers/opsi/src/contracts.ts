@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const klopsiResourceSchema = z.looseObject({
+export const opsiResourceSchema = z.looseObject({
   id: z.string().min(1),
   package_id: z.string().min(1).optional(),
   name: z.string().nullish(),
@@ -12,7 +12,7 @@ export const klopsiResourceSchema = z.looseObject({
   last_modified: z.string().nullish(),
 });
 
-export const klopsiDatasetSchema = z.looseObject({
+export const opsiDatasetSchema = z.looseObject({
   id: z.string().min(1),
   name: z.string().min(1).optional(),
   title: z.string().min(1),
@@ -29,23 +29,23 @@ export const klopsiDatasetSchema = z.looseObject({
     })
     .nullish(),
   tags: z.array(z.looseObject({ name: z.string().min(1) })).optional(),
-  resources: z.array(klopsiResourceSchema).optional(),
+  resources: z.array(opsiResourceSchema).optional(),
   num_resources: z.number().int().nonnegative().optional(),
 });
 
-export const klopsiTagSchema = z.looseObject({
+export const opsiTagSchema = z.looseObject({
   id: z.string().min(1).optional(),
   name: z.string().min(1),
   display_name: z.string().optional(),
 });
 
-export const klopsiOrganizationSchema = z.looseObject({
+export const opsiOrganizationSchema = z.looseObject({
   id: z.string().min(1),
   name: z.string().min(1),
   title: z.string().optional(),
 });
 
-export const klopsiLicenseSchema = z.looseObject({
+export const opsiLicenseSchema = z.looseObject({
   id: z.string().min(1).optional(),
   title: z.string().min(1),
   url: z.string().optional(),
@@ -56,12 +56,12 @@ export const packageSearchResultSchema = z.looseObject({
   sort: z.string().optional(),
   facets: z.record(z.string(), z.unknown()).optional(),
   search_facets: z.record(z.string(), z.unknown()).optional(),
-  results: z.array(klopsiDatasetSchema),
+  results: z.array(opsiDatasetSchema),
 });
 
 export const resourceSearchResultSchema = z.looseObject({
   count: z.number().int().nonnegative(),
-  results: z.array(klopsiResourceSchema),
+  results: z.array(opsiResourceSchema),
 });
 
 export const failureEnvelopeSchema = z.looseObject({
@@ -80,10 +80,10 @@ export function envelopeSchema<Result extends z.ZodType>(result: Result) {
   ]);
 }
 
-export type KlopsiDatasetRecord = z.infer<typeof klopsiDatasetSchema>;
-export type KlopsiResourceRecord = z.infer<typeof klopsiResourceSchema>;
-export type KlopsiTagRecord = z.infer<typeof klopsiTagSchema>;
-export type KlopsiOrganizationRecord = z.infer<typeof klopsiOrganizationSchema>;
-export type KlopsiLicenseRecord = z.infer<typeof klopsiLicenseSchema>;
+export type OpsiDatasetRecord = z.infer<typeof opsiDatasetSchema>;
+export type OpsiResourceRecord = z.infer<typeof opsiResourceSchema>;
+export type OpsiTagRecord = z.infer<typeof opsiTagSchema>;
+export type OpsiOrganizationRecord = z.infer<typeof opsiOrganizationSchema>;
+export type OpsiLicenseRecord = z.infer<typeof opsiLicenseSchema>;
 export type PackageSearchResult = z.infer<typeof packageSearchResultSchema>;
 export type ResourceSearchResult = z.infer<typeof resourceSearchResultSchema>;

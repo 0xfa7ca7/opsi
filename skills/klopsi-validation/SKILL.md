@@ -1,6 +1,6 @@
 ---
 name: klopsi-validation
-description: "Use when checking local or provider data, or KLOPSI metadata, for integrity issues and remediation."
+description: "Use when checking local or provider data, or OPSI metadata, for integrity issues and remediation."
 ---
 
 # klopsi-validation
