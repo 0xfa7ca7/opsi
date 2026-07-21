@@ -1,6 +1,6 @@
 ---
 name: opsi-validation
-description: "Validate local or provider tabular data and OPSI dataset or resource metadata. Use to find integrity issues, warnings, and remediation recommendations."
+description: "Use when checking local or provider data, or OPSI metadata, for integrity issues and remediation."
 ---
 
 # opsi-validation
@@ -12,6 +12,23 @@ Validate data content or normalized metadata and explain actionable issues. Gene
 ## Workflow
 
 - Validate downloaded content before analysis or conversion.
+
+## Capability guide
+
+### Choose validation mode
+
+- Validate a local path or canonical provider reference before analysis; use `--metadata` when only normalized metadata should be checked.
+- Use offline validation after acquisition when all required input is local; do not silently retry a failed offline request online.
+
+### Select structured data
+
+- Use one `--entry` or `--record-path` reported by resource inspect or the relevant operation's structured error/output; resource inspect can surface ZIP entries and XML record paths.
+- Without `--sheet`, XLSX resource preview, validate, or query emits `SHEET_REQUIRED` with `context.sheets` and a suggestion; use one listed sheet.
+
+### Recover from validation failures
+
+- Treat exit 6 as a validation or integrity failure: report the issues and repair, replace, or reselect the input before retrying.
+- Do not treat validation or integrity failure as a transient network error or bypass it before analysis.
 
 ## Commands
 

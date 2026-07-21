@@ -9,7 +9,6 @@ import type { CliContext } from "../context.js";
 interface AgentSetupCommandOptions {
   readonly agent?: readonly string[];
   readonly all?: boolean;
-  readonly copy?: boolean;
   readonly yes?: boolean;
   readonly dryRun?: boolean;
 }
@@ -46,7 +45,6 @@ export function registerAgentCommand(
       request: {
         ...(options.agent === undefined ? {} : { agents: options.agent }),
         ...(options.all === undefined ? {} : { all: options.all }),
-        ...(options.copy === undefined ? {} : { copy: options.copy }),
         ...(options.yes === undefined ? {} : { yes: options.yes }),
         ...(options.dryRun === undefined ? {} : { dryRun: options.dryRun }),
       },

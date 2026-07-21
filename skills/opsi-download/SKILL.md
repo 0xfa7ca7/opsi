@@ -1,6 +1,6 @@
 ---
 name: opsi-download
-description: "Download Slovenian OPSI dataset or resource content securely. Use for destination selection, batch downloads, overwrite handling, and downloaded artifact provenance."
+description: "Use when securely downloading an OPSI dataset or resource and choosing a destination or overwrite handling."
 ---
 
 # opsi-download
@@ -12,6 +12,23 @@ Download selected provider resources through the CLI's bounded secure downloader
 ## Workflow
 
 - Resolve a canonical resource or dataset reference, then download it.
+
+## Capability guide
+
+### Resolve download targets
+
+- Pass canonical resource references when available; use `--dataset` or `--resource` to disambiguate bare identifiers.
+- Inspect a selected resource first when its format or access method is uncertain.
+
+### Choose a destination
+
+- For a batch, `--destination` or `--output` must name an existing directory; a file destination is valid for one resource only.
+- Otherwise use the configured download directory; do not use `--force` to replace an existing artifact unless that exact overwrite is authorized, and verify the existing artifact first when it matters.
+
+### Handle batch results
+
+- For a batch, report each successful and failed resource separately; exit 8 means Partial success, not complete success.
+- Run `provenance verify` for important downloaded artifacts before handing them to later workflow steps.
 
 ## Commands
 
@@ -35,7 +52,7 @@ opsi download <ids...> [options]
 | --- | --- | --- | --- | --- |
 | `--dataset` | no | — | `--resource` | treat bare identifiers as datasets |
 | `--resource` | no | — | `--dataset` | treat bare identifiers as resources |
-| `--destination <path>` | no | path | — | destination path (one resource only) |
+| `--destination <path>` | no | path | — | destination path (a file for one resource, or an existing directory for a batch) |
 | `--output <path>` | no | path | — | alias for --destination |
 | `--force` | no | — | — | replace the requested regular file |
 | `--allow-insecure-http` | no | — | — | allow HTTP for this invocation |

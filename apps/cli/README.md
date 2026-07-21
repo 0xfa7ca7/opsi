@@ -89,7 +89,9 @@ Install the complete [Agent Skills repertoire](https://github.com/0xfa7ca7/opsi/
 opsi agent setup
 ```
 
-Use `--yes` for unattended detected-host setup, `--agent <ids...>` for explicit hosts, `--all` for every globally installable profile, or `--dry-run` to preview the operation. Generate the same skills without installing them with `opsi generate-skills` or choose a target directory with `--output-dir`.
+Use `--yes` for unattended detected-host setup, `--agent <ids...>` for explicit hosts, `--all` for every globally installable profile, or `--dry-run` to preview the operation. An empty detection result fails safely instead of expanding `--yes` to every profile. Setup installs durable copies because its generated source is temporary.
+
+To refresh a stale repertoire, preview the exact target with `opsi agent setup --agent <id> --dry-run --json`, then rerun without `--dry-run` after authorization. After a successful exit, confirm that structured output lists only the requested `agents` and the complete `skills` repertoire. Generate the same portable skill tree without installing it with `opsi generate-skills --output-dir <directory>`.
 
 Agents use the same CLI as people and scripts. Prefer structured output and bounded results:
 

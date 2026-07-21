@@ -10,7 +10,6 @@ export const AGENT_INSTALLER_VERSION = "skills@1.5.19" as const;
 export interface AgentSetupRequest {
   readonly agents?: readonly string[];
   readonly all?: boolean;
-  readonly copy?: boolean;
   readonly yes?: boolean;
   readonly dryRun?: boolean;
 }
@@ -94,7 +93,6 @@ function validateAgentSelection(request: AgentSetupRequest, registry: AgentHostR
 export function buildAgentInstallerArguments(
   sourceDirectory: string,
   agents: readonly string[],
-  copy: boolean,
 ): readonly string[] {
   if (agents.length === 0) throw invalidSetupOptions("At least one resolved agent ID is required.");
   const arguments_: string[] = [
@@ -106,7 +104,7 @@ export function buildAgentInstallerArguments(
     "--agent",
     ...agents,
   ];
-  if (copy) arguments_.push("--copy");
+  arguments_.push("--copy");
   // OPSI owns selection and confirmation. The pinned installer must never open its own prompts,
   // because those include a follow-up offer to fetch an unrelated remote skill.
   arguments_.push("--yes");
@@ -201,11 +199,7 @@ export async function setupAgents(options: SetupAgentsOptions): Promise<AgentSet
       version: options.version,
     });
     const installerResult = await options.runner.run({
-      arguments: buildAgentInstallerArguments(
-        sourceDirectory,
-        resolvedAgents,
-        options.request.copy === true,
-      ),
+      arguments: buildAgentInstallerArguments(sourceDirectory, resolvedAgents),
       cwd: options.cwd,
       env: options.env.HOME === undefined ? { ...options.env, HOME: options.home } : options.env,
       interactive: false,

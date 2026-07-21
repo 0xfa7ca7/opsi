@@ -1,6 +1,6 @@
 ---
 name: opsi-provenance
-description: "Inspect or verify OPSI artifact provenance. Use to explain an artifact's source and transformations or detect integrity mismatches."
+description: "Use when inspecting or verifying OPSI artifact provenance, transformations, or integrity mismatches."
 ---
 
 # opsi-provenance
@@ -12,6 +12,18 @@ Inspect recorded lineage and verify an artifact against its digest. Generated fo
 ## Workflow
 
 - Verify every important downloaded, converted, or query-exported artifact.
+
+## Capability guide
+
+### Inspect recorded lineage
+
+- Use `provenance show` to inspect an artifact's source, retrieval, and transformation record before explaining where it came from.
+- Compare the record with the exact local artifact and preserve canonical references returned by OPSI.
+
+### Verify artifact integrity
+
+- Use `provenance verify` to recompute and compare the artifact digest after download, conversion, or query export.
+- Report a digest mismatch as integrity failure; Do not mutate, replace, or discard the evidence before it is reported.
 
 ## Commands
 

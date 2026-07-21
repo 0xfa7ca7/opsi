@@ -1,6 +1,6 @@
 ---
 name: opsi-resources
-description: "Inspect OPSI resource access capabilities, metadata, secure headers, and bounded local or provider previews. Use when evaluating a dataset resource before download or analysis."
+description: "Use when inspecting an OPSI resource, its secure access, headers, or bounded preview before the next step."
 ---
 
 # opsi-resources
@@ -13,6 +13,23 @@ Inspect a resource safely without committing to a full data workflow. Generated 
 
 - Inspect metadata and headers before downloading an unfamiliar resource.
 - Preview a bounded number of rows before validation or analysis.
+
+## Capability guide
+
+### Resolve the input
+
+- Use a local path for local data and retain an exact `opsi:resource:` reference for provider data; do not invent either identifier.
+- Run `resource inspect` to learn supported access operations before choosing download, validation, WFS, or analysis.
+
+### Select safe access
+
+- Use `resource headers` for a secure provider-header probe and `resource preview` with a small `--limit` for a bounded content check.
+- Route a WFS resource to the services skill after inspection; do not replace OPSI access controls with direct HTTP.
+
+### Resolve structured content
+
+- Use one `--entry` or `--record-path` reported by resource inspect or the relevant operation's structured error/output; resource inspect can surface ZIP entries and XML record paths.
+- Without `--sheet`, XLSX resource preview, validate, or query emits `SHEET_REQUIRED` with `context.sheets` and a suggestion; use one listed sheet.
 
 ## Commands
 
