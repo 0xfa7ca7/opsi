@@ -40,6 +40,13 @@ const EXPECTED_DATA_CAPABILITY_IDS = {
   "opsi-provenance": ["record-inspection", "integrity-verification"],
 } as const;
 
+const EXPECTED_WFS_CAPABILITY_IDS = [
+  "wfs-sequence",
+  "feature-selection",
+  "spatial-filtering",
+  "bounded-export",
+] as const;
+
 const REQUIRED_GUIDANCE = {
   opsi: [
     "## End-to-end workflows",
@@ -406,7 +413,12 @@ describe("agent skill rendering", () => {
   });
 
   it("renders bounded WFS service workflows", () => {
+    const definition = AGENT_SKILLS.find((entry) => entry.name === "opsi-services");
     const content = renderAgentSkillFiles("1.2.3").get("opsi-services") ?? "";
+
+    expect(definition?.capabilities.map((capability) => capability.id)).toEqual(
+      EXPECTED_WFS_CAPABILITY_IDS,
+    );
     for (const command of [
       "service inspect",
       "service layers",
@@ -416,7 +428,27 @@ describe("agent skill rendering", () => {
       "service export",
     ])
       expect(content).toContain(`### \`${command}\``);
-    expect(content).toContain("Never send transaction requests");
+    for (const guidance of [
+      "canonical `opsi:resource:` reference",
+      "`service inspect`",
+      "`service layers`",
+      "`service schema --layer <name>`",
+      "`--property` may repeat or take a comma-separated list",
+      "`--filter-eq <field=value>`",
+      "booleans, numbers, or strings",
+      "not schema-aware XSD coercion",
+      "`--bbox <minx,miny,maxx,maxy>`",
+      "`--crs <name>` must name the coordinate reference system used for the bbox",
+      "`--start-index` is zero-based",
+      "`--limit`",
+      "`service count`",
+      "CSV only",
+      "`--force` after explicit overwrite authorization",
+      "`provenance verify`",
+      "Never send transaction requests, raw CQL, arbitrary XML filters, or direct HTTP calls.",
+    ]) {
+      expect(content).toContain(guidance);
+    }
   });
 
   it("renders option conflicts as user-facing CLI flags", () => {

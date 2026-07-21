@@ -295,7 +295,41 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Inspect a canonical WFS resource, list layers, then inspect a selected layer schema.",
       "Preview or count a layer with typed equality filters before exporting bounded rows.",
     ],
-    capabilities: [],
+    capabilities: [
+      {
+        id: "wfs-sequence",
+        title: "Inspect the WFS service and layer",
+        instructions: [
+          "Keep the exact canonical `opsi:resource:` reference returned by OPSI; run `service inspect`, then `service layers`, then `service schema --layer <name>` before selecting features.",
+          "Use the layer schema to choose a layer and its available fields; do not infer feature bounds or paging support from service inspection metadata.",
+        ],
+      },
+      {
+        id: "feature-selection",
+        title: "Select fields and matching features",
+        instructions: [
+          "Use a small `service preview` before export; `--property` may repeat or take a comma-separated list to select the fields to return.",
+          "Use `--filter-eq <field=value>` for typed lexical equality: values are coerced as booleans, numbers, or strings, not schema-aware XSD coercion.",
+          "Use `service count` to measure the filtered selection before choosing an export limit.",
+        ],
+      },
+      {
+        id: "spatial-filtering",
+        title: "Constrain space and pagination",
+        instructions: [
+          "Use `--bbox <minx,miny,maxx,maxy>` for a spatial extent, and `--crs <name>` must name the coordinate reference system used for the bbox.",
+          "When paging, `--start-index` is zero-based; keep each preview or export bounded with a finite `--limit`.",
+        ],
+      },
+      {
+        id: "bounded-export",
+        title: "Export and verify a bounded result",
+        instructions: [
+          "After previewing or counting the selection, use `service export` with a finite `--limit`; export output is CSV only.",
+          "Choose a new output path unless the user gives `--force` after explicit overwrite authorization, then run `provenance verify` on an important exported artifact.",
+        ],
+      },
+    ],
     safety: [
       "Use canonical resource references and bounded limits.",
       "Never send transaction requests, raw CQL, arbitrary XML filters, or direct HTTP calls.",
