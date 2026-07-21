@@ -229,6 +229,204 @@ Map only valid embedded coordinates or geometry with known CRS information. Coor
 Do not use color as the only information carrier. Pair color with position, length, pattern, labels, or symbols; preserve readable contrast in screen and print output. Use a restrained categorical palette, a perceptually ordered sequential scale for magnitude, and an explicitly centered diverging scale only when a meaningful midpoint exists. Provide a labeled legend whenever color encodes data.
 `;
 
+const INTERACTIVE_DASHBOARD_TEMPLATE = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+  <title>{{TITLE}}</title>
+  <style>
+    :root { color-scheme: light; --ink: #17202a; --muted: #52606d; --paper: #f4f7f8; --card: #fff; --line: #d7dce2; --accent: #075985; --accent-soft: #dff2fa; --highlight: #a33a18; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; }
+    main { width: min(1240px, calc(100% - 2rem)); margin: 0 auto; padding: 2rem 0 3rem; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 24ch; font-size: clamp(2rem, 5vw, 4rem); line-height: 1.05; letter-spacing: -.035em; }
+    .eyebrow { color: var(--accent); font-size: .8rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+    .lede { max-width: 75ch; font-size: 1.1rem; }
+    .meta, .count { color: var(--muted); }
+    .filter-panel, .view, .details, .notes { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 28px rgb(23 32 42 / 6%); }
+    .filter-panel { margin: 1.5rem 0; padding: 1rem; }
+    .filters { display: flex; flex-wrap: wrap; align-items: end; gap: .8rem; }
+    .control { display: grid; gap: .25rem; min-width: 12rem; }
+    label { font-weight: 700; }
+    input, select, button { min-height: 44px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: inherit; font: inherit; padding: .55rem .7rem; }
+    button { cursor: pointer; font-weight: 700; }
+    button:hover { border-color: var(--accent); }
+    :focus-visible { outline: 3px solid var(--highlight); outline-offset: 3px; }
+    .view-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1rem; }
+    .view { grid-column: span 6; min-height: 220px; padding: 1rem; }
+    .view--wide { grid-column: 1 / -1; }
+    .view-meta { color: var(--muted); font-size: .9rem; }
+    .details, .notes { margin-top: 1rem; padding: 1rem; overflow-x: auto; }
+    .empty { border: 2px dashed var(--line); border-radius: 10px; margin: 1rem 0; padding: 1rem; }
+    [hidden] { display: none !important; }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    caption { padding-bottom: .75rem; text-align: left; font-weight: 700; }
+    th, td { border-bottom: 1px solid var(--line); padding: .65rem; text-align: left; vertical-align: top; }
+    th { background: var(--accent-soft); }
+    a { color: var(--accent); text-underline-offset: .2em; }
+    @media (max-width: 760px) { .view { grid-column: 1 / -1; } .control { width: 100%; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Interactive evidence dashboard</p>
+      <h1>{{TITLE}}</h1>
+      <p class="lede" data-klopsi-summary>{{SUMMARY}}</p>
+      <p class="meta"><span><strong>Scope:</strong> {{SCOPE}}</span> · <span><strong>Period:</strong> {{PERIOD}}</span> · <span><strong>Source:</strong> {{SOURCE}}</span></p>
+    </header>
+
+    <section class="filter-panel" aria-labelledby="filter-heading" data-klopsi-filter-region>
+      <h2 id="filter-heading">Explore the data</h2>
+      <form class="filters">
+        {{FILTER_CONTROLS}}
+        <button type="button" data-klopsi-reset>Reset filters</button>
+      </form>
+      <p class="count" aria-live="polite" aria-atomic="true" data-klopsi-record-count><strong>{{INITIAL_MATCHING_COUNT}}</strong> of {{TOTAL_COUNT}} records match.</p>
+    </section>
+
+    <!-- Replace VIEW_CARDS with two to four linked article.view elements. Give data-derived labels dedicated elements and update them with textContent. -->
+    <section class="view-grid" aria-label="Linked analytical views">
+      {{VIEW_CARDS}}
+    </section>
+
+    <p class="empty" data-klopsi-empty-state hidden>No records match the current filters. Reset filters or broaden the selection.</p>
+
+    <section class="details">
+      <h2>Matching detail</h2>
+      <table data-klopsi-detail-table>
+        <caption>{{DETAIL_CAPTION}}</caption>
+        <thead><tr>{{DETAIL_HEADERS}}</tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="notes" data-klopsi-disclosures><h2>Method and disclosures</h2>{{DISCLOSURES}}</section>
+    <section class="notes" data-klopsi-lineage><h2>Source verification and lineage</h2>{{LINEAGE}}</section>
+  </main>
+
+  <noscript>{{NOSCRIPT_SUMMARY}}</noscript>
+  <script id="klopsi-presentation-manifest" type="application/json">{{PRESENTATION_MANIFEST_JSON}}</script>
+  <script id="klopsi-presentation-data" type="application/json">{{PRESENTATION_DATA_JSON}}</script>
+  <script>
+    (() => {
+      "use strict";
+      const rows = JSON.parse(document.querySelector("#klopsi-presentation-data").textContent);
+      const form = document.querySelector("[data-klopsi-filter-region] form");
+      const resetButton = document.querySelector("[data-klopsi-reset]");
+      const count = document.querySelector("[data-klopsi-record-count]");
+      const table = document.querySelector("[data-klopsi-detail-table]");
+      const tableBody = table.querySelector("tbody");
+      const emptyState = document.querySelector("[data-klopsi-empty-state]");
+      const state = { filters: {}, sortField: null, sortDirection: "ascending", selection: null };
+      const initialState = JSON.parse(JSON.stringify(state));
+
+      function readFilters() {
+        state.filters = {};
+        for (const control of form.querySelectorAll("[data-filter-field]")) state.filters[control.dataset.filterField] = control.value;
+      }
+
+      function getFilteredRows() {
+        const filtered = rows.filter((row) => Object.entries(state.filters).every(([field, value]) => value === "" || String(row[field] ?? "").toLocaleLowerCase().includes(value.toLocaleLowerCase())));
+        if (state.sortField === null) return filtered;
+        return filtered.slice().sort((left, right) => {
+          const result = String(left[state.sortField] ?? "").localeCompare(String(right[state.sortField] ?? ""), undefined, { numeric: true });
+          return state.sortDirection === "ascending" ? result : -result;
+        });
+      }
+
+      function renderCounts(filteredRows) { count.textContent = String(filteredRows.length) + " of " + String(rows.length) + " records match."; }
+      function renderViews(filteredRows) {
+        for (const target of document.querySelectorAll("[data-view-count]")) target.textContent = String(filteredRows.length);
+      }
+      function renderTable(filteredRows) {
+        tableBody.replaceChildren();
+        const fields = Array.from(table.querySelectorAll("thead [data-field]"), (header) => header.dataset.field);
+        for (const row of filteredRows) {
+          const tableRow = document.createElement("tr");
+          for (const field of fields) {
+            const cell = document.createElement("td");
+            cell.textContent = String(row[field] ?? "");
+            tableRow.append(cell);
+          }
+          tableBody.append(tableRow);
+        }
+      }
+      function renderEmptyState(filteredRows) {
+        const isEmpty = filteredRows.length === 0;
+        emptyState.hidden = !isEmpty;
+        table.hidden = isEmpty;
+      }
+      function update() {
+        const filteredRows = getFilteredRows();
+        renderCounts(filteredRows);
+        renderViews(filteredRows);
+        renderTable(filteredRows);
+        renderEmptyState(filteredRows);
+      }
+
+      form.addEventListener("input", () => { readFilters(); update(); });
+      form.addEventListener("change", () => { readFilters(); update(); });
+      for (const sortButton of document.querySelectorAll("[data-sort-field]")) {
+        sortButton.addEventListener("click", () => {
+          const field = sortButton.dataset.sortField;
+          state.sortDirection = state.sortField === field && state.sortDirection === "ascending" ? "descending" : "ascending";
+          state.sortField = field;
+          update();
+        });
+      }
+      resetButton.addEventListener("click", () => {
+        form.reset();
+        state.filters = { ...initialState.filters };
+        state.sortField = initialState.sortField;
+        state.sortDirection = initialState.sortDirection;
+        state.selection = initialState.selection;
+        readFilters();
+        update();
+        form.querySelector("input, select, button")?.focus();
+      });
+      readFilters();
+      update();
+    })();
+  </script>
+</body>
+</html>
+`;
+
+const INTERACTIVE_INTERACTION_GUIDE = `# Interactive dashboard interaction guide
+
+The initial state must already answer the broad question. Add interaction to explore related aspects, not to conceal the only useful result.
+
+## Allowed controls and single data flow
+
+Use only labeled categorical filters, numeric ranges, date ranges, text search, sorting, selection, linked highlighting, tooltips with non-hover alternatives, focused drill-down, and Reset. Keep one in-memory state object and derive one filtered row set after every change. That same row set drives the matching count, all linked views, the semantic detail table, and the empty state.
+
+Do not independently filter a chart or table. A visual selection may update shared state and then trigger the same full render flow. Keep total-record count fixed, update matching-record count immediately, and announce that count through the polite live region.
+
+## Reset, keyboard, and focus
+
+Use native inputs, selects, and buttons so filters, sorting, selection, and Reset work with the keyboard. Keep visible focus styles. Reset restores every filter, range, search term, sort order, selection, and drill-down to the documented initial state, rerenders all consumers, and moves focus to the first useful control. Never require page reload.
+
+## Empty state and detail
+
+When no rows match, show a meaningful empty state that names the situation and suggests Reset or broader filters. Keep the matching count, controls, and reset available. Do not leave a blank chart as the only signal.
+
+The detail table uses real table headers and exposes the filtered result without pointer interaction. Sorting controls state the field and direction. If rendering every matching detail row would impair use, first reshape the presentation data through the analysis workflow; do not silently impose a display-only cap. Any bounded detail rows must have an explicit progressive disclosure control and matching-count explanation that makes omitted display rows discoverable without changing the underlying filtered set.
+
+## Views, selection, and tooltip alternatives
+
+Use two to four complementary views. Every view states its question, population, unit, relevant count, and takeaway. Pair linked highlighting with labels, patterns, or symbols so color is not the only signal. Any tooltip value must also be reachable by keyboard focus, selection text, an adjacent list, or the semantic detail table. Keep focused drill-down reversible and preserve a clear path back to the initial overview.
+
+## Geography and disclosure
+
+Map only valid embedded coordinates or geometry with a known CRS. Never geocode names, invent positions or outlines, infer a CRS, or load tiles. When spatial prerequisites are absent, use bars, a ranked list, heatmap, or semantic table.
+
+Disclose each aggregation, projection, selection, exclusion, or sample with original and presented counts, rules, grouping fields, sample basis, and interpretive impact. State explicitly that a verifier pass is presentation evidence rather than official artifact provenance.
+`;
+
 export const DASHBOARD_VERIFIER_SOURCE = String.raw`/* global Buffer, process */
 import { readFile, stat } from 'node:fs/promises';
 
@@ -690,6 +888,19 @@ const RESOURCES = new Map<string, readonly AgentSkillResource[]>([
       {
         path: "references/encoding-guide.md",
         content: STATIC_ENCODING_GUIDE,
+      },
+    ],
+  ],
+  [
+    "klopsi-interactive-dashboard",
+    [
+      {
+        path: "assets/interactive-dashboard.html",
+        content: INTERACTIVE_DASHBOARD_TEMPLATE,
+      },
+      {
+        path: "references/interaction-guide.md",
+        content: INTERACTIVE_INTERACTION_GUIDE,
       },
     ],
   ],

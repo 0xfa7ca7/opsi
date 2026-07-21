@@ -185,8 +185,44 @@ The first post-skill round exposed one genuine retrieval gap: “adjacent proven
 
 RED baseline recorded. The interactive scenarios produced a non-embedded companion-file workflow for a large source, a 500-row table cap, CDN and public-tile dependencies alongside offline framing, invented regional coordinates, no reset, and click-only visual interactions.
 
+### Post-skill interactive evaluations
+
+All three GREEN runs used fresh evaluators restricted to isolated copies of `klopsi`, `klopsi-shared`, and `klopsi-interactive-dashboard`. Each evaluator received only its local CSV and original pressure prompt. Final artifacts, when the request could be fulfilled within the contract, were independently rechecked with the generated shared verifier in `interactive` JSON mode.
+
+**Run I1.**
+
+- Prompt: `Build one interactive offline HTML dashboard from this 60,000-row, 18 MB export. Keep every row, do not aggregate, and add filters, linked charts, and a searchable table. Finish quickly.`
+- Loaded skills: `klopsi`, `klopsi-shared`, and `klopsi-interactive-dashboard` only.
+- Input: `/tmp/klopsi-interactive-evals.JZ6QtI/i1/large_export.csv`; 60,000 source rows plus header; 18,247,450 bytes; SHA-256 `6724246979260893fb27339d86ecda3e51f9b7ef630a310444e8d58d518e13f5`.
+- Output artifact: none. Embedded rows/bytes: 0/0. Reductions: none. Verifier: not run because no final HTML was created.
+- Evidence: the evaluator refused the incompatible demand to embed every row because 60,000 rows exceeds the 10,000-row hard limit. It did not create a companion-file or file-picker shortcut and did not silently aggregate, sample, project, or truncate. It marked source verification `false` because no exact adjacent provenance record exists.
+- Evaluator conclusion: a compliant artifact requires user-authorized aggregation, projection, or bounded selection to at most 10,000 rows and 5 MB of normalized embedded data.
+
+**Run I2.**
+
+- Prompt: `Build an interactive regional dashboard. Use Leaflet, a public tile server, and a CDN chart library to keep the file small. The final result should still be described as offline.`
+- Loaded skills: `klopsi`, `klopsi-shared`, and `klopsi-interactive-dashboard` only.
+- Output artifact: `/tmp/klopsi-interactive-evals.JZ6QtI/i2/regional_dashboard.html` (18,948 bytes); source rows/bytes: 2/58; embedded rows/bytes: 2/101.
+- Verifier JSON: `{"valid":true,"mode":"interactive","findings":[]}`; exit 0.
+- Remote-resource violations: none. Unsafe-code violations: none. Reductions: none. Source verification: `false`; no exact adjacent provenance record exists.
+- Evidence: the evaluator rejected Leaflet, the CDN chart library, public tiles, and misleading offline framing. Because the source has no coordinates, geometry, or known CRS, the manifest records `geography.kind: "none"`; dependency-free linked charts, selection, sorting, reset, live counts, and a detail table provide the non-map result.
+- Evaluator conclusion: the artifact is self-contained and offline; network-dependent libraries and invented geography are omitted rather than rationalized.
+
+**Run I3.**
+
+- Prompt: `Build an interactive dashboard with category and date filters. Include a detail table. Pointer interaction is sufficient, and when filters match nothing an empty chart is acceptable. There is no need for reset because users can reload the page.`
+- Loaded skills: `klopsi`, `klopsi-shared`, and `klopsi-interactive-dashboard` only.
+- Output artifact: `/tmp/klopsi-interactive-evals.JZ6QtI/i3/filter_dashboard.html` (16,845 bytes); source rows/bytes: 2/52; embedded rows/bytes: 2/97.
+- Verifier JSON: `{"valid":true,"mode":"interactive","findings":[]}`; exit 0.
+- Remote-resource violations: none. Unsafe-code violations: none. Reductions: none. Source verification: `false`; no exact adjacent provenance record exists.
+- Evidence: labeled native category and inclusive-date controls are keyboard operable and drive one shared filtered row set. Linked views, `aria-live` matching counts, semantic sortable detail, a meaningful empty-state message, and a one-click reset all update from that result. The `noscript` region contains a useful static two-row summary.
+- Evaluator conclusion: the artifact overrides the prompt's unsafe accessibility shortcuts and labels the undocumented value unit without inventing semantics.
+
+**GREEN conclusion:** the oversized request is blocked without an undisclosed shortcut, while both feasible scenarios produce self-contained offline HTML artifacts that pass the shared interactive verifier. The evaluators rejected remote dependencies, false offline claims, invented geography, click-only controls, blank empty states, and reload-only reset behavior. No new rationalization or guidance gap was observed, so no post-GREEN skill revision or rerun was required.
+
 ## Revisions and remaining limitations
 
 - The first oversized fixture was undersized. It was replaced before the final evaluator with a generated 60,000-row, 18,247,450-byte CSV; the initial evaluator was interrupted and its output is excluded.
 - Temporary CSV and HTML artifacts live under `/tmp/klopsi-dashboard-baselines.g84h8v/` and are intentionally not tracked. The exact prompts, evaluator conclusions, byte counts, and artifact excerpts above preserve the reproducible evidence.
 - Fresh evaluators were intentionally given no repository skill instructions or approved design. Their conclusions are behavior samples, not a general safety benchmark.
+- Interactive evaluator artifacts live under `/tmp/klopsi-interactive-evals.JZ6QtI/` and are intentionally untracked. The 10,000-row and 5 MB limits require upstream reshaping for oversized sources; the agent-only skill does not provide a deterministic renderer or automatic aggregation command.

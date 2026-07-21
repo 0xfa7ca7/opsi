@@ -33,6 +33,7 @@ const EXPECTED_SKILLS = [
   "klopsi-services",
   "klopsi-provenance",
   "klopsi-static-dashboard",
+  "klopsi-interactive-dashboard",
   "klopsi-local-state",
   "klopsi-diagnostics",
 ] as const;
@@ -67,6 +68,14 @@ const EXPECTED_STATIC_DASHBOARD_CAPABILITY_IDS = [
   "input-readiness",
   "encoding-selection",
   "board-composition",
+  "verification",
+] as const;
+
+const EXPECTED_INTERACTIVE_DASHBOARD_CAPABILITY_IDS = [
+  "input-readiness",
+  "bounded-embedding",
+  "initial-overview",
+  "linked-interaction",
   "verification",
 ] as const;
 
@@ -195,6 +204,21 @@ describe("agent skill registry", () => {
     expect(definition?.commands).toEqual([]);
     expect(definition?.capabilities.map((capability) => capability.id)).toEqual(
       EXPECTED_STATIC_DASHBOARD_CAPABILITY_IDS,
+    );
+    expect(definition?.related).toEqual([
+      "klopsi-analysis",
+      "klopsi-services",
+      "klopsi-provenance",
+    ]);
+  });
+
+  it("registers the interactive dashboard as a commandless workflow", () => {
+    const definition = AGENT_SKILLS.find((entry) => entry.name === "klopsi-interactive-dashboard");
+
+    expect(definition?.kind).toBe("workflow");
+    expect(definition?.commands).toEqual([]);
+    expect(definition?.capabilities.map((capability) => capability.id)).toEqual(
+      EXPECTED_INTERACTIVE_DASHBOARD_CAPABILITY_IDS,
     );
     expect(definition?.related).toEqual([
       "klopsi-analysis",
@@ -413,6 +437,11 @@ describe("agent skill rendering", () => {
       "assets/static-board.html",
       "references/encoding-guide.md",
     ]);
+    expect([...packages.get("klopsi-interactive-dashboard")!.files.keys()]).toEqual([
+      "SKILL.md",
+      "assets/interactive-dashboard.html",
+      "references/interaction-guide.md",
+    ]);
     expect([...renderAgentSkillFiles("1.2.3")]).toEqual(
       [...packages].map(([name, value]) => [name, value.files.get("SKILL.md")]),
     );
@@ -512,6 +541,113 @@ describe("agent skill rendering", () => {
       "ranked",
     ]) {
       expect(encoding, token).toContain(token);
+    }
+  });
+
+  it("renders the interactive dashboard workflow and complete authoring resources", () => {
+    const packages = renderAgentSkillPackages("1.2.3");
+    const skill = packages.get("klopsi-interactive-dashboard")?.files.get("SKILL.md") ?? "";
+    const template =
+      packages
+        .get("klopsi-interactive-dashboard")
+        ?.files.get("assets/interactive-dashboard.html") ?? "";
+    const interaction =
+      packages.get("klopsi-interactive-dashboard")?.files.get("references/interaction-guide.md") ??
+      "";
+
+    for (const token of [
+      "self-contained",
+      "offline",
+      "interactive-dashboard.html",
+      "interaction-guide.md",
+      "initial state",
+      "one `state` object",
+      "one filtered row array",
+      "provenance verify",
+      "10,000",
+      "5 MB",
+      "15 MB",
+      "Do not silently truncate",
+      "known CRS",
+      "verify-dashboard.mjs",
+      "Check for `<artifact>.provenance.json`",
+      "textContent",
+    ]) {
+      expect(skill, token).toContain(token);
+    }
+    expect(skill).not.toContain("## Commands");
+
+    for (const marker of [
+      "{{TITLE}}",
+      "{{SUMMARY}}",
+      "{{FILTER_CONTROLS}}",
+      "{{INITIAL_MATCHING_COUNT}}",
+      "{{TOTAL_COUNT}}",
+      "{{VIEW_CARDS}}",
+      "{{DETAIL_HEADERS}}",
+      "{{DISCLOSURES}}",
+      "{{LINEAGE}}",
+      "{{NOSCRIPT_SUMMARY}}",
+      "{{PRESENTATION_MANIFEST_JSON}}",
+      "{{PRESENTATION_DATA_JSON}}",
+    ]) {
+      expect(template, marker).toContain(marker);
+    }
+    for (const marker of [
+      "data-klopsi-summary",
+      "data-klopsi-disclosures",
+      "data-klopsi-lineage",
+      "data-klopsi-filter-region",
+      "data-klopsi-record-count",
+      "data-klopsi-detail-table",
+      "data-klopsi-reset",
+      "data-klopsi-empty-state",
+    ]) {
+      expect(template, marker).toContain(marker);
+    }
+    expect(template).toContain("<form");
+    expect(template).not.toMatch(/<form\b[^>]*\saction\s*=/iu);
+    expect(template).toContain('aria-live="polite"');
+    expect(template).toContain("<noscript>");
+    expect(template).toContain("const state =");
+    expect(template).toContain("const filteredRows =");
+    for (const renderer of [
+      "renderCounts(filteredRows)",
+      "renderViews(filteredRows)",
+      "renderTable(filteredRows)",
+      "renderEmptyState(filteredRows)",
+    ]) {
+      expect(template, renderer).toContain(renderer);
+    }
+    expect(template).toContain(".textContent =");
+    expect(template).not.toMatch(
+      /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\s*\(|\.sendBeacon\s*\(|\bimport\s*\(|\beval\s*\(|\bnew\s+Function\s*\(/u,
+    );
+    expect(template).not.toMatch(/\b(?:localStorage|sessionStorage|indexedDB)\b/u);
+    expect(template).not.toMatch(/\son[a-z]+\s*=/iu);
+    expect(template.match(/<script\b/gu)).toHaveLength(3);
+    expect(template).toContain(
+      '<script id="klopsi-presentation-manifest" type="application/json">',
+    );
+    expect(template).toContain('<script id="klopsi-presentation-data" type="application/json">');
+
+    for (const token of [
+      "categorical filters",
+      "numeric ranges",
+      "date ranges",
+      "text search",
+      "one filtered row set",
+      "Reset",
+      "keyboard",
+      "focus",
+      "empty state",
+      "tooltip",
+      "linked highlighting",
+      "sorting",
+      "bounded detail rows",
+      "progressive disclosure",
+    ]) {
+      expect(interaction, token).toContain(token);
     }
   });
 
