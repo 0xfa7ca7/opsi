@@ -1,6 +1,8 @@
 # klopsi
 
-**One CLI for Slovenian public data — built for people, scripts, and agents.**
+_komandna linija za OPSI_
+
+**built for people, scripts, and agents**
 
 Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and download resources, safely select ZIP/XML data, query read-only WFS services, and analyze tabular data locally with DuckDB. Structured output, bounded operations, and built-in help make `klopsi` straightforward to use from a terminal, an automated workflow, or a coding agent.
 
@@ -13,18 +15,24 @@ Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and downloa
 
 ## Contents
 
-- [Why klopsi?](#why-klopsi)
-- [Installation](#installation)
-- [Quick start](#quick-start)
-- [Command overview](#command-overview)
-- [Working with data](#working-with-data)
-- [Automation and structured output](#automation-and-structured-output)
-- [Using klopsi with agents](#using-klopsi-with-agents)
-- [Offline use](#offline-use)
-- [Security](#security)
-- [TypeScript SDK](#typescript-sdk)
-- [Documentation](#documentation)
-- [Development](#development)
+- [klopsi](#klopsi)
+  - [Contents](#contents)
+  - [Why klopsi?](#why-klopsi)
+  - [Installation](#installation)
+    - [Requirements](#requirements)
+    - [Install from npm](#install-from-npm)
+    - [Install from source](#install-from-source)
+  - [Quick start](#quick-start)
+  - [Command overview](#command-overview)
+  - [Working with data](#working-with-data)
+  - [Automation and structured output](#automation-and-structured-output)
+  - [Using klopsi with agents](#using-klopsi-with-agents)
+  - [Offline use](#offline-use)
+  - [Security](#security)
+  - [TypeScript SDK](#typescript-sdk)
+  - [Documentation](#documentation)
+  - [Development](#development)
+  - [License](#license)
 
 ## Why klopsi?
 
