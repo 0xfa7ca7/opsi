@@ -7,7 +7,7 @@ description: "Use when inspecting or verifying OPSI artifact provenance, transfo
 
 > **Prerequisite:** Read [opsi-shared](../opsi-shared/SKILL.md) before executing these commands.
 
-Inspect recorded lineage and verify an artifact against its digest. Generated for `opsi` 0.2.0.
+Inspect recorded lineage and verify an artifact against its digest. Generated for `opsi` 0.0.1.
 
 ## Workflow
 

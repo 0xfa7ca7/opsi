@@ -38,6 +38,7 @@ describe("public CLI package", () => {
   it("uses the public opsi identity while internal packages stay private", () => {
     expect(packageMetadata).toMatchObject({
       name: "opsi",
+      version: "0.0.1",
       engines: { node: ">=24.0.0" },
     });
     expect(packageMetadata.private).toBeUndefined();

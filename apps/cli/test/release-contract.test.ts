@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Command } from "commander";
 import { describe, expect, it } from "vitest";
+import { AGENT_SKILLS } from "../src/agent-skills.js";
 import {
   COMMAND_MANIFEST,
   GLOBAL_OPTION_MANIFEST,
@@ -82,6 +83,11 @@ describe("clean CI and release contract", () => {
     expect(release).toContain("--verify-tag");
     expect(release).toContain('--target "$GITHUB_SHA"');
     expect(release).toContain("artifacts/SHA256SUMS");
+    expect(release).toContain("BOOTSTRAP_NPM_TOKEN: ${{ secrets.NPM_TOKEN }}");
+    expect(release).toContain('if [ "$VERSION" = "0.0.1" ]; then');
+    expect(release).toContain('test -n "$BOOTSTRAP_NPM_TOKEN"');
+    expect(release).toContain('test -z "$BOOTSTRAP_NPM_TOKEN"');
+    expect(release).toContain("NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}");
     expect(release).not.toContain("pnpm build");
   });
 
@@ -125,6 +131,17 @@ describe("documentation contract", () => {
       const document = await text(path);
       expect(document.length, path).toBeGreaterThan(1_500);
     }
+  });
+
+  it("documents the first public release handoff", async () => {
+    const releases = await text("docs/releases.md");
+    expect(releases).toContain("## First public release: 0.0.1");
+    expect(releases).toContain("npm view opsi@0.0.1 version");
+    expect(releases).toContain('git tag -a v0.0.1 -m "opsi 0.0.1"');
+    expect(releases).toContain("git push origin v0.0.1");
+    expect(releases).toContain("Never run `npm publish` locally");
+    expect(releases).toContain("npm trust github opsi");
+    expect(releases).toContain("gh secret delete NPM_TOKEN --env npm");
   });
 
   it("keeps the command reference synchronized with the normalized manifest", async () => {
@@ -182,8 +199,13 @@ describe("documentation contract", () => {
     expect(packagedReadme).toContain("opsi agent setup");
     expect(packagedReadme).toContain("docs/skills.md");
 
-    const changeset = await text(".changeset/agent-skills.md");
-    expect(changeset).toContain('"opsi": minor');
-    expect(changeset).toContain("Agent Skills");
+    const changelog = await text("apps/cli/CHANGELOG.md");
+    expect(changelog).toMatch(/^# opsi\n\n## 0\.0\.1\n/u);
+    expect(changelog).not.toMatch(/^## 0\.[12]\.0$/mu);
+
+    for (const skill of AGENT_SKILLS) {
+      const generated = await text(`skills/${skill.name}/SKILL.md`);
+      expect(generated, skill.name).toContain("Generated for `opsi` 0.0.1.");
+    }
   });
 });

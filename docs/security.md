@@ -31,9 +31,11 @@ malformed, oversized, or digest-invalid data fails closed, and normal mode never
 direct OPSI access. The explicit `--live` mode remains subject to the provider's normal network
 controls and is unavailable offline.
 
-GitHub Actions is the trusted publisher and GitHub Pages is the static transport, so their
-availability affects cold and refresh requests; this project makes no hard uptime-SLA claim for
-either service. Publication uses least-privilege workflow permissions: generation has
+GitHub Actions is the only npm publication path: `0.0.1` uses one short-lived token in the
+protected `npm` environment to create the package, and later releases use trusted publishing.
+GitHub Pages is the static transport, so these services' availability affects cold and refresh
+requests; this project makes no hard uptime-SLA claim for either service. Publication uses
+least-privilege workflow permissions: generation has
 `contents: read` plus the `pages: read` required by the pinned Pages configuration action,
 Pages/OIDC writes remain isolated to deployment, and verification has `contents: read`. Pinned
 third-party actions, a prior-count reduction guard, immutable snapshot retention, and

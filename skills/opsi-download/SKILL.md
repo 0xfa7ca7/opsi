@@ -7,7 +7,7 @@ description: "Use when securely downloading an OPSI dataset or resource and choo
 
 > **Prerequisite:** Read [opsi-shared](../opsi-shared/SKILL.md) before executing these commands.
 
-Download selected provider resources through the CLI's bounded secure downloader. Generated for `opsi` 0.2.0.
+Download selected provider resources through the CLI's bounded secure downloader. Generated for `opsi` 0.0.1.
 
 ## Workflow
 

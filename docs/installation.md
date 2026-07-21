@@ -29,7 +29,7 @@ failures, and verify the public artifact.
 
 ## Release verification
 
-Download `opsi-<version>.tgz` and `SHA256SUMS` from the GitHub Release, then run `sha256sum --check SHA256SUMS` (or a platform SHA-256 tool) before `npm install --global ./opsi-<version>.tgz`. The GitHub asset bytes are the CI-tested canonical tarball; npm trusted publishing publishes the identical digest with provenance. Confirm `opsi --version` matches the tag and `opsi doctor --json --offline` reports pass checks.
+Download `opsi-<version>.tgz` and `SHA256SUMS` from the GitHub Release, then run `sha256sum --check SHA256SUMS` (or a platform SHA-256 tool) before `npm install --global ./opsi-<version>.tgz`. The GitHub asset bytes are the CI-tested canonical tarball; the npm release workflow publishes the identical digest with provenance. Confirm `opsi --version` matches the tag and `opsi doctor --json --offline` reports pass checks.
 
 ## Troubleshooting
 

@@ -76,7 +76,18 @@ jobs:
           fi
           grep -q E404 /tmp/npm-view-error
       - run: npm install --global npm@^11.5.1
-      - name: Publish tested tarball with trusted publishing
+      - name: Verify bootstrap or trusted publishing authentication
+        env:
+          BOOTSTRAP_NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ "$VERSION" = "0.0.1" ]; then
+            test -n "$BOOTSTRAP_NPM_TOKEN"
+          else
+            test -z "$BOOTSTRAP_NPM_TOKEN"
+          fi
+      - name: Publish tested tarball with bootstrap token or trusted publishing
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish "$TARBALL" --provenance --access public
       - name: Verify published bytes, install, and provenance
         shell: bash

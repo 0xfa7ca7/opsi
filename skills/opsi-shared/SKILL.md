@@ -5,7 +5,7 @@ description: "Use when any OPSI CLI skill needs shared installation, output, off
 
 # OPSI shared execution contract
 
-Read this before using any OPSI domain skill. Generated for `opsi` 0.2.0.
+Read this before using any OPSI domain skill. Generated for `opsi` 0.0.1.
 
 ## Install and discover
 

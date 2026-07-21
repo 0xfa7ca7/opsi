@@ -7,7 +7,7 @@ description: "Use when inspecting an OPSI resource, its secure access, headers, 
 
 > **Prerequisite:** Read [opsi-shared](../opsi-shared/SKILL.md) before executing these commands.
 
-Inspect a resource safely without committing to a full data workflow. Generated for `opsi` 0.2.0.
+Inspect a resource safely without committing to a full data workflow. Generated for `opsi` 0.0.1.
 
 ## Workflow
 
