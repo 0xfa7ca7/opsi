@@ -16,7 +16,7 @@ The production base URL is `https://0xfa7ca7.github.io/klopsi/`. Version 1 publi
 - `v1/index.json`: the publisher's retention index; clients do not consume it;
 - `deployment.json`: the digest and generation timestamp used by deployment verification.
 
-The scheduled workflow starts at minute 17 every six hours (UTC). Clients reject a snapshot
+The scheduled workflow starts once per day at 00:17 UTC. Clients reject a snapshot
 once its `generatedAt` is more than 24 hours old; retrieval or cache time never extends that
 window. Each deployment carries forward valid immutable snapshots generated within the
 previous 48 hours. The 48-hour retention window prevents a cached prior manifest from pointing
@@ -47,7 +47,8 @@ ssh-keygen -t ed25519 -C "klopsi catalogue publisher" -N "" -f ./catalogue-deplo
 Add `catalogue-deploy-key.pub` in the public repository under **Settings → Deploy keys → Add
 deploy key** and select **Allow write access**. In the public `0xfa7ca7/klopsi` source repository, create
 the `catalogue-production` environment, configure its deployment branches and tags to allow only
-the trusted default branch (`main`), and add the private file as that environment's
+the trusted default branch (`main`), leave required reviewers disabled so scheduled publications
+run unattended, and add the private file as that environment's
 `CATALOGUE_DEPLOY_KEY` secret. Do not create a repository-level secret with this name. Delete both
 local files after the environment secret is set. The public half must be registered only on
 `0xfa7ca7.github.io`; the private half must exist only in the protected environment secret and

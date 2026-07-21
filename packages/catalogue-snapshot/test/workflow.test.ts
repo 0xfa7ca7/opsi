@@ -5,10 +5,10 @@ import { describe, expect, it } from "vitest";
 const workflowPath = resolve(process.cwd(), ".github/workflows/catalogue-snapshot.yml");
 
 describe("catalogue snapshot workflow", () => {
-  it("publishes from the default branch every six hours with serialized runs", async () => {
+  it("publishes from the default branch once per day with serialized runs", async () => {
     const workflow = await readFile(workflowPath, "utf8");
 
-    expect(workflow).toContain('    - cron: "17 */6 * * *"');
+    expect(workflow).toContain('    - cron: "17 0 * * *"');
     expect(workflow).toMatch(/^ {2}workflow_dispatch:\n/mu);
     expect(topLevelBlock(workflow, "concurrency").trimEnd()).toBe(
       "  group: catalogue-pages\n  cancel-in-progress: false",
