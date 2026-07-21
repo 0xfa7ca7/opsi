@@ -31,7 +31,7 @@ Its JSON object has these exact required top-level fields:
 - `schemaVersion`: the string `"1"`;
 - `mode`: `"static"` or `"interactive"`;
 - `generator`: the string `"klopsi-agent-skill"`;
-- `generatedAt`: an ISO-8601 timestamp;
+- `generatedAt`: a canonical UTC ISO-8601 timestamp in `YYYY-MM-DDTHH:mm:ss.sssZ` form;
 - `title`: a nonempty presentation title;
 - `sources`: a nonempty array of `identity`, 64-character lowercase hexadecimal `sha256`, boolean `verified`, and optional nonempty `provenancePath` records;
 - `transformations`: an array of nonempty plain-language strings;
@@ -52,9 +52,9 @@ Interactive mode additionally embeds exactly one `klopsi-presentation-data` appl
 
 ## 5. Offline and content security
 
-The artifact is one self-contained HTML file. Opening it must not load remote scripts, styles, images, fonts, frames, media, imports, data, telemetry, APIs, or map tiles. Ordinary visible citation anchors may link to sources because they do not load on open.
+The artifact is one self-contained HTML file. Opening it must not load remote scripts, styles, images, fonts, frames, media, imports, data, telemetry, APIs, map tiles, or meta-refresh navigation. Ordinary visible citation anchors may link to sources because they do not load on open.
 
-Include a Content Security Policy meta element that at minimum sets `default-src 'none'`, `connect-src 'none'`, `object-src 'none'`, `base-uri 'none'`, and `form-action 'none'`. Inline styles and the interactive inline script may be enabled explicitly. Do not use `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`, dynamic `import()`, `eval`, `new Function`, frames, objects, or embeds.
+Include a Content Security Policy meta element that at minimum sets `default-src 'none'`, `connect-src 'none'`, `object-src 'none'`, `base-uri 'none'`, and `form-action 'none'`, with no duplicate directives. Inline styles and the interactive inline script may be enabled explicitly. Do not use inline `on*` event handlers, `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`, dynamic `import()`, `eval`, `new Function`, frames, objects, or embeds.
 
 ## 6. Safe JSON and DOM text handling
 

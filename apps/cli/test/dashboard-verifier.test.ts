@@ -277,6 +277,150 @@ describe("dashboard presentation verifier", () => {
     });
   });
 
+  it("detects prohibited network APIs in event-handler attributes", async () => {
+    const withHandler = interactiveFixture.replace(
+      "<body>",
+      `<body onload="fetch('/dashboard-data')">`,
+    );
+
+    const result = await verifyContent("event-handler-network", withHandler, "interactive");
+    expect(result.findings?.map((item) => item.code)).toContain("NETWORK_API");
+  });
+
+  it("detects unsafe code in event-handler attributes", async () => {
+    const withHandler = interactiveFixture.replace(
+      "</main>",
+      `<button type="button" onclick="eval('alert(1)')">Unsafe</button></main>`,
+    );
+
+    const result = await verifyContent("event-handler-unsafe", withHandler, "interactive");
+    expect(result.findings?.map((item) => item.code)).toContain("UNSAFE_CODE");
+  });
+
+  it("rejects meta refresh navigation", async () => {
+    const withRefresh = staticFixture.replace(
+      "<head>",
+      `<head><meta http-equiv="refresh" content="0;url=https://example.com/dashboard">`,
+    );
+
+    const result = await verifyContent("meta-refresh", withRefresh, "static");
+    expect(result.findings?.map((item) => item.code)).toContain("REMOTE_RESOURCE");
+  });
+
+  it("rejects duplicate CSP directives even when the last value is restrictive", async () => {
+    const duplicateDirective = staticFixture.replace(
+      "connect-src 'none';",
+      "connect-src https:; connect-src 'none';",
+    );
+
+    const result = await verifyContent("duplicate-csp", duplicateDirective, "static");
+    expect(result.findings?.map((item) => item.code)).toContain("CSP_INVALID");
+  });
+
+  it("rejects duplicate presentation manifest blocks", async () => {
+    const manifest = staticFixture.match(
+      /<script id="klopsi-presentation-manifest" type="application\/json">[\s\S]*?<\/script>/u,
+    )?.[0];
+    expect(manifest).toBeDefined();
+    const duplicated = staticFixture.replace("</body>", `${manifest}</body>`);
+
+    const result = await verifyContent("duplicate-manifest", duplicated, "static");
+    expect(result.findings?.map((item) => item.code)).toContain("MANIFEST_INVALID");
+  });
+
+  it("rejects duplicate interactive presentation-data blocks", async () => {
+    const data = interactiveFixture.match(
+      /<script id="klopsi-presentation-data" type="application\/json">[\s\S]*?<\/script>/u,
+    )?.[0];
+    expect(data).toBeDefined();
+    const duplicated = interactiveFixture.replace("</body>", `${data}</body>`);
+
+    const result = await verifyContent("duplicate-data", duplicated, "interactive");
+    expect(result.findings?.map((item) => item.code)).toContain("MANIFEST_INVALID");
+  });
+
+  it("rejects extra presentation manifest keys", async () => {
+    const extraKey = replaceManifest(staticFixture, (manifest) => {
+      manifest.extra = true;
+    });
+
+    const result = await verifyContent("manifest-extra-key", extraKey, "static");
+    expect(result.findings?.map((item) => item.code)).toContain("MANIFEST_INVALID");
+  });
+
+  it("requires canonical valid ISO-8601 presentation timestamps", async () => {
+    for (const [name, generatedAt] of [
+      ["loose", "2026-07-21"],
+      ["invalid-date", "2026-02-30T00:00:00.000Z"],
+    ] as const) {
+      const invalidTimestamp = replaceManifest(staticFixture, (manifest) => {
+        manifest.generatedAt = generatedAt;
+      });
+      const result = await verifyContent(`timestamp-${name}`, invalidTimestamp, "static");
+      expect(
+        result.findings?.map((item) => item.code),
+        generatedAt,
+      ).toContain("MANIFEST_INVALID");
+    }
+  });
+
+  it("requires coordinate geography fields to exist in manifest data fields", async () => {
+    const missingCoordinates = replaceManifest(staticFixture, (manifest) => {
+      manifest.geography = {
+        kind: "coordinates",
+        crs: "EPSG:4326",
+        latitudeField: "latitude",
+        longitudeField: "longitude",
+      };
+    });
+
+    const result = await verifyContent("missing-coordinate-fields", missingCoordinates, "static");
+    expect(result.findings?.map((item) => item.code)).toContain("MANIFEST_INVALID");
+  });
+
+  it("requires an embedded geometry field to exist in manifest data fields", async () => {
+    const missingGeometry = replaceManifest(staticFixture, (manifest) => {
+      manifest.geography = {
+        kind: "geometry",
+        crs: "EPSG:3794",
+        geometryField: "geometry",
+      };
+    });
+
+    const result = await verifyContent("missing-geometry-field", missingGeometry, "static");
+    expect(result.findings?.map((item) => item.code)).toContain("MANIFEST_INVALID");
+  });
+
+  it("reports independent findings when the manifest and data body are both invalid", async () => {
+    const invalidBody = "x".repeat(MAX_DATA_BYTES + 1);
+    const withInvalidBody = interactiveFixture.replace(
+      /(<script id="klopsi-presentation-data" type="application\/json">)[\s\S]*?(<\/script>)/u,
+      `$1${invalidBody}$2`,
+    );
+    const combinedInvalid = replaceManifest(withInvalidBody, (manifest) => {
+      manifest.title = "";
+      manifest.mode = "static";
+      manifest.views = [];
+      const data = manifest.data as Record<string, unknown>;
+      data.originalRows = 10_002;
+      data.presentedRows = 10_001;
+      data.embeddedBytes = 0;
+    });
+
+    const result = await verifyContent("combined-invalid", combinedInvalid, "interactive");
+    expect(result.exitCode).toBe(1);
+    expect(result.findings?.map((item) => item.code)).toEqual(
+      expect.arrayContaining([
+        "MANIFEST_INVALID",
+        "MODE_MISMATCH",
+        "VIEW_METADATA_INVALID",
+        "DATA_TOO_LARGE",
+        "ROW_LIMIT_EXCEEDED",
+        "REDUCTION_UNDISCLOSED",
+      ]),
+    );
+  });
+
   it("uses exit 2 for invalid invocation and non-regular input", async () => {
     expect(await runVerifier(["--json"])).toMatchObject({ exitCode: 2 });
     expect(await runVerifier([join(fixtures, "valid-static.html"), "--wat"])).toMatchObject({
