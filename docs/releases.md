@@ -47,7 +47,7 @@ CI then creates one named tarball, `pack.json`, and `SHA256SUMS`. Exact-install 
 
 ## Tag and publish binding
 
-Push `v<version>` only after the same commit's tag-triggered CI succeeds. The protected `npm` environment gates the publish job. It verifies `GITHUB_REF_TYPE=tag`, checkout tag commit equals `GITHUB_SHA`, confirms through the GitHub API that the active `Protect release tags` ruleset restricts creation, update, and deletion of `refs/tags/v*`, and locates a successful CI `push` run whose head SHA and head branch/tag equal the release event. The artifact checksum, tar-embedded name/version, and tag are checked before registry access. Existing versions abort.
+Push `v<version>` only after the same commit's tag-triggered CI succeeds. GitHub enforces the `Protect release tags` ruleset when the tag is written; the workflow does not introspect that control-plane configuration at runtime. The protected `npm` environment gates the publish job. It verifies `GITHUB_REF_TYPE=tag`, checkout tag commit equals `GITHUB_SHA`, and locates a successful CI `push` run whose head SHA and head branch/tag equal the release event. The artifact checksum, tar-embedded name/version, and tag are checked before registry access. Existing versions abort.
 
 npm is upgraded to at least 11.5.1 and publishes the downloaded tarball with provenance. Version `0.0.1` receives `NODE_AUTH_TOKEN` from the protected environment for the registry bootstrap; later releases require that secret to be absent and use trusted publishing (`id-token: write`). Afterward, registry `dist.integrity` must equal the canonical SHA-512 SRI; `npm pack opsi@version` must have the same SHA-256 bytes; exact install/version and signature audit must pass. Build provenance is attested.
 
