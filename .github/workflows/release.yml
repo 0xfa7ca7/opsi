@@ -18,10 +18,10 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.ref }}
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
@@ -30,10 +30,29 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          test "$GITHUB_REF_PROTECTED" = "true"
           test "$GITHUB_REF_TYPE" = "tag"
           test "$GITHUB_REF" = "refs/tags/$GITHUB_REF_NAME"
           test "$(git rev-list -n 1 "$GITHUB_REF_NAME")" = "$GITHUB_SHA"
+          RULESET_ID="$(
+            gh api "repos/$GITHUB_REPOSITORY/rulesets" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              --jq '.[] | select(.name == "Protect release tags" and .target == "tag" and .enforcement == "active") | .id' \
+              | head -n 1
+          )"
+          test -n "$RULESET_ID"
+          RULESET_JSON="$(
+            gh api "repos/$GITHUB_REPOSITORY/rulesets/$RULESET_ID" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2026-03-10"
+          )"
+          jq -e '
+            .name == "Protect release tags" and
+            .target == "tag" and
+            .enforcement == "active" and
+            (.conditions.ref_name.include | index("refs/tags/v*") != null) and
+            (["creation", "update", "deletion"] - [.rules[].type] | length == 0)
+          ' <<<"$RULESET_JSON" > /dev/null
           RUN_JSON=null
           for attempt in $(seq 1 30); do
             RUN_JSON="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&branch=$GITHUB_REF_NAME&event=push&status=success" --jq '.workflow_runs[0]')"
@@ -49,7 +68,7 @@ jobs:
           test "$CI_EVENT" = "push"
           test "$CI_HEAD_BRANCH" = "$GITHUB_REF_NAME"
           echo "run-id=$RUN_ID" >> "$GITHUB_OUTPUT"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: canonical-npm-package
           path: artifacts
@@ -109,10 +128,10 @@ jobs:
           npm install "opsi@$VERSION"
           ./node_modules/.bin/opsi --version
           npm audit signatures
-      - uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45
+      - uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373
         with:
           subject-path: artifacts/*.tgz
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: release-assets-${{ github.ref_name }}
           path: |
@@ -127,10 +146,10 @@ jobs:
       contents: write
       actions: read
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.ref }}
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: release-assets-${{ github.ref_name }}
           path: artifacts

@@ -47,7 +47,7 @@ CI then creates one named tarball, `pack.json`, and `SHA256SUMS`. Exact-install 
 
 ## Tag and publish binding
 
-Push `v<version>` only after the same commit's tag-triggered CI succeeds. The protected `npm` environment gates the publish job. It verifies `GITHUB_REF_TYPE=tag`, checkout tag commit equals `GITHUB_SHA`, and locates a successful CI `push` run whose head SHA and head branch/tag equal the release event. The artifact checksum, tar-embedded name/version, and tag are checked before registry access. Existing versions abort.
+Push `v<version>` only after the same commit's tag-triggered CI succeeds. The protected `npm` environment gates the publish job. It verifies `GITHUB_REF_TYPE=tag`, checkout tag commit equals `GITHUB_SHA`, confirms through the GitHub API that the active `Protect release tags` ruleset restricts creation, update, and deletion of `refs/tags/v*`, and locates a successful CI `push` run whose head SHA and head branch/tag equal the release event. The artifact checksum, tar-embedded name/version, and tag are checked before registry access. Existing versions abort.
 
 npm is upgraded to at least 11.5.1 and publishes the downloaded tarball with provenance. Version `0.0.1` receives `NODE_AUTH_TOKEN` from the protected environment for the registry bootstrap; later releases require that secret to be absent and use trusted publishing (`id-token: write`). Afterward, registry `dist.integrity` must equal the canonical SHA-512 SRI; `npm pack opsi@version` must have the same SHA-256 bytes; exact install/version and signature audit must pass. Build provenance is attested.
 
@@ -55,4 +55,6 @@ npm is upgraded to at least 11.5.1 and publishes the downloaded tarball with pro
 
 A separate least-privilege job with `contents: write` downloads the same in-run release artifact, rechecks `SHA256SUMS`, verifies the existing tag and target commit, creates the GitHub Release, and attaches the canonical `.tgz` plus `SHA256SUMS` without rebuilding. The publish job retains `contents: read` and OIDC permission.
 
-If any binding, digest, registry, provenance, install, or asset step fails, do not republish or recreate bytes locally. Preserve logs/artifacts, fix source/workflow under a new version/Changeset, rerun CI, and create a new tag. npm versions are immutable; never reuse a failed/partial published version.
+If the workflow fails before registry publication, first prove that npm still returns `E404` for the version and no GitHub Release exists. Preserve the failed run, fix the source or workflow through protected `main`, rerun every gate, and retarget the annotated tag to the corrected commit through the audited administrator bypass. This recovery is allowed only while both public artifacts are absent.
+
+If publication may have started, or any registry, provenance, install, or asset step fails after npm accepts the version, do not republish, retarget the tag, or recreate bytes locally. Preserve logs and artifacts, fix the source or workflow under a new version and Changeset, rerun CI, and create a new tag. npm versions are immutable; never reuse a failed or partially published version.
