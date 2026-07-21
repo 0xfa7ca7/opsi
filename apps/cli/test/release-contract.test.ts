@@ -1,8 +1,29 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { Command } from "commander";
 import { describe, expect, it } from "vitest";
+import {
+  COMMAND_MANIFEST,
+  GLOBAL_OPTION_MANIFEST,
+  registerCommandManifest,
+} from "../src/command-manifest.js";
 
 const text = (path: string) => readFile(resolve(process.cwd(), path), "utf8");
+
+function commandReferenceSections(document: string): ReadonlyMap<string, string> {
+  const sections = new Map<string, string>();
+  for (const section of document.split(/^### /mu).slice(1)) {
+    const match = /^`([^`]+)`\n/u.exec(section);
+    if (match?.[1] !== undefined) sections.set(match[1], section.split(/^## /mu)[0] ?? section);
+  }
+  return sections;
+}
+
+function longFlag(flags: string): string {
+  const match = /--[a-z][a-z-]*/u.exec(flags);
+  if (match === null) throw new Error(`Option has no long flag: ${flags}`);
+  return match[0];
+}
 
 describe("clean CI and release contract", () => {
   it("keeps pack tests after build and ordinary tests independent of dist", async () => {
@@ -104,38 +125,33 @@ describe("documentation contract", () => {
       const document = await text(path);
       expect(document.length, path).toBeGreaterThan(1_500);
     }
-    const commands = await text("docs/commands.md");
-    for (const command of [
-      "search",
-      "dataset show",
-      "dataset resources",
-      "dataset schema",
-      "dataset open",
-      "resource show",
-      "resource preview",
-      "resource headers",
-      "download",
-      "query",
-      "convert",
-      "validate",
-      "provenance show",
-      "provenance verify",
-      "providers list",
-      "cache info",
-      "cache list",
-      "cache clear",
-      "cache prune",
-      "cache verify",
-      "config get",
-      "config set",
-      "config list",
-      "config path",
-      "doctor",
-      "completion",
-      "generate-skills",
-      "agent setup",
-    ])
-      expect(commands, command).toContain(`\`${command}`);
+  });
+
+  it("keeps the command reference synchronized with the normalized manifest", async () => {
+    const document = await text("docs/commands.md");
+    const globalReference = document.split(/^### /mu)[0] ?? "";
+    const sections = commandReferenceSections(document);
+
+    for (const option of GLOBAL_OPTION_MANIFEST) {
+      expect(globalReference, `global option ${option.flags}`).toContain(longFlag(option.flags));
+    }
+    for (const command of COMMAND_MANIFEST) {
+      const section = sections.get(command.path);
+      expect(section, `command section ${command.path}`).toBeDefined();
+      for (const option of command.options) {
+        expect(
+          `${globalReference}\n${section}`,
+          `${command.path} option ${option.flags}`,
+        ).toContain(longFlag(option.flags));
+      }
+    }
+  });
+
+  it("gives the WFS service command group descriptive help", () => {
+    const program = new Command();
+    registerCommandManifest(program);
+    const service = program.commands.find((command) => command.name() === "service");
+    expect(service?.description()).toBe("Inspect read-only WFS services");
   });
 
   it("documents installable Agent Skills and their generated release contract", async () => {

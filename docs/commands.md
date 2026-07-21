@@ -28,7 +28,7 @@ Syntax: `opsi dataset resources <id>`. Returns resources belonging to the datase
 
 ### `dataset schema`
 
-Syntax: `opsi dataset schema <id> [--resource <id-or-reference>] [--sheet <name>]`. If exactly one tabular resource exists it is selected; otherwise `--resource` is required. Network safety overrides are available. Output contains inferred fields/types. Ambiguous selection exits 2, missing content exits 3, unsupported formats exit 5. Example: `opsi dataset schema dataset-traffic-001 --resource resource-traffic-csv-001 --json`.
+Syntax: `opsi dataset schema <id> [--resource <id-or-reference>] [--sheet <name>] [--entry <path>] [--record-path <path>]`. If exactly one tabular resource exists it is selected; otherwise `--resource` is required. Use `--sheet` for XLSX, `--entry` for ambiguous ZIP archives, and `--record-path` for ambiguous XML. Network safety overrides are available. Output contains inferred fields/types. Ambiguous selection exits 2, missing content exits 3, unsupported formats exit 5. Example: `opsi dataset schema dataset-traffic-001 --resource resource-traffic-csv-001 --json`.
 
 ### `dataset open`
 
@@ -62,7 +62,7 @@ Syntax: `opsi download <ids...> [--dataset|--resource] [--destination <path>|--o
 
 ### `validate`
 
-Syntax: `opsi validate <input> [--metadata] [--sheet <name>]`. Without `--metadata`, validates local/provider tabular content. With it, input must be a canonical dataset/resource reference and only metadata is checked. Output includes issues, severities, and recommendations. Invalid data exits 6. Example: `opsi validate ./downloads/traffic.csv --json`.
+Syntax: `opsi validate <input> [--metadata] [--sheet <name>] [--entry <path>] [--record-path <path>]`. Without `--metadata`, validates local/provider content; use `--sheet` for XLSX, `--entry` for ambiguous ZIP archives, and `--record-path` for ambiguous XML. With `--metadata`, input must be a canonical dataset/resource reference and only metadata is checked. The remote-content overrides `--allow-insecure-http` and `--allow-private-network` apply to content validation for one invocation. Output includes issues, severities, and recommendations. Invalid data exits 6. Example: `opsi validate ./downloads/traffic.csv --json`.
 
 ### `convert`
 
@@ -72,9 +72,29 @@ Syntax: `opsi convert <input> --to <csv|tsv|json|ndjson|xlsx|parquet> --output <
 
 Syntax: `opsi query <input> --sql <statement> [options]`. Only one read-only SELECT, WITH…SELECT, or VALUES statement is accepted. Options include `--limit`, `--timeout-ms`, `--sheet`, `--entry`, `--record-path`, `--output`, `--force`, and network overrides. User SQL runs against OPSI-owned table `data` with row/time/memory/thread/cell/output bounds and external access disabled. Example: `opsi query archive.zip --entry rows.csv --sql "select * from data limit 2" --json`.
 
-### `service inspect|layers|schema|preview|count|export`
+### `service inspect`
 
-Read-only WFS syntax starts with a canonical resource: `opsi service inspect <resource>`, `service layers <resource>`, `service schema <resource> --layer <name>`, `service preview <resource> --layer <name> [--limit]`, `service count <resource> --layer <name>`, and `service export <resource> --layer <name> --output <path>`. Preview/export accept repeatable `--property`, typed `--filter-eq field=value`, `--bbox`, `--crs`, and pagination. Raw CQL/XML filters and write transactions are not supported. Example: `opsi service preview opsi:resource:ID --layer si:roads --property id,name --limit 5 --json`.
+Syntax: `opsi service inspect <resource>`. Inspects a canonical WFS resource and reports the negotiated service version, supported operations, output formats, and advertised layers. The remote-content overrides apply for one invocation. Example: `opsi service inspect opsi:resource:ID --json`.
+
+### `service layers`
+
+Syntax: `opsi service layers <resource>`. Lists the feature layers exposed by a canonical WFS resource. The remote-content overrides apply for one invocation. Example: `opsi service layers opsi:resource:ID --json`.
+
+### `service schema`
+
+Syntax: `opsi service schema <resource> --layer <name>`. Describes the fields and types for one feature layer. The remote-content overrides apply for one invocation. Example: `opsi service schema opsi:resource:ID --layer si:roads --json`.
+
+### `service preview`
+
+Syntax: `opsi service preview <resource> --layer <name> [options]`. `--limit` and nonnegative `--start-index` bound pagination. Repeatable/comma-separated `--property` selects fields, repeatable `--filter-eq field=value` applies typed equality filters, and `--bbox minx,miny,maxx,maxy` accepts an optional `--crs`. Raw CQL/XML filters are not supported. Example: `opsi service preview opsi:resource:ID --layer si:roads --property id,name --limit 5 --json`.
+
+### `service count`
+
+Syntax: `opsi service count <resource> --layer <name> [options]`. Repeatable `--filter-eq field=value` applies typed equality filters, and `--bbox minx,miny,maxx,maxy` accepts an optional `--crs`. The operation is read-only and does not accept raw CQL/XML filters. Example: `opsi service count opsi:resource:ID --layer si:roads --filter-eq status=active --json`.
+
+### `service export`
+
+Syntax: `opsi service export <resource> --layer <name> --output <path> [options]`. Exports bounded CSV rows using `--limit`, nonnegative `--start-index`, repeatable/comma-separated `--property`, typed `--filter-eq field=value`, `--bbox`, and `--crs`. Existing regular files require `--force`. Write transactions and raw CQL/XML filters are not supported. Example: `opsi service export opsi:resource:ID --layer si:roads --limit 1000 --output roads.csv`.
 
 ### `provenance show`
 

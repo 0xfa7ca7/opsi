@@ -359,6 +359,7 @@ const GROUP_DESCRIPTIONS: Readonly<Record<string, string>> = {
   providers: "Inspect data providers",
   cache: "Inspect and maintain the local cache",
   provenance: "Inspect and verify artifact provenance",
+  service: "Inspect read-only WFS services",
   config: "Inspect and update user configuration",
   agent: "Set up AI agent integrations",
 };
