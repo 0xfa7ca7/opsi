@@ -32,6 +32,7 @@ const EXPECTED_SKILLS = [
   "klopsi-analysis",
   "klopsi-services",
   "klopsi-provenance",
+  "klopsi-static-dashboard",
   "klopsi-local-state",
   "klopsi-diagnostics",
 ] as const;
@@ -60,6 +61,13 @@ const EXPECTED_WFS_CAPABILITY_IDS = [
   "feature-selection",
   "spatial-filtering",
   "bounded-export",
+] as const;
+
+const EXPECTED_STATIC_DASHBOARD_CAPABILITY_IDS = [
+  "input-readiness",
+  "encoding-selection",
+  "board-composition",
+  "verification",
 ] as const;
 
 const REQUIRED_GUIDANCE = {
@@ -178,6 +186,21 @@ describe("agent skill registry", () => {
   it("covers the complete approved repertoire and command manifest", () => {
     expect(AGENT_SKILLS.map((entry) => entry.name)).toEqual(EXPECTED_SKILLS);
     expect(validateAgentSkills()).toEqual([]);
+  });
+
+  it("registers the static dashboard as a commandless workflow", () => {
+    const definition = AGENT_SKILLS.find((entry) => entry.name === "klopsi-static-dashboard");
+
+    expect(definition?.kind).toBe("workflow");
+    expect(definition?.commands).toEqual([]);
+    expect(definition?.capabilities.map((capability) => capability.id)).toEqual(
+      EXPECTED_STATIC_DASHBOARD_CAPABILITY_IDS,
+    );
+    expect(definition?.related).toEqual([
+      "klopsi-analysis",
+      "klopsi-services",
+      "klopsi-provenance",
+    ]);
   });
 
   it("uses concise discovery triggers for every skill description", () => {
@@ -385,6 +408,11 @@ describe("agent skill rendering", () => {
       "references/presentation-contract.md",
       "scripts/verify-dashboard.mjs",
     ]);
+    expect([...packages.get("klopsi-static-dashboard")!.files.keys()]).toEqual([
+      "SKILL.md",
+      "assets/static-board.html",
+      "references/encoding-guide.md",
+    ]);
     expect([...renderAgentSkillFiles("1.2.3")]).toEqual(
       [...packages].map(([name, value]) => [name, value.files.get("SKILL.md")]),
     );
@@ -412,11 +440,79 @@ describe("agent skill rendering", () => {
     expect(content).toContain("## Route requests");
     expect(content).toContain("smallest relevant skill");
     expect(content).toContain("Do not pass `/klopsi`, `@klopsi`, or `$klopsi` to the shell");
-    for (const skillName of EXPECTED_SKILLS.slice(2)) {
+    const routedSkills = AGENT_SKILLS.find((entry) => entry.name === "klopsi")?.related ?? [];
+    for (const skillName of routedSkills) {
       expect(content).toContain(`../${skillName}/SKILL.md`);
     }
     expect(content).toContain("Generate installable Agent Skills");
     expect(content).not.toContain("### `search`");
+  });
+
+  it("renders the static dashboard workflow and complete authoring resources", () => {
+    const packages = renderAgentSkillPackages("1.2.3");
+    const skill = packages.get("klopsi-static-dashboard")?.files.get("SKILL.md") ?? "";
+    const template =
+      packages.get("klopsi-static-dashboard")?.files.get("assets/static-board.html") ?? "";
+    const encoding =
+      packages.get("klopsi-static-dashboard")?.files.get("references/encoding-guide.md") ?? "";
+
+    for (const token of [
+      "self-contained",
+      "offline",
+      "static-board.html",
+      "encoding-guide.md",
+      "provenance verify",
+      "10,000",
+      "5 MB",
+      "15 MB",
+      "Do not silently truncate",
+      "known CRS",
+      "verify-dashboard.mjs",
+      "Check for `<artifact>.provenance.json`",
+    ]) {
+      expect(skill, token).toContain(token);
+    }
+    expect(skill).not.toContain("## Commands");
+
+    for (const marker of [
+      "{{TITLE}}",
+      "{{SUMMARY}}",
+      "{{KPI_CARDS}}",
+      "{{VIEW_CARDS}}",
+      "{{DETAIL_ROWS}}",
+      "{{DISCLOSURES}}",
+      "{{LINEAGE}}",
+      "{{PRESENTATION_MANIFEST_JSON}}",
+    ]) {
+      expect(template, marker).toContain(marker);
+    }
+    expect(template).toContain('role="img"');
+    expect(template).toContain("<title>");
+    expect(template).toContain("<desc ");
+    expect(template).toContain("<table");
+    expect(template).toContain("break-inside: avoid");
+    expect(template).toContain("data-klopsi-summary");
+    expect(template).toContain("data-klopsi-disclosures");
+    expect(template).toContain("data-klopsi-lineage");
+    expect(template.match(/<script\b/gu)).toHaveLength(1);
+    expect(template).toContain(
+      '<script id="klopsi-presentation-manifest" type="application/json">',
+    );
+
+    for (const token of [
+      "Question",
+      "Encoding",
+      "population",
+      "unit",
+      "takeaway",
+      'role="img"',
+      "known CRS",
+      "Do not use color as the only",
+      "precision",
+      "ranked",
+    ]) {
+      expect(encoding, token).toContain(token);
+    }
   });
 
   it("renders the shared execution and safety contract", () => {

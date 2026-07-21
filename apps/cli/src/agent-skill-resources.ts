@@ -88,6 +88,147 @@ Exit 0 means the bounded checks found no contract violations. Exit 1 returns rep
 The embedded manifest records presentation evidence, source digests, verification status, transformations, reductions, and visual semantics. It is not a KLOPSI provenance sidecar and passing the dashboard verifier is not official artifact provenance. Use \`klopsi provenance verify\` to make provenance claims.
 `;
 
+const STATIC_BOARD_TEMPLATE = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; style-src 'unsafe-inline'">
+  <title>{{TITLE}}</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #52606d;
+      --paper: #f7f5ef;
+      --card: #ffffff;
+      --line: #d7dce2;
+      --accent: #075985;
+      --accent-soft: #dff2fa;
+      --highlight: #a33a18;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; }
+    main { width: min(1180px, calc(100% - 2rem)); margin: 0 auto; padding: 2.5rem 0 3rem; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 22ch; font-size: clamp(2rem, 5vw, 4.5rem); line-height: 1; letter-spacing: -0.04em; }
+    h2 { font-size: 1.25rem; }
+    .eyebrow { color: var(--accent); font-size: .8rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+    .lede { max-width: 72ch; font-size: 1.15rem; }
+    .meta { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; color: var(--muted); }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin: 2rem 0; }
+    .kpi, .view, .notes, .details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 28px rgb(23 32 42 / 6%); }
+    .kpi { min-height: 140px; padding: 1.1rem; }
+    .kpi strong { display: block; font-size: 2rem; font-variant-numeric: tabular-nums; }
+    .view-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1rem; }
+    .view { grid-column: span 6; padding: 1.25rem; }
+    .view--wide { grid-column: 1 / -1; }
+    .view-meta { color: var(--muted); font-size: .88rem; }
+    .takeaway { border-left: 4px solid var(--highlight); padding-left: .8rem; }
+    svg { display: block; width: 100%; height: auto; overflow: visible; }
+    .axis { stroke: var(--ink); stroke-width: 1; }
+    .mark { fill: var(--accent); }
+    .mark-secondary { fill: var(--accent-soft); stroke: var(--accent); }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    caption { padding-bottom: .75rem; text-align: left; font-weight: 700; }
+    th, td { border-bottom: 1px solid var(--line); padding: .65rem; text-align: left; vertical-align: top; }
+    th { background: var(--accent-soft); }
+    .details, .notes { margin-top: 1rem; padding: 1.25rem; }
+    a { color: var(--accent); text-underline-offset: .2em; }
+    a:focus-visible { outline: 3px solid var(--highlight); outline-offset: 3px; }
+    @media (max-width: 760px) { .view { grid-column: 1 / -1; } }
+    @media print {
+      @page { margin: 12mm; }
+      body { background: #fff; font-size: 10pt; }
+      main { width: 100%; padding: 0; }
+      .kpi, .view, .notes, .details, table, svg { break-inside: avoid; box-shadow: none; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Static evidence board</p>
+      <h1>{{TITLE}}</h1>
+      <p class="lede" data-klopsi-summary>{{SUMMARY}}</p>
+      <p class="meta"><span><strong>Scope:</strong> {{SCOPE}}</span><span><strong>Period:</strong> {{PERIOD}}</span><span><strong>Source:</strong> {{SOURCE}}</span></p>
+    </header>
+
+    <!-- Replace KPI_CARDS with three to five article.kpi elements. -->
+    <section class="kpi-grid" aria-label="Headline findings">
+      {{KPI_CARDS}}
+    </section>
+
+    <!-- Replace VIEW_CARDS with two to six article.view elements. An accessible inline-SVG pattern follows:
+    <article class="view"><h2>View heading</h2><p class="view-meta">Question · population · unit · record count</p>
+      <svg role="img" aria-labelledby="view-title view-desc" viewBox="0 0 640 320">
+        <title id="view-title">Descriptive chart title</title><desc id="view-desc">Chart type, axes, population, unit, and principal pattern.</desc>
+        <line class="axis" x1="48" y1="280" x2="620" y2="280"></line><rect class="mark" x="80" y="120" width="72" height="160"></rect>
+      </svg><p class="takeaway">Plain-language takeaway.</p></article>
+    -->
+    <section class="view-grid" aria-label="Analytical views">
+      {{VIEW_CARDS}}
+    </section>
+
+    <section class="details">
+      <h2>Exact values</h2>
+      <table>
+        <caption>{{DETAIL_CAPTION}}</caption>
+        <thead><tr>{{DETAIL_HEADERS}}</tr></thead>
+        <tbody>{{DETAIL_ROWS}}</tbody>
+      </table>
+    </section>
+
+    <section class="notes" data-klopsi-disclosures>
+      <h2>Method and disclosures</h2>
+      {{DISCLOSURES}}
+    </section>
+
+    <section class="notes" data-klopsi-lineage>
+      <h2>Source verification and lineage</h2>
+      {{LINEAGE}}
+    </section>
+  </main>
+
+  <script id="klopsi-presentation-manifest" type="application/json">{{PRESENTATION_MANIFEST_JSON}}</script>
+</body>
+</html>
+`;
+
+const STATIC_ENCODING_GUIDE = `# Static dashboard encoding guide
+
+Choose the visual form from the analytical question and the prepared fields, not from decoration or a requested library.
+
+| Question | Encoding | Non-map or compact fallback |
+| --- | --- | --- |
+| Change over time | Line or area chart with a labeled time axis | Exact-values table or ordered change list |
+| Compare categories | Bars, lollipops, or ranked list | Semantic ranked table |
+| Show a distribution | Histogram or statistical summary table | Quantile and range table |
+| Show a relationship | Scatter plot with both axes labeled | Paired-value table |
+| Show two-dimensional intensity | Heatmap with labeled rows, columns, and legend | Grouped exact-values table |
+| Show exact small results | Semantic table or list | Definition list |
+| Show geography with valid spatial data | Point map or choropleth | Ranked list, bars, or table |
+
+## View evidence
+
+For every view, state the analytical question, population, unit, relevant record count, and a plain-language takeaway adjacent to the visual. A missing or undocumented unit must remain visibly unknown; do not turn a measure into counts, currency, rates, or percentages. Distinguish source rows from the population represented after filtering or aggregation. Keep counts consistent with the manifest and exact-values table.
+
+Use only precision supported by the source and transformation. Do not add decimal places, causal claims, or confidence that the evidence does not support. Label scales and baselines; avoid dual axes unless the question truly requires them.
+
+## Inline SVG accessibility
+
+Every analytical SVG uses role="img", a unique accessible title and description, and aria-labelledby pointing to both. The title names the view. The description identifies the chart form, axes or spatial encoding, population, unit, and principal pattern. Keep exact values in adjacent semantic HTML, and never rely on SVG geometry or hover alone.
+
+## Geography prerequisites
+
+Map only valid embedded coordinates or geometry with known CRS information. Coordinate and geometry field names must occur in the manifest fields, and the geography manifest object must match the shared contract. Never geocode names, guess locations or boundaries, infer a CRS, draw an illustrative national outline, or fetch tiles. When prerequisites are missing, use the non-map fallback: a ranked list, bar chart, heatmap when two dimensions are real, or semantic table.
+
+## Color and legibility
+
+Do not use color as the only information carrier. Pair color with position, length, pattern, labels, or symbols; preserve readable contrast in screen and print output. Use a restrained categorical palette, a perceptually ordered sequential scale for magnitude, and an explicitly centered diverging scale only when a meaningful midpoint exists. Provide a labeled legend whenever color encodes data.
+`;
+
 export const DASHBOARD_VERIFIER_SOURCE = String.raw`/* global Buffer, process */
 import { readFile, stat } from 'node:fs/promises';
 
@@ -536,6 +677,19 @@ const RESOURCES = new Map<string, readonly AgentSkillResource[]>([
       {
         path: "scripts/verify-dashboard.mjs",
         content: DASHBOARD_VERIFIER_SOURCE,
+      },
+    ],
+  ],
+  [
+    "klopsi-static-dashboard",
+    [
+      {
+        path: "assets/static-board.html",
+        content: STATIC_BOARD_TEMPLATE,
+      },
+      {
+        path: "references/encoding-guide.md",
+        content: STATIC_ENCODING_GUIDE,
       },
     ],
   ],

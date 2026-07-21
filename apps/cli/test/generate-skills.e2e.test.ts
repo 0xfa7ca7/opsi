@@ -48,7 +48,7 @@ describe("generate-skills", () => {
 
     expect(JSON.parse(value.stdout.join(""))).toMatchObject({
       data: {
-        count: 11,
+        count: 12,
         outputDirectory: join(value.cwd, "skills"),
         skills: expect.arrayContaining(["klopsi", "klopsi-analysis", "klopsi-shared"]),
       },
@@ -71,6 +71,18 @@ describe("generate-skills", () => {
         "utf8",
       ),
     ).toContain("const MAX_HTML_BYTES = 15 * 1024 * 1024;");
+    expect(
+      await readFile(
+        join(value.cwd, "skills", "klopsi-static-dashboard", "assets", "static-board.html"),
+        "utf8",
+      ),
+    ).toContain("{{PRESENTATION_MANIFEST_JSON}}");
+    expect(
+      await readFile(
+        join(value.cwd, "skills", "klopsi-static-dashboard", "references", "encoding-guide.md"),
+        "utf8",
+      ),
+    ).toContain("known CRS");
     expect(value.stderr).toEqual([]);
   });
 
@@ -97,7 +109,7 @@ describe("generate-skills", () => {
       "# KLOPSI orchestrator",
     );
     expect(JSON.parse(value.stdout.join(""))).toMatchObject({
-      data: { count: 11, outputDirectory: output },
+      data: { count: 12, outputDirectory: output },
     });
   });
 
