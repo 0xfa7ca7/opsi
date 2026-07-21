@@ -8,6 +8,14 @@ import {
   type CommandManifestEntry,
   type CommandOptionManifest,
 } from "./command-manifest.js";
+import { resourcesForAgentSkill } from "./agent-skill-resources.js";
+
+export type AgentSkillKind = "router" | "shared" | "command" | "workflow";
+
+export interface AgentSkillPackage {
+  readonly name: string;
+  readonly files: ReadonlyMap<string, string>;
+}
 
 export interface AgentSkillCapabilityGuide {
   readonly id: string;
@@ -16,6 +24,7 @@ export interface AgentSkillCapabilityGuide {
 }
 
 export interface AgentSkillDefinition {
+  readonly kind: AgentSkillKind;
   readonly name: string;
   readonly description: string;
   readonly commands: readonly string[];
@@ -28,6 +37,7 @@ export interface AgentSkillDefinition {
 
 export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
+    kind: "router",
     name: "klopsi",
     description:
       "Use when a Slovenian public-data, OPSI catalogue, or KLOPSI CLI request needs the relevant skill selected.",
@@ -54,6 +64,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     ],
   },
   {
+    kind: "shared",
     name: "klopsi-shared",
     description:
       "Use when any KLOPSI CLI skill needs shared installation, output, offline, safety, or error-handling guidance.",
@@ -72,6 +83,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: [],
   },
   {
+    kind: "command",
     name: "klopsi-catalogue",
     description:
       "Use when discovering Slovenian public-data or OPSI datasets, metadata, resources, schemas, or public pages.",
@@ -118,6 +130,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-resources", "klopsi-download", "klopsi-validation"],
   },
   {
+    kind: "command",
     name: "klopsi-resources",
     description:
       "Use when inspecting an OPSI resource, its secure access, headers, or bounded preview before the next step.",
@@ -157,6 +170,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-catalogue", "klopsi-download", "klopsi-validation", "klopsi-analysis"],
   },
   {
+    kind: "command",
     name: "klopsi-download",
     description:
       "Use when securely downloading an OPSI dataset or resource and choosing a destination or overwrite handling.",
@@ -193,6 +207,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-catalogue", "klopsi-resources", "klopsi-validation", "klopsi-provenance"],
   },
   {
+    kind: "command",
     name: "klopsi-validation",
     description:
       "Use when checking local or provider data, or OPSI metadata, for integrity issues and remediation.",
@@ -229,6 +244,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-resources", "klopsi-download", "klopsi-analysis"],
   },
   {
+    kind: "command",
     name: "klopsi-analysis",
     description:
       "Use when querying or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports.",
@@ -279,6 +295,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-resources", "klopsi-validation", "klopsi-provenance"],
   },
   {
+    kind: "command",
     name: "klopsi-services",
     description:
       "Use when Slovenian public data is exposed through WFS and the request needs capabilities, layers, schemas, bounded feature previews, counts, or CSV exports.",
@@ -337,6 +354,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-catalogue", "klopsi-resources", "klopsi-analysis", "klopsi-provenance"],
   },
   {
+    kind: "command",
     name: "klopsi-provenance",
     description:
       "Use when inspecting or verifying KLOPSI artifact provenance, transformations, or integrity mismatches.",
@@ -365,6 +383,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-download", "klopsi-analysis"],
   },
   {
+    kind: "command",
     name: "klopsi-local-state",
     description: "Use when inspecting or changing the KLOPSI cache or non-secret configuration.",
     commands: [
@@ -413,6 +432,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-diagnostics"],
   },
   {
+    kind: "command",
     name: "klopsi-diagnostics",
     description:
       "Use when diagnosing KLOPSI, generating shell completion or Agent Skills, or performing agent setup.",
@@ -489,11 +509,12 @@ export function validateAgentSkills(
     }
     if (seenNames.has(entry.name)) problems.push(`Duplicate skill name "${entry.name}".`);
     seenNames.add(entry.name);
-    if ((entry.name === "klopsi" || entry.name === "klopsi-shared") && entry.commands.length > 0) {
-      problems.push(`Reserved skill "${entry.name}" must not own commands.`);
+    if (entry.kind === "command" && entry.commands.length === 0) {
+      problems.push(`Command skill "${entry.name}" must own at least one command.`);
     }
-    if (entry.name !== "klopsi" && entry.name !== "klopsi-shared" && entry.commands.length === 0) {
-      problems.push(`Domain skill "${entry.name}" must own at least one command.`);
+    if (entry.kind !== "command" && entry.commands.length > 0) {
+      const kind = `${entry.kind[0]?.toUpperCase()}${entry.kind.slice(1)}`;
+      problems.push(`${kind} skill "${entry.name}" must not own commands.`);
     }
     const seenCapabilityIds = new Set<string>();
     for (const capability of entry.capabilities) {
@@ -835,16 +856,17 @@ function renderCapabilities(definition: AgentSkillDefinition): string {
   return `## Capability guide\n\n${sections}\n\n`;
 }
 
+function renderSafety(definition: AgentSkillDefinition): string {
+  if (definition.safety.length === 0) return "";
+  return `## Safety\n\n${definition.safety.map((item) => `- ${item}`).join("\n")}\n\n`;
+}
+
 function renderDomainSkill(definition: AgentSkillDefinition, version: string): string {
   const entries = definition.commands.map((path) => {
     const entry = COMMAND_MANIFEST.find((candidate) => candidate.path === path);
     if (entry === undefined) throw new Error(`Missing command manifest entry: ${path}`);
     return entry;
   });
-  const safety =
-    definition.safety.length === 0
-      ? ""
-      : `## Safety\n\n${definition.safety.map((item) => `- ${item}`).join("\n")}\n\n`;
   return `${frontmatter(definition)}
 # ${definition.name}
 
@@ -858,20 +880,86 @@ ${definition.workflows.map((workflow) => `- ${workflow}`).join("\n")}
 
 ${renderCapabilities(definition)}## Commands
 
-${entries.map(renderCommand).join("\n")}${safety}${renderRelated(definition)}`;
+${entries.map(renderCommand).join("\n")}${renderSafety(definition)}${renderRelated(definition)}`;
+}
+
+function renderWorkflowSkill(definition: AgentSkillDefinition, version: string): string {
+  return `${frontmatter(definition)}
+# ${definition.name}
+
+> **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before creating an artifact.
+
+${definition.purpose} Generated for \`klopsi\` ${version}.
+
+## Workflow
+
+${definition.workflows.map((item) => `- ${item}`).join("\n")}
+
+${renderCapabilities(definition)}${renderSafety(definition)}${renderRelated(definition)}`;
 }
 
 function renderSkill(definition: AgentSkillDefinition, version: string): string {
-  if (definition.name === "klopsi") return renderOrchestrator(definition, version);
-  if (definition.name === "klopsi-shared") return renderShared(definition, version);
+  if (definition.kind === "router") return renderOrchestrator(definition, version);
+  if (definition.kind === "shared") return renderShared(definition, version);
+  if (definition.kind === "workflow") return renderWorkflowSkill(definition, version);
   return renderDomainSkill(definition, version);
 }
 
-export function renderAgentSkillFiles(version: string): ReadonlyMap<string, string> {
+function renderAgentSkillFilesInternal(version: string): ReadonlyMap<string, string> {
   const problems = validateAgentSkills();
   if (problems.length > 0) throw new Error(problems.join("\n"));
   return new Map(
     AGENT_SKILLS.map((entry) => [entry.name, `${renderSkill(entry, version).trimEnd()}\n`]),
+  );
+}
+
+const RESOURCE_SEGMENT = /^[a-z0-9][a-z0-9._-]*$/u;
+
+function validateResourcePath(path: string): void {
+  if (
+    isAbsolute(path) ||
+    path.includes("\\") ||
+    path
+      .split("/")
+      .some((segment) => segment === "." || segment === ".." || !RESOURCE_SEGMENT.test(segment))
+  ) {
+    throw invalidSkillOutput(path);
+  }
+}
+
+export function renderAgentSkillPackages(version: string): ReadonlyMap<string, AgentSkillPackage> {
+  const skillFiles = renderAgentSkillFilesInternal(version);
+  return new Map(
+    [...skillFiles].map(([name, skillFile]) => {
+      const resources = resourcesForAgentSkill(name);
+      for (const resource of resources) validateResourcePath(resource.path);
+      return [
+        name,
+        {
+          name,
+          files: new Map([
+            ["SKILL.md", skillFile],
+            ...resources.map(
+              (resource) =>
+                [
+                  resource.path,
+                  resource.content.endsWith("\n") ? resource.content : `${resource.content}\n`,
+                ] as const,
+            ),
+          ]),
+        },
+      ];
+    }),
+  );
+}
+
+export function renderAgentSkillFiles(version: string): ReadonlyMap<string, string> {
+  return new Map(
+    [...renderAgentSkillPackages(version)].map(([name, skillPackage]) => {
+      const skillFile = skillPackage.files.get("SKILL.md");
+      if (skillFile === undefined) throw new Error(`Missing SKILL.md for Agent Skill: ${name}`);
+      return [name, skillFile];
+    }),
   );
 }
 
@@ -924,13 +1012,72 @@ async function ensurePlainDirectory(path: string): Promise<void> {
   }
 }
 
+async function ensureNestedDirectory(root: string, relativeDirectory: string): Promise<string> {
+  let directory = root;
+  for (const segment of relativeDirectory === "" ? [] : relativeDirectory.split("/")) {
+    directory = join(directory, segment);
+    await ensurePlainDirectory(directory);
+  }
+  return directory;
+}
+
+async function ensureReplaceableFile(path: string): Promise<void> {
+  try {
+    const metadata = await lstat(path);
+    if (metadata.isSymbolicLink()) throw invalidSkillOutput(path);
+    if (!metadata.isFile()) throw new Error(`Agent Skill file target is not a file: ${path}`);
+  } catch (error) {
+    if (error instanceof KlopsiError) throw error;
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+}
+
 async function writeSkillFile(path: string, content: string): Promise<void> {
   const temporary = `${path}.${randomUUID()}.tmp`;
   try {
+    await ensureReplaceableFile(path);
     await writeFile(temporary, content, { encoding: "utf8", flag: "wx" });
     await rename(temporary, path);
   } finally {
     await rm(temporary, { force: true });
+  }
+}
+
+function skillGenerationFailed(outputDirectory: string, cause: unknown): KlopsiError {
+  return new KlopsiError({
+    code: "SKILL_GENERATION_FAILED",
+    message: `Agent Skills could not be written to ${outputDirectory}.`,
+    exitCode: EXIT_CODES.INTERNAL,
+    suggestion: "Check directory permissions and available disk space, then try again.",
+    cause,
+  });
+}
+
+export async function writeAgentSkillPackages(
+  outputDirectory: string,
+  packages: ReadonlyMap<string, AgentSkillPackage>,
+): Promise<void> {
+  try {
+    await ensurePlainDirectory(outputDirectory);
+    for (const [name, skillPackage] of packages) {
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(name) || skillPackage.name !== name) {
+        throw invalidSkillOutput(name);
+      }
+      const skillDirectory = join(outputDirectory, name);
+      await ensurePlainDirectory(skillDirectory);
+      for (const [relativePath, content] of skillPackage.files) {
+        if (relativePath !== "SKILL.md") validateResourcePath(relativePath);
+        const segments = relativePath.split("/");
+        const fileName = segments.pop();
+        if (fileName === undefined) throw invalidSkillOutput(relativePath);
+        const directory = await ensureNestedDirectory(skillDirectory, segments.join("/"));
+        await writeSkillFile(join(directory, fileName), content);
+      }
+    }
+  } catch (error) {
+    if (error instanceof KlopsiError) throw error;
+    throw skillGenerationFailed(outputDirectory, error);
   }
 }
 
@@ -941,29 +1088,13 @@ export async function generateAgentSkills(
   const outputDirectory = isAbsolute(requested)
     ? resolve(requested)
     : resolve(options.cwd, requested);
-  const files = renderAgentSkillFiles(options.version);
+  const packages = renderAgentSkillPackages(options.version);
 
-  try {
-    await ensurePlainDirectory(outputDirectory);
-    for (const [name, content] of files) {
-      const directory = join(outputDirectory, name);
-      await ensurePlainDirectory(directory);
-      await writeSkillFile(join(directory, "SKILL.md"), content);
-    }
-  } catch (error) {
-    if (error instanceof KlopsiError) throw error;
-    throw new KlopsiError({
-      code: "SKILL_GENERATION_FAILED",
-      message: `Agent Skills could not be written to ${outputDirectory}.`,
-      exitCode: EXIT_CODES.INTERNAL,
-      suggestion: "Check directory permissions and available disk space, then try again.",
-      cause: error,
-    });
-  }
+  await writeAgentSkillPackages(outputDirectory, packages);
 
   return {
     outputDirectory,
-    count: files.size,
-    skills: [...files.keys()],
+    count: packages.size,
+    skills: [...packages.keys()],
   };
 }

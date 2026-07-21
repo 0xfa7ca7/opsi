@@ -1,13 +1,18 @@
-import { readFile, readdir } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   AGENT_SKILLS,
   renderAgentSkillFiles,
+  renderAgentSkillPackages,
   renderAgentSkillsIndex,
   type AgentSkillCapabilityGuide,
+  type AgentSkillKind,
+  type AgentSkillPackage,
   validateAgentSkills,
   type AgentSkillDefinition,
+  writeAgentSkillPackages,
 } from "../src/agent-skills.js";
 import {
   COMMAND_MANIFEST,
@@ -125,7 +130,16 @@ const command = (path: string): CommandManifestEntry => ({
   options: [],
 });
 
-const skill = (name: string, commands: readonly string[] = []): AgentSkillDefinition => ({
+const skill = (
+  name: string,
+  commands: readonly string[] = [],
+  kind: AgentSkillKind = name === "klopsi"
+    ? "router"
+    : name === "klopsi-shared"
+      ? "shared"
+      : "command",
+): AgentSkillDefinition => ({
+  kind,
   name,
   description: `${name} description`,
   commands,
@@ -212,7 +226,7 @@ describe("agent skill registry", () => {
       expect.arrayContaining([
         'Missing required skill "klopsi".',
         'Missing required skill "klopsi-shared".',
-        'Domain skill "klopsi-catalogue" must own at least one command.',
+        'Command skill "klopsi-catalogue" must own at least one command.',
       ]),
     );
   });
@@ -250,19 +264,54 @@ describe("agent skill registry", () => {
     );
   });
 
-  it("keeps reserved skills commandless and rejects repeated ownership entries", () => {
+  it("keeps router and shared skills commandless and rejects repeated ownership entries", () => {
     expect(
       validateAgentSkills(
         [skill("klopsi", ["search"]), skill("klopsi-shared")],
         [command("search")],
       ),
-    ).toContain('Reserved skill "klopsi" must not own commands.');
+    ).toContain('Router skill "klopsi" must not own commands.');
     expect(
       validateAgentSkills(
         [skill("klopsi"), skill("klopsi-shared"), skill("klopsi-catalogue", ["search", "search"])],
         [command("search")],
       ),
     ).toContain('Command path "search" is listed more than once by "klopsi-catalogue".');
+  });
+
+  it("accepts commandless workflow skills and enforces kind-specific command ownership", () => {
+    expect(
+      validateAgentSkills(
+        [
+          { ...skill("klopsi"), kind: "router" },
+          { ...skill("klopsi-shared"), kind: "shared" },
+          { ...skill("klopsi-static-dashboard"), kind: "workflow" },
+        ],
+        [],
+      ),
+    ).toEqual([]);
+
+    expect(
+      validateAgentSkills(
+        [
+          { ...skill("klopsi"), kind: "router" },
+          { ...skill("klopsi-shared"), kind: "shared" },
+          { ...skill("klopsi-analysis"), kind: "command", commands: [] },
+        ],
+        [],
+      ),
+    ).toContain('Command skill "klopsi-analysis" must own at least one command.');
+
+    expect(
+      validateAgentSkills(
+        [
+          { ...skill("klopsi"), kind: "router" },
+          { ...skill("klopsi-shared"), kind: "shared" },
+          { ...skill("klopsi-static-dashboard"), kind: "workflow", commands: ["query"] },
+        ],
+        [command("query")],
+      ),
+    ).toContain('Workflow skill "klopsi-static-dashboard" must not own commands.');
   });
 
   it("reports malformed capability guides", () => {
@@ -324,6 +373,16 @@ describe("agent skill rendering", () => {
     expect([...second]).toEqual([...first]);
     expect(first.get("klopsi")).toContain("name: klopsi");
     expect(renderAgentSkillsIndex()).toContain("# KLOPSI Agent Skills");
+  });
+
+  it("renders deterministic packages with a SKILL.md compatibility view", () => {
+    const packages = renderAgentSkillPackages("1.2.3");
+
+    expect(packages.get("klopsi")?.files.get("SKILL.md")).toContain("name: klopsi");
+    expect([...packages.get("klopsi")!.files.keys()]).toEqual(["SKILL.md"]);
+    expect([...renderAgentSkillFiles("1.2.3")]).toEqual(
+      [...packages].map(([name, value]) => [name, value.files.get("SKILL.md")]),
+    );
   });
 
   it("renders portable frontmatter and bounded deterministic files", () => {
@@ -628,5 +687,76 @@ describe("agent skill rendering", () => {
     expect(await readFile(resolve(process.cwd(), "docs/skills.md"), "utf8")).toBe(
       renderAgentSkillsIndex(),
     );
+  });
+});
+
+const testPackages = (): ReadonlyMap<string, AgentSkillPackage> =>
+  new Map([
+    [
+      "klopsi-shared",
+      {
+        name: "klopsi-shared",
+        files: new Map([
+          ["SKILL.md", "---\nname: klopsi-shared\ndescription: test\n---\n"],
+          ["references/contract.md", "contract\n"],
+        ]),
+      },
+    ],
+  ]);
+
+describe("agent skill package writing", () => {
+  it("writes nested package files and preserves unrelated nested files", async () => {
+    const root = await mkdtemp(join(tmpdir(), "klopsi-agent-skills-"));
+    const output = join(root, "skills");
+
+    try {
+      await writeAgentSkillPackages(output, testPackages());
+      expect(
+        await readFile(join(output, "klopsi-shared", "references", "contract.md"), "utf8"),
+      ).toBe("contract\n");
+
+      const unrelated = join(output, "klopsi-shared", "references", "notes.md");
+      await writeFile(unrelated, "keep\n", "utf8");
+      await writeAgentSkillPackages(output, testPackages());
+      expect(await readFile(unrelated, "utf8")).toBe("keep\n");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  const symlinkTest: typeof it = process.platform === "win32" ? it.skip : it;
+
+  symlinkTest("rejects a symbolic-link nested directory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "klopsi-agent-skills-"));
+    const output = join(root, "skills");
+    const skillDirectory = join(output, "klopsi-shared");
+    const outside = join(root, "outside");
+
+    try {
+      await mkdir(skillDirectory, { recursive: true });
+      await mkdir(outside);
+      await symlink(outside, join(skillDirectory, "references"));
+
+      await expect(writeAgentSkillPackages(output, testPackages())).rejects.toMatchObject({
+        code: "SKILL_OUTPUT_INVALID",
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("reports generation failure when a known file target is a directory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "klopsi-agent-skills-"));
+    const output = join(root, "skills");
+
+    try {
+      await mkdir(join(output, "klopsi-shared", "SKILL.md"), { recursive: true });
+
+      await expect(writeAgentSkillPackages(output, testPackages())).rejects.toMatchObject({
+        code: "SKILL_GENERATION_FAILED",
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
