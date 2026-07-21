@@ -265,6 +265,7 @@ describe("documentation contract", () => {
       "/klopsi",
       "@klopsi",
       "$klopsi",
+      "Run bare `klopsi` for guided getting-started steps",
     ]) {
       expect(readme).toContain(expected);
     }
@@ -276,11 +277,13 @@ describe("documentation contract", () => {
     expect(commands).toContain("`--output-dir`");
     expect(commands).toContain("known generated `SKILL.md` targets");
     expect(commands).toContain("structured output");
+    expect(commands).toContain("sectioned human summary");
 
     const packagedReadme = await text("apps/cli/README.md");
     expect(packagedReadme).toContain("klopsi generate-skills");
     expect(packagedReadme).toContain("klopsi agent setup");
     expect(packagedReadme).toContain("docs/skills.md");
+    expect(packagedReadme).toContain("Run bare `klopsi` for guided getting-started steps");
 
     const changelog = await text("apps/cli/CHANGELOG.md");
     expect(changelog).toMatch(/^# klopsi\n\n## 0\.0\.1\n/u);

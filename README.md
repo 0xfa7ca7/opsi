@@ -85,6 +85,8 @@ npm install --global ./apps/cli
 
 See the [installation guide](docs/installation.md) for supported targets, release verification, and troubleshooting.
 
+Run bare `klopsi` for guided getting-started steps, example discovery commands, environment checks, and an invitation to install KLOPSI skills for detected AI agents. Use `klopsi --help` when you want the complete command reference instead.
+
 ## Quick start
 
 Search the catalogue and inspect a dataset:
@@ -181,6 +183,8 @@ klopsi agent setup
 ```
 
 Interactive setup asks for confirmation when more than one host is detected. For unattended setup, accept the detected hosts with `--yes`, target explicit installer IDs with `--agent codex claude-code`, or target every globally installable profile with `--all`. If detection finds no host, choose one explicitly with `--agent` or `--all`; `--yes` never expands an empty detection result. Use `--dry-run` to preview the plan. Setup always copies skills durably into agent directories because its generated source is temporary. Setup uses the pinned installer shipped with KLOPSI, does not invoke `npx`, does not offer unrelated remote skills, and does not create `.agents` or `skills-lock.json` in the current project.
+
+Human setup output uses clear detected-agent, installed-skill, detail, and next-step sections, with restrained color on interactive terminals and plain text under `NO_COLOR` or redirection. Structured output keeps the stable result shape for scripts and agents.
 
 To refresh a stale repertoire, rerun `klopsi agent setup`; preview the intended update with `--dry-run`, choose a host with `--agent`, and verify that the installed host contains every skill reported by the structured setup output.
 

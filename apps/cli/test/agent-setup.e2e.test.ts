@@ -44,6 +44,45 @@ afterEach(async () => {
 });
 
 describe("agent setup", () => {
+  it("renders a readable human dry-run without changing files", async () => {
+    const value = await fixture();
+
+    await expect(runCli(["agent", "setup", "--dry-run"], value.io)).resolves.toBe(0);
+
+    const output = value.stdout.join("");
+    expect(output).toContain("Setup preview");
+    expect(output).toContain("No files will be changed");
+    expect(output).toContain("Detected agents will be selected during installation");
+    expect(output).toContain("11 KLOPSI skills");
+    expect(output).toContain("klopsi agent setup --yes");
+    expect(output).not.toMatch(/^installer\s+scope\s+selection/mu);
+    expect(value.stderr).toEqual([]);
+    await expect(access(join(value.cwd, ".agents"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("renders a readable human success summary with next steps", async () => {
+    const value = await fixture();
+    const runner: AgentInstallerRunner = {
+      run: vi.fn(async () => ({ exitCode: 0, stdout: "installed", stderr: "" })),
+    };
+
+    await expect(
+      runCli(["agent", "setup", "--agent", "codex", "--yes"], value.io, {
+        agentInstallerRunner: runner,
+      }),
+    ).resolves.toBe(0);
+
+    const output = value.stdout.join("");
+    expect(output).toContain("KLOPSI agent setup complete");
+    expect(output).toContain("Installed for");
+    expect(output).toContain("Codex");
+    expect(output).toContain("Skills installed");
+    expect(output).toContain("Next steps");
+    expect(output).toContain("klopsi agent setup --dry-run");
+    expect(output).not.toMatch(/^installer\s+scope\s+selection/mu);
+    expect(value.stderr).toEqual([]);
+  });
+
   it("returns a structured dry-run without invoking or resolving the installer", async () => {
     const value = await fixture();
 
@@ -198,9 +237,12 @@ describe("agent setup", () => {
       ),
     ).resolves.toBe(0);
 
-    expect(confirm).toHaveBeenCalledWith(
-      "Install KLOPSI skills for detected agents: codex, claude-code?",
-    );
+    expect(value.stderr.join("")).toContain("KLOPSI agent setup");
+    expect(value.stderr.join("")).toContain("Detected agents");
+    expect(value.stderr.join("")).toContain("Codex");
+    expect(value.stderr.join("")).toContain("Claude Code");
+    expect(value.stderr.join("")).toContain("11 KLOPSI skills");
+    expect(confirm).toHaveBeenCalledWith("Install KLOPSI skills for these agents?");
     expect(runner.run).toHaveBeenCalledWith(
       expect.objectContaining({
         interactive: false,
@@ -227,6 +269,33 @@ describe("agent setup", () => {
       },
     });
     expect(runner.run).not.toHaveBeenCalled();
+  });
+
+  it("styles readable errors only on color-enabled interactive stderr", async () => {
+    const value = await fixture();
+    const interactiveErrorIo: CliIo = {
+      ...value.io,
+      env: {},
+      stderr: { isTTY: true, write: value.io.stderr.write },
+    };
+
+    await expect(
+      runCli(["agent", "setup", "--agent", "not-an-agent"], interactiveErrorIo),
+    ).resolves.toBe(2);
+
+    expect(value.stderr.join("")).toContain("AGENT_SETUP_OPTIONS_INVALID");
+    expect(value.stderr.join("")).toContain("Suggestion:");
+    expect(value.stderr.join("")).toContain("\u001b[");
+
+    value.stderr.splice(0);
+    await expect(
+      runCli(["agent", "setup", "--agent", "not-an-agent"], {
+        ...interactiveErrorIo,
+        env: { NO_COLOR: "1" },
+      }),
+    ).resolves.toBe(2);
+    expect(value.stderr.join("")).toContain("AGENT_SETUP_OPTIONS_INVALID");
+    expect(value.stderr.join("")).not.toContain("\u001b[");
   });
 
   it("documents public setup options without exposing the internal copy mode", async () => {

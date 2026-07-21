@@ -455,6 +455,7 @@ describe("complete command surface", () => {
     const value = await fixture();
     await expect(runCli(["--help"], value.io)).resolves.toBe(0);
     expect(value.stdout.join("")).toContain("Usage: klopsi");
+    expect(value.stdout.join("")).not.toContain("Use KLOPSI with your AI agent");
     expect(value.stderr).toEqual([]);
 
     value.stdout.splice(0);

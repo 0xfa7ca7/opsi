@@ -33,6 +33,8 @@ import { registerServiceCommand } from "./commands/service.js";
 import type { AgentInstallerRunner } from "./agent-setup.js";
 import { SkillsAgentInstallerRunner } from "./agent-installer-runner.js";
 import { PinnedAgentHostRegistry, type AgentHostRegistry } from "./agent-hosts.js";
+import { renderOnboarding } from "./onboarding.js";
+import { createPresentation } from "./presentation.js";
 
 function requestInterval(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
@@ -116,7 +118,21 @@ export function createProgram(
       writeOut: (chunk) => context.io.stdout.write(chunk),
       writeErr: (chunk) => context.io.stderr.write(chunk),
     })
-    .action(() => program.help({ error: true }));
+    .action(() => {
+      if (context.configuration?.output !== undefined && context.configuration.output !== "human") {
+        program.help({ error: true });
+        return;
+      }
+      context.io.stdout.write(
+        renderOnboarding(
+          createPresentation({
+            color:
+              context.io.stdout.isTTY === true &&
+              (context.configuration?.terminal.color ?? context.io.env?.NO_COLOR === undefined),
+          }),
+        ),
+      );
+    });
   addGlobalOptions(program);
   registerCommandManifest(program);
   const duckdbCache = duckdbCachePolicy(context);
