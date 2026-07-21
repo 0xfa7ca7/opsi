@@ -4,6 +4,8 @@
 
 Install the complete Agent Skills repertoire globally into automatically detected agent hosts with `opsi agent setup`. Use `--yes` for unattended detected-host setup, `--agent <ids...>` for explicit hosts, `--all` for every globally installable profile, or `--dry-run` to preview the plan. An empty detection result fails safely instead of expanding `--yes` to every profile. Setup installs durable copies because its generated source is temporary. Generate the same skills without installing them with `opsi generate-skills` or choose a target with `--output-dir`. The main orchestrator, shared execution rules, and complete domain repertoire are indexed at `https://github.com/0xfa7ca7/opsi/blob/main/docs/skills.md`.
 
+To refresh a stale repertoire, rerun `opsi agent setup`; preview the intended update with `--dry-run`, choose a host with `--agent`, and verify that the installed host contains every skill reported by the structured setup output.
+
 Supported release targets are Linux x64 glibc, macOS arm64, and Windows x64. Install with `npm install --global opsi`, then run `opsi --version` and `opsi doctor --offline --json`. DuckDB is optional so catalogue/config/completion commands still start when a native binding cannot install; native operations return typed `DUCKDB_UNAVAILABLE` remediation.
 
 ```sh

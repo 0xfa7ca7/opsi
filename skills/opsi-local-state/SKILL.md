@@ -14,6 +14,23 @@ Manage local cache and validated non-secret CLI configuration. Generated for `op
 - Inspect cache state before pruning or clearing it.
 - Locate and inspect configuration before changing a value.
 
+## Capability guide
+
+### Distinguish cache tiers from downloads
+
+- The cache holds the catalogue snapshot and cached raw objects alongside rebuildable derived DuckDB stages; `cache list` labels entries as `raw` or `duckdb-stage`.
+- Files written by `download` are destination files, not cache entries; preserve them separately when they matter, while a derived DuckDB stage can be rebuilt from its input.
+
+### Inspect before mutating cache state
+
+- Use `cache info`, `cache list`, and `cache verify` before `cache prune` or `cache clear` to understand size, entry kind, and integrity.
+- `cache prune` removes unreferenced raw objects and expired or over-budget derived stages; `cache clear` removes the whole cache. Require explicit authorization before either mutation, then use `--yes` only for that authorized operation.
+
+### Inspect validated non-secret configuration
+
+- Use `config path`, `config list`, and `config get <key>` to locate and inspect a value before `config set <key> <value>`; configuration values are validated when written.
+- Keep secrets out of configuration: secret-like keys cannot be persisted, so provide credentials through environment variables for the current process instead.
+
 ## Commands
 
 ### `cache info`

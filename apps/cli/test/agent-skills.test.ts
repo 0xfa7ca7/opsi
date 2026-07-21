@@ -40,6 +40,16 @@ const EXPECTED_DATA_CAPABILITY_IDS = {
   "opsi-provenance": ["record-inspection", "integrity-verification"],
 } as const;
 
+const EXPECTED_LOCAL_STATE_CAPABILITY_IDS = {
+  "opsi-local-state": ["cache-tiers", "cache-mutations", "configuration"],
+  "opsi-diagnostics": [
+    "environment-diagnostics",
+    "shell-integration",
+    "skill-generation",
+    "agent-refresh",
+  ],
+} as const;
+
 const EXPECTED_WFS_CAPABILITY_IDS = [
   "wfs-sequence",
   "feature-selection",
@@ -165,6 +175,17 @@ describe("agent skill registry", () => {
 
   it("assigns the ordered acquisition and analysis capability guides", () => {
     for (const [name, expectedIds] of Object.entries(EXPECTED_DATA_CAPABILITY_IDS)) {
+      const definition = AGENT_SKILLS.find((entry) => entry.name === name);
+      expect(definition, name).toBeDefined();
+      expect(
+        definition?.capabilities.map((capability) => capability.id),
+        name,
+      ).toEqual(expectedIds);
+    }
+  });
+
+  it("assigns the ordered local-state and diagnostics capability guides", () => {
+    for (const [name, expectedIds] of Object.entries(EXPECTED_LOCAL_STATE_CAPABILITY_IDS)) {
       const definition = AGENT_SKILLS.find((entry) => entry.name === name);
       expect(definition, name).toBeDefined();
       expect(
@@ -477,6 +498,40 @@ describe("agent skill rendering", () => {
     expect(content).toContain(
       "Setup copies generated skills before removing its temporary source, so completed installations remain durable.",
     );
+  });
+
+  it("renders cautious local-state maintenance and agent refresh guidance", () => {
+    const files = renderAgentSkillFiles("1.2.3");
+    const localState = files.get("opsi-local-state") ?? "";
+    const diagnostics = files.get("opsi-diagnostics") ?? "";
+
+    for (const guidance of [
+      "catalogue snapshot and cached raw objects",
+      "rebuildable derived DuckDB stages",
+      "`cache info`, `cache list`, and `cache verify` before `cache prune` or `cache clear`",
+      "explicit authorization",
+      "Keep secrets out of configuration",
+    ])
+      expect(localState).toContain(guidance);
+
+    for (const guidance of [
+      "`opsi doctor --offline --json`",
+      "`opsi agent setup --agent codex --dry-run --json`",
+      "`opsi agent setup --agent codex --yes --json`",
+      "`opsi generate-skills --output-dir ./generated-skills --json`",
+      "does not install it",
+      "installs or refreshes the complete repertoire",
+      "Detected hosts are used only for a non-dry-run setup without `--agent` or `--all`",
+      "`--agent` selects explicit hosts",
+      "`--all` selects every supported host",
+      "`--dry-run` reports the planned selection and repertoire without installing or detecting hosts",
+      "`--yes` accepts detected hosts for unattended setup",
+      "empty detection result",
+      "durable copies",
+      "Rerun `opsi agent setup` to refresh a stale repertoire",
+      "verify that the installed host contains every skill reported by structured setup output",
+    ])
+      expect(diagnostics).toContain(guidance);
   });
 
   it("keeps the installer's copy mode out of public agent setup metadata", () => {

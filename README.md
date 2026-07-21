@@ -174,6 +174,8 @@ opsi agent setup
 
 Interactive setup asks for confirmation when more than one host is detected. For unattended setup, accept the detected hosts with `--yes`, target explicit installer IDs with `--agent codex claude-code`, or target every globally installable profile with `--all`. If detection finds no host, choose one explicitly with `--agent` or `--all`; `--yes` never expands an empty detection result. Use `--dry-run` to preview the plan. Setup always copies skills durably into agent directories because its generated source is temporary. Setup uses the pinned installer shipped with OPSI, does not invoke `npx`, does not offer unrelated remote skills, and does not create `.agents` or `skills-lock.json` in the current project.
 
+To refresh a stale repertoire, rerun `opsi agent setup`; preview the intended update with `--dry-run`, choose a host with `--agent`, and verify that the installed host contains every skill reported by the structured setup output.
+
 For a project-local installation, use a compatible Agent Skills installer directly:
 
 ```sh
