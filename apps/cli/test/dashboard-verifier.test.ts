@@ -297,6 +297,33 @@ describe("dashboard presentation verifier", () => {
     expect(result.findings?.map((item) => item.code)).toContain("UNSAFE_CODE");
   });
 
+  it("rejects every inline event-handler attribute in both modes", async () => {
+    for (const [mode, fixture] of [
+      ["static", staticFixture],
+      ["interactive", interactiveFixture],
+    ] as const) {
+      const withHandler = fixture.replace(
+        "</main>",
+        `<button type="button" onclick="this.hidden=true">Hide</button></main>`,
+      );
+      const result = await verifyContent(`ordinary-handler-${mode}`, withHandler, mode);
+      expect(
+        result.findings?.map((item) => item.code),
+        mode,
+      ).toContain("UNSAFE_CODE");
+    }
+  });
+
+  it("rejects an inline event-handler attribute with an empty value", async () => {
+    const withHandler = interactiveFixture.replace(
+      "</main>",
+      `<button type="button" onclick>Empty handler</button></main>`,
+    );
+
+    const result = await verifyContent("empty-handler", withHandler, "interactive");
+    expect(result.findings?.map((item) => item.code)).toContain("UNSAFE_CODE");
+  });
+
   it("rejects meta refresh navigation", async () => {
     const withRefresh = staticFixture.replace(
       "<head>",
@@ -336,6 +363,28 @@ describe("dashboard presentation verifier", () => {
     const duplicated = interactiveFixture.replace("</body>", `${data}</body>`);
 
     const result = await verifyContent("duplicate-data", duplicated, "interactive");
+    expect(result.findings?.map((item) => item.code)).toContain("MANIFEST_INVALID");
+  });
+
+  it("counts a wrong-type manifest occurrence before the valid manifest", async () => {
+    const wrongType = '<script id="klopsi-presentation-manifest" type="text/plain">{}</script>';
+    const duplicated = staticFixture.replace(
+      /<script id="klopsi-presentation-manifest" type="application\/json">/u,
+      `${wrongType}$&`,
+    );
+
+    const result = await verifyContent("wrong-type-manifest-first", duplicated, "static");
+    expect(result.findings?.map((item) => item.code)).toContain("MANIFEST_INVALID");
+  });
+
+  it("counts a wrong-type data occurrence before the valid presentation data", async () => {
+    const wrongType = '<script id="klopsi-presentation-data" type="text/plain">[]</script>';
+    const duplicated = interactiveFixture.replace(
+      /<script id="klopsi-presentation-data" type="application\/json">/u,
+      `${wrongType}$&`,
+    );
+
+    const result = await verifyContent("wrong-type-data-first", duplicated, "interactive");
     expect(result.findings?.map((item) => item.code)).toContain("MANIFEST_INVALID");
   });
 
@@ -389,6 +438,56 @@ describe("dashboard presentation verifier", () => {
 
     const result = await verifyContent("missing-geometry-field", missingGeometry, "static");
     expect(result.findings?.map((item) => item.code)).toContain("MANIFEST_INVALID");
+  });
+
+  it("rejects extraneous keys in every conditional geography form", async () => {
+    const variants = [
+      {
+        name: "none",
+        update(manifest: Record<string, unknown>) {
+          manifest.geography = { kind: "none", crs: null, geometryField: "geometry" };
+        },
+      },
+      {
+        name: "coordinates",
+        update(manifest: Record<string, unknown>) {
+          const data = manifest.data as { fields: Array<Record<string, unknown>> };
+          data.fields.push(
+            { name: "latitude", type: "number", unit: "degrees" },
+            { name: "longitude", type: "number", unit: "degrees" },
+          );
+          manifest.geography = {
+            kind: "coordinates",
+            crs: "EPSG:4326",
+            latitudeField: "latitude",
+            longitudeField: "longitude",
+            geometryField: "geometry",
+          };
+        },
+      },
+      {
+        name: "geometry",
+        update(manifest: Record<string, unknown>) {
+          const data = manifest.data as { fields: Array<Record<string, unknown>> };
+          data.fields.push({ name: "geometry", type: "geometry", unit: null });
+          manifest.geography = {
+            kind: "geometry",
+            crs: "EPSG:3794",
+            geometryField: "geometry",
+            latitudeField: "latitude",
+          };
+        },
+      },
+    ] as const;
+
+    for (const variant of variants) {
+      const extraKey = replaceManifest(staticFixture, variant.update);
+      const result = await verifyContent(`geography-extra-${variant.name}`, extraKey, "static");
+      expect(
+        result.findings?.map((item) => item.code),
+        variant.name,
+      ).toContain("MANIFEST_INVALID");
+    }
   });
 
   it("reports independent findings when the manifest and data body are both invalid", async () => {

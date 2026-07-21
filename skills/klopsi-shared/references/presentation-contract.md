@@ -42,9 +42,9 @@ Its JSON object has these exact required top-level fields:
 
 Geography is conditional:
 
-- no map: `{"kind":"none","crs":null}`;
-- point coordinates: `kind` is `"coordinates"`, `crs` is nonempty, and `latitudeField` and `longitudeField` name embedded fields;
-- embedded geometry: `kind` is `"geometry"`, `crs` is nonempty, and `geometryField` names the embedded geometry field.
+- no map: exactly `{"kind":"none","crs":null}`;
+- point coordinates: exactly `kind`, `crs`, `latitudeField`, and `longitudeField`; `kind` is `"coordinates"`, `crs` is nonempty, and both field names exist in embedded data;
+- embedded geometry: exactly `kind`, `crs`, and `geometryField`; `kind` is `"geometry"`, `crs` is nonempty, and the field name exists in embedded data.
 
 Do not map data without valid embedded coordinates or geometry and known CRS information. Never geocode, guess coordinates, infer a CRS, or fetch tiles.
 

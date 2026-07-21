@@ -47,9 +47,9 @@ Its JSON object has these exact required top-level fields:
 
 Geography is conditional:
 
-- no map: \`{"kind":"none","crs":null}\`;
-- point coordinates: \`kind\` is \`"coordinates"\`, \`crs\` is nonempty, and \`latitudeField\` and \`longitudeField\` name embedded fields;
-- embedded geometry: \`kind\` is \`"geometry"\`, \`crs\` is nonempty, and \`geometryField\` names the embedded geometry field.
+- no map: exactly \`{"kind":"none","crs":null}\`;
+- point coordinates: exactly \`kind\`, \`crs\`, \`latitudeField\`, and \`longitudeField\`; \`kind\` is \`"coordinates"\`, \`crs\` is nonempty, and both field names exist in embedded data;
+- embedded geometry: exactly \`kind\`, \`crs\`, and \`geometryField\`; \`kind\` is \`"geometry"\`, \`crs\` is nonempty, and the field name exists in embedded data.
 
 Do not map data without valid embedded coordinates or geometry and known CRS information. Never geocode, guess coordinates, infer a CRS, or fetch tiles.
 
@@ -148,19 +148,19 @@ function extractJsonScripts(html, id) {
   let match;
   while ((match = pattern.exec(html)) !== null) {
     const tag = match[0];
-    const matches = attributeValue(tag, 'id') === id
-      && attributeValue(tag, 'type')?.toLowerCase() === 'application/json';
+    const matches = attributeValue(tag, 'id') === id;
+    const type = attributeValue(tag, 'type')?.trim().toLowerCase();
     const closeStart = html.toLowerCase().indexOf('</script', pattern.lastIndex);
     if (closeStart < 0) {
-      if (matches) blocks.push({ body: undefined });
+      if (matches) blocks.push({ body: undefined, type });
       break;
     }
     const closeEnd = html.indexOf('>', closeStart);
     if (closeEnd < 0) {
-      if (matches) blocks.push({ body: undefined });
+      if (matches) blocks.push({ body: undefined, type });
       break;
     }
-    if (matches) blocks.push({ body: html.slice(pattern.lastIndex, closeStart) });
+    if (matches) blocks.push({ body: html.slice(pattern.lastIndex, closeStart), type });
     pattern.lastIndex = closeEnd + 1;
   }
   return blocks;
@@ -206,17 +206,21 @@ function validReduction(reduction) {
 
 function validGeography(geography, fields) {
   if (!isObject(geography)) return false;
-  if (geography.kind === 'none') return geography.crs === null;
+  if (geography.kind === 'none') {
+    return hasExactKeys(geography, ['kind', 'crs']) && geography.crs === null;
+  }
   const fieldNames = new Set(fields.map((field) => field.name));
   if (geography.kind === 'coordinates') {
-    return isNonemptyString(geography.crs)
+    return hasExactKeys(geography, ['kind', 'crs', 'latitudeField', 'longitudeField'])
+      && isNonemptyString(geography.crs)
       && isNonemptyString(geography.latitudeField)
       && isNonemptyString(geography.longitudeField)
       && fieldNames.has(geography.latitudeField)
       && fieldNames.has(geography.longitudeField);
   }
   if (geography.kind === 'geometry') {
-    return isNonemptyString(geography.crs)
+    return hasExactKeys(geography, ['kind', 'crs', 'geometryField'])
+      && isNonemptyString(geography.crs)
       && isNonemptyString(geography.geometryField)
       && fieldNames.has(geography.geometryField);
   }
@@ -292,7 +296,7 @@ function executableScriptBodies(html) {
 function eventHandlerBodies(html) {
   const bodies = [];
   for (const tag of openingTags(html)) {
-    const pattern = /\son[a-z][a-z0-9_-]*\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/giu;
+    const pattern = /\son[a-z][a-z0-9_-]*(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?(?=\s|>)/giu;
     let match;
     while ((match = pattern.exec(tag)) !== null) bodies.push(match[1] ?? match[2] ?? match[3] ?? '');
   }
@@ -436,10 +440,12 @@ async function main() {
 
   const findings = [];
   const manifestBlocks = extractJsonScripts(html, 'klopsi-presentation-manifest');
-  const manifestBlock = manifestBlocks[0] ?? { body: undefined };
+  const manifestBlock = manifestBlocks.find((block) => block.type === 'application/json')
+    ?? manifestBlocks[0]
+    ?? { body: undefined, type: undefined };
   const parsedManifest = parseJsonBlock(manifestBlock);
   add(findings, manifestBlocks.length === 0, 'MANIFEST_MISSING', 'A presentation manifest JSON block is required.');
-  add(findings, manifestBlocks.length > 1, 'MANIFEST_INVALID', 'Dashboards require exactly one presentation manifest JSON block.');
+  add(findings, manifestBlocks.length > 0 && (manifestBlocks.length !== 1 || manifestBlocks[0].type !== 'application/json'), 'MANIFEST_INVALID', 'Dashboards require exactly one presentation manifest script with type="application/json".');
   add(findings, manifestBlocks.length > 0 && !parsedManifest.parsed, 'MANIFEST_INVALID', 'The presentation manifest must contain valid JSON.');
   add(findings, manifestBlocks.some((block) => block.body?.includes('<') === true), 'JSON_EMBEDDING_UNSAFE', 'JSON script bodies must escape every less-than character as \\u003c.');
 
@@ -470,12 +476,14 @@ async function main() {
   }
 
   const dataBlocks = extractJsonScripts(html, 'klopsi-presentation-data');
-  const dataBlock = dataBlocks[0] ?? { body: undefined };
+  const dataBlock = dataBlocks.find((block) => block.type === 'application/json')
+    ?? dataBlocks[0]
+    ?? { body: undefined, type: undefined };
   const parsedData = parseJsonBlock(dataBlock);
   add(findings, dataBlocks.some((block) => block.body?.includes('<') === true), 'JSON_EMBEDDING_UNSAFE', 'JSON script bodies must escape every less-than character as \\u003c.');
   add(findings, dataBlocks.some((block) => block.body !== undefined && Buffer.byteLength(block.body, 'utf8') > MAX_DATA_BYTES), 'DATA_TOO_LARGE', 'Embedded presentation data exceeds the 5 MB limit.');
   if (mode === 'interactive') {
-    add(findings, dataBlocks.length !== 1, 'MANIFEST_INVALID', 'Interactive dashboards require exactly one presentation-data JSON block.');
+    add(findings, dataBlocks.length !== 1 || dataBlocks[0].type !== 'application/json', 'MANIFEST_INVALID', 'Interactive dashboards require exactly one presentation-data script with type="application/json".');
     add(findings, dataBlocks.length > 0 && (!parsedData.parsed || !Array.isArray(parsedData.value)), 'MANIFEST_INVALID', 'Interactive dashboards require a valid presentation-data JSON array.');
     if (dataBlock.body !== undefined && parsedData.parsed && Array.isArray(parsedData.value)) {
       const embeddedBytes = Buffer.byteLength(dataBlock.body, 'utf8');
@@ -493,7 +501,7 @@ async function main() {
   const eventHandlers = eventHandlerBodies(html);
   const executable = [...executableScripts, ...eventHandlers].join('\n');
   add(findings, /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\s*\(|\.sendBeacon\s*\(|\bimport\s*\(/u.test(executable), 'NETWORK_API', 'Dashboard scripts must not use network APIs or dynamic imports.');
-  add(findings, hasUnsafeElement(html) || /\beval\s*\(|\bnew\s+Function\s*\(/u.test(executable), 'UNSAFE_CODE', 'Dashboards must not use eval, new Function, iframe, object, or embed.');
+  add(findings, eventHandlers.length > 0 || hasUnsafeElement(html) || /\beval\s*\(|\bnew\s+Function\s*\(/u.test(executable), 'UNSAFE_CODE', 'Dashboards must not use inline event handlers, eval, new Function, iframe, object, or embed.');
   add(findings, !hasValidCsp(html), 'CSP_INVALID', 'The dashboard requires the offline Content Security Policy directives.');
   add(findings, !hasAttribute(html, 'data-klopsi-summary'), 'SUMMARY_MISSING', 'Dashboards require a visible plain-language summary.');
   add(findings, !hasAttribute(html, 'data-klopsi-disclosures'), 'DISCLOSURES_MISSING', 'Dashboards require visible transformation and reduction disclosures.');
