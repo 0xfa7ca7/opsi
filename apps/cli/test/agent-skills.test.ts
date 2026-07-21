@@ -380,6 +380,11 @@ describe("agent skill rendering", () => {
 
     expect(packages.get("klopsi")?.files.get("SKILL.md")).toContain("name: klopsi");
     expect([...packages.get("klopsi")!.files.keys()]).toEqual(["SKILL.md"]);
+    expect([...packages.get("klopsi-shared")!.files.keys()]).toEqual([
+      "SKILL.md",
+      "references/presentation-contract.md",
+      "scripts/verify-dashboard.mjs",
+    ]);
     expect([...renderAgentSkillFiles("1.2.3")]).toEqual(
       [...packages].map(([name, value]) => [name, value.files.get("SKILL.md")]),
     );
@@ -445,6 +450,11 @@ describe("agent skill rendering", () => {
       }
     }
     expect(content).toContain("Do not fall back to curl or another raw HTTP client");
+    expect(content).toContain("## Presentation artifacts");
+    expect(content).toContain("references/presentation-contract.md");
+    expect(content).toContain("scripts/verify-dashboard.mjs");
+    expect(content).toContain("before handoff");
+    expect(content).toContain("not official artifact provenance");
   });
 
   it("renders the required data workflow guidance and capability guides before commands", () => {

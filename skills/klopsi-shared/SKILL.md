@@ -44,6 +44,12 @@ Use the installed CLI as the source of truth when its help differs from generate
 - Supported tabular workflow formats include JSON, NDJSON, CSV, TSV, XLSX, Parquet, ZIP, and XML when their selected content is supported.
 - Choose `--json` for one bounded envelope, `--ndjson` for records, and command-specific `--output` for a persisted artifact; use spreadsheet-safe output when needed.
 
+## Presentation artifacts
+
+- Read [the dashboard presentation contract](references/presentation-contract.md) before creating a static or interactive HTML presentation.
+- Run `node ../klopsi-shared/scripts/verify-dashboard.mjs <dashboard.html> --mode <static|interactive> --json` and repair every finding before handoff.
+- Passing the dashboard verifier is presentation evidence, not official artifact provenance; use `klopsi provenance verify` for provenance claims.
+
 ## Global options
 
 | Option | Values | Conflicts | Description |

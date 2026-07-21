@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'"
+    />
+    <title>Verified dashboard fixture</title>
+  </head>
+  <body>
+    <main>
+      <h1>Verified dashboard fixture</h1>
+      <section data-klopsi-summary>Plain-language summary.</section>
+      <section data-klopsi-disclosures>No aggregation or sampling.</section>
+      <section data-klopsi-lineage>Source digest and verification status.</section>
+      <section data-klopsi-filter-region aria-label="Dashboard filters">
+        <label for="category-filter">Category</label>
+        <select id="category-filter">
+          <option value="">All categories</option>
+        </select>
+        <button type="button" data-klopsi-reset>Reset filters</button>
+      </section>
+      <p data-klopsi-record-count>2 of 2 records</p>
+      <table data-klopsi-detail-table>
+        <thead>
+          <tr>
+            <th scope="col">Category</th>
+            <th scope="col">Value</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p data-klopsi-empty-state hidden>No records match the selected filters.</p>
+    </main>
+    <noscript>Two fixture rows compare categories A and B; category A is larger.</noscript>
+    <script id="klopsi-presentation-manifest" type="application/json">
+      {
+        "schemaVersion": "1",
+        "mode": "interactive",
+        "generator": "klopsi-agent-skill",
+        "generatedAt": "2026-07-21T00:00:00.000Z",
+        "title": "Verified dashboard fixture",
+        "sources": [
+          {
+            "identity": "fixture.csv",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "verified": true
+          }
+        ],
+        "transformations": [],
+        "reductions": [],
+        "data": {
+          "originalRows": 2,
+          "presentedRows": 2,
+          "embeddedBytes": 55,
+          "fields": [{ "name": "category", "type": "string", "unit": null }]
+        },
+        "geography": { "kind": "none", "crs": null },
+        "views": [
+          {
+            "id": "summary",
+            "question": "How do categories compare?",
+            "population": "Two fixture rows",
+            "unit": "count",
+            "recordCount": 2,
+            "takeaway": "Category A is larger."
+          },
+          {
+            "id": "table",
+            "question": "What are the exact values?",
+            "population": "Two fixture rows",
+            "unit": "count",
+            "recordCount": 2,
+            "takeaway": "The table preserves exact values."
+          }
+        ]
+      }
+    </script>
+    <!-- prettier-ignore -->
+    <script id="klopsi-presentation-data" type="application/json">[{"category":"A","value":2},{"category":"B","value":1}]</script>
+    <script>
+      const rows = JSON.parse(document.querySelector("#klopsi-presentation-data").textContent);
+      const body = document.querySelector("[data-klopsi-detail-table] tbody");
+      for (const row of rows) {
+        const tableRow = document.createElement("tr");
+        const category = document.createElement("td");
+        const value = document.createElement("td");
+        category.textContent = row.category;
+        value.textContent = String(row.value);
+        tableRow.append(category, value);
+        body.append(tableRow);
+      }
+    </script>
+  </body>
+</html>

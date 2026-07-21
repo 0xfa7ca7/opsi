@@ -59,6 +59,18 @@ describe("generate-skills", () => {
     expect(
       await readFile(join(value.cwd, "skills", "klopsi-analysis", "SKILL.md"), "utf8"),
     ).toContain("klopsi query");
+    expect(
+      await readFile(
+        join(value.cwd, "skills", "klopsi-shared", "references", "presentation-contract.md"),
+        "utf8",
+      ),
+    ).toContain("# KLOPSI dashboard presentation contract");
+    expect(
+      await readFile(
+        join(value.cwd, "skills", "klopsi-shared", "scripts", "verify-dashboard.mjs"),
+        "utf8",
+      ),
+    ).toContain("const MAX_HTML_BYTES = 15 * 1024 * 1024;");
     expect(value.stderr).toEqual([]);
   });
 
@@ -71,6 +83,8 @@ describe("generate-skills", () => {
     ).resolves.toBe(0);
     await writeFile(join(output, "sentinel.txt"), "keep me");
     await writeFile(join(output, "klopsi", "SKILL.md"), "stale generated content");
+    const nestedSentinel = join(output, "klopsi-shared", "references", "notes.md");
+    await writeFile(nestedSentinel, "keep nested notes");
     value.stdout.splice(0);
 
     await expect(
@@ -78,6 +92,7 @@ describe("generate-skills", () => {
     ).resolves.toBe(0);
 
     expect(await readFile(join(output, "sentinel.txt"), "utf8")).toBe("keep me");
+    expect(await readFile(nestedSentinel, "utf8")).toBe("keep nested notes");
     expect(await readFile(join(output, "klopsi", "SKILL.md"), "utf8")).toContain(
       "# KLOPSI orchestrator",
     );
@@ -121,10 +136,48 @@ describe("generate-skills", () => {
     });
   });
 
+  symlinkTest(
+    "rejects a symbolic-link shared references directory without following it",
+    async () => {
+      const value = await fixture();
+      const output = join(value.cwd, "skills");
+      const shared = join(output, "klopsi-shared");
+      const outside = join(value.cwd, "outside");
+      await mkdir(shared, { recursive: true });
+      await mkdir(outside);
+      await symlink(outside, join(shared, "references"));
+
+      await expect(
+        runCli(["generate-skills", "--output-dir", output, "--json"], value.io),
+      ).resolves.toBe(2);
+      expect(JSON.parse(value.stdout.join(""))).toMatchObject({
+        error: { code: "SKILL_OUTPUT_INVALID", exitCode: 2 },
+      });
+      await expect(
+        readFile(join(outside, "presentation-contract.md"), "utf8"),
+      ).rejects.toMatchObject({ code: "ENOENT" });
+    },
+  );
+
   it("returns a typed generation failure when a known file target is a directory", async () => {
     const value = await fixture();
     const output = join(value.cwd, "skills");
     await mkdir(join(output, "klopsi", "SKILL.md"), { recursive: true });
+
+    await expect(
+      runCli(["generate-skills", "--output-dir", output, "--json"], value.io),
+    ).resolves.toBe(1);
+    expect(JSON.parse(value.stdout.join(""))).toMatchObject({
+      error: { code: "SKILL_GENERATION_FAILED", exitCode: 1 },
+    });
+  });
+
+  it("returns a typed generation failure when the verifier target is a directory", async () => {
+    const value = await fixture();
+    const output = join(value.cwd, "skills");
+    await mkdir(join(output, "klopsi-shared", "scripts", "verify-dashboard.mjs"), {
+      recursive: true,
+    });
 
     await expect(
       runCli(["generate-skills", "--output-dir", output, "--json"], value.io),
