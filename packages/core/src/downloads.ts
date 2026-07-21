@@ -2,7 +2,7 @@ import { basename, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { rm, stat } from "node:fs/promises";
-import { EXIT_CODES, OpsiError, type ResourceId } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError, type ResourceId } from "@klopsi/domain";
 import {
   Downloader,
   ProvenanceStore,
@@ -14,7 +14,7 @@ import {
   type DownloadLimits,
   type DownloadResult,
   type ProbeResult,
-} from "@opsi/storage";
+} from "@klopsi/storage";
 import type { ProviderRegistry } from "./registry.js";
 
 export interface ResourceDownloadOptions {
@@ -76,7 +76,7 @@ export class DownloadService {
       (options.requireTabular === true && resolved.kind !== "file") ||
       (options.requireData === true && resolved.kind !== "file" && resolved.kind !== "archive")
     )
-      throw new OpsiError({
+      throw new KlopsiError({
         code: resolved.kind === "archive" ? "DOWNLOAD_ONLY_FORMAT" : "UNSUPPORTED_RESOURCE_KIND",
         message:
           resolved.kind === "archive"
@@ -102,7 +102,7 @@ export class DownloadService {
     if (this.options.offline) {
       const cached = await this.options.cache?.getMetadata<CachedDownload>(cacheKey, "download-v1");
       if (cached === undefined || this.options.cache === undefined)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "OFFLINE_CACHE_MISS",
           message: "Offline mode has no cached content for this resource.",
           exitCode: EXIT_CODES.NOT_FOUND,
@@ -249,7 +249,7 @@ export class DownloadService {
         },
       );
       if (object.sha256 !== result.sha256)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "CACHE_CORRUPT",
           message: "Cached download digest mismatch.",
           exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -262,7 +262,7 @@ export class DownloadService {
     options: Omit<ResourceDownloadOptions, "destination" | "force"> = {},
   ): Promise<ProbeResult> {
     if (this.options.offline)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "OFFLINE_CACHE_MISS",
         message: "Resource headers are unavailable in offline mode.",
         exitCode: EXIT_CODES.NOT_FOUND,

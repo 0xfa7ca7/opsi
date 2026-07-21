@@ -1,23 +1,23 @@
 # Architecture
 
-The pnpm monorepo separates domain types and ports, core application services and `OpsiClient`, provider adapters, configuration, secure storage/download/provenance, format/query engine, rendering, and the Commander adapter. The CLI is bundled into the public npm artifact while DuckDB and streaming parsers remain normal/optional runtime packages. `command-manifest.ts` is the normalized command/completion source; command modules adapt arguments to `OpsiClient`. `opsi/sdk` exports only the client and public domain types, never private workspace specifiers.
+The pnpm monorepo separates domain types and ports, core application services and `KlopsiClient`, provider adapters, configuration, secure storage/download/provenance, format/query engine, rendering, and the Commander adapter. The CLI is bundled into the public npm artifact while DuckDB and streaming parsers remain normal/optional runtime packages. `command-manifest.ts` is the normalized command/completion source; command modules adapt arguments to `KlopsiClient`. `klopsi/sdk` exports only the client and public domain types, never private workspace specifiers.
 
 Extensions implement `DataProvider` using provider-neutral branded IDs, canonical references, capabilities, and resolved-resource classification. New formats belong behind the data-engine contract and must support bounded detection, preview, validation, conversion, and tests where applicable.
 
 ## Dependency direction and runtime flow
 
-The domain package has no infrastructure dependency. Core depends on domain ports and coordinates catalogues, downloads, data inspection, conversion, and query services. Provider adapters depend inward on domain contracts. Storage owns cache locking, safe filenames, DNS/IP policy, atomic downloads, hashes, and provenance. Data-engine owns detection and bounded handlers. The CLI is the outer composition root: it loads configuration, constructs the OPSI provider and services, selects rendering, and attaches action callbacks to commands created from the normalized manifest.
+The domain package has no infrastructure dependency. Core depends on domain ports and coordinates catalogues, downloads, data inspection, conversion, and query services. Provider adapters depend inward on domain contracts. Storage owns cache locking, safe filenames, DNS/IP policy, atomic downloads, hashes, and provenance. Data-engine owns detection and bounded handlers. The CLI is the outer composition root: it loads configuration, constructs the KLOPSI provider and services, selects rendering, and attaches action callbacks to commands created from the normalized manifest.
 
-A catalogue request flows CLI → `OpsiClient` → `ProviderRegistry` → selected `DataProvider`; the provider validates upstream envelopes before mapping entities. A data request first resolves a local/canonical input, applies network policy where needed, stages content, invokes the selected handler, and returns domain-neutral rows/issues. Query hashes resolved content (or reuses a verified download digest), detects its format, and keys an immutable DuckDB stage by content, sheet, staging contract, and DuckDB compatibility version. A hit is linked or copied into a fresh invocation directory and opened read-only by the isolated worker; a miss stages once under a per-key build lock and publishes through the content-addressed cache. Output rendering is last so domain/core never knows terminal formats.
+A catalogue request flows CLI → `KlopsiClient` → `ProviderRegistry` → selected `DataProvider`; the provider validates upstream envelopes before mapping entities. A data request first resolves a local/canonical input, applies network policy where needed, stages content, invokes the selected handler, and returns domain-neutral rows/issues. Query hashes resolved content (or reuses a verified download digest), detects its format, and keys an immutable DuckDB stage by content, sheet, staging contract, and DuckDB compatibility version. A hit is linked or copied into a fresh invocation directory and opened read-only by the isolated worker; a miss stages once under a per-key build lock and publishes through the content-addressed cache. Output rendering is last so domain/core never knows terminal formats.
 
 Storage owns the DuckDB-agnostic derived-artifact policy: 30-day sliding expiry, once-daily touch throttling, expired-first/LRU pruning, and a default 10 GB derived-only budget. Data-engine owns writable staging, structural verification, and prepared read-only execution. Core coordinates lookup, single-builder publication, fallback, and `hit|miss|bypass` metadata. Cache objects are rebuildable performance artifacts, not a user database or an offline-content guarantee.
 
 Normal `dataset list` is the exception to the direct provider flow. A scheduled GitHub Actions
-publisher in the public `0xfa7ca7/opsi` source repository traverses OPSI every six hours, validates and
+publisher in the public `0xfa7ca7/opsi` source repository traverses KLOPSI every six hours, validates and
 deterministically projects the catalogue to `id`, `title`, and `name`, then uses a
-repository-scoped deploy key to force-push only the generated site beneath `opsi/` on the public,
+repository-scoped deploy key to force-push only the generated site beneath `klopsi/` on the public,
 data-only `0xfa7ca7/0xfa7ca7.github.io` repository's `gh-pages` branch. Branch-based GitHub Pages
-serves those files at the fixed `https://0xfa7ca7.github.io/opsi/` base URL. A push is not
+serves those files at the fixed `https://0xfa7ca7.github.io/klopsi/` base URL. A push is not
 considered a successful publication until bounded strict verification observes that run's exact
 digest and generation timestamp at the public endpoint. The CLI first validates a fresh local
 cache; on a cache miss it reads the HTTPS manifest and its one referenced snapshot, verifies the
@@ -37,7 +37,7 @@ and recovery procedure.
 
 ## Public and private boundaries
 
-Only `opsi` and `opsi/sdk` are public package entry points. Workspace package names, Zod schemas, DuckDB connection types, Commander internals, storage implementations, and provider wire contracts are private. The SDK declaration is intentionally hand-curated and dependency-clean; adding a public type requires updating that declaration and compiling both normal and omitted-optional clean consumers in `pack.test.ts`.
+Only `klopsi` and `klopsi/sdk` are public package entry points. Workspace package names, Zod schemas, DuckDB connection types, Commander internals, storage implementations, and provider wire contracts are private. The SDK declaration is intentionally hand-curated and dependency-clean; adding a public type requires updating that declaration and compiling both normal and omitted-optional clean consumers in `pack.test.ts`.
 
 The command manifest owns every user-facing path, description, argument, option, parser kind, choice, conflict, and mandatory marker. Generic registration creates Commander objects. Command adapters only attach actions, which keeps help, parsing, surface tests, and three shell completion generators synchronized.
 
@@ -52,4 +52,4 @@ access the publishing credential.
 
 ## Extension checklist
 
-Provider extensions must declare capabilities, map stable IDs/references, preserve unknown upstream fields under provider metadata, honor offline caches, and emit stable `OpsiError` categories. Format extensions must add the registered format constant, content detection, bounded preview/validation/conversion behavior, doctor fixture/probe coverage, malformed fixtures, and documentation. No extension may add telemetry, implicit network access, DuckDB extension installation, or a secret persistence path.
+Provider extensions must declare capabilities, map stable IDs/references, preserve unknown upstream fields under provider metadata, honor offline caches, and emit stable `KlopsiError` categories. Format extensions must add the registered format constant, content detection, bounded preview/validation/conversion behavior, doctor fixture/probe coverage, malformed fixtures, and documentation. No extension may add telemetry, implicit network access, DuckDB extension installation, or a secret persistence path.

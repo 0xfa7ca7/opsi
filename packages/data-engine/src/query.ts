@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { duckDbMemoryLimitBytes, EXIT_CODES, OpsiError } from "@opsi/domain";
+import { duckDbMemoryLimitBytes, EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { stageTabularInput, type TabularStage } from "./tabular-stage.js";
 import type { DataInput } from "./types.js";
 import type {
@@ -36,7 +36,7 @@ const MAX_LIMITS = {
 
 function boundedLimit(name: keyof typeof MAX_LIMITS, value: number): number {
   if (!Number.isSafeInteger(value) || value <= 0 || value > MAX_LIMITS[name])
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "QUERY_LIMIT_INVALID",
       message: `${name} must be a positive integer no larger than ${MAX_LIMITS[name]}.`,
       exitCode: EXIT_CODES.QUERY_FAILURE,
@@ -77,8 +77,8 @@ export interface DuckDbQueryRunnerOptions {
   readonly removeTemporaryDirectory?: (path: string) => Promise<void>;
 }
 
-function workerError(error: Extract<QueryWorkerMessage, { type: "error" }>["error"]): OpsiError {
-  return new OpsiError({
+function workerError(error: Extract<QueryWorkerMessage, { type: "error" }>["error"]): KlopsiError {
+  return new KlopsiError({
     code: error.code,
     message: error.message,
     exitCode: EXIT_CODES.QUERY_FAILURE,
@@ -86,8 +86,8 @@ function workerError(error: Extract<QueryWorkerMessage, { type: "error" }>["erro
   });
 }
 
-function queryCancelled(): OpsiError {
-  return new OpsiError({
+function queryCancelled(): KlopsiError {
+  return new KlopsiError({
     code: "QUERY_CANCELLED",
     message: "The query was cancelled.",
     exitCode: EXIT_CODES.QUERY_FAILURE,
@@ -97,7 +97,7 @@ function queryCancelled(): OpsiError {
 function queryLimits(options: PreparedQueryExecutionOptions | QueryExecutionOptions): QueryLimits {
   const memoryLimit = options.memoryLimit ?? DEFAULT_LIMITS.memoryLimit;
   if (duckDbMemoryLimitBytes(memoryLimit) === undefined)
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "QUERY_MEMORY_LIMIT",
       message: "DuckDB memory must be a supported positive size no larger than 1GB.",
       exitCode: EXIT_CODES.QUERY_FAILURE,
@@ -117,9 +117,9 @@ function queryLimits(options: PreparedQueryExecutionOptions | QueryExecutionOpti
   };
 }
 
-function cleanupError(failures: readonly unknown[], operationError: unknown): OpsiError {
+function cleanupError(failures: readonly unknown[], operationError: unknown): KlopsiError {
   const first = failures[0];
-  return new OpsiError({
+  return new KlopsiError({
     code: "QUERY_CLEANUP_FAILED",
     message: "Query resources could not be fully cleaned up.",
     exitCode: EXIT_CODES.QUERY_FAILURE,
@@ -161,7 +161,7 @@ export class DuckDbQueryRunner {
     try {
       if (cancelled) throw queryCancelled();
       directory = await (this.options.makeTemporaryDirectory?.() ??
-        mkdtemp(join(tmpdir(), "opsi-query-")));
+        mkdtemp(join(tmpdir(), "klopsi-query-")));
       if (cancelled) throw queryCancelled();
       const databasePath = join(directory, "data.duckdb");
       stage = await (this.options.stage ?? stageTabularInput)({
@@ -219,7 +219,7 @@ export class DuckDbQueryRunner {
     }
     if (operationError !== undefined) throw operationError;
     if (queryResult === undefined)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "QUERY_FAILED",
         message: "The query completed without a result.",
         exitCode: EXIT_CODES.QUERY_FAILURE,
@@ -278,7 +278,7 @@ export class DuckDbQueryRunner {
           finish(() => {
             if (timedOut)
               reject(
-                new OpsiError({
+                new KlopsiError({
                   code: "QUERY_TIMEOUT",
                   message: "The query exceeded its time limit.",
                   exitCode: EXIT_CODES.QUERY_FAILURE,
@@ -286,7 +286,7 @@ export class DuckDbQueryRunner {
               );
             else if (cancelled)
               reject(
-                new OpsiError({
+                new KlopsiError({
                   code: "QUERY_CANCELLED",
                   message: "The query was cancelled.",
                   exitCode: EXIT_CODES.QUERY_FAILURE,
@@ -300,7 +300,7 @@ export class DuckDbQueryRunner {
           finish(() => {
             if (cancelled)
               reject(
-                new OpsiError({
+                new KlopsiError({
                   code: "QUERY_CANCELLED",
                   message: "The query was cancelled.",
                   exitCode: EXIT_CODES.QUERY_FAILURE,
@@ -314,7 +314,7 @@ export class DuckDbQueryRunner {
             finish(() => {
               if (timedOut)
                 reject(
-                  new OpsiError({
+                  new KlopsiError({
                     code: "QUERY_TIMEOUT",
                     message: "The query exceeded its time limit.",
                     exitCode: EXIT_CODES.QUERY_FAILURE,
@@ -322,7 +322,7 @@ export class DuckDbQueryRunner {
                 );
               else if (cancelled)
                 reject(
-                  new OpsiError({
+                  new KlopsiError({
                     code: "QUERY_CANCELLED",
                     message: "The query was cancelled.",
                     exitCode: EXIT_CODES.QUERY_FAILURE,
@@ -330,7 +330,7 @@ export class DuckDbQueryRunner {
                 );
               else
                 reject(
-                  new OpsiError({
+                  new KlopsiError({
                     code: "QUERY_WORKER_EXIT",
                     message: `Query worker exited (${signal ?? code ?? "unknown"}).`,
                     exitCode: EXIT_CODES.QUERY_FAILURE,
@@ -355,7 +355,7 @@ export class DuckDbQueryRunner {
     }
     if (operationError !== undefined) throw operationError;
     if (queryResult === undefined)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "QUERY_FAILED",
         message: "The query completed without a result.",
         exitCode: EXIT_CODES.QUERY_FAILURE,

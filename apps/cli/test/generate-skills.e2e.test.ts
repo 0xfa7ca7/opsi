@@ -12,7 +12,7 @@ async function fixture(): Promise<{
   readonly stdout: string[];
   readonly stderr: string[];
 }> {
-  const cwd = await mkdtemp(join(tmpdir(), "opsi-generate-skills-"));
+  const cwd = await mkdtemp(join(tmpdir(), "klopsi-generate-skills-"));
   temporaryDirectories.push(cwd);
   const home = join(cwd, "home");
   await mkdir(home, { recursive: true });
@@ -50,15 +50,15 @@ describe("generate-skills", () => {
       data: {
         count: 11,
         outputDirectory: join(value.cwd, "skills"),
-        skills: expect.arrayContaining(["opsi", "opsi-analysis", "opsi-shared"]),
+        skills: expect.arrayContaining(["klopsi", "klopsi-analysis", "klopsi-shared"]),
       },
     });
-    expect(await readFile(join(value.cwd, "skills", "opsi", "SKILL.md"), "utf8")).toContain(
-      "name: opsi",
+    expect(await readFile(join(value.cwd, "skills", "klopsi", "SKILL.md"), "utf8")).toContain(
+      "name: klopsi",
     );
     expect(
-      await readFile(join(value.cwd, "skills", "opsi-analysis", "SKILL.md"), "utf8"),
-    ).toContain("opsi query");
+      await readFile(join(value.cwd, "skills", "klopsi-analysis", "SKILL.md"), "utf8"),
+    ).toContain("klopsi query");
     expect(value.stderr).toEqual([]);
   });
 
@@ -70,7 +70,7 @@ describe("generate-skills", () => {
       runCli(["generate-skills", "--output-dir", output, "--json"], value.io),
     ).resolves.toBe(0);
     await writeFile(join(output, "sentinel.txt"), "keep me");
-    await writeFile(join(output, "opsi", "SKILL.md"), "stale generated content");
+    await writeFile(join(output, "klopsi", "SKILL.md"), "stale generated content");
     value.stdout.splice(0);
 
     await expect(
@@ -78,8 +78,8 @@ describe("generate-skills", () => {
     ).resolves.toBe(0);
 
     expect(await readFile(join(output, "sentinel.txt"), "utf8")).toBe("keep me");
-    expect(await readFile(join(output, "opsi", "SKILL.md"), "utf8")).toContain(
-      "# OPSI orchestrator",
+    expect(await readFile(join(output, "klopsi", "SKILL.md"), "utf8")).toContain(
+      "# KLOPSI orchestrator",
     );
     expect(JSON.parse(value.stdout.join(""))).toMatchObject({
       data: { count: 11, outputDirectory: output },
@@ -108,7 +108,7 @@ describe("generate-skills", () => {
     const outside = join(value.cwd, "outside");
     await mkdir(output);
     await mkdir(outside);
-    await symlink(outside, join(output, "opsi"));
+    await symlink(outside, join(output, "klopsi"));
 
     await expect(
       runCli(["generate-skills", "--output-dir", output, "--json"], value.io),
@@ -124,7 +124,7 @@ describe("generate-skills", () => {
   it("returns a typed generation failure when a known file target is a directory", async () => {
     const value = await fixture();
     const output = join(value.cwd, "skills");
-    await mkdir(join(output, "opsi", "SKILL.md"), { recursive: true });
+    await mkdir(join(output, "klopsi", "SKILL.md"), { recursive: true });
 
     await expect(
       runCli(["generate-skills", "--output-dir", output, "--json"], value.io),

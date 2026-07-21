@@ -9,7 +9,7 @@ let home: string;
 let input: string;
 
 beforeEach(async () => {
-  home = await mkdtemp(join(tmpdir(), "opsi-query-e2e-"));
+  home = await mkdtemp(join(tmpdir(), "klopsi-query-e2e-"));
   input = join(home, "input.csv");
   await writeFile(input, "city,value\nLjubljana,1\nMaribor,2\nKoper,3\n");
 });
@@ -22,7 +22,7 @@ async function cli(argv: readonly string[], env: NodeJS.ProcessEnv = {}) {
       ...process.env,
       ...env,
       HOME: home,
-      OPSI_CACHE_DIR: join(home, "cache"),
+      KLOPSI_CACHE_DIR: join(home, "cache"),
       NO_COLOR: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -61,7 +61,7 @@ describe("query CLI", () => {
   it("reports bypass when the derived cache budget is zero", async () => {
     await expect(
       cli(["query", input, "--sql", "SELECT * FROM data", "--json"], {
-        OPSI_DUCKDB_CACHE_MAX_BYTES: "0B",
+        KLOPSI_DUCKDB_CACHE_MAX_BYTES: "0B",
       }),
     ).resolves.toMatchObject({
       exitCode: 0,

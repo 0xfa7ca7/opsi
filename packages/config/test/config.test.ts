@@ -33,7 +33,7 @@ async function fixtureSources(
     readonly cli?: LoadConfigurationOptions["cli"];
   } = {},
 ): Promise<LoadConfigurationOptions> {
-  const root = await temporaryDirectory("opsi-config-");
+  const root = await temporaryDirectory("klopsi-config-");
   const cwd = join(root, "project");
   const home = join(root, "home");
   await mkdir(cwd, { recursive: true });
@@ -91,9 +91,9 @@ describe("configuration", () => {
       loadConfiguration(
         await fixtureSources({
           env: {
-            OPSI_DUCKDB_CACHE_ENABLED: "false",
-            OPSI_DUCKDB_CACHE_MAX_BYTES: "2GiB",
-            OPSI_DUCKDB_CACHE_TTL_DAYS: "7",
+            KLOPSI_DUCKDB_CACHE_ENABLED: "false",
+            KLOPSI_DUCKDB_CACHE_MAX_BYTES: "2GiB",
+            KLOPSI_DUCKDB_CACHE_TTL_DAYS: "7",
           },
         }),
       ),
@@ -130,7 +130,7 @@ describe("configuration", () => {
       await fixtureSources({
         user: { query: { rowLimit: 10 } },
         project: { query: { rowLimit: 20 } },
-        env: { OPSI_QUERY_ROW_LIMIT: "30" },
+        env: { KLOPSI_QUERY_ROW_LIMIT: "30" },
         cli: { queryRowLimit: 40 },
       }),
     );
@@ -139,13 +139,13 @@ describe("configuration", () => {
   });
 
   it("does not create config directories while resolving paths", async () => {
-    const root = await temporaryDirectory("opsi-paths-");
+    const root = await temporaryDirectory("klopsi-paths-");
     const home = join(root, "missing-home");
     const project = join(root, "missing-project");
 
     const resolved = resolveConfigPaths({ home, cwd: project });
 
-    expect(resolved.userFile).toContain("opsi.config.json");
+    expect(resolved.userFile).toContain("klopsi.config.json");
     await expect(pathExists(dirname(resolved.userFile))).resolves.toBe(false);
     await expect(pathExists(project)).resolves.toBe(false);
   });
@@ -159,7 +159,7 @@ describe("configuration", () => {
   });
 
   it("loads API credentials from the environment without persisting them", async () => {
-    const options = await fixtureSources({ env: { OPSI_API_KEY: "environment-only" } });
+    const options = await fixtureSources({ env: { KLOPSI_API_KEY: "environment-only" } });
     const config = await loadConfiguration(options);
     const store = new ConfigStore(options.paths?.userFile ?? "");
 

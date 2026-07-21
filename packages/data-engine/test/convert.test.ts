@@ -3,7 +3,7 @@ import { mkdtemp, open, readFile, readdir, rename, rm, writeFile } from "node:fs
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DuckDBInstance } from "@duckdb/node-api";
-import { ProvenanceStore } from "@opsi/storage";
+import { ProvenanceStore } from "@klopsi/storage";
 import ExcelJS from "exceljs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DataEngine, type SupportedDataFormat } from "../src/index.js";
@@ -62,7 +62,7 @@ async function createInputs(): Promise<Readonly<Record<SupportedDataFormat, stri
 }
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "opsi-convert-"));
+  root = await mkdtemp(join(tmpdir(), "klopsi-convert-"));
 });
 
 afterEach(async () => rm(root, { recursive: true, force: true }));

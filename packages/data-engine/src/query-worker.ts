@@ -1,7 +1,7 @@
 import { availableParallelism } from "node:os";
 import { isAbsolute, relative, resolve } from "node:path";
 import type { DuckDBInstance, DuckDBConnection, DuckDBPreparedStatement } from "@duckdb/node-api";
-import { duckDbMemoryLimitBytes } from "@opsi/domain";
+import { duckDbMemoryLimitBytes } from "@klopsi/domain";
 import type {
   QueryLimits,
   QueryResult,

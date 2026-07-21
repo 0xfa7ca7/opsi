@@ -1,6 +1,6 @@
 import { closeSync, createReadStream, openSync, writeSync } from "node:fs";
 import { rm } from "node:fs/promises";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { SaxesParser, type SaxesAttributeNS, type SaxesTagNS } from "saxes";
 import type { DataRow, ValidationIssue } from "./types.js";
 import { detectTextEncoding } from "./text-decoding.js";
@@ -50,10 +50,10 @@ type NamespaceOptions = {
   readonly fileName?: string;
 };
 
-function xmlError(error: unknown): OpsiError {
-  return error instanceof OpsiError
+function xmlError(error: unknown): KlopsiError {
+  return error instanceof KlopsiError
     ? error
-    : new OpsiError({
+    : new KlopsiError({
         code: "INVALID_XML_DATA",
         message: "The XML document is malformed or uses unsupported declarations.",
         exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -73,7 +73,7 @@ async function parseXml(
   });
   configure(parser);
   parser.on("doctype", () => {
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "INVALID_XML_DATA",
       message: "DTD and entity declarations are not supported.",
       exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -89,7 +89,7 @@ async function parseXml(
       const chunk = Buffer.from(raw as Uint8Array);
       bytes += chunk.length;
       if (bytes > limits.maxDocumentBytes)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "XML_LIMIT_EXCEEDED",
           message: "The XML document exceeds the byte limit.",
           exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -116,13 +116,13 @@ export async function discoverXmlRecords(
   await parseXml(path, limits, (parser) => {
     parser.on("opentag", (tag: SaxesTagNS) => {
       if (stack.length + 1 > limits.maxDepth)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "XML_LIMIT_EXCEEDED",
           message: "The XML nesting depth exceeds the limit.",
           exitCode: EXIT_CODES.INTEGRITY_FAILURE,
         });
       if (Object.keys(tag.attributes).length > limits.maxAttributesPerElement)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "XML_LIMIT_EXCEEDED",
           message: "An XML element has too many attributes.",
           exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -141,7 +141,7 @@ export async function discoverXmlRecords(
     .filter(([candidate, count]) => count > 1 && parents.has(candidate))
     .sort(([left], [right]) => left.localeCompare(right));
   if (repeated.length === 0)
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "XML_RECORD_PATH_REQUIRED",
       message: "No repeated XML record structure could be inferred.",
       exitCode: EXIT_CODES.INVALID_INPUT,
@@ -152,7 +152,7 @@ export async function discoverXmlRecords(
     .filter(([, count]) => count === bestCount)
     .map(([candidate]) => candidate);
   if (choices.length !== 1)
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "XML_RECORD_PATH_REQUIRED",
       message: "Multiple repeated XML record structures are equally plausible.",
       exitCode: EXIT_CODES.INVALID_INPUT,
@@ -179,7 +179,7 @@ export async function previewXml(
       ? await discoverXmlRecords(path, limits)
       : { recordPath: options.recordPath, choices: [options.recordPath], namespaces: {} };
   if (!RECORD_PATH.test(discovery.recordPath))
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "XML_RECORD_PATH_INVALID",
       message: "The XML record path must be an absolute slash-separated element path.",
       exitCode: EXIT_CODES.INVALID_INPUT,
@@ -192,13 +192,13 @@ export async function previewXml(
   await parseXml(path, limits, (parser) => {
     parser.on("opentag", (tag: SaxesTagNS) => {
       if (stack.length + 1 > limits.maxDepth)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "XML_LIMIT_EXCEEDED",
           message: "The XML nesting depth exceeds the limit.",
           exitCode: EXIT_CODES.INTEGRITY_FAILURE,
         });
       if (Object.keys(tag.attributes).length > limits.maxAttributesPerElement)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "XML_LIMIT_EXCEEDED",
           message: "An XML element has too many attributes.",
           exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -231,7 +231,7 @@ export async function previewXml(
       frame.text += text;
       stateBytes += Buffer.byteLength(text);
       if (Buffer.byteLength(frame.text) > limits.maxValueBytes || stateBytes > limits.maxStateBytes)
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "XML_LIMIT_EXCEEDED",
           message: "XML text state exceeds a configured limit.",
           exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -250,7 +250,7 @@ export async function previewXml(
       }
       if (record !== undefined && stack.length === record.depth) {
         if (Object.keys(record.row).length > limits.maxColumns)
-          throw new OpsiError({
+          throw new KlopsiError({
             code: "XML_LIMIT_EXCEEDED",
             message: "An XML record has too many columns.",
             exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -298,7 +298,7 @@ export async function writeXmlRowsAsNdjson(
     );
     options.signal?.throwIfAborted();
     if (preview.truncated)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "XML_LIMIT_EXCEEDED",
         message: "The XML document exceeds the record limit.",
         exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -310,7 +310,7 @@ export async function writeXmlRowsAsNdjson(
       writeSync(descriptor, `${JSON.stringify(row)}\n`);
     }
     if (preview.rows.length === 0)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "EMPTY_TABULAR_INPUT",
         message: "The selected XML record path has no rows.",
         exitCode: EXIT_CODES.INVALID_INPUT,

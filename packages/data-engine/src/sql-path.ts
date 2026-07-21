@@ -1,8 +1,8 @@
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 
 function safeSqlText(value: string, kind: "path" | "identifier"): string {
   if (value.includes("\0"))
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "INVALID_CONVERSION_PATH",
       message: `The conversion ${kind} contains a NUL byte.`,
       exitCode: EXIT_CODES.INVALID_INPUT,

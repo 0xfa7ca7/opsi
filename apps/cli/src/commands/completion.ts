@@ -99,10 +99,10 @@ function bashCompletion(): string {
           : `${nested.map((entry) => entry.path.split(" ")[1]).join(" ")} ${nested
               .flatMap((entry) => flags(entry).split(" "))
               .join(" ")}`;
-      return `    opsi\\ ${parent}\\ *) candidates="${words} ${globalFlags()}" ;;`;
+      return `    klopsi\\ ${parent}\\ *) candidates="${words} ${globalFlags()}" ;;`;
     })
     .join("\n");
-  return `_opsi_complete() {
+  return `_klopsi_complete() {
   local candidates="${topLevelCommands().join(" ")} ${globalFlags()}"
   case "$COMP_LINE" in
 ${choiceCases}
@@ -110,7 +110,7 @@ ${cases}
   esac
   COMPREPLY=( $(compgen -W "$candidates" -- "\${COMP_WORDS[COMP_CWORD]}") )
 }
-complete -o default -o bashdefault -F _opsi_complete opsi
+complete -o default -o bashdefault -F _klopsi_complete klopsi
 `;
 }
 
@@ -172,10 +172,10 @@ ${leafCases}
           ;;`;
     })
     .join("\n");
-  return `#compdef opsi
+  return `#compdef klopsi
 local curcontext="$curcontext" context state state_descr line
-local -a opsi_words=("\${words[@]}")
-local -i opsi_current=$CURRENT opsi_command_index NORMARG
+local -a klopsi_words=("\${words[@]}")
+local -i klopsi_current=$CURRENT klopsi_command_index NORMARG
 typeset -A opt_args
 _arguments -n -C -A '-*' ${globalOptions} ':command:->command' '*::: := ->command_arguments'
 case $state in
@@ -184,10 +184,10 @@ case $state in
     ;;
   command_arguments)
     curcontext="\${curcontext%:*}-$line[1]:"
-    opsi_command_index=$NORMARG
-    (( opsi_command_index <= $#opsi_words )) || return 1
-    words=("\${(@)opsi_words[$opsi_command_index,-1]}")
-    CURRENT=$(( opsi_current - opsi_command_index + 1 ))
+    klopsi_command_index=$NORMARG
+    (( klopsi_command_index <= $#klopsi_words )) || return 1
+    words=("\${(@)klopsi_words[$klopsi_command_index,-1]}")
+    CURRENT=$(( klopsi_current - klopsi_command_index + 1 ))
     case $line[1] in
 ${commandCases}
     esac
@@ -202,16 +202,16 @@ function fishCompletion(): string {
     ...GLOBAL_OPTION_MANIFEST.map((item) => {
       const long = item.flags.match(/--([\w-]+)/u)?.[1] ?? item.flags;
       const choices = item.choices === undefined ? "" : ` -a '${item.choices.join(" ")}'`;
-      return `complete -c opsi -l '${long}'${choices} -d '${item.description.replaceAll("'", "")}'`;
+      return `complete -c klopsi -l '${long}'${choices} -d '${item.description.replaceAll("'", "")}'`;
     }),
     ...top.map(
       (parent) =>
-        `complete -c opsi -n 'not __fish_seen_subcommand_from ${top.join(" ")}' -a '${parent}'`,
+        `complete -c klopsi -n 'not __fish_seen_subcommand_from ${top.join(" ")}' -a '${parent}'`,
     ),
     ...top.flatMap((parent) =>
       children(parent).map(
         (entry) =>
-          `complete -c opsi -n '__fish_seen_subcommand_from ${parent}' -a '${entry.path.split(" ")[1]}'`,
+          `complete -c klopsi -n '__fish_seen_subcommand_from ${parent}' -a '${entry.path.split(" ")[1]}'`,
       ),
     ),
     ...COMMAND_MANIFEST.flatMap((entry) =>
@@ -219,7 +219,7 @@ function fishCompletion(): string {
         const parent = entry.path.split(" ")[0];
         const long = item.flags.match(/--([\w-]+)/u)?.[1] ?? item.flags;
         const choices = item.choices === undefined ? "" : ` -a '${item.choices.join(" ")}'`;
-        return `complete -c opsi -n '__fish_seen_subcommand_from ${parent}' -l '${long}'${choices}`;
+        return `complete -c klopsi -n '__fish_seen_subcommand_from ${parent}' -l '${long}'${choices}`;
       }),
     ),
   ];

@@ -1,5 +1,5 @@
 import { performance } from "node:perf_hooks";
-import { OpsiError } from "@opsi/domain";
+import { KlopsiError } from "@klopsi/domain";
 import {
   CATALOGUE_MAX_AGE_MS,
   CATALOGUE_MAX_MANIFEST_BYTES,
@@ -42,7 +42,7 @@ type CachedSnapshot =
   | {
       readonly state: "stale";
       readonly value: StoredCatalogueSnapshot;
-      readonly error: OpsiError;
+      readonly error: KlopsiError;
     };
 
 export class CatalogueSnapshotClient {
@@ -119,7 +119,7 @@ export class CatalogueSnapshotClient {
       assertSnapshotFresh(value.snapshot.generatedAt, this.now());
       return { state: "fresh", value };
     } catch (error) {
-      if (error instanceof OpsiError && error.code === "CATALOGUE_SNAPSHOT_STALE") {
+      if (error instanceof KlopsiError && error.code === "CATALOGUE_SNAPSHOT_STALE") {
         return { state: "stale", value, error };
       }
       return { state: "invalid" };

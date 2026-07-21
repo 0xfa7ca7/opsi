@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadConfiguration, resolveConfigPaths } from "@opsi/config";
+import { loadConfiguration, resolveConfigPaths } from "@klopsi/config";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCli, type CliIo } from "../src/main.js";
 import { cliConfigurationFromArgv, requestedOutputFormat } from "../src/options.js";
@@ -14,12 +14,12 @@ async function fixtureIo(options: { readonly invalidConfig?: boolean } = {}): Pr
   readonly stdout: string[];
   readonly stderr: string[];
 }> {
-  const cwd = await mkdtemp(join(tmpdir(), "opsi-runtime-"));
+  const cwd = await mkdtemp(join(tmpdir(), "klopsi-runtime-"));
   temporaryDirectories.push(cwd);
   const home = join(cwd, "home");
   await mkdir(home, { recursive: true });
   if (options.invalidConfig === true) {
-    await writeFile(join(cwd, "opsi.config.json"), JSON.stringify({ unknown: true }));
+    await writeFile(join(cwd, "klopsi.config.json"), JSON.stringify({ unknown: true }));
   }
   const stdout: string[] = [];
   const stderr: string[] = [];
@@ -189,7 +189,7 @@ describe("CLI bootstrap options", () => {
       cwd,
       home,
       paths,
-      env: { OPSI_OUTPUT: "csv" },
+      env: { KLOPSI_OUTPUT: "csv" },
       cli: cliConfigurationFromArgv(["--output-format=json"]),
     });
 

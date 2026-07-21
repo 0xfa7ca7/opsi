@@ -19,7 +19,7 @@ let baseUrl: string;
 let server: ReturnType<typeof createServer>;
 
 beforeAll(async () => {
-  home = await mkdtemp(join(tmpdir(), "opsi-data-e2e-"));
+  home = await mkdtemp(join(tmpdir(), "klopsi-data-e2e-"));
   server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
     if (url.pathname === "/data.csv") {
@@ -119,11 +119,11 @@ async function cli(argv: readonly string[]): Promise<CliResult> {
     env: {
       ...process.env,
       HOME: home,
-      OPSI_CACHE_DIR: join(home, "cache"),
-      OPSI_DOWNLOAD_DIR: join(home, "downloads"),
-      OPSI_BASE_URL: baseUrl,
-      OPSI_OFFLINE: "0",
-      OPSI_REQUEST_INTERVAL_MS: "0",
+      KLOPSI_CACHE_DIR: join(home, "cache"),
+      KLOPSI_DOWNLOAD_DIR: join(home, "downloads"),
+      KLOPSI_BASE_URL: baseUrl,
+      KLOPSI_OFFLINE: "0",
+      KLOPSI_REQUEST_INTERVAL_MS: "0",
       NO_COLOR: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -191,7 +191,7 @@ describe("data CLI", () => {
       cli([
         "resource",
         "preview",
-        "opsi:resource:resource-zip",
+        "klopsi:resource:resource-zip",
         "--entry",
         "rows.csv",
         "--allow-insecure-http",
@@ -237,7 +237,7 @@ describe("data CLI", () => {
       cli([
         "resource",
         "preview",
-        "opsi:resource:resource-data",
+        "klopsi:resource:resource-data",
         "--json",
         "--allow-private-network",
         "--allow-insecure-http",
@@ -315,7 +315,7 @@ describe("data CLI", () => {
 
   it("validates typed metadata without fetching resource content", async () => {
     await expect(
-      cli(["validate", "opsi:dataset:dataset-data", "--metadata", "--json"]),
+      cli(["validate", "klopsi:dataset:dataset-data", "--metadata", "--json"]),
     ).resolves.toMatchObject({ exitCode: 0, json: { data: { valid: true } } });
   });
 

@@ -6,7 +6,7 @@ import {
   parseConfiguration,
   parseConfigurationSource,
   type ConfigurationSource,
-  type OpsiConfiguration,
+  type KlopsiConfiguration,
   type OutputFormat,
 } from "./schema.js";
 
@@ -80,30 +80,30 @@ function booleanValue(value: string | undefined): boolean | string | undefined {
 
 function environmentSource(env: NodeJS.ProcessEnv): MutableRecord {
   return {
-    provider: env.OPSI_PROVIDER,
-    output: env.OPSI_OUTPUT,
-    offline: booleanValue(env.OPSI_OFFLINE),
+    provider: env.KLOPSI_PROVIDER,
+    output: env.KLOPSI_OUTPUT,
+    offline: booleanValue(env.KLOPSI_OFFLINE),
     paths: {
-      cacheDir: env.OPSI_CACHE_DIR,
-      downloadDir: env.OPSI_DOWNLOAD_DIR,
+      cacheDir: env.KLOPSI_CACHE_DIR,
+      downloadDir: env.KLOPSI_DOWNLOAD_DIR,
     },
     http: {
-      timeoutMs: positiveInteger(env.OPSI_HTTP_TIMEOUT_MS),
-      maxDownloadBytes: positiveInteger(env.OPSI_MAX_DOWNLOAD_BYTES),
+      timeoutMs: positiveInteger(env.KLOPSI_HTTP_TIMEOUT_MS),
+      maxDownloadBytes: positiveInteger(env.KLOPSI_MAX_DOWNLOAD_BYTES),
     },
     query: {
-      rowLimit: positiveInteger(env.OPSI_QUERY_ROW_LIMIT),
-      timeoutMs: positiveInteger(env.OPSI_QUERY_TIMEOUT_MS),
+      rowLimit: positiveInteger(env.KLOPSI_QUERY_ROW_LIMIT),
+      timeoutMs: positiveInteger(env.KLOPSI_QUERY_TIMEOUT_MS),
     },
     duckdb: {
-      memoryLimit: env.OPSI_DUCKDB_MEMORY_LIMIT,
+      memoryLimit: env.KLOPSI_DUCKDB_MEMORY_LIMIT,
       cache: {
-        enabled: booleanValue(env.OPSI_DUCKDB_CACHE_ENABLED),
-        maxBytes: env.OPSI_DUCKDB_CACHE_MAX_BYTES,
-        ttlDays: positiveInteger(env.OPSI_DUCKDB_CACHE_TTL_DAYS),
+        enabled: booleanValue(env.KLOPSI_DUCKDB_CACHE_ENABLED),
+        maxBytes: env.KLOPSI_DUCKDB_CACHE_MAX_BYTES,
+        ttlDays: positiveInteger(env.KLOPSI_DUCKDB_CACHE_TTL_DAYS),
       },
     },
-    apiKey: env.OPSI_API_KEY,
+    apiKey: env.KLOPSI_API_KEY,
   };
 }
 
@@ -126,7 +126,7 @@ function cliSource(cli: CliConfigurationOptions): MutableRecord {
 
 export async function loadConfiguration(
   options: LoadConfigurationOptions = {},
-): Promise<OpsiConfiguration> {
+): Promise<KlopsiConfiguration> {
   const paths =
     options.paths ??
     resolveConfigPaths({
@@ -134,8 +134,8 @@ export async function loadConfiguration(
       ...(options.home === undefined ? {} : { home: options.home }),
     });
   const runtimeEnv = options.env ?? process.env;
-  const defaults: OpsiConfiguration = {
-    provider: "opsi",
+  const defaults: KlopsiConfiguration = {
+    provider: "klopsi",
     output: "human",
     locale: "sl-SI",
     offline: false,

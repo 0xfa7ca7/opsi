@@ -1,9 +1,10 @@
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 
-const LIVE_REMEDIATION = "or use `opsi dataset list --live` when direct OPSI access is acceptable.";
+const LIVE_REMEDIATION =
+  "or use `klopsi dataset list --live` when direct KLOPSI access is acceptable.";
 
-export function snapshotInvalid(field: string): OpsiError {
-  return new OpsiError({
+export function snapshotInvalid(field: string): KlopsiError {
+  return new KlopsiError({
     code: "CATALOGUE_SNAPSHOT_INVALID",
     message: "Catalogue snapshot validation failed.",
     exitCode: EXIT_CODES.PROVIDER_FAILURE,
@@ -12,8 +13,8 @@ export function snapshotInvalid(field: string): OpsiError {
   });
 }
 
-export function snapshotIntegrity(field: string): OpsiError {
-  return new OpsiError({
+export function snapshotIntegrity(field: string): KlopsiError {
+  return new KlopsiError({
     code: "CATALOGUE_SNAPSHOT_INTEGRITY",
     message: "Catalogue snapshot integrity validation failed.",
     exitCode: EXIT_CODES.PROVIDER_FAILURE,
@@ -22,8 +23,8 @@ export function snapshotIntegrity(field: string): OpsiError {
   });
 }
 
-export function snapshotStale(): OpsiError {
-  return new OpsiError({
+export function snapshotStale(): KlopsiError {
+  return new KlopsiError({
     code: "CATALOGUE_SNAPSHOT_STALE",
     message: "The catalogue snapshot is older than 24 hours.",
     exitCode: EXIT_CODES.PROVIDER_FAILURE,
@@ -32,8 +33,8 @@ export function snapshotStale(): OpsiError {
   });
 }
 
-export function snapshotUnavailable(): OpsiError {
-  return new OpsiError({
+export function snapshotUnavailable(): KlopsiError {
+  return new KlopsiError({
     code: "CATALOGUE_SNAPSHOT_UNAVAILABLE",
     message: "The catalogue snapshot is unavailable.",
     exitCode: EXIT_CODES.PROVIDER_FAILURE,

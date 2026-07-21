@@ -1,8 +1,8 @@
-# OPSI Agent Skill Capability Audit Design
+# KLOPSI Agent Skill Capability Audit Design
 
 ## Goal
 
-Ensure the installable OPSI Agent Skills let a user-facing coding agent discover and use the complete public `opsi` CLI safely and effectively. The repertoire must teach practical workflows and decision points, not merely repeat command syntax, while remaining focused on public-data users rather than OPSI contributors or TypeScript SDK consumers.
+Ensure the installable KLOPSI Agent Skills let a user-facing coding agent discover and use the complete public `klopsi` CLI safely and effectively. The repertoire must teach practical workflows and decision points, not merely repeat command syntax, while remaining focused on public-data users rather than KLOPSI contributors or TypeScript SDK consumers.
 
 ## Scope
 
@@ -14,9 +14,9 @@ The audit does not add TypeScript SDK guidance, contributor workflows, internal 
 
 The current registry assigns every command in `COMMAND_MANIFEST` to exactly one domain skill, and drift tests keep generated `SKILL.md` files synchronized with the registry. That provides complete syntactic ownership. The generated domain skills, however, contain only short workflow bullets plus manifest-derived syntax, so agents receive little help choosing among inputs, formats, modes, outputs, or safe recovery paths.
 
-The repository contains eleven skills: an orchestrator, a shared execution contract, and nine domain skills. A locally installed older repertoire can legitimately be stale and omit recently added domains such as WFS services; `opsi agent setup` and `opsi generate-skills` must therefore explain refresh and verification clearly.
+The repository contains eleven skills: an orchestrator, a shared execution contract, and nine domain skills. A locally installed older repertoire can legitimately be stale and omit recently added domains such as WFS services; `klopsi agent setup` and `klopsi generate-skills` must therefore explain refresh and verification clearly.
 
-Baseline evaluation also exposed a defect in automatic setup: OPSI generated the repertoire in a temporary directory, let the pinned installer create symlinks by default, and then removed the temporary source. The resulting installation could contain dangling symlinks. Because the generated source is intentionally ephemeral, `agent setup` always installs durable copies before cleanup. Copying is an internal invariant rather than a public mode choice.
+Baseline evaluation also exposed a defect in automatic setup: KLOPSI generated the repertoire in a temporary directory, let the pinned installer create symlinks by default, and then removed the temporary source. The resulting installation could contain dangling symlinks. Because the generated source is intentionally ephemeral, `agent setup` always installs durable copies before cleanup. Copying is an internal invariant rather than a public mode choice.
 
 ## Chosen Approach
 
@@ -32,25 +32,25 @@ This approach is preferred over one comprehensive skill, which would consume unn
 
 ### Orchestrator
 
-The `opsi` skill routes both single-domain and common end-to-end requests. It names the complete public repertoire, includes WFS and agent setup, and distinguishes discovery, inspection, acquisition, validation, analysis, conversion, export, provenance, and local-state work. It tells agents to load only the domains needed for the current workflow.
+The `klopsi` skill routes both single-domain and common end-to-end requests. It names the complete public repertoire, includes WFS and agent setup, and distinguishes discovery, inspection, acquisition, validation, analysis, conversion, export, provenance, and local-state work. It tells agents to load only the domains needed for the current workflow.
 
 ### Shared execution contract
 
-`opsi-shared` explains how to verify installation and runtime help, choose structured output, keep results bounded, resolve local paths versus canonical provider references, preserve offline and network controls, interpret stdout/stderr/exit status, and handle mutation confirmation. It defines the default decision order: discover or resolve input, inspect, preview, validate when useful, perform the requested operation, and verify important artifacts.
+`klopsi-shared` explains how to verify installation and runtime help, choose structured output, keep results bounded, resolve local paths versus canonical provider references, preserve offline and network controls, interpret stdout/stderr/exit status, and handle mutation confirmation. It defines the default decision order: discover or resolve input, inspect, preview, validate when useful, perform the requested operation, and verify important artifacts.
 
 ### Domain skills
 
 Each domain skill contains concise capability guidance before its manifest-derived command reference:
 
-- `opsi-catalogue`: snapshot, refresh, live traversal, search filters, pagination, metadata, resources, schema inference, and public-page opening.
-- `opsi-resources`: local/provider inputs, access inspection, secure header probes, bounded previews, format ambiguity, and handoff to download, validation, services, or analysis.
-- `opsi-download`: dataset/resource disambiguation, single versus batch destinations, overwrite behavior, partial success, and provenance verification.
-- `opsi-validation`: data versus metadata validation, archive/XML/XLSX selectors, integrity failures, and actionable remediation.
-- `opsi-analysis`: supported tabular inputs, safe read-only SQL, limits and deadlines, query exports, conversion destinations, spreadsheet safety, overwrites, and provenance.
-- `opsi-services`: canonical WFS discovery, layers, schema, typed equality filters, properties, bounding boxes and CRS, pagination, counts, bounded CSV exports, and prohibited transaction/raw-query fallbacks.
-- `opsi-provenance`: show versus verify, digest mismatches, source and transformation interpretation, and evidence preservation.
-- `opsi-local-state`: raw and derived cache visibility, verification, pruning and clearing, configuration inspection and validated updates, confirmation, and non-secret constraints.
-- `opsi-diagnostics`: providers, offline diagnostics, shell completion, skill generation, host detection, targeted/all-host installation, durable-copy behavior, dry runs, non-interactive confirmation, and refreshing stale installations.
+- `klopsi-catalogue`: snapshot, refresh, live traversal, search filters, pagination, metadata, resources, schema inference, and public-page opening.
+- `klopsi-resources`: local/provider inputs, access inspection, secure header probes, bounded previews, format ambiguity, and handoff to download, validation, services, or analysis.
+- `klopsi-download`: dataset/resource disambiguation, single versus batch destinations, overwrite behavior, partial success, and provenance verification.
+- `klopsi-validation`: data versus metadata validation, archive/XML/XLSX selectors, integrity failures, and actionable remediation.
+- `klopsi-analysis`: supported tabular inputs, safe read-only SQL, limits and deadlines, query exports, conversion destinations, spreadsheet safety, overwrites, and provenance.
+- `klopsi-services`: canonical WFS discovery, layers, schema, typed equality filters, properties, bounding boxes and CRS, pagination, counts, bounded CSV exports, and prohibited transaction/raw-query fallbacks.
+- `klopsi-provenance`: show versus verify, digest mismatches, source and transformation interpretation, and evidence preservation.
+- `klopsi-local-state`: raw and derived cache visibility, verification, pruning and clearing, configuration inspection and validated updates, confirmation, and non-secret constraints.
+- `klopsi-diagnostics`: providers, offline diagnostics, shell completion, skill generation, host detection, targeted/all-host installation, durable-copy behavior, dry runs, non-interactive confirmation, and refreshing stale installations.
 
 Guidance uses concrete command sequences where sequence matters and concise decision tables where agents must choose among modes. It does not duplicate general programming knowledge or internal implementation details.
 
@@ -64,19 +64,19 @@ Generated frontmatter retains only `name` and `description`, uses third-person t
 
 ## Evaluation Strategy
 
-Before editing skill content, fresh agents receive realistic user tasks without the relevant OPSI domain skill. Scenarios cover at least:
+Before editing skill content, fresh agents receive realistic user tasks without the relevant KLOPSI domain skill. Scenarios cover at least:
 
 1. Discovering and extracting an ambiguous ZIP or XML-backed dataset into a bounded query/export workflow.
-2. Inspecting and exporting a filtered WFS layer without bypassing OPSI safeguards.
+2. Inspecting and exporting a filtered WFS layer without bypassing KLOPSI safeguards.
 3. Diagnosing and refreshing an incomplete or stale installed skill repertoire.
 
-Baseline results record missed capabilities, unsafe fallbacks, incorrect command sequences, and rationalizations verbatim. After the minimal guidance changes, fresh agents receive equivalent tasks with the improved skills and must choose valid OPSI commands, preserve bounds and safeguards, and include appropriate verification. Any new failure pattern is addressed and re-evaluated.
+Baseline results record missed capabilities, unsafe fallbacks, incorrect command sequences, and rationalizations verbatim. After the minimal guidance changes, fresh agents receive equivalent tasks with the improved skills and must choose valid KLOPSI commands, preserve bounds and safeguards, and include appropriate verification. Any new failure pattern is addressed and re-evaluated.
 
 Repository tests then verify registry integrity, generated output, drift, formatting, lint, type checking, unit/integration/e2e behavior, packaging, and the full project check.
 
 ## Error Handling and Safety
 
-Skills never advise raw HTTP, direct DuckDB access, WFS transactions, arbitrary CQL/XML filters, or other bypasses when OPSI supports the operation. They require explicit user acceptance for insecure HTTP or private-network access and explicit authorization for destructive cache operations or overwrites.
+Skills never advise raw HTTP, direct DuckDB access, WFS transactions, arbitrary CQL/XML filters, or other bypasses when KLOPSI supports the operation. They require explicit user acceptance for insecure HTTP or private-network access and explicit authorization for destructive cache operations or overwrites.
 
 Agents treat invalid input, unsupported operations, validation/integrity failures, query failures, provider/network failures, and partial success according to the stable exit categories. Offline mode never silently falls back to the network. Important generated artifacts are verified through provenance when available.
 

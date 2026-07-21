@@ -1,4 +1,4 @@
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import ipaddr from "ipaddr.js";
 
 export interface AddressRecord {
@@ -26,7 +26,7 @@ export function assertPublicAddressSet(
       (item) => (item.family !== 4 && item.family !== 6) || !isPublicAddress(item.address),
     )
   ) {
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "NETWORK_ADDRESS_FORBIDDEN",
       message: "The destination resolves to a private or special-purpose network address.",
       exitCode: EXIT_CODES.INVALID_INPUT,

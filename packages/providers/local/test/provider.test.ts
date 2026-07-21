@@ -12,7 +12,7 @@ afterEach(async () => {
 
 describe("LocalProvider", () => {
   it("resolves paths relative to the configured working directory", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "opsi-local-"));
+    const directory = await mkdtemp(join(tmpdir(), "klopsi-local-"));
     temporary.push(directory);
     await writeFile(join(directory, "data.csv"), "id\n1\n");
 

@@ -11,7 +11,7 @@ let directory: string;
 let input: string;
 
 beforeEach(async () => {
-  directory = await mkdtemp(join(tmpdir(), "opsi-query-security-"));
+  directory = await mkdtemp(join(tmpdir(), "klopsi-query-security-"));
   input = join(directory, "data.csv");
   await writeFile(input, "name,value\na,1\nb,2\nc,3\n");
 });
@@ -155,7 +155,7 @@ describe("DuckDbQueryRunner security", () => {
       workerPath: new URL("./fixtures/query-worker-source-entry.ts", import.meta.url),
       makeTemporaryDirectory: async () => {
         directoriesCreated += 1;
-        return await mkdtemp(join(tmpdir(), "opsi-query-memory-"));
+        return await mkdtemp(join(tmpdir(), "klopsi-query-memory-"));
       },
     });
     await expect(
@@ -307,7 +307,7 @@ describe("DuckDbQueryRunner security", () => {
         workerPath,
         graceMs: 50,
         makeTemporaryDirectory: async () => {
-          const path = await mkdtemp(join(tmpdir(), "opsi-query-cleanup-"));
+          const path = await mkdtemp(join(tmpdir(), "klopsi-query-cleanup-"));
           created.push(path);
           return path;
         },

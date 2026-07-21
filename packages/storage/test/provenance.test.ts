@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { ProvenanceStore, redactUrl } from "@opsi/storage";
+import { ProvenanceStore, redactUrl } from "@klopsi/storage";
 
 const roots: string[] = [];
 afterEach(async () =>
@@ -11,7 +11,7 @@ afterEach(async () =>
 );
 describe("ProvenanceStore", () => {
   it("redacts URL secrets and verifies durable artifact size and checksum", async () => {
-    const root = await mkdtemp(join(tmpdir(), "opsi-provenance-"));
+    const root = await mkdtemp(join(tmpdir(), "klopsi-provenance-"));
     roots.push(root);
     const artifact = join(root, "file.txt");
     await writeFile(artifact, "hello");

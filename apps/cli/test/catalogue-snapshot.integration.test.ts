@@ -1,9 +1,9 @@
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { parseCatalogueSnapshot, type CatalogueSnapshotClient } from "@opsi/catalogue-snapshot";
-import type { OutputFormat } from "@opsi/output";
-import { Renderer } from "@opsi/output";
+import { parseCatalogueSnapshot, type CatalogueSnapshotClient } from "@klopsi/catalogue-snapshot";
+import type { OutputFormat } from "@klopsi/output";
+import { Renderer } from "@klopsi/output";
 import type { CliContext } from "../src/context.js";
 import { createProgram } from "../src/program.js";
 import { handleRuntimeError } from "../src/errors.js";
@@ -56,19 +56,19 @@ function fixture(
       stdout: { write: (chunk: string) => void stdout.push(chunk) },
       stderr: { write: (chunk: string) => void stderr.push(chunk) },
       env: {
-        OPSI_REQUEST_INTERVAL_MS: "0",
-        ...(options.baseUrl === undefined ? {} : { OPSI_BASE_URL: options.baseUrl }),
+        KLOPSI_REQUEST_INTERVAL_MS: "0",
+        ...(options.baseUrl === undefined ? {} : { KLOPSI_BASE_URL: options.baseUrl }),
       },
     },
     renderer,
     ...(options.offline === true
       ? {
           configuration: {
-            provider: "opsi",
+            provider: "klopsi",
             output: format,
             locale: "sl-SI",
             offline: true,
-            paths: { cacheDir: ".opsi-cache", downloadDir: ".opsi-downloads" },
+            paths: { cacheDir: ".klopsi-cache", downloadDir: ".klopsi-downloads" },
             http: { timeoutMs: 30_000, maxDownloadBytes: 2 * 1024 * 1024 * 1024 },
             preview: { rowLimit: 20 },
             query: { rowLimit: 1_000, timeoutMs: 30_000 },

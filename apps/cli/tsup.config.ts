@@ -9,6 +9,6 @@ export default defineConfig({
   dts: true,
   clean: true,
   splitting: false,
-  noExternal: [/^@opsi\//],
+  noExternal: [/^@klopsi\//],
   external: ["undici", "@duckdb/node-api", "csv-parse", "exceljs", "unzipit"],
 });

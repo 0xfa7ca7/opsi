@@ -1,8 +1,14 @@
 import { createHash } from "node:crypto";
 import { Readable } from "node:stream";
 import { readFile } from "node:fs/promises";
-import { ContentCache } from "@opsi/storage";
-import { datasetId, providerId, resourceId, type DataProvider, type Resource } from "@opsi/domain";
+import { ContentCache } from "@klopsi/storage";
+import {
+  datasetId,
+  providerId,
+  resourceId,
+  type DataProvider,
+  type Resource,
+} from "@klopsi/domain";
 import { describe, expect, it, vi } from "vitest";
 import { dirname } from "node:path";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
@@ -44,7 +50,7 @@ async function service(filename: string, offline = false) {
       return options.sidecarPath;
     }),
   };
-  const downloadDir = await mkdtemp(join(tmpdir(), "opsi-core-downloads-"));
+  const downloadDir = await mkdtemp(join(tmpdir(), "klopsi-core-downloads-"));
   return {
     service: new DownloadService({
       registry: new ProviderRegistry([provider]),
@@ -81,7 +87,7 @@ describe("DownloadService containment", () => {
 });
 
 it("uses cached validators for a conditional request and reuses a 304 object", async () => {
-  const downloadDir = await mkdtemp(join(tmpdir(), "opsi-conditional-download-"));
+  const downloadDir = await mkdtemp(join(tmpdir(), "klopsi-conditional-download-"));
   const cache = new ContentCache(join(downloadDir, "cache"));
   const object = await cache.putObject(Readable.from(["cached"]));
   await cache.putMetadata(
@@ -164,7 +170,7 @@ it("returns typed pre-tabular guidance for archive resources without downloading
     registry: new ProviderRegistry([provider]),
     providerId: "p",
     downloader: { download, probe: vi.fn() } as never,
-    downloadDir: await mkdtemp(join(tmpdir(), "opsi-archive-guidance-")),
+    downloadDir: await mkdtemp(join(tmpdir(), "klopsi-archive-guidance-")),
     limits: { maxBytes: 100, timeoutMs: 100 },
   });
   await expect(service.resource(resource.id, { requireTabular: true })).rejects.toMatchObject({
@@ -175,7 +181,7 @@ it("returns typed pre-tabular guidance for archive resources without downloading
 });
 
 it("removes the staged download when provenance creation fails before publication", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "opsi-download-rollback-"));
+  const directory = await mkdtemp(join(tmpdir(), "klopsi-download-rollback-"));
   const provider: DataProvider = {
     descriptor: { id: providerId("p"), name: "p", capabilities: [] },
     search: vi.fn(),

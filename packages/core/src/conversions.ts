@@ -1,4 +1,4 @@
-import type { ConversionResult, SupportedDataFormat } from "@opsi/data-engine";
+import type { ConversionResult, SupportedDataFormat } from "@klopsi/data-engine";
 import type { DataService, DataResolutionOptions } from "./data.js";
 
 export interface ConversionServiceOptions extends DataResolutionOptions {

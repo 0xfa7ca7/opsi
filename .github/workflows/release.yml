@@ -66,14 +66,14 @@ jobs:
           npm pack "$TARBALL" --dry-run --json > artifacts/verified-pack.json
           VERSION="$(tar -xOf "$TARBALL" package/package.json | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>process.stdout.write(JSON.parse(s).version))')"
           NAME="$(tar -xOf "$TARBALL" package/package.json | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>process.stdout.write(JSON.parse(s).name))')"
-          test "$NAME" = "opsi"
+          test "$NAME" = "klopsi"
           test "$GITHUB_REF_NAME" = "v$VERSION"
           EXPECTED_INTEGRITY="sha512-$(openssl dgst -sha512 -binary "$TARBALL" | openssl base64 -A)"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TARBALL=$TARBALL" >> "$GITHUB_ENV"
           echo "EXPECTED_INTEGRITY=$EXPECTED_INTEGRITY" >> "$GITHUB_ENV"
-          if npm view "opsi@$VERSION" version >/tmp/existing-package 2>/tmp/npm-view-error; then
-            echo "opsi@$VERSION already exists" >&2
+          if npm view "klopsi@$VERSION" version >/tmp/existing-package 2>/tmp/npm-view-error; then
+            echo "klopsi@$VERSION already exists" >&2
             exit 1
           fi
           grep -q E404 /tmp/npm-view-error
@@ -96,20 +96,20 @@ jobs:
         run: |
           ACTUAL_INTEGRITY=""
           for attempt in $(seq 1 12); do
-            ACTUAL_INTEGRITY="$(npm view "opsi@$VERSION" dist.integrity 2>/dev/null || true)"
+            ACTUAL_INTEGRITY="$(npm view "klopsi@$VERSION" dist.integrity 2>/dev/null || true)"
             test "$ACTUAL_INTEGRITY" = "$EXPECTED_INTEGRITY" && break
             sleep 10
           done
           test "$ACTUAL_INTEGRITY" = "$EXPECTED_INTEGRITY"
           mkdir registry published
           for attempt in $(seq 1 12); do
-            npm pack "opsi@$VERSION" --pack-destination registry && break
+            npm pack "klopsi@$VERSION" --pack-destination registry && break
             sleep 10
           done
           test "$(sha256sum "$TARBALL" | cut -d' ' -f1)" = "$(sha256sum registry/*.tgz | cut -d' ' -f1)"
           cd published && npm init -y
-          npm install "opsi@$VERSION"
-          ./node_modules/.bin/opsi --version
+          npm install "klopsi@$VERSION"
+          ./node_modules/.bin/klopsi --version
           npm audit signatures
       - uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373
         with:

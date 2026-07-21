@@ -690,7 +690,7 @@ export class ProviderRegistry {
   get(id: ProviderId | string): DataProvider;
   list(): readonly ProviderDescriptor[];
 }
-export interface OpsiClientOptions {
+export interface KlopsiClientOptions {
   readonly registry: ProviderRegistry;
   readonly providerId: string;
   readonly downloads?: Omit<DownloadServiceOptions, "registry" | "providerId">;
@@ -701,8 +701,8 @@ export interface OpsiClientOptions {
   readonly archiveLimits?: ArchiveLimits;
   readonly xmlLimits?: XmlLimits;
 }
-export class OpsiClient {
-  constructor(options: OpsiClientOptions);
+export class KlopsiClient {
+  constructor(options: KlopsiClientOptions);
   readonly datasets: DatasetCatalog;
   readonly resources: ResourceCatalog;
   readonly providers: ProviderCatalog;

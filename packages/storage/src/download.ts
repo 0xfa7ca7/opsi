@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { link, lstat, mkdir, open, rename, rm, unlink } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { EXIT_CODES, OpsiError, type FailureExitCode } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError, type FailureExitCode } from "@klopsi/domain";
 import { request, type Dispatcher } from "undici";
 import { CacheLock } from "./cache-lock.js";
 import { isPublicAddress } from "./ip-policy.js";
@@ -48,14 +48,14 @@ function failure(
   message: string,
   exitCode: FailureExitCode = EXIT_CODES.PROVIDER_FAILURE,
   cause?: unknown,
-): OpsiError {
-  return new OpsiError({ code, message, exitCode, ...(cause === undefined ? {} : { cause }) });
+): KlopsiError {
+  return new KlopsiError({ code, message, exitCode, ...(cause === undefined ? {} : { cause }) });
 }
-function policyError(error: unknown): OpsiError | undefined {
+function policyError(error: unknown): KlopsiError | undefined {
   let current: unknown = error;
   const seen = new Set<unknown>();
   while (current !== undefined && current !== null && !seen.has(current)) {
-    if (current instanceof OpsiError && current.code === "NETWORK_ADDRESS_FORBIDDEN")
+    if (current instanceof KlopsiError && current.code === "NETWORK_ADDRESS_FORBIDDEN")
       return current;
     seen.add(current);
     current =
@@ -115,7 +115,7 @@ function validateUrl(
 }
 function validateAllowedOrigin(url: URL, allowedOrigins: ReadonlySet<string> | undefined): void {
   if (allowedOrigins !== undefined && !allowedOrigins.has(url.origin)) {
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "DOWNLOAD_ORIGIN_FORBIDDEN",
       message: "The download origin is not allowed.",
       exitCode: EXIT_CODES.PROVIDER_FAILURE,

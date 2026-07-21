@@ -16,13 +16,13 @@ import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { CacheLock, ContentCache } from "@opsi/storage";
+import { CacheLock, ContentCache } from "@klopsi/storage";
 
 const roots: string[] = [];
 const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 const execFileAsync = promisify(execFile);
 async function root(): Promise<string> {
-  const path = await mkdtemp(join(tmpdir(), "opsi-cache-"));
+  const path = await mkdtemp(join(tmpdir(), "klopsi-cache-"));
   roots.push(path);
   return path;
 }
@@ -30,7 +30,7 @@ afterEach(async () =>
   Promise.all(roots.splice(0).map((path) => rm(path, { recursive: true, force: true }))),
 );
 beforeAll(async () => {
-  await execFileAsync("pnpm", ["--filter", "@opsi/storage", "build"], { cwd: process.cwd() });
+  await execFileAsync("pnpm", ["--filter", "@klopsi/storage", "build"], { cwd: process.cwd() });
 });
 
 async function childMessage(child: ChildProcess, type: string): Promise<Record<string, unknown>> {

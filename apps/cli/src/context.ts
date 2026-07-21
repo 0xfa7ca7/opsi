@@ -1,5 +1,5 @@
-import type { OpsiConfiguration } from "@opsi/config";
-import type { Renderer, WritableOutput } from "@opsi/output";
+import type { KlopsiConfiguration } from "@klopsi/config";
+import type { Renderer, WritableOutput } from "@klopsi/output";
 
 export interface CliIo {
   readonly cwd?: string;
@@ -14,7 +14,7 @@ export interface CliIo {
 export interface CliContext {
   readonly io: CliIo;
   readonly version: string;
-  readonly configuration?: OpsiConfiguration;
+  readonly configuration?: KlopsiConfiguration;
   readonly renderer?: Renderer;
   readonly openUrl?: (url: string) => Promise<void>;
 }

@@ -1,4 +1,4 @@
-import { EXIT_CODES, OpsiError, type DataProvider, type SearchPage } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError, type DataProvider, type SearchPage } from "@klopsi/domain";
 import {
   CATALOGUE_SCHEMA_VERSION,
   parseCatalogueSnapshot,
@@ -27,8 +27,8 @@ export async function generateCatalogueSnapshot(
     try {
       page = await provider.search({ limit: DATASET_PAGE_SIZE, offset });
     } catch (error) {
-      if (!(error instanceof OpsiError)) throw error;
-      throw new OpsiError({
+      if (!(error instanceof KlopsiError)) throw error;
+      throw new KlopsiError({
         code: error.code,
         message: error.message,
         exitCode: error.exitCode,
@@ -73,8 +73,8 @@ export async function generateCatalogueSnapshot(
   return parseCatalogueSnapshot(bytes);
 }
 
-function paginationInvalid(field: string): OpsiError {
-  return new OpsiError({
+function paginationInvalid(field: string): KlopsiError {
+  return new KlopsiError({
     code: "CATALOGUE_PAGINATION_INVALID",
     message: "Catalogue pagination validation failed.",
     exitCode: EXIT_CODES.PROVIDER_FAILURE,

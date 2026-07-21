@@ -7,7 +7,7 @@ import {
   type CatalogueIndex,
   type CatalogueManifest,
   type CatalogueSnapshot,
-} from "@opsi/catalogue-snapshot";
+} from "@klopsi/catalogue-snapshot";
 
 const generatedAt = "2026-07-13T12:00:00.000Z";
 const snapshot: CatalogueSnapshot = {

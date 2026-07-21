@@ -2,9 +2,9 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { open, rm } from "node:fs/promises";
 import { extname, resolve } from "node:path";
-import { type DataInput, type DataRow, type QueryResult } from "@opsi/data-engine";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
-import { publishArtifactPair, type PairPublicationOptions } from "@opsi/storage";
+import { type DataInput, type DataRow, type QueryResult } from "@klopsi/data-engine";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
+import { publishArtifactPair, type PairPublicationOptions } from "@klopsi/storage";
 import type { DataResolutionOptions, DataService } from "./data.js";
 import {
   QueryDatabaseCache,
@@ -59,7 +59,7 @@ function serialize(rows: readonly DataRow[], columns: readonly string[], output:
   if (format === ".ndjson")
     return rows.map((row) => JSON.stringify(row)).join("\n") + (rows.length ? "\n" : "");
   if (format !== ".csv" && format !== ".tsv")
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "QUERY_OUTPUT_FORMAT",
       message: "Query output must end in .csv, .tsv, .json, or .ndjson.",
       exitCode: EXIT_CODES.QUERY_FAILURE,

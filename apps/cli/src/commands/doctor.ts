@@ -2,9 +2,9 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
-import type { OpsiClient } from "@opsi/core";
-import { DataEngine, SUPPORTED_DATA_FORMATS, type SupportedDataFormat } from "@opsi/data-engine";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
+import type { KlopsiClient } from "@klopsi/core";
+import { DataEngine, SUPPORTED_DATA_FORMATS, type SupportedDataFormat } from "@klopsi/data-engine";
 import type { Command } from "commander";
 import { manifestCommand } from "../command-manifest.js";
 import type { CliContext } from "../context.js";
@@ -21,13 +21,13 @@ export interface DoctorReport {
   readonly checks: readonly DoctorCheck[];
 }
 
-function duckDbUnavailable(cause: unknown): OpsiError {
-  return new OpsiError({
+function duckDbUnavailable(cause: unknown): KlopsiError {
+  return new KlopsiError({
     code: "DUCKDB_UNAVAILABLE",
     message: `DuckDB native bindings are unavailable for ${process.platform}/${process.arch}.`,
     exitCode: EXIT_CODES.UNSUPPORTED,
     suggestion:
-      "Install optional dependencies on a supported Node 24 platform (Linux x64 glibc, macOS arm64, or Windows x64), then reinstall opsi.",
+      "Install optional dependencies on a supported Node 24 platform (Linux x64 glibc, macOS arm64, or Windows x64), then reinstall klopsi.",
     cause,
   });
 }
@@ -56,7 +56,7 @@ export async function checkDuckDb(): Promise<Readonly<Record<string, unknown>>> 
 
 async function writable(directory: string): Promise<Readonly<Record<string, unknown>>> {
   const probe = join(directory, `.doctor-${randomUUID()}`);
-  const expected = Buffer.from("opsi-doctor-probe", "utf8");
+  const expected = Buffer.from("klopsi-doctor-probe", "utf8");
   await mkdir(directory, { recursive: true });
   try {
     await writeFile(probe, expected, { flag: "wx", mode: 0o600 });
@@ -122,14 +122,14 @@ async function capture(
       name,
       status: "fail",
       message: error instanceof Error ? error.message : String(error),
-      ...(error instanceof OpsiError ? { detail: { code: error.code } } : {}),
+      ...(error instanceof KlopsiError ? { detail: { code: error.code } } : {}),
     });
   }
 }
 
 export async function runDoctorChecks(
   context: CliContext,
-  client: OpsiClient,
+  client: KlopsiClient,
   offline: boolean,
 ): Promise<DoctorReport> {
   const checks: DoctorCheck[] = [];
@@ -145,7 +145,7 @@ export async function runDoctorChecks(
     ...(context.configuration === undefined ? { message: "Configuration was not loaded." } : {}),
   });
   await capture(checks, "cache", () =>
-    writable(context.configuration?.paths.cacheDir ?? join(tmpdir(), "opsi-cache")),
+    writable(context.configuration?.paths.cacheDir ?? join(tmpdir(), "klopsi-cache")),
   );
   await capture(checks, "temp", () => writable(tmpdir()));
   if (offline || context.configuration?.provider === "local")
@@ -158,13 +158,13 @@ export async function runDoctorChecks(
     await capture(checks, "connectivity", async () => {
       const page = await client.search({ limit: 1 });
       return {
-        provider: context.configuration?.provider ?? "opsi",
+        provider: context.configuration?.provider ?? "klopsi",
         resultCount: page.items.length,
       };
     });
   await capture(checks, "duckdb", checkDuckDb);
 
-  const directory = await mkdtemp(join(tmpdir(), "opsi-doctor-formats-"));
+  const directory = await mkdtemp(join(tmpdir(), "klopsi-doctor-formats-"));
   try {
     const engine = new DataEngine();
     let fixtures: Readonly<Record<Exclude<SupportedDataFormat, "parquet">, string>> | undefined;
@@ -198,7 +198,7 @@ export async function runDoctorChecks(
 export function registerDoctorCommand(
   program: Command,
   context: CliContext,
-  client: OpsiClient,
+  client: KlopsiClient,
 ): void {
   manifestCommand(program, "doctor").action(async (options: { offline?: boolean }) => {
     const offline = options.offline === true || context.configuration?.offline === true;
@@ -219,7 +219,7 @@ export function handleDoctorReport(context: CliContext, report: DoctorReport): v
   const connectivityFailed = report.checks.some(
     (check) => check.name === "connectivity" && check.status === "fail",
   );
-  throw new OpsiError({
+  throw new KlopsiError({
     code: nativeFailed ? "DUCKDB_UNAVAILABLE" : "DOCTOR_FAILED",
     message: "One or more diagnostic checks failed.",
     exitCode: nativeFailed

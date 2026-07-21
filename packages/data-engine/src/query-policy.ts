@@ -1,10 +1,10 @@
 import type { DuckDBInstance, DuckDBConnection } from "@duckdb/node-api";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 
 export const DEFAULT_MAX_SQL_BYTES = 64 * 1024;
 
-function forbidden(code: string, message: string): OpsiError {
-  return new OpsiError({ code, message, exitCode: EXIT_CODES.QUERY_FAILURE });
+function forbidden(code: string, message: string): KlopsiError {
+  return new KlopsiError({ code, message, exitCode: EXIT_CODES.QUERY_FAILURE });
 }
 
 function diagnosticForbiddenToken(sql: string): boolean {
@@ -54,7 +54,7 @@ export class QueryPolicy {
         prepared?.destroySync();
       }
     } catch (error) {
-      if (error instanceof OpsiError) throw error;
+      if (error instanceof KlopsiError) throw error;
       throw forbidden("QUERY_FORBIDDEN", error instanceof Error ? error.message : "Invalid query.");
     } finally {
       if (ownedInstance !== undefined) {

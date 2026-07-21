@@ -33,13 +33,13 @@ jobs:
           node-version: 24
       - run: corepack enable && corepack prepare pnpm@11.11.0 --activate
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @opsi/catalogue-snapshot... build
+      - run: pnpm --filter @klopsi/catalogue-snapshot... build
       - id: snapshot
         env:
           ALLOW_LARGE_REDUCTION: ${{ inputs.allow_large_reduction || false }}
         shell: bash
         run: |
-          ARGS=(--output site --previous-base-url "https://0xfa7ca7.github.io/opsi/")
+          ARGS=(--output site --previous-base-url "https://0xfa7ca7.github.io/klopsi/")
           if test "$ALLOW_LARGE_REDUCTION" = "true"; then
             ARGS+=(--allow-large-reduction)
           fi
@@ -69,7 +69,7 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: catalogue-site
-          path: publish/opsi
+          path: publish/klopsi
       - name: Publish generated catalogue
         shell: bash
         env:
@@ -93,11 +93,11 @@ jobs:
           git init publish
           cd publish
           git checkout --orphan gh-pages
-          git add --all -- opsi
+          git add --all -- klopsi
           export GIT_AUTHOR_DATE="$GENERATED_AT"
           export GIT_COMMITTER_DATE="$GENERATED_AT"
-          git -c user.name='opsi catalogue publisher' \
-            -c user.email='opsi-catalogue@users.noreply.github.com' \
+          git -c user.name='klopsi catalogue publisher' \
+            -c user.email='klopsi-catalogue@users.noreply.github.com' \
             commit -m "Publish catalogue $SHA256"
           git remote add origin git@github.com:0xfa7ca7/0xfa7ca7.github.io.git
           git push --force origin HEAD:gh-pages
@@ -122,12 +122,12 @@ jobs:
           node-version: 24
       - run: corepack enable && corepack prepare pnpm@11.11.0 --activate
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @opsi/catalogue-snapshot... build
+      - run: pnpm --filter @klopsi/catalogue-snapshot... build
       - shell: bash
         run: |
           for attempt in $(seq 1 12); do
             if node packages/catalogue-snapshot/dist/verify-entry.js \
-              --base-url "https://0xfa7ca7.github.io/opsi/" \
+              --base-url "https://0xfa7ca7.github.io/klopsi/" \
               --expected-sha256 "${{ needs.generate.outputs.sha256 }}" \
               --expected-generated-at "${{ needs.generate.outputs.generated-at }}"; then
               exit 0

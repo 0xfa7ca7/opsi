@@ -4,13 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
-import { ContentCache, DerivedArtifactCache, type DerivedArtifactIdentity } from "@opsi/storage";
+import { ContentCache, DerivedArtifactCache, type DerivedArtifactIdentity } from "@klopsi/storage";
 
 const roots: string[] = [];
 const DAY = 24 * 60 * 60 * 1_000;
 
 async function root(): Promise<string> {
-  const value = await mkdtemp(join(tmpdir(), "opsi-derived-cache-"));
+  const value = await mkdtemp(join(tmpdir(), "klopsi-derived-cache-"));
   roots.push(value);
   return value;
 }

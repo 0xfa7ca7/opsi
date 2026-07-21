@@ -1,4 +1,4 @@
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { SaxesParser, type SaxesTagNS } from "saxes";
 import type { WfsCapabilities, WfsField, WfsLayer, WfsVersion } from "./types.js";
 
@@ -13,7 +13,7 @@ function parse(
   const text =
     typeof xml === "string" ? xml : new TextDecoder("utf-8", { fatal: true }).decode(xml);
   if (Buffer.byteLength(text) > maxBytes)
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "WFS_RESPONSE_TOO_LARGE",
       message: "The WFS XML response exceeds the byte limit.",
       exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -30,8 +30,8 @@ function parse(
   try {
     parser.write(text).close();
   } catch (error) {
-    if (error instanceof OpsiError) throw error;
-    throw new OpsiError({
+    if (error instanceof KlopsiError) throw error;
+    throw new KlopsiError({
       code: "INVALID_WFS_RESPONSE",
       message: "The WFS service returned malformed or unsafe XML.",
       exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -112,7 +112,7 @@ export function parseWfsCapabilities(
     maxBytes,
   );
   if (version === undefined)
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "WFS_VERSION_UNSUPPORTED",
       message: "The WFS capabilities version is unsupported.",
       exitCode: EXIT_CODES.UNSUPPORTED,
@@ -152,7 +152,7 @@ export function parseWfsSchema(
     maxBytes,
   );
   if (fields.length === 0)
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "WFS_SCHEMA_EMPTY",
       message: `No fields were found for WFS layer '${layer}'.`,
       exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -173,7 +173,7 @@ export function parseWfsCount(xml: string | Uint8Array, maxBytes = DEFAULT_MAX):
     maxBytes,
   );
   if (count === undefined || !Number.isSafeInteger(count))
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "WFS_COUNT_INVALID",
       message: "The WFS count response is missing a valid count.",
       exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -184,7 +184,7 @@ export function parseWfsCount(xml: string | Uint8Array, maxBytes = DEFAULT_MAX):
 export function parseWfsException(
   xml: string | Uint8Array,
   maxBytes = DEFAULT_MAX,
-): OpsiError | undefined {
+): KlopsiError | undefined {
   let serviceCode: string | undefined;
   let text = "";
   let exceptionText = "";
@@ -207,7 +207,7 @@ export function parseWfsException(
     maxBytes,
   );
   if (serviceCode === undefined && exceptionText === "") return undefined;
-  return new OpsiError({
+  return new KlopsiError({
     code: "SERVICE_EXCEPTION",
     message: exceptionText || "The WFS service rejected the request.",
     exitCode: EXIT_CODES.PROVIDER_FAILURE,

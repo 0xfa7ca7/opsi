@@ -1,6 +1,6 @@
 # Provider development
 
-A provider supplies a stable descriptor and implements search, dataset/resource lookup, dataset resources, and resource resolution as declared capabilities. Map remote values to domain entities, preserve unknown upstream metadata under `providerMetadata.raw`, emit canonical references, validate every response, and map authentication, network, rate-limit, not-found, and unsupported failures to stable `OpsiError` values. Tests must use stored or local controlled fixtures and cover malformed legacy responses; normal tests may not contact OPSI.
+A provider supplies a stable descriptor and implements search, dataset/resource lookup, dataset resources, and resource resolution as declared capabilities. Map remote values to domain entities, preserve unknown upstream metadata under `providerMetadata.raw`, emit canonical references, validate every response, and map authentication, network, rate-limit, not-found, and unsupported failures to stable `KlopsiError` values. Tests must use stored or local controlled fixtures and cover malformed legacy responses; normal tests may not contact KLOPSI.
 
 ## Contract
 
@@ -8,13 +8,13 @@ A provider supplies a stable descriptor and implements search, dataset/resource 
 
 Canonical references are `<provider>:dataset:<id>` and `<provider>:resource:<id>`. Known-noun commands may accept bare IDs. Providers must not interpret a local file reference. Every URL remains untrusted until the storage/download layer validates scheme, DNS results, redirect targets, time, and size; provider resolution must not bypass that layer.
 
-## OPSI adapter
+## KLOPSI adapter
 
 The first-party adapter targets the configurable legacy CKAN-compatible gateway. It validates operation input/output with strict known fields plus preserved unknown metadata, maps irregular null/string/number values, uses a keyed scheduler to coalesce/retry allowed reads, and caches normalized metadata. Offline mode reads cache only and returns `OFFLINE_CACHE_MISS` without attempting transport. The public page opener does not trust provider URLs: it derives a fixed HTTPS podatki.gov.si origin from the validated dataset slug.
 
 ## Local provider
 
-The registered `local` provider declares only local resource resolution. It resolves ordinary paths relative to the invocation directory and absolute `local:file:` references without network access. Search and catalogue lookups are intentionally unsupported and return `PROVIDER_CAPABILITY_UNSUPPORTED`; `opsi doctor` skips connectivity when local is selected.
+The registered `local` provider declares only local resource resolution. It resolves ordinary paths relative to the invocation directory and absolute `local:file:` references without network access. Search and catalogue lookups are intentionally unsupported and return `PROVIDER_CAPABILITY_UNSUPPORTED`; `klopsi doctor` skips connectivity when local is selected.
 
 ## Adding a provider
 

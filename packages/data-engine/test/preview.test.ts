@@ -8,7 +8,7 @@ const engine = new DataEngine();
 const temporary: string[] = [];
 
 async function temporaryFile(name: string, contents: string): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "opsi-preview-"));
+  const directory = await mkdtemp(join(tmpdir(), "klopsi-preview-"));
   temporary.push(directory);
   const path = join(directory, name);
   await writeFile(path, contents);
@@ -16,7 +16,7 @@ async function temporaryFile(name: string, contents: string): Promise<string> {
 }
 
 async function temporaryBytes(name: string, contents: Uint8Array): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "opsi-preview-"));
+  const directory = await mkdtemp(join(tmpdir(), "klopsi-preview-"));
   temporary.push(directory);
   const path = join(directory, name);
   await writeFile(path, contents);

@@ -1,6 +1,6 @@
-import { EXIT_CODES, OpsiError, type ExitCode } from "@opsi/domain";
-import { renderDelimited, renderJson, renderNdjson, sanitizeTerminalText } from "@opsi/output";
-import type { OutputFormat } from "@opsi/config";
+import { EXIT_CODES, KlopsiError, type ExitCode } from "@klopsi/domain";
+import { renderDelimited, renderJson, renderNdjson, sanitizeTerminalText } from "@klopsi/output";
+import type { OutputFormat } from "@klopsi/config";
 import type { CliIo } from "./context.js";
 
 const SECRET_VALUE = /((?:api[_-]?key|token|secret|authorization|cookie)\s*[=:]\s*)\S+/giu;
@@ -9,22 +9,22 @@ function redact(text: string): string {
   return text.replace(SECRET_VALUE, "$1[REDACTED]");
 }
 
-export function normalizeError(error: unknown): OpsiError {
-  if (error instanceof OpsiError) return error;
+export function normalizeError(error: unknown): KlopsiError {
+  if (error instanceof KlopsiError) return error;
   const raw = error as NodeJS.ErrnoException;
   if (
     (raw.code === "ERR_MODULE_NOT_FOUND" || raw.code === "MODULE_NOT_FOUND") &&
     /duckdb/iu.test(raw.message ?? "")
   )
-    return new OpsiError({
+    return new KlopsiError({
       code: "DUCKDB_UNAVAILABLE",
       message: `DuckDB native bindings are unavailable for ${process.platform}/${process.arch}.`,
       exitCode: EXIT_CODES.UNSUPPORTED,
       suggestion:
-        "Install optional dependencies on a supported Node 24 platform (Linux x64 glibc, macOS arm64, or Windows x64), then reinstall opsi.",
+        "Install optional dependencies on a supported Node 24 platform (Linux x64 glibc, macOS arm64, or Windows x64), then reinstall klopsi.",
       cause: error,
     });
-  return new OpsiError({
+  return new KlopsiError({
     code: "INTERNAL_ERROR",
     message: "An unexpected internal error occurred.",
     exitCode: EXIT_CODES.INTERNAL,
@@ -33,7 +33,7 @@ export function normalizeError(error: unknown): OpsiError {
   });
 }
 
-export function writeReadableError(error: OpsiError, io: CliIo, debug = false): void {
+export function writeReadableError(error: KlopsiError, io: CliIo, debug = false): void {
   const lines = [`${error.code}: ${sanitizeTerminalText(error.message)}`];
   if (error.suggestion !== undefined) {
     lines.push(`Suggestion: ${sanitizeTerminalText(error.suggestion)}`);
@@ -44,7 +44,7 @@ export function writeReadableError(error: OpsiError, io: CliIo, debug = false): 
   io.stderr.write(`${lines.join("\n")}\n`);
 }
 
-export function writeStructuredError(error: OpsiError, io: CliIo, format: OutputFormat): void {
+export function writeStructuredError(error: KlopsiError, io: CliIo, format: OutputFormat): void {
   const record = error.toJSON();
   const data = error.context?.data ?? null;
   switch (format) {
@@ -78,11 +78,11 @@ export function handleRuntimeError(
   io: CliIo,
   options: { readonly format?: OutputFormat; readonly debug?: boolean } = {},
 ): ExitCode {
-  const opsiError = normalizeError(error);
+  const klopsiError = normalizeError(error);
   if (options.format !== undefined && options.format !== "human") {
-    writeStructuredError(opsiError, io, options.format);
+    writeStructuredError(klopsiError, io, options.format);
   } else {
-    writeReadableError(opsiError, io, options.debug);
+    writeReadableError(klopsiError, io, options.debug);
   }
-  return opsiError.exitCode;
+  return klopsiError.exitCode;
 }

@@ -1,5 +1,5 @@
-import type { OpsiClient } from "@opsi/core";
-import { resourceId } from "@opsi/domain";
+import type { KlopsiClient } from "@klopsi/core";
+import { resourceId } from "@klopsi/domain";
 import type { Command } from "commander";
 import type { CliContext } from "../context.js";
 import { registerResourcePreviewCommand } from "./preview.js";
@@ -8,7 +8,7 @@ import { manifestCommand } from "../command-manifest.js";
 export function registerResourceCommand(
   program: Command,
   context: CliContext,
-  client: OpsiClient,
+  client: KlopsiClient,
 ): void {
   registerResourcePreviewCommand(program, context, client);
   manifestCommand(program, "resource inspect").action(

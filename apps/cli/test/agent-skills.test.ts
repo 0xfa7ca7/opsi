@@ -18,31 +18,31 @@ import {
 import { VERSION } from "../src/main.js";
 
 const EXPECTED_SKILLS = [
-  "opsi",
-  "opsi-shared",
-  "opsi-catalogue",
-  "opsi-resources",
-  "opsi-download",
-  "opsi-validation",
-  "opsi-analysis",
-  "opsi-services",
-  "opsi-provenance",
-  "opsi-local-state",
-  "opsi-diagnostics",
+  "klopsi",
+  "klopsi-shared",
+  "klopsi-catalogue",
+  "klopsi-resources",
+  "klopsi-download",
+  "klopsi-validation",
+  "klopsi-analysis",
+  "klopsi-services",
+  "klopsi-provenance",
+  "klopsi-local-state",
+  "klopsi-diagnostics",
 ] as const;
 
 const EXPECTED_DATA_CAPABILITY_IDS = {
-  "opsi-catalogue": ["catalogue-mode", "search-refinement", "dataset-followup"],
-  "opsi-resources": ["input-resolution", "access-selection", "structured-selectors"],
-  "opsi-download": ["target-resolution", "destination-strategy", "partial-results"],
-  "opsi-validation": ["validation-mode", "structured-selectors", "failure-recovery"],
-  "opsi-analysis": ["supported-inputs", "bounded-query", "query-export", "safe-conversion"],
-  "opsi-provenance": ["record-inspection", "integrity-verification"],
+  "klopsi-catalogue": ["catalogue-mode", "search-refinement", "dataset-followup"],
+  "klopsi-resources": ["input-resolution", "access-selection", "structured-selectors"],
+  "klopsi-download": ["target-resolution", "destination-strategy", "partial-results"],
+  "klopsi-validation": ["validation-mode", "structured-selectors", "failure-recovery"],
+  "klopsi-analysis": ["supported-inputs", "bounded-query", "query-export", "safe-conversion"],
+  "klopsi-provenance": ["record-inspection", "integrity-verification"],
 } as const;
 
 const EXPECTED_LOCAL_STATE_CAPABILITY_IDS = {
-  "opsi-local-state": ["cache-tiers", "cache-mutations", "configuration"],
-  "opsi-diagnostics": [
+  "klopsi-local-state": ["cache-tiers", "cache-mutations", "configuration"],
+  "klopsi-diagnostics": [
     "environment-diagnostics",
     "shell-integration",
     "skill-generation",
@@ -58,23 +58,23 @@ const EXPECTED_WFS_CAPABILITY_IDS = [
 ] as const;
 
 const REQUIRED_GUIDANCE = {
-  opsi: [
+  klopsi: [
     "## End-to-end workflows",
     "Acquire and analyze data",
     "Inspect and export WFS data",
     "Refresh an agent installation",
   ],
-  "opsi-shared": [
+  "klopsi-shared": [
     "## Default decision sequence",
     "local path",
-    "opsi:resource:",
+    "klopsi:resource:",
     "--entry",
     "--record-path",
     "--sheet",
     "JSON, NDJSON, CSV, TSV, XLSX, Parquet",
     "offline",
   ],
-  "opsi-catalogue": [
+  "klopsi-catalogue": [
     "snapshot",
     "--refresh",
     "--live",
@@ -82,7 +82,7 @@ const REQUIRED_GUIDANCE = {
     "dataset resources",
     "dataset schema",
   ],
-  "opsi-resources": [
+  "klopsi-resources": [
     "resource inspect",
     "resource preview",
     "--entry",
@@ -90,7 +90,7 @@ const REQUIRED_GUIDANCE = {
     "--sheet",
     "WFS",
   ],
-  "opsi-download": [
+  "klopsi-download": [
     "--dataset",
     "--resource",
     "one resource",
@@ -98,8 +98,8 @@ const REQUIRED_GUIDANCE = {
     "Partial success",
     "provenance verify",
   ],
-  "opsi-validation": ["--metadata", "--entry", "--record-path", "--sheet", "exit 6"],
-  "opsi-analysis": [
+  "klopsi-validation": ["--metadata", "--entry", "--record-path", "--sheet", "exit 6"],
+  "klopsi-analysis": [
     "CSV",
     "TSV",
     "JSON",
@@ -115,7 +115,7 @@ const REQUIRED_GUIDANCE = {
     "--spreadsheet-safe",
     "provenance verify",
   ],
-  "opsi-provenance": ["provenance show", "provenance verify", "digest mismatch", "Do not mutate"],
+  "klopsi-provenance": ["provenance show", "provenance verify", "digest mismatch", "Do not mutate"],
 } as const;
 
 const command = (path: string): CommandManifestEntry => ({
@@ -143,9 +143,9 @@ const skillWithCapabilities = (
 ): AgentSkillDefinition => ({ ...skill(name, commands), capabilities });
 
 const minimalSkills = (): readonly AgentSkillDefinition[] => [
-  skill("opsi"),
-  skill("opsi-shared"),
-  skill("opsi-catalogue", ["search"]),
+  skill("klopsi"),
+  skill("klopsi-shared"),
+  skill("klopsi-catalogue", ["search"]),
 ];
 
 const optionAttributeName = (option: CommandOptionManifest): string | undefined =>
@@ -196,23 +196,23 @@ describe("agent skill registry", () => {
   });
 
   it("reports duplicate and invalid skill names", () => {
-    expect(validateAgentSkills([...minimalSkills(), skill("opsi")], [command("search")])).toContain(
-      'Duplicate skill name "opsi".',
-    );
+    expect(
+      validateAgentSkills([...minimalSkills(), skill("klopsi")], [command("search")]),
+    ).toContain('Duplicate skill name "klopsi".');
     expect(
       validateAgentSkills(
-        [skill("opsi"), skill("opsi-shared"), skill("OPSI Bad", ["search"])],
+        [skill("klopsi"), skill("klopsi-shared"), skill("KLOPSI Bad", ["search"])],
         [command("search")],
       ),
-    ).toContain('Invalid skill name "OPSI Bad".');
+    ).toContain('Invalid skill name "KLOPSI Bad".');
   });
 
   it("reports missing required and commandless domain skills", () => {
-    expect(validateAgentSkills([skill("opsi-catalogue")], [])).toEqual(
+    expect(validateAgentSkills([skill("klopsi-catalogue")], [])).toEqual(
       expect.arrayContaining([
-        'Missing required skill "opsi".',
-        'Missing required skill "opsi-shared".',
-        'Domain skill "opsi-catalogue" must own at least one command.',
+        'Missing required skill "klopsi".',
+        'Missing required skill "klopsi-shared".',
+        'Domain skill "klopsi-catalogue" must own at least one command.',
       ]),
     );
   });
@@ -220,46 +220,49 @@ describe("agent skill registry", () => {
   it("reports unknown, missing, and multiply owned command paths", () => {
     expect(
       validateAgentSkills(
-        [skill("opsi"), skill("opsi-shared"), skill("opsi-catalogue", ["missing"])],
+        [skill("klopsi"), skill("klopsi-shared"), skill("klopsi-catalogue", ["missing"])],
         [command("search")],
       ),
     ).toEqual(
       expect.arrayContaining([
-        'Unknown command path "missing" owned by "opsi-catalogue".',
+        'Unknown command path "missing" owned by "klopsi-catalogue".',
         'Command path "search" is not owned by a domain skill.',
       ]),
     );
 
     expect(
       validateAgentSkills(
-        [...minimalSkills(), skill("opsi-resources", ["search"])],
+        [...minimalSkills(), skill("klopsi-resources", ["search"])],
         [command("search")],
       ),
     ).toContain(
-      'Command path "search" is owned by multiple skills: opsi-catalogue, opsi-resources.',
+      'Command path "search" is owned by multiple skills: klopsi-catalogue, klopsi-resources.',
     );
   });
 
   it("reports relationships that cannot be loaded", () => {
     const configured = minimalSkills().map((entry) =>
-      entry.name === "opsi-catalogue" ? { ...entry, related: ["opsi-missing"] } : entry,
+      entry.name === "klopsi-catalogue" ? { ...entry, related: ["klopsi-missing"] } : entry,
     );
 
     expect(validateAgentSkills(configured, [command("search")])).toContain(
-      'Unknown related skill "opsi-missing" referenced by "opsi-catalogue".',
+      'Unknown related skill "klopsi-missing" referenced by "klopsi-catalogue".',
     );
   });
 
   it("keeps reserved skills commandless and rejects repeated ownership entries", () => {
     expect(
-      validateAgentSkills([skill("opsi", ["search"]), skill("opsi-shared")], [command("search")]),
-    ).toContain('Reserved skill "opsi" must not own commands.');
-    expect(
       validateAgentSkills(
-        [skill("opsi"), skill("opsi-shared"), skill("opsi-catalogue", ["search", "search"])],
+        [skill("klopsi", ["search"]), skill("klopsi-shared")],
         [command("search")],
       ),
-    ).toContain('Command path "search" is listed more than once by "opsi-catalogue".');
+    ).toContain('Reserved skill "klopsi" must not own commands.');
+    expect(
+      validateAgentSkills(
+        [skill("klopsi"), skill("klopsi-shared"), skill("klopsi-catalogue", ["search", "search"])],
+        [command("search")],
+      ),
+    ).toContain('Command path "search" is listed more than once by "klopsi-catalogue".');
   });
 
   it("reports malformed capability guides", () => {
@@ -273,18 +276,18 @@ describe("agent skill registry", () => {
     expect(
       validateAgentSkills(
         [
-          skill("opsi"),
-          skill("opsi-shared"),
-          skillWithCapabilities("opsi-catalogue", invalidCapabilities, ["search"]),
+          skill("klopsi"),
+          skill("klopsi-shared"),
+          skillWithCapabilities("klopsi-catalogue", invalidCapabilities, ["search"]),
         ],
         [command("search")],
       ),
     ).toEqual(
       expect.arrayContaining([
-        'Invalid capability ID "Bad ID" in "opsi-catalogue".',
-        'Capability "blank-title" in "opsi-catalogue" must have a non-blank title.',
-        'Capability "blank-instruction" in "opsi-catalogue" must have non-blank instructions.',
-        'Capability "empty-instructions" in "opsi-catalogue" must have non-blank instructions.',
+        'Invalid capability ID "Bad ID" in "klopsi-catalogue".',
+        'Capability "blank-title" in "klopsi-catalogue" must have a non-blank title.',
+        'Capability "blank-instruction" in "klopsi-catalogue" must have non-blank instructions.',
+        'Capability "empty-instructions" in "klopsi-catalogue" must have non-blank instructions.',
       ]),
     );
   });
@@ -293,10 +296,10 @@ describe("agent skill registry", () => {
     expect(
       validateAgentSkills(
         [
-          skill("opsi"),
-          skill("opsi-shared"),
+          skill("klopsi"),
+          skill("klopsi-shared"),
           skillWithCapabilities(
-            "opsi-catalogue",
+            "klopsi-catalogue",
             [
               { id: "search-refinement", title: "Search", instructions: ["Refine"] },
               { id: "search-refinement", title: "Search again", instructions: ["Refine again"] },
@@ -306,7 +309,9 @@ describe("agent skill registry", () => {
         ],
         [command("search")],
       ),
-    ).toContain('Capability ID "search-refinement" is listed more than once by "opsi-catalogue".');
+    ).toContain(
+      'Capability ID "search-refinement" is listed more than once by "klopsi-catalogue".',
+    );
   });
 });
 
@@ -317,8 +322,8 @@ describe("agent skill rendering", () => {
 
     expect([...first.keys()]).toEqual(EXPECTED_SKILLS);
     expect([...second]).toEqual([...first]);
-    expect(first.get("opsi")).toContain("name: opsi");
-    expect(renderAgentSkillsIndex()).toContain("# OPSI Agent Skills");
+    expect(first.get("klopsi")).toContain("name: klopsi");
+    expect(renderAgentSkillsIndex()).toContain("# KLOPSI Agent Skills");
   });
 
   it("renders portable frontmatter and bounded deterministic files", () => {
@@ -338,11 +343,11 @@ describe("agent skill rendering", () => {
   });
 
   it("renders a compact main orchestrator with intent routing", () => {
-    const content = renderAgentSkillFiles("1.2.3").get("opsi") ?? "";
+    const content = renderAgentSkillFiles("1.2.3").get("klopsi") ?? "";
 
     expect(content).toContain("## Route requests");
     expect(content).toContain("smallest relevant skill");
-    expect(content).toContain("Do not pass `/opsi`, `@opsi`, or `$opsi` to the shell");
+    expect(content).toContain("Do not pass `/klopsi`, `@klopsi`, or `$klopsi` to the shell");
     for (const skillName of EXPECTED_SKILLS.slice(2)) {
       expect(content).toContain(`../${skillName}/SKILL.md`);
     }
@@ -351,11 +356,11 @@ describe("agent skill rendering", () => {
   });
 
   it("renders the shared execution and safety contract", () => {
-    const content = renderAgentSkillFiles("1.2.3").get("opsi-shared") ?? "";
+    const content = renderAgentSkillFiles("1.2.3").get("klopsi-shared") ?? "";
 
     for (const expected of [
-      "npm install --global opsi",
-      "opsi --help",
+      "npm install --global klopsi",
+      "klopsi --help",
       "--json",
       "--ndjson",
       "stdout",
@@ -415,7 +420,7 @@ describe("agent skill rendering", () => {
   });
 
   it("guides batch downloads to an explicit existing destination directory", () => {
-    const content = renderAgentSkillFiles("1.2.3").get("opsi-download") ?? "";
+    const content = renderAgentSkillFiles("1.2.3").get("klopsi-download") ?? "";
     const download = COMMAND_MANIFEST.find((entry) => entry.path === "download");
 
     expect(content).toContain(
@@ -428,10 +433,10 @@ describe("agent skill rendering", () => {
 
   it("renders accurate refresh planning and structured-selector guidance", () => {
     const files = renderAgentSkillFiles("1.2.3");
-    const orchestrator = files.get("opsi") ?? "";
-    const resources = files.get("opsi-resources") ?? "";
-    const shared = files.get("opsi-shared") ?? "";
-    const validation = files.get("opsi-validation") ?? "";
+    const orchestrator = files.get("klopsi") ?? "";
+    const resources = files.get("klopsi-resources") ?? "";
+    const shared = files.get("klopsi-shared") ?? "";
+    const validation = files.get("klopsi-validation") ?? "";
 
     expect(orchestrator).not.toContain("detected targets");
     expect(orchestrator).toContain("planned selection and repertoire");
@@ -446,8 +451,8 @@ describe("agent skill rendering", () => {
   });
 
   it("renders bounded WFS service workflows", () => {
-    const definition = AGENT_SKILLS.find((entry) => entry.name === "opsi-services");
-    const content = renderAgentSkillFiles("1.2.3").get("opsi-services") ?? "";
+    const definition = AGENT_SKILLS.find((entry) => entry.name === "klopsi-services");
+    const content = renderAgentSkillFiles("1.2.3").get("klopsi-services") ?? "";
 
     expect(definition?.capabilities.map((capability) => capability.id)).toEqual(
       EXPECTED_WFS_CAPABILITY_IDS,
@@ -462,7 +467,7 @@ describe("agent skill rendering", () => {
     ])
       expect(content).toContain(`### \`${command}\``);
     for (const guidance of [
-      "canonical `opsi:resource:` reference",
+      "canonical `klopsi:resource:` reference",
       "`service inspect`",
       "`service layers`",
       "`service schema --layer <name>`",
@@ -486,8 +491,8 @@ describe("agent skill rendering", () => {
 
   it("renders option conflicts as user-facing CLI flags", () => {
     const files = renderAgentSkillFiles("1.2.3");
-    const shared = files.get("opsi-shared") ?? "";
-    const catalogue = files.get("opsi-catalogue") ?? "";
+    const shared = files.get("klopsi-shared") ?? "";
+    const catalogue = files.get("klopsi-catalogue") ?? "";
 
     expect(shared).toContain("`--ndjson`, `--csv`, `--tsv`, `--output-format`");
     expect(shared).not.toContain("`outputFormat`");
@@ -496,13 +501,13 @@ describe("agent skill rendering", () => {
   });
 
   it("routes skill generation through diagnostics metadata before loading the body", () => {
-    const content = renderAgentSkillFiles("1.2.3").get("opsi-diagnostics") ?? "";
+    const content = renderAgentSkillFiles("1.2.3").get("klopsi-diagnostics") ?? "";
     const frontmatter = content.match(/^---\n([\s\S]*?)\n---\n/u)?.[1] ?? "";
 
     expect(frontmatter).toContain("agent setup");
     expect(content).toContain("Generate installable Agent Skills");
     expect(content).toContain("### `agent setup`");
-    expect(content).toContain("opsi agent setup [options]");
+    expect(content).toContain("klopsi agent setup [options]");
     for (const option of ["--agent <ids...>", "--all", "--yes", "--dry-run"]) {
       expect(content).toContain(option);
     }
@@ -514,8 +519,8 @@ describe("agent skill rendering", () => {
 
   it("renders cautious local-state maintenance and agent refresh guidance", () => {
     const files = renderAgentSkillFiles("1.2.3");
-    const localState = files.get("opsi-local-state") ?? "";
-    const diagnostics = files.get("opsi-diagnostics") ?? "";
+    const localState = files.get("klopsi-local-state") ?? "";
+    const diagnostics = files.get("klopsi-diagnostics") ?? "";
 
     for (const guidance of [
       "catalogue snapshot and cached raw objects",
@@ -527,11 +532,11 @@ describe("agent skill rendering", () => {
       expect(localState).toContain(guidance);
 
     for (const guidance of [
-      "`opsi doctor --offline --json`",
-      "`opsi providers list --offline --json`",
-      "`opsi agent setup --agent codex --dry-run --json`",
-      "`opsi agent setup --agent codex --yes --json`",
-      "`opsi generate-skills --output-dir ./generated-skills --json`",
+      "`klopsi doctor --offline --json`",
+      "`klopsi providers list --offline --json`",
+      "`klopsi agent setup --agent codex --dry-run --json`",
+      "`klopsi agent setup --agent codex --yes --json`",
+      "`klopsi generate-skills --output-dir ./generated-skills --json`",
       "does not install it",
       "installs or refreshes the complete repertoire",
       "Detected hosts are used only for a non-dry-run setup without `--agent` or `--all`",
@@ -541,7 +546,7 @@ describe("agent skill rendering", () => {
       "`--yes` accepts detected hosts for unattended setup",
       "empty detection result",
       "durable copies",
-      "Rerun `opsi agent setup` to refresh a stale repertoire",
+      "Rerun `klopsi agent setup` to refresh a stale repertoire",
       "`agents` contains the requested host",
       "`skills` contains the complete repertoire",
       "Do not infer an installed host path",
@@ -566,14 +571,14 @@ describe("agent skill rendering", () => {
 
     for (const definition of AGENT_SKILLS.slice(2)) {
       const content = files.get(definition.name) ?? "";
-      expect(content).toContain("../opsi-shared/SKILL.md");
+      expect(content).toContain("../klopsi-shared/SKILL.md");
       for (const path of definition.commands) {
         const entry = COMMAND_MANIFEST.find((candidate) => candidate.path === path);
         expect(entry, path).toBeDefined();
         if (entry === undefined) continue;
         expect(content).toContain(`### \`${entry.path}\``);
         expect(content).toContain(entry.description);
-        expect(content).toContain(`opsi ${entry.path}`);
+        expect(content).toContain(`klopsi ${entry.path}`);
         for (const argument of entry.arguments) {
           expect(content).toContain(argument.name);
           expect(content).toContain(argument.description);

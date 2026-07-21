@@ -1,5 +1,5 @@
 {
-  "name": "@opsi/provider-local",
+  "name": "@klopsi/provider-local",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -17,6 +17,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@opsi/domain": "workspace:*"
+    "@klopsi/domain": "workspace:*"
   }
 }

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Reset the unreleased project history so the first public npm release of `opsi` is version `0.0.1` and every shipped/generated artifact reports that version.
+**Goal:** Reset the unreleased project history so the first public npm release of `klopsi` is version `0.0.1` and every shipped/generated artifact reports that version.
 
 **Architecture:** Keep the existing exact-tarball GitHub release pipeline and provenance checks. Treat all current Changesets and changelog entries as development history, consolidate them into the initial `0.0.1` release entry, regenerate version-bearing Agent Skills, and use one protected short-lived token to bootstrap the package before switching permanently to OIDC trusted publishing.
 
@@ -62,7 +62,7 @@ Expected: FAIL because the current public package, changelog, and generated skil
 
 - [x] **Step 1: Set workspace package versions to 0.0.1**
 
-Change every workspace `package.json` version to `0.0.1`, including the public `opsi` package.
+Change every workspace `package.json` version to `0.0.1`, including the public `klopsi` package.
 
 - [x] **Step 2: Consolidate changelogs**
 
@@ -74,13 +74,13 @@ Delete the five version-bumping Changeset markdown files because their work is i
 
 - [x] **Step 4: Document the first release handoff**
 
-Add an operator checklist for validating `opsi@0.0.1` availability, confirming GitHub/npm trusted-publisher setup, and pushing the annotated `v0.0.1` tag without publishing locally.
+Add an operator checklist for validating `klopsi@0.0.1` availability, confirming GitHub/npm trusted-publisher setup, and pushing the annotated `v0.0.1` tag without publishing locally.
 
 - [x] **Step 5: Regenerate committed Agent Skills**
 
 Run: `node apps/cli/dist/main.js generate-skills --output-dir ./skills --json`
 
-Expected: 11 generated skills whose headers report `opsi` version `0.0.1`.
+Expected: 11 generated skills whose headers report `klopsi` version `0.0.1`.
 
 - [x] **Step 6: Run focused tests**
 
@@ -97,13 +97,13 @@ Expected: PASS.
 
 **Interfaces:**
 - Consumes: the complete repository and release workflow
-- Produces: fresh evidence that `opsi@0.0.1` builds, packs, installs, and passes all repository gates
+- Produces: fresh evidence that `klopsi@0.0.1` builds, packs, installs, and passes all repository gates
 
 - [x] **Step 1: Verify Changesets has no pending development bump**
 
-Run: `pnpm changeset status --output /tmp/opsi-changeset-status.json`
+Run: `pnpm changeset status --output /tmp/klopsi-changeset-status.json`
 
-Expected: no pending release entry for `opsi`.
+Expected: no pending release entry for `klopsi`.
 
 - [x] **Step 2: Run the complete quality gate**
 
@@ -115,11 +115,11 @@ Expected: PASS with zero test failures.
 
 Run: `npm publish ./apps/cli --dry-run --access public --json`
 
-Expected: the dry-run package is named `opsi`, versioned `0.0.1`, and contains only the allowlisted runtime, SDK, README, license, and package metadata.
+Expected: the dry-run package is named `klopsi`, versioned `0.0.1`, and contains only the allowlisted runtime, SDK, README, license, and package metadata.
 
 - [x] **Step 4: Verify registry availability without publishing**
 
-Run: `npm view opsi@0.0.1 version`
+Run: `npm view klopsi@0.0.1 version`
 
 Expected: npm returns `E404`, confirming the immutable version has not already been published.
 

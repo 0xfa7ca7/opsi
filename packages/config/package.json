@@ -1,5 +1,5 @@
 {
-  "name": "@opsi/config",
+  "name": "@klopsi/config",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -17,7 +17,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@opsi/domain": "workspace:*",
+    "@klopsi/domain": "workspace:*",
     "env-paths": "4.0.0",
     "zod": "4.4.3"
   }

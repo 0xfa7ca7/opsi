@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import {
   invalidConfiguration,
   parseConfigurationSource,
@@ -10,8 +10,8 @@ import {
 
 const SECRET_KEY = /(?:apiKey|token|secret|authorization|cookie)/iu;
 
-function secretKeyError(key: string): OpsiError {
-  return new OpsiError({
+function secretKeyError(key: string): KlopsiError {
+  return new KlopsiError({
     code: "SECRET_CONFIGURATION_KEY",
     message: `The configuration key ${key} is secret-like and cannot be persisted.`,
     exitCode: EXIT_CODES.INVALID_INPUT,
@@ -65,7 +65,7 @@ export class ConfigStore {
       return parseConfigurationSource(JSON.parse(await readFile(this.file, "utf8")));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return {};
-      if (error instanceof OpsiError) throw error;
+      if (error instanceof KlopsiError) throw error;
       throw invalidConfiguration(error);
     }
   }

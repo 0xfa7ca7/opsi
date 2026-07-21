@@ -1,4 +1,4 @@
-import type { ConversionResult as DomainConversionResult } from "@opsi/domain";
+import type { ConversionResult as DomainConversionResult } from "@klopsi/domain";
 import type { Stats } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
 

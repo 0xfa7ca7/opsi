@@ -10,7 +10,7 @@ const engine = new DataEngine();
 const temporary: string[] = [];
 
 async function fixture(contents: string, name = "input.csv"): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "opsi-validate-"));
+  const directory = await mkdtemp(join(tmpdir(), "klopsi-validate-"));
   temporary.push(directory);
   const path = join(directory, name);
   await writeFile(path, contents);
@@ -186,7 +186,7 @@ describe("data validation", () => {
   });
 
   it("streams XLSX diagnostics across rows beyond the preview sample", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "opsi-xlsx-validation-"));
+    const directory = await mkdtemp(join(tmpdir(), "klopsi-xlsx-validation-"));
     temporary.push(directory);
     const path = join(directory, "late.xlsx");
     const workbook = new ExcelJS.Workbook();
@@ -218,7 +218,7 @@ describe("data validation", () => {
   }, 20_000);
 
   it("scans Parquet diagnostics across rows beyond the preview sample", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "opsi-parquet-validation-"));
+    const directory = await mkdtemp(join(tmpdir(), "klopsi-parquet-validation-"));
     temporary.push(directory);
     const path = join(directory, "late.parquet");
     const instance = await DuckDBInstance.create(":memory:");
@@ -247,7 +247,7 @@ describe("data validation", () => {
   }, 20_000);
 
   it("preserves JSON-looking Parquet VARCHAR values exactly", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "opsi-parquet-strings-"));
+    const directory = await mkdtemp(join(tmpdir(), "klopsi-parquet-strings-"));
     temporary.push(directory);
     const path = join(directory, "strings.parquet");
     const instance = await DuckDBInstance.create(":memory:");
@@ -333,7 +333,7 @@ describe("data validation", () => {
   });
 
   it("validates XLSX headers and preserves extra-cell width errors", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "opsi-xlsx-headers-"));
+    const directory = await mkdtemp(join(tmpdir(), "klopsi-xlsx-headers-"));
     temporary.push(directory);
     const path = join(directory, "headers.xlsx");
     const workbook = new ExcelJS.Workbook();
@@ -353,7 +353,7 @@ describe("data validation", () => {
   });
 
   it("charges XLSX headers and header formulas to shared budgets", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "opsi-xlsx-header-budget-"));
+    const directory = await mkdtemp(join(tmpdir(), "klopsi-xlsx-header-budget-"));
     temporary.push(directory);
     const path = join(directory, "header-budget.xlsx");
     const workbook = new ExcelJS.Workbook();
@@ -389,7 +389,7 @@ describe("data validation", () => {
     await expect(new DataEngine({ validationMaxColumns: 1 }).validate(json)).rejects.toMatchObject({
       code: "VALIDATION_COLUMN_LIMIT",
     });
-    const directory = await mkdtemp(join(tmpdir(), "opsi-parquet-limits-"));
+    const directory = await mkdtemp(join(tmpdir(), "klopsi-parquet-limits-"));
     temporary.push(directory);
     const parquet = join(directory, "limits.parquet");
     const instance = await DuckDBInstance.create(":memory:");

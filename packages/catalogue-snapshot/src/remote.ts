@@ -2,11 +2,11 @@ import { constants } from "node:fs";
 import { mkdtemp, open, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
-import { Downloader } from "@opsi/storage";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
+import { Downloader } from "@klopsi/storage";
 import { snapshotInvalid, snapshotUnavailable } from "./errors.js";
 
-export const DEFAULT_CATALOGUE_BASE_URL = "https://0xfa7ca7.github.io/opsi/";
+export const DEFAULT_CATALOGUE_BASE_URL = "https://0xfa7ca7.github.io/klopsi/";
 const DEFAULT_CATALOGUE_TIMEOUT_MS = 9_500;
 
 export interface StrictHttpsReaderOptions {
@@ -47,7 +47,7 @@ export class StrictHttpsReader {
     );
     this.timeoutMs = options.timeoutMs ?? DEFAULT_CATALOGUE_TIMEOUT_MS;
     if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs <= 0) {
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "INVALID_CATALOGUE_TIMEOUT",
         message: "The catalogue timeout must be a positive integer.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -99,7 +99,7 @@ export class StrictHttpsReader {
 
     let directory: string | undefined;
     try {
-      directory = await mkdtemp(join(tmpdir(), "opsi-catalogue-remote-"));
+      directory = await mkdtemp(join(tmpdir(), "klopsi-catalogue-remote-"));
       const result = await this.downloader.download({
         url: url.toString(),
         destination: join(directory, "payload"),
@@ -128,7 +128,7 @@ export class StrictHttpsReader {
     } catch (error) {
       if (allowNotFound && isHttpNotFound(error)) return undefined;
       if (isCatalogueValidationError(error)) throw error;
-      if (error instanceof OpsiError && error.code === "DOWNLOAD_TOO_LARGE") {
+      if (error instanceof KlopsiError && error.code === "DOWNLOAD_TOO_LARGE") {
         throw snapshotInvalid("bytes");
       }
       throw snapshotUnavailable();
@@ -142,7 +142,7 @@ export class StrictHttpsReader {
   private requestTimeoutMs(timeoutMs: number | undefined): number {
     if (timeoutMs === undefined) return this.timeoutMs;
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "INVALID_CATALOGUE_TIMEOUT",
         message: "The catalogue timeout must be a positive integer.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -194,7 +194,7 @@ function resolveRelativePath(base: URL, relativePath: string): URL {
       }
     }
   } catch (error) {
-    if (error instanceof OpsiError) throw error;
+    if (error instanceof KlopsiError) throw error;
     throw invalidPath("relativePath");
   }
 
@@ -231,26 +231,26 @@ function hasUrlTrimmableEdge(value: string): boolean {
   return value.charCodeAt(0) <= ASCII_SPACE || value.charCodeAt(value.length - 1) <= ASCII_SPACE;
 }
 
-function isCatalogueValidationError(error: unknown): error is OpsiError {
-  return error instanceof OpsiError && CATALOGUE_VALIDATION_CODES.has(error.code);
+function isCatalogueValidationError(error: unknown): error is KlopsiError {
+  return error instanceof KlopsiError && CATALOGUE_VALIDATION_CODES.has(error.code);
 }
 
-function isHttpNotFound(error: unknown): error is OpsiError {
+function isHttpNotFound(error: unknown): error is KlopsiError {
   return (
-    error instanceof OpsiError &&
+    error instanceof KlopsiError &&
     error.code === "DOWNLOAD_HTTP_ERROR" &&
     error.message === "The download returned HTTP 404."
   );
 }
 
-function invalidBaseUrl(): OpsiError {
-  return new OpsiError({
+function invalidBaseUrl(): KlopsiError {
+  return new KlopsiError({
     code: "INVALID_CATALOGUE_BASE_URL",
     message: "The catalogue base URL is invalid.",
     exitCode: EXIT_CODES.INVALID_INPUT,
   });
 }
 
-function invalidPath(field: string): OpsiError {
+function invalidPath(field: string): KlopsiError {
   return snapshotInvalid(field);
 }

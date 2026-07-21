@@ -15,7 +15,7 @@ export const EXIT_CODES = Object.freeze({
   PARTIAL_SUCCESS: 8,
 } as const satisfies Readonly<Record<string, ExitCode>>);
 
-export interface OpsiErrorOptions {
+export interface KlopsiErrorOptions {
   readonly code: string;
   readonly message: string;
   readonly exitCode: FailureExitCode;
@@ -25,7 +25,7 @@ export interface OpsiErrorOptions {
   readonly cause?: unknown;
 }
 
-export class OpsiError extends Error {
+export class KlopsiError extends Error {
   readonly code: string;
   readonly exitCode: FailureExitCode;
   readonly suggestion?: string;
@@ -33,9 +33,9 @@ export class OpsiError extends Error {
   readonly nextActions?: readonly NextAction[];
   override readonly cause?: unknown;
 
-  constructor(options: OpsiErrorOptions) {
+  constructor(options: KlopsiErrorOptions) {
     super(options.message);
-    this.name = "OpsiError";
+    this.name = "KlopsiError";
     this.code = options.code;
     this.exitCode = options.exitCode;
 

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import {
   CATALOGUE_SCHEMA_VERSION,
   parseCatalogueIndex,
@@ -37,7 +37,7 @@ export function assertSafeCount(
   allowReduction: boolean,
 ): void {
   if (previous === undefined || allowReduction || next >= previous * 0.9) return;
-  throw new OpsiError({
+  throw new KlopsiError({
     code: "CATALOGUE_COUNT_REDUCTION",
     message: "The candidate catalogue count is more than ten percent below the prior count.",
     exitCode: EXIT_CODES.PROVIDER_FAILURE,

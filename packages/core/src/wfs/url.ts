@@ -1,4 +1,4 @@
-import { EXIT_CODES, OpsiError } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import type { WfsQuery } from "./types.js";
 
 const NAME = /^[A-Za-z_][\w.-]*(?::[A-Za-z_][\w.-]*)?$/u;
@@ -19,7 +19,7 @@ const OWNED = new Set([
 ]);
 
 function invalid(message: string, context: Readonly<Record<string, unknown>> = {}): never {
-  throw new OpsiError({
+  throw new KlopsiError({
     code: "WFS_URL_INVALID",
     message,
     exitCode: EXIT_CODES.INVALID_INPUT,

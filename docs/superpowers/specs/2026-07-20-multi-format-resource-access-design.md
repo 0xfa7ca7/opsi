@@ -2,13 +2,13 @@
 
 ## Summary
 
-OPSI 0.2.0 discovers Slovenian open-data resources reliably, but its usable-data boundary is limited to direct CSV, TSV, JSON, NDJSON, XLSX, and Parquet files. Agents therefore leave the CLI when a catalogue resource is a ZIP archive, XML document, or WFS service. This change keeps OPSI as the network, safety, normalization, and provenance boundary for those resource types.
+KLOPSI 0.2.0 discovers Slovenian open-data resources reliably, but its usable-data boundary is limited to direct CSV, TSV, JSON, NDJSON, XLSX, and Parquet files. Agents therefore leave the CLI when a catalogue resource is a ZIP archive, XML document, or WFS service. This change keeps KLOPSI as the network, safety, normalization, and provenance boundary for those resource types.
 
 The release adds native, bounded adapters for resilient delimited text, ZIP-contained tabular data, generic XML records, and read-only WFS. It also adds a machine-readable resource access descriptor and updates generated Agent Skills so supported Slovenian-data workflows do not fall back to raw HTTP tools.
 
 ## Goals
 
-- Let agents inspect every OPSI resource and receive a deterministic description of how it can be used.
+- Let agents inspect every KLOPSI resource and receive a deterministic description of how it can be used.
 - Preview, validate, query, and convert supported tabular files contained in ZIP archives.
 - Preview, validate, query, and convert bounded repeated records from generic XML documents.
 - Inspect and query WFS 1.0.0, 1.1.0, and 2.0.0 services without constructing raw URLs.
@@ -27,14 +27,14 @@ The release adds native, bounded adapters for resilient delimited text, ZIP-cont
 - Automatic weakening of HTTPS or private-network restrictions.
 - Complete support for every XML vocabulary or every vendor-specific WFS extension.
 
-## Evidence from live OPSI workflows
+## Evidence from live KLOPSI workflows
 
-The design is based on bounded calls through the installed `opsi` 0.2.0 CLI:
+The design is based on bounded calls through the installed `klopsi` 0.2.0 CLI:
 
-- The national budget resource `opsi:resource:ed1d98c5-773c-4b13-a4ee-6d13ffe0911c` is declared CSV but downloads as UTF-16 LE, tab-separated text. Current preview exits 6 with `INVALID_TABULAR_DATA`.
-- The police traffic resource `opsi:resource:d7ab0364-1571-4f7f-b4e6-e37a25713951` is a ZIP archive. Current preview exits 5 with `DOWNLOAD_ONLY_FORMAT`.
-- The ARSO air-quality resource `opsi:resource:978f3d54-96d2-4167-a456-da7d9e0b8aec` is XML published over HTTP. Current preview correctly exits 2 with `INSECURE_DOWNLOAD_URL`; the new feature must retain that default.
-- The cadastre resource `opsi:resource:93961fe9-2ddb-4667-a1c3-229d0deccf37` is WFS. Current preview exits 5 with `UNSUPPORTED_RESOURCE_KIND`, causing agents to reconstruct `DescribeFeatureType` and `GetFeature` calls outside OPSI.
+- The national budget resource `klopsi:resource:ed1d98c5-773c-4b13-a4ee-6d13ffe0911c` is declared CSV but downloads as UTF-16 LE, tab-separated text. Current preview exits 6 with `INVALID_TABULAR_DATA`.
+- The police traffic resource `klopsi:resource:d7ab0364-1571-4f7f-b4e6-e37a25713951` is a ZIP archive. Current preview exits 5 with `DOWNLOAD_ONLY_FORMAT`.
+- The ARSO air-quality resource `klopsi:resource:978f3d54-96d2-4167-a456-da7d9e0b8aec` is XML published over HTTP. Current preview correctly exits 2 with `INSECURE_DOWNLOAD_URL`; the new feature must retain that default.
+- The cadastre resource `klopsi:resource:93961fe9-2ddb-4667-a1c3-229d0deccf37` is WFS. Current preview exits 5 with `UNSUPPORTED_RESOURCE_KIND`, causing agents to reconstruct `DescribeFeatureType` and `GetFeature` calls outside KLOPSI.
 - PDF and HTML resources are reference documents rather than tabular inputs and must remain explicitly non-queryable.
 
 ## Architecture
@@ -46,14 +46,14 @@ Add a core `ResourceAccessService` that produces a provider-neutral `ResourceAcc
 - resource kind: `file`, `archive`, `service`, `api`, or `page`;
 - declared and detected format;
 - protocol and negotiated version for supported services;
-- supported OPSI operations;
+- supported KLOPSI operations;
 - relevant selections such as archive entries, XML record paths, or WFS layers;
 - limitations and structured next actions.
 
 The descriptor is rendered by:
 
 ```sh
-opsi resource inspect <input> --json
+klopsi resource inspect <input> --json
 ```
 
 Next actions use structured argument arrays rather than shell strings:
@@ -64,7 +64,7 @@ Next actions use structured argument arrays rather than shell strings:
   "argv": [
     "service",
     "layers",
-    "opsi:resource:93961fe9-2ddb-4667-a1c3-229d0deccf37",
+    "klopsi:resource:93961fe9-2ddb-4667-a1c3-229d0deccf37",
     "--json"
   ]
 }
@@ -102,11 +102,11 @@ The selected entry is streamed to a private temporary file and passed back throu
 Existing operations gain `--entry <path>` where they accept data input:
 
 ```sh
-opsi resource preview <input> --entry <path>
-opsi validate <input> --entry <path>
-opsi query <input> --entry <path> --sql <statement>
-opsi convert <input> --entry <path> --to <format> --output <path>
-opsi dataset schema <id> --resource <resource> --entry <path>
+klopsi resource preview <input> --entry <path>
+klopsi validate <input> --entry <path>
+klopsi query <input> --entry <path> --sql <statement>
+klopsi convert <input> --entry <path> --to <format> --output <path>
+klopsi dataset schema <id> --resource <resource> --entry <path>
 ```
 
 ### Generic XML
@@ -139,12 +139,12 @@ Add a provider-neutral service layer with a WFS adapter. The adapter follows the
 Commands:
 
 ```sh
-opsi service inspect <resource>
-opsi service layers <resource>
-opsi service schema <resource> --layer <name>
-opsi service preview <resource> --layer <name> [options]
-opsi service count <resource> --layer <name> [options]
-opsi service export <resource> --layer <name> --output <path> [options]
+klopsi service inspect <resource>
+klopsi service layers <resource>
+klopsi service schema <resource> --layer <name>
+klopsi service preview <resource> --layer <name> [options]
+klopsi service count <resource> --layer <name> [options]
+klopsi service export <resource> --layer <name> --output <path> [options]
 ```
 
 Preview/export options are:
@@ -167,7 +167,7 @@ The adapter:
 5. Uses `DescribeFeatureType` for schema and validates selected properties and typed equality filters against it.
 6. Uses `resultType=hits` for count when supported.
 7. Prefers advertised CSV, then GeoJSON, then bounded GML/XML normalization.
-8. Parses OGC exception reports into typed OPSI errors.
+8. Parses OGC exception reports into typed KLOPSI errors.
 9. Never exposes transaction or arbitrary raw-request facilities.
 
 Capabilities and schemas use the metadata cache. Feature responses use the existing content cache only when validators and request identity make reuse safe. Every request retains the global timeout and byte ceiling; preview additionally retains the row limit. Redirects are revalidated by existing network policy.
@@ -182,7 +182,7 @@ The WFS 2.0 behavior is grounded in the official OGC standard: <https://docs.ogc
 - PDF and HTML: classified as reference/document resources with `dataset open` or resource metadata as the safe next action.
 - Unknown APIs: classified as API resources but remain unsupported until a protocol adapter exists.
 
-Agents receive an OPSI-native explanation and do not receive a suggestion to use raw HTTP.
+Agents receive a KLOPSI-native explanation and do not receive a suggestion to use raw HTTP.
 
 ## Error model
 
@@ -200,7 +200,7 @@ Exit categories retain current semantics:
 - unsupported protocols or advertised operations: exit 5;
 - malformed, unsafe, or integrity-invalid content: exit 6.
 
-Errors include bounded context and `nextActions` when a safe OPSI continuation exists. URLs, credentials, cookies, raw response bodies, and unbounded provider diagnostics are never included.
+Errors include bounded context and `nextActions` when a safe KLOPSI continuation exists. URLs, credentials, cookies, raw response bodies, and unbounded provider diagnostics are never included.
 
 ## Provenance
 
@@ -215,13 +215,13 @@ Preview and inspection do not publish artifacts. Convert, query export, and WFS 
 
 ## Agent Skills
 
-The command manifest remains the source of truth for CLI paths and options. Skill generation adds `opsi-services` and updates:
+The command manifest remains the source of truth for CLI paths and options. Skill generation adds `klopsi-services` and updates:
 
-- `opsi` routing for service-resource workflows;
-- `opsi-shared` with the rule that Slovenian open-data network access stays inside OPSI whenever a supported operation exists;
-- `opsi-resources` with inspect, archive entry, XML record-path, and recovery workflows;
-- `opsi-analysis` with archive/XML query and conversion options;
-- `opsi-diagnostics` and generated-skill inventory where required.
+- `klopsi` routing for service-resource workflows;
+- `klopsi-shared` with the rule that Slovenian open-data network access stays inside KLOPSI whenever a supported operation exists;
+- `klopsi-resources` with inspect, archive entry, XML record-path, and recovery workflows;
+- `klopsi-analysis` with archive/XML query and conversion options;
+- `klopsi-diagnostics` and generated-skill inventory where required.
 
 Generated instructions tell agents to inspect structured `nextActions`, preserve canonical references, keep previews bounded, and report unsupported protocols instead of falling back to `curl` or another raw HTTP client. Generation, checked-in skills, packaged contents, command help, and documentation must remain synchronized by tests.
 
@@ -268,7 +268,7 @@ Acceptance requires:
 
 - The tested budget resource previews without manual transcoding.
 - A police ZIP resource can be inspected and a contained supported file previewed without external extraction tools.
-- A permitted XML resource can be normalized with deterministic record selection and queried through OPSI.
-- The cadastre `STAVBE` layer can be listed, schema-inspected, previewed with selected properties, and counted with a Ljubljana equality filter using only OPSI commands.
+- A permitted XML resource can be normalized with deterministic record selection and queried through KLOPSI.
+- The cadastre `STAVBE` layer can be listed, schema-inspected, previewed with selected properties, and counted with a Ljubljana equality filter using only KLOPSI commands.
 - No supported workflow requires direct URLs, `curl`, `xmllint`, `unzip`, or an untracked transformation.
 - Existing tests and security policies continue to pass.

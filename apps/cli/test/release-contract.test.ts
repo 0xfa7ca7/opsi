@@ -52,12 +52,24 @@ describe("clean CI and release contract", () => {
       "docs/superpowers/specs/2026-07-21-klopsi-rename-design.md",
       "docs/superpowers/plans/2026-07-21-klopsi-rename.md",
     ]);
+    const formerLower = ["op", "si"].join("");
+    const formerTitle = ["Op", "si"].join("");
+    const formerUpper = formerLower.toUpperCase();
+    const formerRepository = `0xfa7ca7/${formerLower}`;
+    const formerUpstreamPath = `/api/gw/${formerLower}-api-basic/`;
+    const formerPath = new RegExp(`(^|/)${formerLower}(?=$|[-./])`, "iu");
+    const formerIdentity = new RegExp(
+      `@${formerLower}/|\\b${formerTitle}|\\b${formerUpper}|\\b${formerLower}\\b`,
+      "u",
+    );
     const { stdout } = await execFileAsync("git", ["ls-files", "-z"], { encoding: "utf8" });
     for (const path of stdout.split("\0").filter(Boolean)) {
       if (migrationRecords.has(path)) continue;
-      expect(path, path).not.toMatch(/(^|\/)opsi(?=$|[-./])/iu);
-      const content = (await text(path)).replaceAll("0xfa7ca7/opsi", "");
-      expect(content, path).not.toMatch(/@opsi\/|\bOpsi|\bOPSI|\bopsi\b/u);
+      expect(path, path).not.toMatch(formerPath);
+      const content = (await text(path))
+        .replaceAll(formerRepository, "")
+        .replaceAll(formerUpstreamPath, "");
+      expect(content, path).not.toMatch(formerIdentity);
     }
   });
 
@@ -75,8 +87,8 @@ describe("clean CI and release contract", () => {
     const cliPackage = JSON.parse(await text("apps/cli/package.json")) as {
       scripts: Record<string, string>;
     };
-    expect(cliPackage.scripts.typecheck).toContain("--filter @opsi/data-engine");
-    expect(cliPackage.scripts.typecheck).toContain("--filter @opsi/provider-local");
+    expect(cliPackage.scripts.typecheck).toContain("--filter @klopsi/data-engine");
+    expect(cliPackage.scripts.typecheck).toContain("--filter @klopsi/provider-local");
 
     const ci = await text(".github/workflows/ci.yml");
     expect(ci).toContain("rm -rf apps/cli/dist packages/*/dist packages/providers/*/dist");
@@ -178,11 +190,11 @@ describe("documentation contract", () => {
   it("documents the first public release handoff", async () => {
     const releases = await text("docs/releases.md");
     expect(releases).toContain("## First public release: 0.0.1");
-    expect(releases).toContain("npm view opsi@0.0.1 version");
-    expect(releases).toContain('git tag -a v0.0.1 -m "opsi 0.0.1"');
+    expect(releases).toContain("npm view klopsi@0.0.1 version");
+    expect(releases).toContain('git tag -a v0.0.1 -m "klopsi 0.0.1"');
     expect(releases).toContain("git push origin v0.0.1");
     expect(releases).toContain("Never run `npm publish` locally");
-    expect(releases).toContain("npm trust github opsi");
+    expect(releases).toContain("npm trust github klopsi");
     expect(releases).toContain("gh secret delete NPM_TOKEN --env npm");
   });
 
@@ -224,13 +236,13 @@ describe("documentation contract", () => {
     const readme = await text("README.md");
     for (const expected of [
       "npx skills add https://github.com/0xfa7ca7/opsi",
-      "npx skills add https://github.com/0xfa7ca7/opsi/tree/main/skills/opsi-analysis",
-      "opsi generate-skills",
-      "opsi agent setup",
+      "npx skills add https://github.com/0xfa7ca7/opsi/tree/main/skills/klopsi-analysis",
+      "klopsi generate-skills",
+      "klopsi agent setup",
       "docs/skills.md",
-      "/opsi",
-      "@opsi",
-      "$opsi",
+      "/klopsi",
+      "@klopsi",
+      "$klopsi",
     ]) {
       expect(readme).toContain(expected);
     }
@@ -244,17 +256,17 @@ describe("documentation contract", () => {
     expect(commands).toContain("structured output");
 
     const packagedReadme = await text("apps/cli/README.md");
-    expect(packagedReadme).toContain("opsi generate-skills");
-    expect(packagedReadme).toContain("opsi agent setup");
+    expect(packagedReadme).toContain("klopsi generate-skills");
+    expect(packagedReadme).toContain("klopsi agent setup");
     expect(packagedReadme).toContain("docs/skills.md");
 
     const changelog = await text("apps/cli/CHANGELOG.md");
-    expect(changelog).toMatch(/^# opsi\n\n## 0\.0\.1\n/u);
+    expect(changelog).toMatch(/^# klopsi\n\n## 0\.0\.1\n/u);
     expect(changelog).not.toMatch(/^## 0\.[12]\.0$/mu);
 
     for (const skill of AGENT_SKILLS) {
       const generated = await text(`skills/${skill.name}/SKILL.md`);
-      expect(generated, skill.name).toContain("Generated for `opsi` 0.0.1.");
+      expect(generated, skill.name).toContain("Generated for `klopsi` 0.0.1.");
     }
   });
 });

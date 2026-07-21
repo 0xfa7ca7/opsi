@@ -9,7 +9,7 @@ import {
   rm as fsRm,
 } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { EXIT_CODES, OpsiError, type Provenance } from "@opsi/domain";
+import { EXIT_CODES, KlopsiError, type Provenance } from "@klopsi/domain";
 import { exportStage } from "./export.js";
 import { sqlIdentifier, sqlString } from "./sql-path.js";
 import { isStringColumn, stageTabularInput, type TabularStage } from "./tabular-stage.js";
@@ -82,14 +82,14 @@ async function assertPublishable(
   try {
     const details = await fileSystem.lstat(path);
     if (!details.isFile() || details.isSymbolicLink())
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "UNSAFE_CONVERSION_DESTINATION",
         message: "The conversion destination is not a regular file.",
         exitCode: EXIT_CODES.INVALID_INPUT,
         context: { path },
       });
     if (!force)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "CONVERSION_DESTINATION_EXISTS",
         message: "The conversion destination already exists.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -153,7 +153,7 @@ async function publish(
     await fileSystem.link(temp, destination);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "EEXIST")
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "CONVERSION_DESTINATION_EXISTS",
         message: "The conversion destination already exists.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -260,7 +260,7 @@ async function rollbackPublications(
   }
 
   if (failures.length > 0)
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "CONVERSION_ROLLBACK_FAILED",
       message: "Conversion failed and the previous output pair could not be fully restored.",
       exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -328,14 +328,14 @@ function primaryFailureContext(error: unknown): Readonly<Record<string, unknown>
   };
 }
 
-function withCleanupFailures(primary: unknown, failures: readonly CleanupFailure[]): OpsiError {
+function withCleanupFailures(primary: unknown, failures: readonly CleanupFailure[]): KlopsiError {
   const cleanupFailures = failures.map(cleanupFailureContext);
   const cause = new AggregateError(
     [...(primary === undefined ? [] : [primary]), ...failures.map((failure) => failure.cause)],
     "Conversion operation and cleanup failures",
   );
-  if (primary instanceof OpsiError)
-    return new OpsiError({
+  if (primary instanceof KlopsiError)
+    return new KlopsiError({
       code: primary.code,
       message: primary.message,
       exitCode: primary.exitCode,
@@ -343,7 +343,7 @@ function withCleanupFailures(primary: unknown, failures: readonly CleanupFailure
       context: { ...(primary.context ?? {}), cleanupFailures },
       cause,
     });
-  return new OpsiError({
+  return new KlopsiError({
     code: "CONVERSION_CLEANUP_FAILED",
     message:
       primary === undefined
@@ -479,7 +479,7 @@ export async function convertData(
       ...(engineOptions.xmlLimits === undefined ? {} : { xmlLimits: engineOptions.xmlLimits }),
     });
     if (resolve(stage.inputPath) === output)
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "CONVERSION_INPUT_OUTPUT_CONFLICT",
         message: "Input and output must be different files.",
         exitCode: EXIT_CODES.INVALID_INPUT,
@@ -562,9 +562,9 @@ export async function convertData(
     };
   } catch (error) {
     primaryError =
-      error instanceof OpsiError || stage !== undefined
+      error instanceof KlopsiError || stage !== undefined
         ? error
-        : new OpsiError({
+        : new KlopsiError({
             code: "INVALID_TABULAR_DATA",
             message: "The input data cannot be parsed for conversion.",
             exitCode: EXIT_CODES.INTEGRITY_FAILURE,
@@ -608,7 +608,7 @@ export async function convertData(
   if (cleanupFailures.length > 0) throw withCleanupFailures(primaryError, cleanupFailures);
   if (primaryError !== undefined) throw primaryError;
   if (result === undefined)
-    throw new OpsiError({
+    throw new KlopsiError({
       code: "CONVERSION_RESULT_MISSING",
       message: "Conversion completed without a result.",
       exitCode: EXIT_CODES.INTERNAL,

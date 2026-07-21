@@ -1,5 +1,5 @@
-import { verifyStagedDatabase } from "@opsi/data-engine";
-import type { ContentCache, DerivedArtifactCache } from "@opsi/storage";
+import { verifyStagedDatabase } from "@klopsi/data-engine";
+import type { ContentCache, DerivedArtifactCache } from "@klopsi/storage";
 export class CacheService {
   constructor(
     private readonly cache: ContentCache,

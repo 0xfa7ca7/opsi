@@ -1,5 +1,5 @@
 {
-  "name": "@opsi/data-engine",
+  "name": "@klopsi/data-engine",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@duckdb/node-api": "1.5.4-r.1",
-    "@opsi/domain": "workspace:*",
+    "@klopsi/domain": "workspace:*",
     "csv-parse": "7.0.1",
     "exceljs": "4.4.0",
     "saxes": "6.0.0",

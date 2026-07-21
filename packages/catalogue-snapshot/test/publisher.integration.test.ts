@@ -3,7 +3,7 @@ import { createServer, type RequestListener, type Server } from "node:http";
 import { access, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { OpsiProvider, OpsiTransport, RequestScheduler } from "@opsi/provider-opsi";
+import { KlopsiProvider, KlopsiTransport, RequestScheduler } from "@klopsi/provider-klopsi";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   CATALOGUE_SCHEMA_VERSION,
@@ -11,7 +11,7 @@ import {
   buildPublication,
   type CatalogueIndex,
   type CatalogueSnapshot,
-} from "@opsi/catalogue-snapshot";
+} from "@klopsi/catalogue-snapshot";
 import { runPublisher, type PublisherRuntime } from "../src/publish-entry.js";
 import { runPublicVerifier, type VerifierRuntime } from "../src/verify-entry.js";
 
@@ -273,12 +273,12 @@ describe("public verifier", () => {
   });
 });
 
-async function fixtureRuntime(provider: OpsiProvider): Promise<{
+async function fixtureRuntime(provider: KlopsiProvider): Promise<{
   readonly output: string;
   readonly stdout: string[];
   readonly runtime: PublisherRuntime;
 }> {
-  const root = await mkdtemp(join(tmpdir(), "opsi-publisher-test-"));
+  const root = await mkdtemp(join(tmpdir(), "klopsi-publisher-test-"));
   roots.push(root);
   const stdout: string[] = [];
   return {
@@ -293,7 +293,7 @@ async function fixtureRuntime(provider: OpsiProvider): Promise<{
   };
 }
 
-async function controlledProvider(count: number): Promise<OpsiProvider> {
+async function controlledProvider(count: number): Promise<KlopsiProvider> {
   const baseUrl = await listen(async (request, response) => {
     if (request.method !== "POST" || request.url !== "/package_search") {
       response.writeHead(404).end();
@@ -308,11 +308,11 @@ async function controlledProvider(count: number): Promise<OpsiProvider> {
     response.setHeader("content-type", "application/json");
     response.end(JSON.stringify({ success: true, result: { count, results } }));
   });
-  const transport = new OpsiTransport({
+  const transport = new KlopsiTransport({
     baseUrl,
     scheduler: new RequestScheduler({ intervalMs: 0, maxRetries: 0 }),
   });
-  return new OpsiProvider(transport);
+  return new KlopsiProvider(transport);
 }
 
 async function previousSite(options: {

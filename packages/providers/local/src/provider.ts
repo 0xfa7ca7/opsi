@@ -2,7 +2,7 @@ import { stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
   EXIT_CODES,
-  OpsiError,
+  KlopsiError,
   localFileReference,
   providerId,
   type CanonicalReference,
@@ -12,7 +12,7 @@ import {
   type ResolvedResource,
   type Resource,
   type SearchPage,
-} from "@opsi/domain";
+} from "@klopsi/domain";
 
 export interface LocalFile {
   readonly path: string;
@@ -20,8 +20,8 @@ export interface LocalFile {
   readonly sizeBytes: number;
 }
 
-function unsupported(capability: string): OpsiError {
-  return new OpsiError({
+function unsupported(capability: string): KlopsiError {
+  return new KlopsiError({
     code: "PROVIDER_CAPABILITY_UNSUPPORTED",
     message: `The local provider does not support ${capability}; use a local:file reference or path.`,
     exitCode: EXIT_CODES.UNSUPPORTED,
@@ -50,7 +50,7 @@ export class LocalProvider implements DataProvider {
       details = await stat(absolute);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT")
-        throw new OpsiError({
+        throw new KlopsiError({
           code: "LOCAL_FILE_NOT_FOUND",
           message: `Local file not found: ${absolute}`,
           exitCode: EXIT_CODES.NOT_FOUND,
@@ -59,7 +59,7 @@ export class LocalProvider implements DataProvider {
       throw error;
     }
     if (!details.isFile())
-      throw new OpsiError({
+      throw new KlopsiError({
         code: "LOCAL_FILE_NOT_REGULAR",
         message: `Local input is not a regular file: ${absolute}`,
         exitCode: EXIT_CODES.INVALID_INPUT,

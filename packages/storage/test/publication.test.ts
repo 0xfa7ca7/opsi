@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { publishArtifactPair } from "@opsi/storage";
+import { publishArtifactPair } from "@klopsi/storage";
 
 const roots: string[] = [];
 afterEach(async () =>
@@ -10,7 +10,7 @@ afterEach(async () =>
 );
 
 async function fixture(label: string) {
-  const root = await mkdtemp(join(tmpdir(), "opsi-pair-"));
+  const root = await mkdtemp(join(tmpdir(), "klopsi-pair-"));
   roots.push(root);
   const artifact = join(root, `${label}.part`);
   const sidecar = join(root, `${label}.provenance.part`);

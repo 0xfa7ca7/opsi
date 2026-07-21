@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { validateDatasetMetadata, validateResourceMetadata } from "../src/metadata-validation.js";
 import { DataService } from "../src/data.js";
-import type { OpsiClient } from "../src/client.js";
+import type { KlopsiClient } from "../src/client.js";
 import { resolve } from "node:path";
-import { datasetId, providerId, resourceId, type Dataset, type Resource } from "@opsi/domain";
+import { datasetId, providerId, resourceId, type Dataset, type Resource } from "@klopsi/domain";
 
 const provider = providerId("fixture");
 
@@ -78,7 +78,7 @@ describe("metadata validation", () => {
           return {
             id: resourceId(id),
             datasetId: datasetId("dataset-1"),
-            providerId: providerId("opsi"),
+            providerId: providerId("klopsi"),
             title: "Rows",
             url: "https://example.invalid/data.csv",
             format: "CSV",
@@ -99,12 +99,12 @@ describe("metadata validation", () => {
           };
         },
       },
-    } as unknown as OpsiClient;
+    } as unknown as KlopsiClient;
 
-    const preview = await new DataService(client).preview("opsi:resource:folder/data.csv");
+    const preview = await new DataService(client).preview("klopsi:resource:folder/data.csv");
 
-    expect(calls).toEqual(["opsi:folder/data.csv"]);
-    expect(downloadProviders).toEqual(["opsi"]);
+    expect(calls).toEqual(["klopsi:folder/data.csv"]);
+    expect(downloadProviders).toEqual(["klopsi"]);
     expect(preview.rows).toHaveLength(3);
   });
 
@@ -120,7 +120,7 @@ describe("metadata validation", () => {
           });
         },
       },
-    } as unknown as OpsiClient;
+    } as unknown as KlopsiClient;
 
     await expect(
       new DataService(client).preview("other:resource:resource.csv"),
