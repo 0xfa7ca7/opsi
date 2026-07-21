@@ -1,5 +1,7 @@
+import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { promisify } from "node:util";
 import { Command } from "commander";
 import { describe, expect, it } from "vitest";
 import { AGENT_SKILLS } from "../src/agent-skills.js";
@@ -10,6 +12,7 @@ import {
 } from "../src/command-manifest.js";
 
 const text = (path: string) => readFile(resolve(process.cwd(), path), "utf8");
+const execFileAsync = promisify(execFile);
 
 function commandReferenceSections(document: string): ReadonlyMap<string, string> {
   const sections = new Map<string, string>();
@@ -27,6 +30,37 @@ function longFlag(flags: string): string {
 }
 
 describe("clean CI and release contract", () => {
+  it("uses klopsi as the only project-owned identity", async () => {
+    const cliPackage = JSON.parse(await text("apps/cli/package.json")) as {
+      name: string;
+      bin: Record<string, string>;
+    };
+    expect(cliPackage.name).toBe("klopsi");
+    expect(cliPackage.bin).toEqual({ klopsi: "dist/main.js" });
+
+    const release = await text(".github/workflows/release.yml");
+    expect(release).toContain('test "$NAME" = "klopsi"');
+    expect(release).toContain('npm view "klopsi@$VERSION"');
+    expect(release).toContain('npm install "klopsi@$VERSION"');
+    expect(release).toContain("./node_modules/.bin/klopsi --version");
+
+    const readme = await text("README.md");
+    expect(readme).toContain("npm install --global klopsi");
+    expect(readme).toContain('from "klopsi/sdk"');
+
+    const migrationRecords = new Set([
+      "docs/superpowers/specs/2026-07-21-klopsi-rename-design.md",
+      "docs/superpowers/plans/2026-07-21-klopsi-rename.md",
+    ]);
+    const { stdout } = await execFileAsync("git", ["ls-files", "-z"], { encoding: "utf8" });
+    for (const path of stdout.split("\0").filter(Boolean)) {
+      if (migrationRecords.has(path)) continue;
+      expect(path, path).not.toMatch(/(^|\/)opsi(?=$|[-./])/iu);
+      const content = (await text(path)).replaceAll("0xfa7ca7/opsi", "");
+      expect(content, path).not.toMatch(/@opsi\/|\bOpsi|\bOPSI|\bopsi\b/u);
+    }
+  });
+
   it("keeps pack tests after build and ordinary tests independent of dist", async () => {
     const rootPackage = JSON.parse(await text("package.json")) as {
       scripts: Record<string, string>;
