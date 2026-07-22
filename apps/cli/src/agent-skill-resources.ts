@@ -61,7 +61,7 @@ Interactive mode, and static mode only when geography is spatial, embeds exactly
 
 The artifact is one self-contained HTML file. Opening it must not load any companion or remote script, style, image, font, frame, object, embed, media, form target, import, data file, API, telemetry, tile, relative/root/file/blob URL, CSS import/URL, or meta-refresh navigation. Ordinary visible citation anchors may link to sources because they do not load on open. Safe embedded raster/audio/video \`data:\` resources and fragment-only SVG references are allowed only in the elements appropriate to those media. Active \`javascript:\`, \`vbscript:\`, and HTML/XML \`data:\` URLs are forbidden.
 
-Include exactly one Content Security Policy meta element that sets \`default-src 'none'\`, \`connect-src 'none'\`, \`object-src 'none'\`, \`base-uri 'none'\`, and \`form-action 'none'\`, with no duplicate directives. Do not allow \`self\`, remote, file, or blob sources. Inline style and the one interactive inline script may be enabled explicitly; embedded raster images may use \`img-src data:\`. Do not use inline \`on*\` handlers, network APIs, dynamic imports, \`eval\`, \`new Function\`, \`innerHTML\`, \`outerHTML\`, \`insertAdjacentHTML\`, \`document.write\`/\`writeln\`, \`DOMParser\`, contextual fragments, HTML documents, \`srcdoc\`, frames, objects, or embeds.
+Include exactly one Content Security Policy meta element. Static mode uses exactly \`default-src 'none'\`, \`connect-src 'none'\`, \`object-src 'none'\`, \`base-uri 'none'\`, \`form-action 'none'\`, \`img-src data:\`, and \`style-src 'unsafe-inline'\`. Interactive mode adds exactly \`script-src 'unsafe-inline'\`. Do not add fallback or element/attribute-specific directives, duplicate directive names, or \`self\`, remote, file, or blob sources. Do not use inline \`on*\` handlers, network APIs, dynamic imports, \`eval\`, \`new Function\`, \`innerHTML\`, \`outerHTML\`, \`insertAdjacentHTML\`, \`document.write\`/\`writeln\`, \`DOMParser\`, contextual fragments, HTML documents, \`srcdoc\`, frames, objects, or embeds.
 
 ## 6. Safe JSON and DOM text handling
 
@@ -73,7 +73,7 @@ Use an HTML doctype, nonempty document language, UTF-8 charset, device-width/ini
 
 Choose encodings from the analytical question. Every view exposes its question, population, units, relevant record count, and plain-language takeaway. Do not use color as the only information carrier, fabricate precision, make unsupported causal claims, or leave scales unlabeled. Tables use semantic headers; controls are visibly labeled and keyboard operable; SVG graphics have an accessible name and description.
 
-Interactive dashboards also include a named filter region with visibly labeled native controls, a visible polite live \`data-klopsi-record-count\`, native reset button, semantic \`table\` with \`thead\` and \`th\`, useful nonempty empty-state region, and useful nonempty \`noscript\` summary. Reset restores the documented initial state and the matching count reflects the current filtered row set.
+Interactive dashboards also include a named filter region with visibly labeled, enabled, visible, keyboard-reachable native controls; a visible polite live \`data-klopsi-record-count\`; an enabled, visible, keyboard-reachable native reset button; a semantic \`table\` with \`thead\` and \`th\`; a useful nonempty empty-state region; and a useful nonempty \`noscript\` summary. Reset restores the documented initial state and the matching count reflects the current filtered row set.
 
 ## 8. Verify before handoff
 
@@ -95,7 +95,7 @@ const STATIC_BOARD_TEMPLATE = `<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; style-src 'unsafe-inline'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; img-src data:; style-src 'unsafe-inline'">
   <title>{{TITLE}}</title>
   <style>
     :root {
@@ -236,7 +236,7 @@ const INTERACTIVE_DASHBOARD_TEMPLATE = `<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
   <title>{{TITLE}}</title>
   <style>
     :root { color-scheme: light; --ink: #17202a; --muted: #52606d; --paper: #f4f7f8; --card: #fff; --line: #d7dce2; --accent: #075985; --accent-soft: #dff2fa; --highlight: #a33a18; }
@@ -760,6 +760,7 @@ function hasUnsafeCssReference(css) {
 function normalizedUrl(value) {
   return value
     .replace(/&#(?:x([0-9a-f]+)|([0-9]+));?/giu, (_match, hexadecimal, decimal) => String.fromCodePoint(Number.parseInt(hexadecimal ?? decimal, hexadecimal === undefined ? 10 : 16)))
+    .replace(/&(?:Tab|NewLine);/gu, '')
     .replace(/&colon;/giu, ':')
     .split('')
     .filter((character) => character.codePointAt(0) > 0x20)
@@ -792,23 +793,22 @@ function hasValidCsp(html, mode) {
     if (directives.has(name)) return false;
     directives.set(name, tokens.slice(1).map((token) => token.toLowerCase()));
   }
-  for (const name of ['default-src', 'connect-src', 'object-src', 'base-uri', 'form-action']) {
+  const expected = new Map([
+    ['default-src', ["'none'"]],
+    ['connect-src', ["'none'"]],
+    ['object-src', ["'none'"]],
+    ['base-uri', ["'none'"]],
+    ['form-action', ["'none'"]],
+    ['img-src', ['data:']],
+    ['style-src', ["'unsafe-inline'"]],
+  ]);
+  if (mode === 'interactive') expected.set('script-src', ["'unsafe-inline'"]);
+  if (directives.size !== expected.size) return false;
+  for (const [name, expectedValues] of expected) {
     const values = directives.get(name);
-    if (values === undefined || values.length !== 1 || values[0] !== "'none'") return false;
+    if (values === undefined || values.length !== expectedValues.length
+      || values.some((value, index) => value !== expectedValues[index])) return false;
   }
-  for (const [name, values] of directives) {
-    if (values.some((value) => value === "'self'" || /^(?:https?|file|blob):/u.test(value))) return false;
-    if (['frame-src', 'child-src', 'worker-src', 'font-src', 'media-src', 'manifest-src'].includes(name)
-      && (values.length !== 1 || values[0] !== "'none'")) return false;
-  }
-  const scriptValues = directives.get('script-src');
-  if (mode === 'interactive') {
-    if (scriptValues === undefined || scriptValues.length !== 1 || scriptValues[0] !== "'unsafe-inline'") return false;
-  } else if (scriptValues !== undefined && (scriptValues.length !== 1 || scriptValues[0] !== "'none'")) return false;
-  const styleValues = directives.get('style-src');
-  if (styleValues !== undefined && (styleValues.length !== 1 || styleValues[0] !== "'unsafe-inline'")) return false;
-  const imageValues = directives.get('img-src');
-  if (imageValues !== undefined && (imageValues.length !== 1 || imageValues[0] !== 'data:')) return false;
   return true;
 }
 
@@ -838,6 +838,15 @@ function isHiddenTag(tag) {
   return /\shidden(?:\s|=|>)/iu.test(tag)
     || attributeValue(tag, 'aria-hidden')?.trim().toLowerCase() === 'true'
     || /(?:display\s*:\s*none|visibility\s*:\s*hidden)/iu.test(attributeValue(tag, 'style') ?? '');
+}
+
+function isUnavailableControl(tag) {
+  return isHiddenTag(tag)
+    || hasNamedAttribute(tag, 'disabled')
+    || hasNamedAttribute(tag, 'inert')
+    || attributeValue(tag, 'aria-disabled')?.trim().toLowerCase() === 'true'
+    || attributeValue(tag, 'type')?.trim().toLowerCase() === 'hidden'
+    || attributeValue(tag, 'tabindex')?.trim() === '-1';
 }
 
 function visibleText(body) {
@@ -880,6 +889,7 @@ function validInteractiveStructure(html) {
     const controls = openingTags(filter[0].body).filter((tag) => /^<(?:input|select|textarea|button)\b/iu.test(tag));
     const customControls = openingTags(filter[0].body).some((tag) => /\srole\s*=\s*(?:"|')?(?:button|checkbox|combobox|listbox|radio|slider|spinbutton|textbox)/iu.test(tag));
     filterValid = controls.length > 0 && !customControls && controls.every((tag) => {
+      if (isUnavailableControl(tag)) return false;
       if (/^<button\b/iu.test(tag)) return isNonemptyString(attributeValue(tag, 'aria-label')) || /<button\b[^>]*>[\s\S]*?\S[\s\S]*?<\/button>/iu.test(filter[0].body);
       const id = attributeValue(tag, 'id');
       return isNonemptyString(attributeValue(tag, 'aria-label'))
@@ -895,7 +905,7 @@ function validInteractiveStructure(html) {
   const noscript = elementBlocks(html, (tagName) => tagName === 'noscript');
   return {
     filter: filterValid,
-    reset: reset.length === 1 && !isHiddenTag(reset[0].tag) && visibleText(reset[0].body).length > 0 && attributeValue(reset[0].tag, 'type')?.toLowerCase() === 'button',
+    reset: reset.length === 1 && !isUnavailableControl(reset[0].tag) && visibleText(reset[0].body).length > 0 && attributeValue(reset[0].tag, 'type')?.toLowerCase() === 'button',
     count: count.length === 1 && !isHiddenTag(count[0].tag) && attributeValue(count[0].tag, 'aria-live')?.toLowerCase() === 'polite' && visibleText(count[0].body).length > 0,
     table: table.length === 1 && /<thead\b[^>]*>[\s\S]*<th\b[^>]*>[\s\S]*<\/thead>/iu.test(table[0].body),
     empty: empty.length === 1 && visibleText(empty[0].body).length > 0,
@@ -1139,10 +1149,12 @@ async function main() {
   const eventHandlers = eventHandlerBodies(html);
   const executable = [...executableScripts, ...eventHandlers].join('\n');
   add(findings, /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\s*\(|\.sendBeacon\s*\(|\bimport\s*\(/u.test(executable), 'NETWORK_API', 'Dashboard scripts must not use network APIs or dynamic imports.');
+  const htmlProducingAssignment = /(?:\.\s*(?:innerHTML|outerHTML|srcdoc)|\[\s*(['"])(?:innerHTML|outerHTML|srcdoc)\1\s*\])\s*(?:\?\?=|\|\|=|&&=|\*\*=|>>>=|<<=|>>=|[+\-*/%&|^]=|=(?!=))/u;
   add(findings, eventHandlers.length > 0
     || hasUnsafeElement(html)
     || hasActiveUrl(html)
-    || /(?:javascript|vbscript):|data:text\/(?:html|xml)|\beval\s*\(|\bnew\s+Function\s*\(|\.(?:innerHTML|outerHTML|srcdoc)\s*=|\[['"](?:innerHTML|outerHTML|srcdoc)['"]\]\s*=|\.(?:insertAdjacentHTML|setHTMLUnsafe|createContextualFragment|createHTMLDocument|parseHTMLUnsafe)\s*\(|\bdocument\s*\.\s*write(?:ln)?\s*\(|\bDOMParser\b/u.test(executable), 'UNSAFE_CODE', 'Dashboards must not use executable URL schemes, HTML parsing or injection sinks, inline handlers, dynamic code, frames, objects, or embeds.');
+    || htmlProducingAssignment.test(executable)
+    || /(?:javascript|vbscript):|data:text\/(?:html|xml)|\beval\s*\(|\bnew\s+Function\s*\(|(?:\?\.|\.)\s*(?:insertAdjacentHTML|setHTMLUnsafe|createContextualFragment|createHTMLDocument|parseHTMLUnsafe)\s*\(|\bdocument\s*\.\s*write(?:ln)?\s*\(|\bDOMParser\b/u.test(executable), 'UNSAFE_CODE', 'Dashboards must not use executable URL schemes, HTML parsing or injection sinks, inline handlers, dynamic code, frames, objects, or embeds.');
   add(findings, !hasValidCsp(html, mode), 'CSP_INVALID', 'The dashboard requires the mode-constrained offline Content Security Policy directives.');
   add(findings, !validVisibleRegion(html, 'data-klopsi-summary'), 'SUMMARY_MISSING', 'Dashboards require one visible nonempty plain-language summary.');
   add(findings, !validVisibleRegion(html, 'data-klopsi-disclosures'), 'DISCLOSURES_MISSING', 'Dashboards require one visible nonempty transformation and reduction disclosure region.');

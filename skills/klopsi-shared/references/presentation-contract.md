@@ -56,7 +56,7 @@ Interactive mode, and static mode only when geography is spatial, embeds exactly
 
 The artifact is one self-contained HTML file. Opening it must not load any companion or remote script, style, image, font, frame, object, embed, media, form target, import, data file, API, telemetry, tile, relative/root/file/blob URL, CSS import/URL, or meta-refresh navigation. Ordinary visible citation anchors may link to sources because they do not load on open. Safe embedded raster/audio/video `data:` resources and fragment-only SVG references are allowed only in the elements appropriate to those media. Active `javascript:`, `vbscript:`, and HTML/XML `data:` URLs are forbidden.
 
-Include exactly one Content Security Policy meta element that sets `default-src 'none'`, `connect-src 'none'`, `object-src 'none'`, `base-uri 'none'`, and `form-action 'none'`, with no duplicate directives. Do not allow `self`, remote, file, or blob sources. Inline style and the one interactive inline script may be enabled explicitly; embedded raster images may use `img-src data:`. Do not use inline `on*` handlers, network APIs, dynamic imports, `eval`, `new Function`, `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`/`writeln`, `DOMParser`, contextual fragments, HTML documents, `srcdoc`, frames, objects, or embeds.
+Include exactly one Content Security Policy meta element. Static mode uses exactly `default-src 'none'`, `connect-src 'none'`, `object-src 'none'`, `base-uri 'none'`, `form-action 'none'`, `img-src data:`, and `style-src 'unsafe-inline'`. Interactive mode adds exactly `script-src 'unsafe-inline'`. Do not add fallback or element/attribute-specific directives, duplicate directive names, or `self`, remote, file, or blob sources. Do not use inline `on*` handlers, network APIs, dynamic imports, `eval`, `new Function`, `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`/`writeln`, `DOMParser`, contextual fragments, HTML documents, `srcdoc`, frames, objects, or embeds.
 
 ## 6. Safe JSON and DOM text handling
 
@@ -68,7 +68,7 @@ Use an HTML doctype, nonempty document language, UTF-8 charset, device-width/ini
 
 Choose encodings from the analytical question. Every view exposes its question, population, units, relevant record count, and plain-language takeaway. Do not use color as the only information carrier, fabricate precision, make unsupported causal claims, or leave scales unlabeled. Tables use semantic headers; controls are visibly labeled and keyboard operable; SVG graphics have an accessible name and description.
 
-Interactive dashboards also include a named filter region with visibly labeled native controls, a visible polite live `data-klopsi-record-count`, native reset button, semantic `table` with `thead` and `th`, useful nonempty empty-state region, and useful nonempty `noscript` summary. Reset restores the documented initial state and the matching count reflects the current filtered row set.
+Interactive dashboards also include a named filter region with visibly labeled, enabled, visible, keyboard-reachable native controls; a visible polite live `data-klopsi-record-count`; an enabled, visible, keyboard-reachable native reset button; a semantic `table` with `thead` and `th`; a useful nonempty empty-state region; and a useful nonempty `noscript` summary. Reset restores the documented initial state and the matching count reflects the current filtered row set.
 
 ## 8. Verify before handoff
 

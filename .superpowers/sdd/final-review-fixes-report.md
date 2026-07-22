@@ -189,6 +189,65 @@ CLI E2E: 82 passed
 pack: 3 passed
 ```
 
+## Round 2 verifier hardening
+
+The second independent re-review identified four narrow defensive gaps. Each
+was reproduced in the black-box verifier suite before production changes.
+Running the focused verifier against the prior implementation produced 12
+expected failures and 70 passes across 82 tests: four compound/bracket HTML
+property assignments, four named-whitespace-entity active URLs, three
+unexpected CSP directives, and the first unavailable reset mutation in the
+combined control matrix. The retained counterexamples for inert JSON and
+browser-significant entity spelling already passed.
+
+The fixes and adjacent audit map to the findings as follows:
+
+- HTML-producing property detection now recognizes simple and compound
+  assignment operators through whitespace-tolerant dot access and quoted
+  bracket access for `innerHTML`, `outerHTML`, and `srcdoc`. Optional chaining
+  is accepted in prohibited HTML-producing method-call detection. Inert
+  application/JSON strings containing those spellings remain outside
+  executable scanning.
+- URL normalization now removes the case-sensitive standard HTML named
+  whitespace references `&Tab;` and `&NewLine;` before active-scheme checks.
+  Tests cover quoted and unquoted attributes, incorrect case, and the required
+  semicolon boundary; missing-semicolon text remains inert as browsers leave it
+  undecoded.
+- CSP validation now compares against an exact directive/value map: seven
+  static directives and the same set plus `script-src 'unsafe-inline'` for
+  interactive mode. Unexpected fallback, element/attribute-specific, and even
+  restrictive extra directives are rejected. Directive names are normalized
+  case-insensitively and any duplicate still fails.
+- Interactive filters and reset are rejected when hidden, disabled, inert,
+  `aria-hidden`, `aria-disabled`, hidden-type, or removed from sequential
+  keyboard focus with `tabindex="-1"`. The tests assert structural operability
+  signals only and do not claim browser execution.
+
+The normative contract and both starter templates were synchronized with the
+exact CSP and operable-control policy. All 13 checked-in skill packages were
+regenerated from the source registry, and recursive drift is clean.
+
+Round 2 focused and final-tree evidence:
+
+```text
+dashboard verifier: 84 passed
+dashboard verifier + agent skill packages: 121 passed
+focused unit package/setup/release matrix: 140 passed
+agent setup integration: 2 passed
+generate-skills + packed CLI E2E: 11 passed
+checked-in verifier syntax: passed
+static fixture verifier: valid, zero findings
+interactive fixture verifier: valid, zero findings
+git diff --check: passed
+
+pnpm check: passed
+format, lint, typecheck, and build: passed
+unit: 534 passed
+integration: 310 passed
+CLI E2E: 82 passed
+pack: 3 passed
+```
+
 ## Concerns
 
 None. The verifier remains intentionally bounded as a dependency-free contract

@@ -309,6 +309,7 @@ function hasUnsafeCssReference(css) {
 function normalizedUrl(value) {
   return value
     .replace(/&#(?:x([0-9a-f]+)|([0-9]+));?/giu, (_match, hexadecimal, decimal) => String.fromCodePoint(Number.parseInt(hexadecimal ?? decimal, hexadecimal === undefined ? 10 : 16)))
+    .replace(/&(?:Tab|NewLine);/gu, '')
     .replace(/&colon;/giu, ':')
     .split('')
     .filter((character) => character.codePointAt(0) > 0x20)
@@ -341,23 +342,22 @@ function hasValidCsp(html, mode) {
     if (directives.has(name)) return false;
     directives.set(name, tokens.slice(1).map((token) => token.toLowerCase()));
   }
-  for (const name of ['default-src', 'connect-src', 'object-src', 'base-uri', 'form-action']) {
+  const expected = new Map([
+    ['default-src', ["'none'"]],
+    ['connect-src', ["'none'"]],
+    ['object-src', ["'none'"]],
+    ['base-uri', ["'none'"]],
+    ['form-action', ["'none'"]],
+    ['img-src', ['data:']],
+    ['style-src', ["'unsafe-inline'"]],
+  ]);
+  if (mode === 'interactive') expected.set('script-src', ["'unsafe-inline'"]);
+  if (directives.size !== expected.size) return false;
+  for (const [name, expectedValues] of expected) {
     const values = directives.get(name);
-    if (values === undefined || values.length !== 1 || values[0] !== "'none'") return false;
+    if (values === undefined || values.length !== expectedValues.length
+      || values.some((value, index) => value !== expectedValues[index])) return false;
   }
-  for (const [name, values] of directives) {
-    if (values.some((value) => value === "'self'" || /^(?:https?|file|blob):/u.test(value))) return false;
-    if (['frame-src', 'child-src', 'worker-src', 'font-src', 'media-src', 'manifest-src'].includes(name)
-      && (values.length !== 1 || values[0] !== "'none'")) return false;
-  }
-  const scriptValues = directives.get('script-src');
-  if (mode === 'interactive') {
-    if (scriptValues === undefined || scriptValues.length !== 1 || scriptValues[0] !== "'unsafe-inline'") return false;
-  } else if (scriptValues !== undefined && (scriptValues.length !== 1 || scriptValues[0] !== "'none'")) return false;
-  const styleValues = directives.get('style-src');
-  if (styleValues !== undefined && (styleValues.length !== 1 || styleValues[0] !== "'unsafe-inline'")) return false;
-  const imageValues = directives.get('img-src');
-  if (imageValues !== undefined && (imageValues.length !== 1 || imageValues[0] !== 'data:')) return false;
   return true;
 }
 
@@ -387,6 +387,15 @@ function isHiddenTag(tag) {
   return /\shidden(?:\s|=|>)/iu.test(tag)
     || attributeValue(tag, 'aria-hidden')?.trim().toLowerCase() === 'true'
     || /(?:display\s*:\s*none|visibility\s*:\s*hidden)/iu.test(attributeValue(tag, 'style') ?? '');
+}
+
+function isUnavailableControl(tag) {
+  return isHiddenTag(tag)
+    || hasNamedAttribute(tag, 'disabled')
+    || hasNamedAttribute(tag, 'inert')
+    || attributeValue(tag, 'aria-disabled')?.trim().toLowerCase() === 'true'
+    || attributeValue(tag, 'type')?.trim().toLowerCase() === 'hidden'
+    || attributeValue(tag, 'tabindex')?.trim() === '-1';
 }
 
 function visibleText(body) {
@@ -429,6 +438,7 @@ function validInteractiveStructure(html) {
     const controls = openingTags(filter[0].body).filter((tag) => /^<(?:input|select|textarea|button)\b/iu.test(tag));
     const customControls = openingTags(filter[0].body).some((tag) => /\srole\s*=\s*(?:"|')?(?:button|checkbox|combobox|listbox|radio|slider|spinbutton|textbox)/iu.test(tag));
     filterValid = controls.length > 0 && !customControls && controls.every((tag) => {
+      if (isUnavailableControl(tag)) return false;
       if (/^<button\b/iu.test(tag)) return isNonemptyString(attributeValue(tag, 'aria-label')) || /<button\b[^>]*>[\s\S]*?\S[\s\S]*?<\/button>/iu.test(filter[0].body);
       const id = attributeValue(tag, 'id');
       return isNonemptyString(attributeValue(tag, 'aria-label'))
@@ -444,7 +454,7 @@ function validInteractiveStructure(html) {
   const noscript = elementBlocks(html, (tagName) => tagName === 'noscript');
   return {
     filter: filterValid,
-    reset: reset.length === 1 && !isHiddenTag(reset[0].tag) && visibleText(reset[0].body).length > 0 && attributeValue(reset[0].tag, 'type')?.toLowerCase() === 'button',
+    reset: reset.length === 1 && !isUnavailableControl(reset[0].tag) && visibleText(reset[0].body).length > 0 && attributeValue(reset[0].tag, 'type')?.toLowerCase() === 'button',
     count: count.length === 1 && !isHiddenTag(count[0].tag) && attributeValue(count[0].tag, 'aria-live')?.toLowerCase() === 'polite' && visibleText(count[0].body).length > 0,
     table: table.length === 1 && /<thead\b[^>]*>[\s\S]*<th\b[^>]*>[\s\S]*<\/thead>/iu.test(table[0].body),
     empty: empty.length === 1 && visibleText(empty[0].body).length > 0,
@@ -688,10 +698,12 @@ async function main() {
   const eventHandlers = eventHandlerBodies(html);
   const executable = [...executableScripts, ...eventHandlers].join('\n');
   add(findings, /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\s*\(|\.sendBeacon\s*\(|\bimport\s*\(/u.test(executable), 'NETWORK_API', 'Dashboard scripts must not use network APIs or dynamic imports.');
+  const htmlProducingAssignment = /(?:\.\s*(?:innerHTML|outerHTML|srcdoc)|\[\s*(['"])(?:innerHTML|outerHTML|srcdoc)\1\s*\])\s*(?:\?\?=|\|\|=|&&=|\*\*=|>>>=|<<=|>>=|[+\-*/%&|^]=|=(?!=))/u;
   add(findings, eventHandlers.length > 0
     || hasUnsafeElement(html)
     || hasActiveUrl(html)
-    || /(?:javascript|vbscript):|data:text\/(?:html|xml)|\beval\s*\(|\bnew\s+Function\s*\(|\.(?:innerHTML|outerHTML|srcdoc)\s*=|\[['"](?:innerHTML|outerHTML|srcdoc)['"]\]\s*=|\.(?:insertAdjacentHTML|setHTMLUnsafe|createContextualFragment|createHTMLDocument|parseHTMLUnsafe)\s*\(|\bdocument\s*\.\s*write(?:ln)?\s*\(|\bDOMParser\b/u.test(executable), 'UNSAFE_CODE', 'Dashboards must not use executable URL schemes, HTML parsing or injection sinks, inline handlers, dynamic code, frames, objects, or embeds.');
+    || htmlProducingAssignment.test(executable)
+    || /(?:javascript|vbscript):|data:text\/(?:html|xml)|\beval\s*\(|\bnew\s+Function\s*\(|(?:\?\.|\.)\s*(?:insertAdjacentHTML|setHTMLUnsafe|createContextualFragment|createHTMLDocument|parseHTMLUnsafe)\s*\(|\bdocument\s*\.\s*write(?:ln)?\s*\(|\bDOMParser\b/u.test(executable), 'UNSAFE_CODE', 'Dashboards must not use executable URL schemes, HTML parsing or injection sinks, inline handlers, dynamic code, frames, objects, or embeds.');
   add(findings, !hasValidCsp(html, mode), 'CSP_INVALID', 'The dashboard requires the mode-constrained offline Content Security Policy directives.');
   add(findings, !validVisibleRegion(html, 'data-klopsi-summary'), 'SUMMARY_MISSING', 'Dashboards require one visible nonempty plain-language summary.');
   add(findings, !validVisibleRegion(html, 'data-klopsi-disclosures'), 'DISCLOSURES_MISSING', 'Dashboards require one visible nonempty transformation and reduction disclosure region.');

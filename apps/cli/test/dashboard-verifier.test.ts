@@ -343,7 +343,12 @@ describe("dashboard presentation verifier", () => {
   it.each([
     ["inner-html", "target.innerHTML = row.label"],
     ["outer-html", "target.outerHTML = row.label"],
+    ["inner-html-compound", "target.innerHTML += row.label"],
+    ["outer-html-spaced-compound", "target . outerHTML ||= row.label"],
+    ["inner-html-bracket-compound", 'target["innerHTML"] ??= row.label'],
+    ["outer-html-bracket-spaced-compound", "target [ 'outerHTML' ] &&= row.label"],
     ["adjacent-html", "target.insertAdjacentHTML('beforeend', row.label)"],
+    ["adjacent-html-optional-chain", "target?.insertAdjacentHTML('beforeend', row.label)"],
     ["document-write", "document.write(row.label)"],
     ["document-writeln", "document.writeln(row.label)"],
     ["dom-parser", "new DOMParser().parseFromString(row.label, 'text/html')"],
@@ -359,6 +364,23 @@ describe("dashboard presentation verifier", () => {
     expect(result.findings?.map((item) => item.code)).not.toContain("JSON_EMBEDDING_UNSAFE");
   });
 
+  it("allows HTML-producing property names when they occur only in inert JSON", async () => {
+    const inertRows = replaceInteractiveData(interactiveFixture, [
+      {
+        category: "target.innerHTML += value",
+        note: 'target["outerHTML"] ??= value',
+        value: 1,
+      },
+    ]);
+
+    expect(
+      await verifyContent("inert-html-property-names", inertRows, "interactive"),
+    ).toMatchObject({
+      exitCode: 0,
+      valid: true,
+    });
+  });
+
   it.each([
     ["javascript-anchor", '<a href="javascript:alert(1)">Citation</a>'],
     ["vbscript-anchor", '<a href="vbscript:msgbox(1)">Citation</a>'],
@@ -371,6 +393,33 @@ describe("dashboard presentation verifier", () => {
 
     const result = await verifyContent(name, withActiveUrl, "interactive");
     expect(result.findings?.map((item) => item.code)).toContain("UNSAFE_CODE");
+  });
+
+  it.each([
+    ["tab-entity", '<a href="java&Tab;script:blocked">Citation</a>'],
+    ["newline-entity", '<a href="java&NewLine;script:blocked">Citation</a>'],
+    ["tab-entity-unquoted", "<a href=java&Tab;script:blocked>Citation</a>"],
+    ["newline-entity-unquoted", "<a href=java&NewLine;script:blocked>Citation</a>"],
+  ])("rejects an active URL obscured with the %s", async (name, markup) => {
+    const withActiveUrl = interactiveFixture.replace("</main>", `${markup}</main>`);
+
+    const result = await verifyContent(name, withActiveUrl, "interactive");
+    expect(result.findings?.map((item) => item.code)).toContain("UNSAFE_CODE");
+  });
+
+  it.each([
+    ["incorrect-case", "java&tab;script:blocked"],
+    ["tab-without-required-semicolon", "java&Tab script:blocked"],
+    ["newline-without-required-semicolon", "java&NewLine script:blocked"],
+  ])("keeps %s entity text inert when browsers do not decode it", async (name, href) => {
+    const inertEntityText = interactiveFixture.replace(
+      "</main>",
+      `<a href="${href}">Citation</a></main>`,
+    );
+
+    expect(
+      await verifyContent(`entity-text-${name}`, inertEntityText, "interactive"),
+    ).toMatchObject({ exitCode: 0, valid: true });
   });
 
   it("rejects every inline event-handler attribute in both modes", async () => {
@@ -473,6 +522,30 @@ describe("dashboard presentation verifier", () => {
     );
 
     const result = await verifyContent("duplicate-csp", duplicateDirective, "static");
+    expect(result.findings?.map((item) => item.code)).toContain("CSP_INVALID");
+  });
+
+  it.each([
+    ["script-src-elem", "script-src-elem 'unsafe-inline';"],
+    ["script-src-attr", "script-src-attr 'unsafe-inline';"],
+    ["restrictive-worker-src", "worker-src 'none';"],
+  ])("rejects the unexpected %s CSP directive", async (name, directive) => {
+    const unexpected = interactiveFixture.replace(
+      "script-src 'unsafe-inline'",
+      `script-src 'unsafe-inline'; ${directive}`,
+    );
+
+    const result = await verifyContent(`csp-${name}`, unexpected, "interactive");
+    expect(result.findings?.map((item) => item.code)).toContain("CSP_INVALID");
+  });
+
+  it("rejects case-insensitive duplicate CSP directive names with identical values", async () => {
+    const duplicateDirective = staticFixture.replace(
+      "connect-src 'none';",
+      "connect-src 'none'; CONNECT-SRC 'none';",
+    );
+
+    const result = await verifyContent("duplicate-csp-case", duplicateDirective, "static");
     expect(result.findings?.map((item) => item.code)).toContain("CSP_INVALID");
   });
 
@@ -1013,6 +1086,66 @@ describe("dashboard presentation verifier", () => {
           '<a data-klopsi-reset href="#">Reset filters</a>',
         ),
         "RESET_MISSING",
+      ],
+      [
+        "disabled-reset",
+        interactiveFixture.replace("data-klopsi-reset", "data-klopsi-reset disabled"),
+        "RESET_MISSING",
+      ],
+      [
+        "hidden-reset",
+        interactiveFixture.replace("data-klopsi-reset", "data-klopsi-reset hidden"),
+        "RESET_MISSING",
+      ],
+      [
+        "aria-hidden-reset",
+        interactiveFixture.replace("data-klopsi-reset", 'data-klopsi-reset aria-hidden="true"'),
+        "RESET_MISSING",
+      ],
+      [
+        "aria-disabled-reset",
+        interactiveFixture.replace("data-klopsi-reset", 'data-klopsi-reset aria-disabled="true"'),
+        "RESET_MISSING",
+      ],
+      [
+        "inert-reset",
+        interactiveFixture.replace("data-klopsi-reset", "data-klopsi-reset inert"),
+        "RESET_MISSING",
+      ],
+      [
+        "untabbable-reset",
+        interactiveFixture.replace("data-klopsi-reset", 'data-klopsi-reset tabindex="-1"'),
+        "RESET_MISSING",
+      ],
+      [
+        "disabled-filter",
+        interactiveFixture.replace('id="search-filter"', 'id="search-filter" disabled'),
+        "FILTER_REGION_MISSING",
+      ],
+      [
+        "hidden-filter",
+        interactiveFixture.replace('id="search-filter"', 'id="search-filter" hidden'),
+        "FILTER_REGION_MISSING",
+      ],
+      [
+        "aria-hidden-filter",
+        interactiveFixture.replace('id="search-filter"', 'id="search-filter" aria-hidden="true"'),
+        "FILTER_REGION_MISSING",
+      ],
+      [
+        "aria-disabled-filter",
+        interactiveFixture.replace('id="search-filter"', 'id="search-filter" aria-disabled="true"'),
+        "FILTER_REGION_MISSING",
+      ],
+      [
+        "inert-filter",
+        interactiveFixture.replace('id="search-filter"', 'id="search-filter" inert'),
+        "FILTER_REGION_MISSING",
+      ],
+      [
+        "untabbable-filter",
+        interactiveFixture.replace('id="search-filter"', 'id="search-filter" tabindex="-1"'),
+        "FILTER_REGION_MISSING",
       ],
       [
         "non-polite-count",
