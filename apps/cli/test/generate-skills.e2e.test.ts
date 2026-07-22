@@ -195,6 +195,24 @@ describe("generate-skills", () => {
     },
   );
 
+  symlinkTest("rejects a symbolic-link generated file without replacing its target", async () => {
+    const value = await fixture();
+    const output = join(value.cwd, "skills");
+    const scripts = join(output, "klopsi-shared", "scripts");
+    const outside = join(value.cwd, "outside.mjs");
+    await mkdir(scripts, { recursive: true });
+    await writeFile(outside, "outside\n");
+    await symlink(outside, join(scripts, "verify-dashboard.mjs"));
+
+    await expect(
+      runCli(["generate-skills", "--output-dir", output, "--json"], value.io),
+    ).resolves.toBe(2);
+    expect(JSON.parse(value.stdout.join(""))).toMatchObject({
+      error: { code: "SKILL_OUTPUT_INVALID", exitCode: 2 },
+    });
+    expect(await readFile(outside, "utf8")).toBe("outside\n");
+  });
+
   it("returns a typed generation failure when a known file target is a directory", async () => {
     const value = await fixture();
     const output = join(value.cwd, "skills");

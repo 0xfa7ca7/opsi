@@ -191,6 +191,18 @@ const conflictFlag = (options: readonly CommandOptionManifest[], conflict: strin
     .find((option) => optionAttributeName(option) === conflict)
     ?.flags.match(/--[a-z][a-z0-9-]*/u)?.[0] ?? conflict;
 
+async function listRelativeFiles(root: string, prefix = ""): Promise<string[]> {
+  const directory = join(root, prefix);
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    const relativePath = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
+    if (entry.isDirectory()) files.push(...(await listRelativeFiles(root, relativePath)));
+    else files.push(relativePath);
+  }
+  return files.sort();
+}
+
 describe("agent skill registry", () => {
   it("covers the complete approved repertoire and command manifest", () => {
     expect(AGENT_SKILLS.map((entry) => entry.name)).toEqual(EXPECTED_SKILLS);
@@ -949,16 +961,18 @@ describe("agent skill rendering", () => {
   });
 
   it("matches the complete checked-in skill tree and index byte for byte", async () => {
-    const expected = renderAgentSkillFiles(VERSION);
+    const expected = renderAgentSkillPackages(VERSION);
     const skillRoot = resolve(process.cwd(), "skills");
-    const directories = (await readdir(skillRoot, { withFileTypes: true }))
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .sort();
+    const expectedFiles = [...expected].flatMap(([name, skillPackage]) =>
+      [...skillPackage.files.keys()].map((relativePath) => `${name}/${relativePath}`),
+    );
 
-    expect(directories).toEqual([...expected.keys()].sort());
-    for (const [name, content] of expected) {
-      expect(await readFile(resolve(skillRoot, name, "SKILL.md"), "utf8"), name).toBe(content);
+    expect(await listRelativeFiles(skillRoot)).toEqual(expectedFiles.sort());
+    for (const [name, skillPackage] of expected) {
+      for (const [relativePath, content] of skillPackage.files) {
+        const packagePath = `${name}/${relativePath}`;
+        expect(await readFile(resolve(skillRoot, packagePath), "utf8"), packagePath).toBe(content);
+      }
     }
     expect(await readFile(resolve(process.cwd(), "docs/skills.md"), "utf8")).toBe(
       renderAgentSkillsIndex(),
@@ -1016,6 +1030,26 @@ describe("agent skill package writing", () => {
       await expect(writeAgentSkillPackages(output, testPackages())).rejects.toMatchObject({
         code: "SKILL_OUTPUT_INVALID",
       });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  symlinkTest("rejects a symbolic-link known file without replacing its target", async () => {
+    const root = await mkdtemp(join(tmpdir(), "klopsi-agent-skills-"));
+    const output = join(root, "skills");
+    const skillDirectory = join(output, "klopsi-shared");
+    const outside = join(root, "outside.md");
+
+    try {
+      await mkdir(join(skillDirectory, "references"), { recursive: true });
+      await writeFile(outside, "outside\n", "utf8");
+      await symlink(outside, join(skillDirectory, "references", "contract.md"));
+
+      await expect(writeAgentSkillPackages(output, testPackages())).rejects.toMatchObject({
+        code: "SKILL_OUTPUT_INVALID",
+      });
+      expect(await readFile(outside, "utf8")).toBe("outside\n");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

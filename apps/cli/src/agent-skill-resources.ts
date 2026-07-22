@@ -16,14 +16,14 @@ This reference is the normative shared contract for static and interactive HTML 
 ## 2. Artifact and data limits
 
 - A complete HTML file, including embedded markup, styles, scripts, data, and geometry, must be no larger than 15 MB (15 * 1024 * 1024 bytes).
-- Interactive presentation data must contain at most 10,000 prepared rows and its UTF-8 JSON script body must be no larger than 5 MB (5 * 1024 * 1024 bytes).
-- Static mode embeds only the aggregate values needed by its visible views and sets \`data.embeddedBytes\` to \`0\`; it does not include an executable script or a presentation-data block.
+- Every presentation-data JSON body must be no larger than 5 MB (5 * 1024 * 1024 bytes), and interactive presentation data must contain at most 10,000 prepared rows.
+- Static mode embeds only aggregate values needed by visible views. A non-map board sets \`data.embeddedBytes\` to \`0\` and has no presentation-data block. A static map embeds exactly one inert presentation-data JSON block containing only its prepared spatial rows; the verifier checks its exact bytes, row count, coordinates or geometry, CRS, and exclusions. Static mode never includes executable JavaScript.
 
 ## 3. No silent truncation and reduction disclosure
 
 Never silently truncate. When the source exceeds a limit, aggregate or project first. Sample only when aggregation cannot answer the question, and ask before sampling when it could materially change interpretation.
 
-When \`originalRows\` exceeds \`presentedRows\`, include at least one reduction record and explain the same reduction visibly under \`data-klopsi-disclosures\`. A reduction record contains \`method\`, \`originalRows\`, \`presentedRows\`, \`groupingFields\`, \`exclusions\`, and \`sampleBasis\` (null when no sampling occurred). State grouping fields, exclusions, and the sample basis plainly.
+When \`originalRows\` equals \`presentedRows\`, \`reductions\` is empty, including the explicit zero-row case. When the count decreases, reductions form one ordered, strictly decreasing chain: the first \`originalRows\` equals the overall original count, each next original count equals the previous presented count, and the final presented count equals the overall presented count. Explain the same reductions visibly under \`data-klopsi-disclosures\`. Each exact reduction object contains only \`method\`, \`originalRows\`, \`presentedRows\`, \`groupingFields\`, \`exclusions\`, and \`sampleBasis\` (null when no sampling occurred). State grouping fields, exclusions, and the sample basis plainly.
 
 ## 4. Presentation manifest
 
@@ -38,28 +38,30 @@ Its JSON object has these exact required top-level fields:
 - \`generator\`: the string \`"klopsi-agent-skill"\`;
 - \`generatedAt\`: a canonical UTC ISO-8601 timestamp in \`YYYY-MM-DDTHH:mm:ss.sssZ\` form;
 - \`title\`: a nonempty presentation title;
-- \`sources\`: a nonempty array of \`identity\`, 64-character lowercase hexadecimal \`sha256\`, boolean \`verified\`, and optional nonempty \`provenancePath\` records;
+- \`sources\`: a nonempty array of exact objects containing only \`identity\`, 64-character lowercase hexadecimal \`sha256\`, boolean \`verified\`, and optional nonempty \`provenancePath\`;
 - \`transformations\`: an array of nonempty plain-language strings;
 - \`reductions\`: an array of the reduction records defined above;
-- \`data\`: nonnegative integer \`originalRows\`, \`presentedRows\`, and \`embeddedBytes\`, plus a nonempty \`fields\` array. Each field has nonempty \`name\` and \`type\`, and \`unit\` is a nonempty string or null;
+- \`data\`: an exact object containing nonnegative integer \`originalRows\`, \`presentedRows\`, and \`embeddedBytes\`, plus a nonempty \`fields\` array. Each exact field object contains only nonempty \`name\`, nonempty \`type\`, and \`unit\` as a nonempty string or null;
 - \`geography\`: one of the conditional forms below;
-- \`views\`: 2–6 records for static mode or 2–4 for interactive mode. Every record has nonempty \`id\`, \`question\`, \`population\`, \`unit\`, \`takeaway\`, and a nonnegative integer \`recordCount\`.
+- \`views\`: 2–6 exact records for static mode or 2–4 for interactive mode. Every record contains only nonempty \`id\`, \`question\`, \`population\`, \`unit\`, \`takeaway\`, and a nonnegative integer \`recordCount\`.
+
+Every manifest object uses only the keys defined here, recursively. Put non-row transformations in \`transformations\`; do not create a zero-effect reduction.
 
 Geography is conditional:
 
 - no map: exactly \`{"kind":"none","crs":null}\`;
-- point coordinates: exactly \`kind\`, \`crs\`, \`latitudeField\`, and \`longitudeField\`; \`kind\` is \`"coordinates"\`, \`crs\` is nonempty, and both field names exist in embedded data;
-- embedded geometry: exactly \`kind\`, \`crs\`, and \`geometryField\`; \`kind\` is \`"geometry"\`, \`crs\` is nonempty, and the field name exists in embedded data.
+- point coordinates: exactly \`kind\`, \`crs\`, \`latitudeField\`, \`longitudeField\`, \`validRecords\`, and \`excludedRecords\`; \`kind\` is \`"coordinates"\`, CRS is \`EPSG:4326\`, both field names exist in \`data.fields\`, and every embedded row has finite latitude −90…90 and longitude −180…180;
+- embedded geometry: exactly \`kind\`, \`crs\`, \`geometryField\`, \`validRecords\`, and \`excludedRecords\`; \`kind\` is \`"geometry"\`, CRS is one of \`EPSG:4326\`, \`EPSG:3794\`, or \`OGC:CRS84\`, the field exists in \`data.fields\`, and every embedded row contains structurally valid GeoJSON geometry with finite positions and geographic ranges when applicable.
 
-Do not map data without valid embedded coordinates or geometry and known CRS information. Never geocode, guess coordinates, infer a CRS, or fetch tiles.
+For either spatial form, \`validRecords\` equals the embedded row count. A nonzero \`excludedRecords\` must be covered by an ordered reduction with visible, nonempty exclusion reasons. Do not map data without validated embedded spatial rows and a listed CRS. Never geocode, guess coordinates, infer a CRS, or fetch tiles. If validation cannot be supplied, use \`{"kind":"none","crs":null}\` and a non-map view.
 
-Interactive mode additionally embeds exactly one \`klopsi-presentation-data\` application/JSON script whose body is a JSON array. Its UTF-8 byte length and row count must exactly equal manifest \`embeddedBytes\` and \`presentedRows\`.
+Interactive mode, and static mode only when geography is spatial, embeds exactly one \`klopsi-presentation-data\` application/JSON script whose body is a JSON array. Its UTF-8 byte length and row count exactly equal manifest \`embeddedBytes\` and \`presentedRows\`.
 
 ## 5. Offline and content security
 
-The artifact is one self-contained HTML file. Opening it must not load remote scripts, styles, images, fonts, frames, media, imports, data, telemetry, APIs, map tiles, or meta-refresh navigation. Ordinary visible citation anchors may link to sources because they do not load on open.
+The artifact is one self-contained HTML file. Opening it must not load any companion or remote script, style, image, font, frame, object, embed, media, form target, import, data file, API, telemetry, tile, relative/root/file/blob URL, CSS import/URL, or meta-refresh navigation. Ordinary visible citation anchors may link to sources because they do not load on open. Safe embedded raster/audio/video \`data:\` resources and fragment-only SVG references are allowed only in the elements appropriate to those media. Active \`javascript:\`, \`vbscript:\`, and HTML/XML \`data:\` URLs are forbidden.
 
-Include a Content Security Policy meta element that at minimum sets \`default-src 'none'\`, \`connect-src 'none'\`, \`object-src 'none'\`, \`base-uri 'none'\`, and \`form-action 'none'\`, with no duplicate directives. Inline styles and the interactive inline script may be enabled explicitly. Do not use inline \`on*\` event handlers, \`fetch\`, \`XMLHttpRequest\`, \`WebSocket\`, \`EventSource\`, \`sendBeacon\`, dynamic \`import()\`, \`eval\`, \`new Function\`, frames, objects, or embeds.
+Include exactly one Content Security Policy meta element that sets \`default-src 'none'\`, \`connect-src 'none'\`, \`object-src 'none'\`, \`base-uri 'none'\`, and \`form-action 'none'\`, with no duplicate directives. Do not allow \`self\`, remote, file, or blob sources. Inline style and the one interactive inline script may be enabled explicitly; embedded raster images may use \`img-src data:\`. Do not use inline \`on*\` handlers, network APIs, dynamic imports, \`eval\`, \`new Function\`, \`innerHTML\`, \`outerHTML\`, \`insertAdjacentHTML\`, \`document.write\`/\`writeln\`, \`DOMParser\`, contextual fragments, HTML documents, \`srcdoc\`, frames, objects, or embeds.
 
 ## 6. Safe JSON and DOM text handling
 
@@ -67,11 +69,11 @@ Serialize JSON with every \`<\` escaped as \`\\u003c\` before placing it in eith
 
 ## 7. Accessibility and visual metadata
 
-Use a document language, UTF-8 charset, viewport metadata, a descriptive title, one main landmark, and a visible level-one heading. Every presentation includes visible \`data-klopsi-summary\`, \`data-klopsi-disclosures\`, and \`data-klopsi-lineage\` regions.
+Use an HTML doctype, nonempty document language, UTF-8 charset, device-width/initial-scale viewport, one nonempty title, exactly one nonhidden main landmark, and exactly one nonhidden nonempty level-one heading. Every presentation includes exactly one visible, nonempty \`data-klopsi-summary\`, \`data-klopsi-disclosures\`, and \`data-klopsi-lineage\` region. Comments and script text never satisfy structure or unresolved-marker checks.
 
 Choose encodings from the analytical question. Every view exposes its question, population, units, relevant record count, and plain-language takeaway. Do not use color as the only information carrier, fabricate precision, make unsupported causal claims, or leave scales unlabeled. Tables use semantic headers; controls are visibly labeled and keyboard operable; SVG graphics have an accessible name and description.
 
-Interactive dashboards also include \`data-klopsi-filter-region\`, \`data-klopsi-record-count\`, \`data-klopsi-detail-table\`, \`data-klopsi-reset\`, \`data-klopsi-empty-state\`, and a useful \`noscript\` summary. Reset restores the documented initial state and the matching count reflects the current filtered row set.
+Interactive dashboards also include a named filter region with visibly labeled native controls, a visible polite live \`data-klopsi-record-count\`, native reset button, semantic \`table\` with \`thead\` and \`th\`, useful nonempty empty-state region, and useful nonempty \`noscript\` summary. Reset restores the documented initial state and the matching count reflects the current filtered row set.
 
 ## 8. Verify before handoff
 
@@ -299,6 +301,9 @@ const INTERACTIVE_DASHBOARD_TEMPLATE = `<!doctype html>
       <h2>Matching detail</h2>
       <table data-klopsi-detail-table>
         <caption>{{DETAIL_CAPTION}}</caption>
+        <!-- Replace DETAIL_HEADERS with semantic sortable headers. Keep data-field on each th so row rendering uses the same field:
+        <th scope="col" data-field="category" aria-sort="none"><button type="button" data-sort-field="category" data-sort-label="Category">Category</button></th>
+        -->
         <thead><tr>{{DETAIL_HEADERS}}</tr></thead>
         <tbody></tbody>
       </table>
@@ -431,6 +436,8 @@ When no rows match, show a meaningful empty state that names the situation and s
 
 The detail table uses real table headers and exposes the filtered result without pointer interaction. Put each sort button inside its column header, set \`aria-sort\` on every sortable header to \`none\`, \`ascending\`, or \`descending\`, and give each button an accessible name that states the field, current direction, and next action. Render sort state from the same in-memory state on initial display and after every update. Reset must restore the default sort field and direction and immediately remove every stale header direction and button label. If rendering every matching detail row would impair use, first reshape the presentation data through the analysis workflow; do not silently impose a display-only cap. Any bounded detail rows must have an explicit progressive disclosure control and matching-count explanation that makes omitted display rows discoverable without changing the underlying filtered set.
 
+Put \`data-field="<row-key>"\` on every rendered \`th\`, matching the row property exactly, and put \`data-sort-field="<row-key>"\` on its native sort button. The starter script reads \`data-field\` to build cells and \`data-sort-field\` to sort the same filtered rows; omitting either produces an empty or unsortable column.
+
 ## Views, selection, and tooltip alternatives
 
 Use two to four complementary views. Every view states its question, population, unit, relevant count, and takeaway. Pair linked highlighting with labels, patterns, or symbols so color is not the only signal. Any tooltip value must also be reachable by keyboard focus, selection text, an adjacent list, or the semantic detail table. Keep focused drill-down reversible and preserve a clear path back to the initial overview.
@@ -492,29 +499,32 @@ function openingTags(html) {
   return html.match(/<[a-z][^>]*>/giu) ?? [];
 }
 
-function hasAttribute(html, name) {
-  return openingTags(html).some((tag) => attributeValue(tag, name) !== undefined || new RegExp('\\s' + name + '(?=\\s|>)', 'iu').test(tag));
+function markupOnly(html) {
+  return html
+    .replace(/<!--[\s\S]*?-->/gu, (comment) => ' '.repeat(comment.length))
+    .replace(/(<script\b[^>]*>)([\s\S]*?)(<\/script\s*>)/giu, (_match, opening, body, closing) => opening + ' '.repeat(body.length) + closing);
 }
 
 function extractJsonScripts(html, id) {
+  const source = html.replace(/<!--[\s\S]*?-->/gu, (comment) => ' '.repeat(comment.length));
   const blocks = [];
   const pattern = /<script\b[^>]*>/giu;
   let match;
-  while ((match = pattern.exec(html)) !== null) {
+  while ((match = pattern.exec(source)) !== null) {
     const tag = match[0];
     const matches = attributeValue(tag, 'id') === id;
     const type = attributeValue(tag, 'type')?.trim().toLowerCase();
-    const closeStart = html.toLowerCase().indexOf('</script', pattern.lastIndex);
+    const closeStart = source.toLowerCase().indexOf('</script', pattern.lastIndex);
     if (closeStart < 0) {
       if (matches) blocks.push({ body: undefined, type });
       break;
     }
-    const closeEnd = html.indexOf('>', closeStart);
+    const closeEnd = source.indexOf('>', closeStart);
     if (closeEnd < 0) {
       if (matches) blocks.push({ body: undefined, type });
       break;
     }
-    if (matches) blocks.push({ body: html.slice(pattern.lastIndex, closeStart), type });
+    if (matches) blocks.push({ body: source.slice(pattern.lastIndex, closeStart), type });
     pattern.lastIndex = closeEnd + 1;
   }
   return blocks;
@@ -532,6 +542,9 @@ function parseJsonBlock(block) {
 
 function validSource(source) {
   return isObject(source)
+    && hasExactKeys(source, source.provenancePath === undefined
+      ? ['identity', 'sha256', 'verified']
+      : ['identity', 'sha256', 'verified', 'provenancePath'])
     && isNonemptyString(source.identity)
     && typeof source.sha256 === 'string'
     && /^[a-f0-9]{64}$/u.test(source.sha256)
@@ -541,6 +554,7 @@ function validSource(source) {
 
 function validField(field) {
   return isObject(field)
+    && hasExactKeys(field, ['name', 'type', 'unit'])
     && isNonemptyString(field.name)
     && isNonemptyString(field.type)
     && (field.unit === null || isNonemptyString(field.unit));
@@ -548,6 +562,7 @@ function validField(field) {
 
 function validReduction(reduction) {
   return isObject(reduction)
+    && hasExactKeys(reduction, ['method', 'originalRows', 'presentedRows', 'groupingFields', 'exclusions', 'sampleBasis'])
     && isNonemptyString(reduction.method)
     && isCount(reduction.originalRows)
     && isCount(reduction.presentedRows)
@@ -555,7 +570,8 @@ function validReduction(reduction) {
     && reduction.groupingFields.every(isNonemptyString)
     && Array.isArray(reduction.exclusions)
     && reduction.exclusions.every(isNonemptyString)
-    && (reduction.sampleBasis === null || isNonemptyString(reduction.sampleBasis));
+    && (reduction.sampleBasis === null || isNonemptyString(reduction.sampleBasis))
+    && reduction.originalRows > reduction.presentedRows;
 }
 
 function validGeography(geography, fields) {
@@ -565,17 +581,21 @@ function validGeography(geography, fields) {
   }
   const fieldNames = new Set(fields.map((field) => field.name));
   if (geography.kind === 'coordinates') {
-    return hasExactKeys(geography, ['kind', 'crs', 'latitudeField', 'longitudeField'])
-      && isNonemptyString(geography.crs)
+    return hasExactKeys(geography, ['kind', 'crs', 'latitudeField', 'longitudeField', 'validRecords', 'excludedRecords'])
+      && geography.crs === 'EPSG:4326'
       && isNonemptyString(geography.latitudeField)
       && isNonemptyString(geography.longitudeField)
+      && isCount(geography.validRecords)
+      && isCount(geography.excludedRecords)
       && fieldNames.has(geography.latitudeField)
       && fieldNames.has(geography.longitudeField);
   }
   if (geography.kind === 'geometry') {
-    return hasExactKeys(geography, ['kind', 'crs', 'geometryField'])
-      && isNonemptyString(geography.crs)
+    return hasExactKeys(geography, ['kind', 'crs', 'geometryField', 'validRecords', 'excludedRecords'])
+      && ['EPSG:4326', 'EPSG:3794', 'OGC:CRS84'].includes(geography.crs)
       && isNonemptyString(geography.geometryField)
+      && isCount(geography.validRecords)
+      && isCount(geography.excludedRecords)
       && fieldNames.has(geography.geometryField);
   }
   return false;
@@ -609,6 +629,7 @@ function validManifest(manifest) {
     || !Array.isArray(manifest.reductions)
     || !manifest.reductions.every(validReduction)
     || !isObject(manifest.data)
+    || !hasExactKeys(manifest.data, ['originalRows', 'presentedRows', 'embeddedBytes', 'fields'])
     || !isCount(manifest.data.originalRows)
     || !isCount(manifest.data.presentedRows)
     || !isCount(manifest.data.embeddedBytes)
@@ -617,12 +638,23 @@ function validManifest(manifest) {
     || manifest.data.fields.length === 0
     || !manifest.data.fields.every(validField)
     || !validGeography(manifest.geography, manifest.data.fields)
-    || !Array.isArray(manifest.views)) return false;
+    || !Array.isArray(manifest.views)
+    || !manifest.views.every(validView)) return false;
+  if (manifest.reductions.length === 0) {
+    if (manifest.data.originalRows !== manifest.data.presentedRows) return false;
+  } else {
+    if (manifest.reductions[0].originalRows !== manifest.data.originalRows
+      || manifest.reductions.at(-1).presentedRows !== manifest.data.presentedRows) return false;
+    for (let index = 1; index < manifest.reductions.length; index += 1) {
+      if (manifest.reductions[index - 1].presentedRows !== manifest.reductions[index].originalRows) return false;
+    }
+  }
   return true;
 }
 
 function validView(view) {
   return isObject(view)
+    && hasExactKeys(view, ['id', 'question', 'population', 'unit', 'recordCount', 'takeaway'])
     && isNonemptyString(view.id)
     && isNonemptyString(view.question)
     && isNonemptyString(view.population)
@@ -632,24 +664,25 @@ function validView(view) {
 }
 
 function executableScriptBodies(html) {
+  const source = html.replace(/<!--[\s\S]*?-->/gu, (comment) => ' '.repeat(comment.length));
   const bodies = [];
   const pattern = /<script\b[^>]*>/giu;
   let match;
-  while ((match = pattern.exec(html)) !== null) {
+  while ((match = pattern.exec(source)) !== null) {
     const tag = match[0];
-    const closeStart = html.toLowerCase().indexOf('</script', pattern.lastIndex);
+    const closeStart = source.toLowerCase().indexOf('</script', pattern.lastIndex);
     if (closeStart < 0) break;
     const type = attributeValue(tag, 'type')?.toLowerCase();
-    if (type !== 'application/json') bodies.push(html.slice(pattern.lastIndex, closeStart));
-    const closeEnd = html.indexOf('>', closeStart);
-    pattern.lastIndex = closeEnd < 0 ? html.length : closeEnd + 1;
+    if (type !== 'application/json') bodies.push(source.slice(pattern.lastIndex, closeStart));
+    const closeEnd = source.indexOf('>', closeStart);
+    pattern.lastIndex = closeEnd < 0 ? source.length : closeEnd + 1;
   }
   return bodies;
 }
 
 function eventHandlerBodies(html) {
   const bodies = [];
-  for (const tag of openingTags(html)) {
+  for (const tag of openingTags(markupOnly(html))) {
     const pattern = /\son[a-z][a-z0-9_-]*(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?(?=\s|>)/giu;
     let match;
     while ((match = pattern.exec(tag)) !== null) bodies.push(match[1] ?? match[2] ?? match[3] ?? '');
@@ -657,39 +690,98 @@ function eventHandlerBodies(html) {
   return bodies;
 }
 
-function hasRemoteResource(html) {
-  const remote = /^(?:https?:)?\/\//iu;
-  for (const tag of openingTags(html)) {
-    const tagName = /^<([a-z][a-z0-9:-]*)/iu.exec(tag)?.[1]?.toLowerCase();
-    for (const name of ['src', 'srcset', 'poster', 'data', 'action', 'formaction', 'xlink:href']) {
+function isSafeEmbeddedData(value, tagName, attribute) {
+  value = normalizedUrl(value);
+  if (!/^data:/iu.test(value)) return false;
+  if ((tagName === 'img' && attribute === 'src') || (tagName === 'image' && attribute === 'href') || attribute === 'poster') {
+    return /^data:image\/(?:png|jpeg|gif|webp|avif);base64,[a-z0-9+/=\s]+$/iu.test(value);
+  }
+  if (tagName === 'source' && attribute === 'src') {
+    return /^data:(?:audio|video)\/[a-z0-9.+-]+;base64,[a-z0-9+/=\s]+$/iu.test(value);
+  }
+  if (tagName === 'audio' && attribute === 'src') {
+    return /^data:audio\/[a-z0-9.+-]+;base64,[a-z0-9+/=\s]+$/iu.test(value);
+  }
+  if (tagName === 'video' && attribute === 'src') {
+    return /^data:video\/[a-z0-9.+-]+;base64,[a-z0-9+/=\s]+$/iu.test(value);
+  }
+  return false;
+}
+
+function hasActiveUrl(html) {
+  const active = /^(?:javascript|vbscript):|^data:text\/(?:html|xml)|^data:application\/(?:xhtml\+xml|xml)/iu;
+  for (const tag of openingTags(markupOnly(html))) {
+    for (const name of ['href', 'src', 'srcset', 'poster', 'data', 'action', 'formaction', 'xlink:href']) {
       const value = attributeValue(tag, name);
-      if (value !== undefined && remote.test(value.trim())) return true;
+      if (value !== undefined && active.test(normalizedUrl(value))) return true;
+    }
+  }
+  const styleBodies = [...markupOnly(html).matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/giu)].map((match) => match[1] ?? '');
+  return styleBodies.some((body) => [...body.matchAll(/url\s*\(\s*(['"]?)(.*?)\1\s*\)/giu)]
+    .some((match) => active.test(normalizedUrl(match[2] ?? ''))));
+}
+
+function hasCompanionResource(html) {
+  const markup = markupOnly(html);
+  for (const tag of openingTags(markup)) {
+    const tagName = /^<([a-z][a-z0-9:-]*)/iu.exec(tag)?.[1]?.toLowerCase();
+    if (tagName === undefined) continue;
+    for (const name of ['src', 'srcset', 'poster', 'data', 'action', 'formaction', 'background']) {
+      const value = attributeValue(tag, name);
+      if (value === undefined || normalizedUrl(value) === '') continue;
+      if (isSafeEmbeddedData(value, tagName, name)) continue;
+      return true;
     }
     if (tagName !== 'a') {
       const href = attributeValue(tag, 'href');
-      if (href !== undefined && remote.test(href.trim())) return true;
+      if (href !== undefined && normalizedUrl(href) !== '' && !normalizedUrl(href).startsWith('#')
+        && !isSafeEmbeddedData(href, tagName, 'href')) return true;
+      const xlinkHref = attributeValue(tag, 'xlink:href');
+      if (xlinkHref !== undefined && normalizedUrl(xlinkHref) !== '' && !normalizedUrl(xlinkHref).startsWith('#')) return true;
     }
     const inlineStyle = attributeValue(tag, 'style');
-    if (inlineStyle !== undefined && /url\s*\(\s*['"]?(?:https?:)?\/\//iu.test(inlineStyle)) return true;
+    if (inlineStyle !== undefined && hasUnsafeCssReference(inlineStyle)) return true;
   }
-  const styleBodies = [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/giu)].map((match) => match[1] ?? '');
-  return styleBodies.some((body) => /(?:url\s*\(\s*['"]?|@import\s+(?:url\s*\()?\s*['"]?)(?:https?:)?\/\//iu.test(body));
+  const styleBodies = [...markup.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/giu)].map((match) => match[1] ?? '');
+  return styleBodies.some(hasUnsafeCssReference);
+}
+
+function hasUnsafeCssReference(css) {
+  if (/@import\b/iu.test(css) || /\\(?:[0-9a-f]{1,6}\s?|.)/iu.test(css)) return true;
+  for (const match of css.matchAll(/url\s*\(\s*(['"]?)(.*?)\1\s*\)/giu)) {
+    const value = normalizedUrl(match[2] ?? '');
+    if (value.startsWith('#')) continue;
+    if (/^data:image\/(?:png|jpeg|gif|webp|avif);base64,[a-z0-9+/=\s]+$/iu.test(value)) continue;
+    return true;
+  }
+  return false;
+}
+
+function normalizedUrl(value) {
+  return value
+    .replace(/&#(?:x([0-9a-f]+)|([0-9]+));?/giu, (_match, hexadecimal, decimal) => String.fromCodePoint(Number.parseInt(hexadecimal ?? decimal, hexadecimal === undefined ? 10 : 16)))
+    .replace(/&colon;/giu, ':')
+    .split('')
+    .filter((character) => character.codePointAt(0) > 0x20)
+    .join('')
+    .trim();
 }
 
 function hasUnsafeElement(html) {
-  return openingTags(html).some((tag) => /^<\/?(?:iframe|object|embed)\b/iu.test(tag));
+  return openingTags(markupOnly(html)).some((tag) => /^<(?:iframe|object|embed)\b/iu.test(tag));
 }
 
 function hasMetaRefresh(html) {
-  return openingTags(html).some((tag) =>
+  return openingTags(markupOnly(html)).some((tag) =>
     /^<meta\b/iu.test(tag) && attributeValue(tag, 'http-equiv')?.trim().toLowerCase() === 'refresh');
 }
 
-function hasValidCsp(html) {
-  const tag = openingTags(html).find((candidate) =>
+function hasValidCsp(html, mode) {
+  const tags = openingTags(markupOnly(html)).filter((candidate) =>
     /^<meta\b/iu.test(candidate)
       && attributeValue(candidate, 'http-equiv')?.toLowerCase() === 'content-security-policy');
-  if (tag === undefined) return false;
+  if (tags.length !== 1) return false;
+  const tag = tags[0];
   const content = attributeValue(tag, 'content');
   if (content === undefined) return false;
   const directives = new Map();
@@ -704,11 +796,189 @@ function hasValidCsp(html) {
     const values = directives.get(name);
     if (values === undefined || values.length !== 1 || values[0] !== "'none'") return false;
   }
+  for (const [name, values] of directives) {
+    if (values.some((value) => value === "'self'" || /^(?:https?|file|blob):/u.test(value))) return false;
+    if (['frame-src', 'child-src', 'worker-src', 'font-src', 'media-src', 'manifest-src'].includes(name)
+      && (values.length !== 1 || values[0] !== "'none'")) return false;
+  }
+  const scriptValues = directives.get('script-src');
+  if (mode === 'interactive') {
+    if (scriptValues === undefined || scriptValues.length !== 1 || scriptValues[0] !== "'unsafe-inline'") return false;
+  } else if (scriptValues !== undefined && (scriptValues.length !== 1 || scriptValues[0] !== "'none'")) return false;
+  const styleValues = directives.get('style-src');
+  if (styleValues !== undefined && (styleValues.length !== 1 || styleValues[0] !== "'unsafe-inline'")) return false;
+  const imageValues = directives.get('img-src');
+  if (imageValues !== undefined && (imageValues.length !== 1 || imageValues[0] !== 'data:')) return false;
   return true;
 }
 
 function hasTemplateMarker(html) {
-  return /\{\{[A-Z0-9_ -]+\}\}|\[\[[A-Z0-9_ -]+\]\]|__[A-Z][A-Z0-9_ -]+__/u.test(html);
+  const visibleMarkup = markupOnly(html).replace(/\/\*[\s\S]*?\*\//gu, (comment) => ' '.repeat(comment.length));
+  return /\{\{[A-Z0-9_ -]+\}\}|\[\[[A-Z0-9_ -]+\]\]|__[A-Z][A-Z0-9_ -]+__/u.test(visibleMarkup);
+}
+
+function elementBlocks(html, selector) {
+  const markup = markupOnly(html);
+  const blocks = [];
+  const pattern = /<([a-z][a-z0-9:-]*)\b[^>]*>/giu;
+  let match;
+  while ((match = pattern.exec(markup)) !== null) {
+    const tag = match[0];
+    const tagName = match[1].toLowerCase();
+    if (!selector(tagName, tag)) continue;
+    const closing = new RegExp('<\\/' + tagName + '\\s*>', 'giu');
+    closing.lastIndex = pattern.lastIndex;
+    const close = closing.exec(markup);
+    blocks.push({ tagName, tag, body: close === null ? '' : markup.slice(pattern.lastIndex, close.index) });
+  }
+  return blocks;
+}
+
+function isHiddenTag(tag) {
+  return /\shidden(?:\s|=|>)/iu.test(tag)
+    || attributeValue(tag, 'aria-hidden')?.trim().toLowerCase() === 'true'
+    || /(?:display\s*:\s*none|visibility\s*:\s*hidden)/iu.test(attributeValue(tag, 'style') ?? '');
+}
+
+function visibleText(body) {
+  return body.replace(/<[^>]*>/gu, ' ').replace(/&(?:nbsp|#160|#x0*a0);/giu, ' ').trim();
+}
+
+function validVisibleRegion(html, attribute) {
+  const blocks = elementBlocks(html, (_tagName, tag) => attributeValue(tag, attribute) !== undefined || new RegExp('\\s' + attribute + '(?=\\s|>)', 'iu').test(tag));
+  return blocks.length === 1 && !isHiddenTag(blocks[0].tag) && visibleText(blocks[0].body).length > 0;
+}
+
+function validDocumentStructure(html) {
+  const markup = markupOnly(html);
+  const htmlTag = openingTags(markup).find((tag) => /^<html\b/iu.test(tag));
+  const charset = openingTags(markup).some((tag) => /^<meta\b/iu.test(tag) && attributeValue(tag, 'charset')?.trim().toLowerCase() === 'utf-8');
+  const viewport = openingTags(markup).some((tag) => /^<meta\b/iu.test(tag)
+    && attributeValue(tag, 'name')?.trim().toLowerCase() === 'viewport'
+    && /(?:^|,)\s*width\s*=\s*device-width(?:\s*,|$)/iu.test(attributeValue(tag, 'content') ?? '')
+    && /(?:^|,)\s*initial-scale\s*=\s*1(?:\.0+)?(?:\s*,|$)/iu.test(attributeValue(tag, 'content') ?? ''));
+  const head = elementBlocks(markup, (tagName) => tagName === 'head');
+  const title = head.length === 1 ? elementBlocks(head[0].body, (tagName) => tagName === 'title') : [];
+  const mains = elementBlocks(markup, (tagName) => tagName === 'main').filter((block) => !isHiddenTag(block.tag));
+  const headings = elementBlocks(markup, (tagName) => tagName === 'h1').filter((block) => !isHiddenTag(block.tag) && visibleText(block.body).length > 0);
+  return {
+    doctype: /^\s*<!doctype\s+html\s*>/iu.test(markup),
+    language: htmlTag !== undefined && isNonemptyString(attributeValue(htmlTag, 'lang')),
+    charset,
+    viewport,
+    title: title.length === 1 && visibleText(title[0].body).length > 0,
+    main: mains.length === 1,
+    heading: headings.length === 1,
+  };
+}
+
+function validInteractiveStructure(html) {
+  const filter = elementBlocks(html, (_tagName, tag) => hasNamedAttribute(tag, 'data-klopsi-filter-region'));
+  let filterValid = filter.length === 1 && !isHiddenTag(filter[0].tag)
+    && (isNonemptyString(attributeValue(filter[0].tag, 'aria-label')) || isNonemptyString(attributeValue(filter[0].tag, 'aria-labelledby')));
+  if (filterValid) {
+    const controls = openingTags(filter[0].body).filter((tag) => /^<(?:input|select|textarea|button)\b/iu.test(tag));
+    const customControls = openingTags(filter[0].body).some((tag) => /\srole\s*=\s*(?:"|')?(?:button|checkbox|combobox|listbox|radio|slider|spinbutton|textbox)/iu.test(tag));
+    filterValid = controls.length > 0 && !customControls && controls.every((tag) => {
+      if (/^<button\b/iu.test(tag)) return isNonemptyString(attributeValue(tag, 'aria-label')) || /<button\b[^>]*>[\s\S]*?\S[\s\S]*?<\/button>/iu.test(filter[0].body);
+      const id = attributeValue(tag, 'id');
+      return isNonemptyString(attributeValue(tag, 'aria-label'))
+        || isNonemptyString(attributeValue(tag, 'aria-labelledby'))
+        || (isNonemptyString(id) && elementBlocks(filter[0].body, (tagName, labelTag) => tagName === 'label' && attributeValue(labelTag, 'for') === id)
+          .some((label) => visibleText(label.body).length > 0));
+    });
+  }
+  const reset = elementBlocks(html, (tagName, tag) => tagName === 'button' && hasNamedAttribute(tag, 'data-klopsi-reset'));
+  const count = elementBlocks(html, (_tagName, tag) => hasNamedAttribute(tag, 'data-klopsi-record-count'));
+  const table = elementBlocks(html, (tagName, tag) => tagName === 'table' && hasNamedAttribute(tag, 'data-klopsi-detail-table'));
+  const empty = elementBlocks(html, (_tagName, tag) => hasNamedAttribute(tag, 'data-klopsi-empty-state'));
+  const noscript = elementBlocks(html, (tagName) => tagName === 'noscript');
+  return {
+    filter: filterValid,
+    reset: reset.length === 1 && !isHiddenTag(reset[0].tag) && visibleText(reset[0].body).length > 0 && attributeValue(reset[0].tag, 'type')?.toLowerCase() === 'button',
+    count: count.length === 1 && !isHiddenTag(count[0].tag) && attributeValue(count[0].tag, 'aria-live')?.toLowerCase() === 'polite' && visibleText(count[0].body).length > 0,
+    table: table.length === 1 && /<thead\b[^>]*>[\s\S]*<th\b[^>]*>[\s\S]*<\/thead>/iu.test(table[0].body),
+    empty: empty.length === 1 && visibleText(empty[0].body).length > 0,
+    noscript: noscript.length === 1 && visibleText(noscript[0].body).length > 0,
+  };
+}
+
+function hasNamedAttribute(tag, name) {
+  return attributeValue(tag, name) !== undefined || new RegExp('\\s' + name + '(?=\\s|>)', 'iu').test(tag);
+}
+
+function hasAccessibleSvgs(html) {
+  return elementBlocks(html, (tagName) => tagName === 'svg').every((svg) => {
+    const labels = (attributeValue(svg.tag, 'aria-labelledby') ?? '').trim().split(/\s+/u);
+    const titles = elementBlocks(svg.body, (tagName) => tagName === 'title')
+      .filter((title) => visibleText(title.body).length > 0);
+    const descriptions = elementBlocks(svg.body, (tagName) => tagName === 'desc')
+      .filter((description) => visibleText(description.body).length > 0);
+    const titleId = titles.length === 1 ? attributeValue(titles[0].tag, 'id') : undefined;
+    const descriptionId = descriptions.length === 1 ? attributeValue(descriptions[0].tag, 'id') : undefined;
+    return attributeValue(svg.tag, 'role')?.toLowerCase() === 'img'
+      && titleId !== undefined && descriptionId !== undefined
+      && labels.includes(titleId) && labels.includes(descriptionId);
+  });
+}
+
+function validPosition(value, crs) {
+  if (!Array.isArray(value) || value.length < 2 || !value.every(Number.isFinite)) return false;
+  if (crs === 'EPSG:4326' || crs === 'OGC:CRS84') {
+    return value[0] >= -180 && value[0] <= 180 && value[1] >= -90 && value[1] <= 90;
+  }
+  return true;
+}
+
+function equalPosition(left, right) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function validLineString(value, crs) {
+  return Array.isArray(value) && value.length >= 2 && value.every((position) => validPosition(position, crs));
+}
+
+function validLinearRing(value, crs) {
+  return Array.isArray(value) && value.length >= 4
+    && value.every((position) => validPosition(position, crs))
+    && equalPosition(value[0], value.at(-1));
+}
+
+function validGeometry(value, crs) {
+  if (!isObject(value) || !isNonemptyString(value.type)) return false;
+  if (value.type === 'GeometryCollection') {
+    return hasExactKeys(value, ['type', 'geometries'])
+      && Array.isArray(value.geometries)
+      && value.geometries.every((geometry) => validGeometry(geometry, crs));
+  }
+  if (!hasExactKeys(value, ['type', 'coordinates'])) return false;
+  if (value.type === 'Point') return validPosition(value.coordinates, crs);
+  if (value.type === 'MultiPoint') return Array.isArray(value.coordinates) && value.coordinates.length > 0 && value.coordinates.every((position) => validPosition(position, crs));
+  if (value.type === 'LineString') return validLineString(value.coordinates, crs);
+  if (value.type === 'MultiLineString') return Array.isArray(value.coordinates) && value.coordinates.length > 0 && value.coordinates.every((line) => validLineString(line, crs));
+  if (value.type === 'Polygon') return Array.isArray(value.coordinates) && value.coordinates.length > 0 && value.coordinates.every((ring) => validLinearRing(ring, crs));
+  if (value.type === 'MultiPolygon') return Array.isArray(value.coordinates) && value.coordinates.length > 0 && value.coordinates.every((polygon) => Array.isArray(polygon) && polygon.length > 0 && polygon.every((ring) => validLinearRing(ring, crs)));
+  return false;
+}
+
+function validSpatialRows(manifest, rows) {
+  const geography = manifest.geography;
+  if (geography.kind === 'none') return true;
+  if (!Array.isArray(rows) || geography.validRecords !== rows.length) return false;
+  if (geography.excludedRecords > 0) {
+    const disclosed = manifest.reductions
+      .filter((reduction) => reduction.exclusions.length > 0)
+      .reduce((total, reduction) => total + reduction.originalRows - reduction.presentedRows, 0);
+    if (disclosed !== geography.excludedRecords) return false;
+  }
+  if (geography.kind === 'coordinates') {
+    return rows.every((row) => isObject(row)
+      && Number.isFinite(row[geography.latitudeField])
+      && Number.isFinite(row[geography.longitudeField])
+      && row[geography.latitudeField] >= -90 && row[geography.latitudeField] <= 90
+      && row[geography.longitudeField] >= -180 && row[geography.longitudeField] <= 180);
+  }
+  return rows.every((row) => isObject(row) && validGeometry(row[geography.geometryField], geography.crs));
 }
 
 function output(result, exitCode, jsonRequested) {
@@ -836,37 +1106,56 @@ async function main() {
   const parsedData = parseJsonBlock(dataBlock);
   add(findings, dataBlocks.some((block) => block.body?.includes('<') === true), 'JSON_EMBEDDING_UNSAFE', 'JSON script bodies must escape every less-than character as \\u003c.');
   add(findings, dataBlocks.some((block) => block.body !== undefined && Buffer.byteLength(block.body, 'utf8') > MAX_DATA_BYTES), 'DATA_TOO_LARGE', 'Embedded presentation data exceeds the 5 MB limit.');
-  if (mode === 'interactive') {
-    add(findings, dataBlocks.length !== 1 || dataBlocks[0].type !== 'application/json', 'MANIFEST_INVALID', 'Interactive dashboards require exactly one presentation-data script with type="application/json".');
-    add(findings, dataBlocks.length > 0 && (!parsedData.parsed || !Array.isArray(parsedData.value)), 'MANIFEST_INVALID', 'Interactive dashboards require a valid presentation-data JSON array.');
+  const spatialMode = manifestObject !== undefined
+    && isObject(manifestObject.geography)
+    && (manifestObject.geography.kind === 'coordinates' || manifestObject.geography.kind === 'geometry');
+  if (mode === 'interactive' || spatialMode) {
+    add(findings, dataBlocks.length !== 1 || dataBlocks[0].type !== 'application/json', 'MANIFEST_INVALID', 'Interactive and spatial static dashboards require exactly one presentation-data script with type="application/json".');
+    add(findings, dataBlocks.length > 0 && (!parsedData.parsed || !Array.isArray(parsedData.value)), 'MANIFEST_INVALID', 'Presentation-data must be a valid JSON array.');
     if (dataBlock.body !== undefined && parsedData.parsed && Array.isArray(parsedData.value)) {
       const embeddedBytes = Buffer.byteLength(dataBlock.body, 'utf8');
-      add(findings, parsedData.value.length > MAX_INTERACTIVE_ROWS, 'ROW_LIMIT_EXCEEDED', 'Interactive presentation data exceeds 10,000 rows.');
+      add(findings, mode === 'interactive' && parsedData.value.length > MAX_INTERACTIVE_ROWS, 'ROW_LIMIT_EXCEEDED', 'Interactive presentation data exceeds 10,000 rows.');
       if (manifestData !== undefined) {
         add(findings, manifestData.embeddedBytes !== embeddedBytes || manifestData.presentedRows !== parsedData.value.length, 'MANIFEST_INVALID', 'Manifest data counts must exactly match the embedded presentation-data body.');
+      }
+      if (manifestValid && manifestObject !== undefined && spatialMode) {
+        add(findings, !validSpatialRows(manifestObject, parsedData.value), 'MANIFEST_INVALID', 'Spatial presentation rows must match declared fields, CRS ranges, geometry structure, and exclusion disclosures.');
       }
     }
   } else if (manifestData !== undefined) {
     add(findings, manifestData.embeddedBytes !== 0 || dataBlocks.length > 0, 'MANIFEST_INVALID', 'Static dashboards must not embed a presentation-data block.');
   }
 
-  add(findings, hasRemoteResource(html) || hasMetaRefresh(html), 'REMOTE_RESOURCE', 'Dashboards must not load remote resources when opened.');
+  const structure = validDocumentStructure(html);
+  add(findings, !structure.doctype, 'DOCTYPE_MISSING', 'Dashboards require an HTML doctype.');
+  add(findings, !structure.language, 'LANGUAGE_MISSING', 'Dashboards require a nonempty document language.');
+  add(findings, !structure.charset, 'CHARSET_MISSING', 'Dashboards require a UTF-8 charset declaration.');
+  add(findings, !structure.viewport, 'VIEWPORT_MISSING', 'Dashboards require a responsive device-width viewport.');
+  add(findings, !structure.title, 'TITLE_MISSING', 'Dashboards require one nonempty document title.');
+  add(findings, !structure.main, 'MAIN_INVALID', 'Dashboards require exactly one nonhidden main landmark.');
+  add(findings, !structure.heading, 'HEADING_INVALID', 'Dashboards require exactly one nonhidden, nonempty level-one heading.');
+  add(findings, hasCompanionResource(html) || hasMetaRefresh(html), 'REMOTE_RESOURCE', 'Dashboards must not load companion or remote resources when opened.');
   const executableScripts = executableScriptBodies(html);
   const eventHandlers = eventHandlerBodies(html);
   const executable = [...executableScripts, ...eventHandlers].join('\n');
   add(findings, /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\s*\(|\.sendBeacon\s*\(|\bimport\s*\(/u.test(executable), 'NETWORK_API', 'Dashboard scripts must not use network APIs or dynamic imports.');
-  add(findings, eventHandlers.length > 0 || hasUnsafeElement(html) || /\beval\s*\(|\bnew\s+Function\s*\(/u.test(executable), 'UNSAFE_CODE', 'Dashboards must not use inline event handlers, eval, new Function, iframe, object, or embed.');
-  add(findings, !hasValidCsp(html), 'CSP_INVALID', 'The dashboard requires the offline Content Security Policy directives.');
-  add(findings, !hasAttribute(html, 'data-klopsi-summary'), 'SUMMARY_MISSING', 'Dashboards require a visible plain-language summary.');
-  add(findings, !hasAttribute(html, 'data-klopsi-disclosures'), 'DISCLOSURES_MISSING', 'Dashboards require visible transformation and reduction disclosures.');
-  add(findings, !hasAttribute(html, 'data-klopsi-lineage'), 'LINEAGE_MISSING', 'Dashboards require visible source lineage and verification status.');
+  add(findings, eventHandlers.length > 0
+    || hasUnsafeElement(html)
+    || hasActiveUrl(html)
+    || /(?:javascript|vbscript):|data:text\/(?:html|xml)|\beval\s*\(|\bnew\s+Function\s*\(|\.(?:innerHTML|outerHTML|srcdoc)\s*=|\[['"](?:innerHTML|outerHTML|srcdoc)['"]\]\s*=|\.(?:insertAdjacentHTML|setHTMLUnsafe|createContextualFragment|createHTMLDocument|parseHTMLUnsafe)\s*\(|\bdocument\s*\.\s*write(?:ln)?\s*\(|\bDOMParser\b/u.test(executable), 'UNSAFE_CODE', 'Dashboards must not use executable URL schemes, HTML parsing or injection sinks, inline handlers, dynamic code, frames, objects, or embeds.');
+  add(findings, !hasValidCsp(html, mode), 'CSP_INVALID', 'The dashboard requires the mode-constrained offline Content Security Policy directives.');
+  add(findings, !validVisibleRegion(html, 'data-klopsi-summary'), 'SUMMARY_MISSING', 'Dashboards require one visible nonempty plain-language summary.');
+  add(findings, !validVisibleRegion(html, 'data-klopsi-disclosures'), 'DISCLOSURES_MISSING', 'Dashboards require one visible nonempty transformation and reduction disclosure region.');
+  add(findings, !validVisibleRegion(html, 'data-klopsi-lineage'), 'LINEAGE_MISSING', 'Dashboards require one visible nonempty source lineage and verification region.');
+  add(findings, !hasAccessibleSvgs(html), 'SVG_ACCESSIBILITY_INVALID', 'Every SVG requires a role, title, description, and matching accessible references.');
   add(findings, mode === 'static' && (executableScripts.length > 0 || eventHandlers.length > 0), 'STATIC_SCRIPT_FORBIDDEN', 'Static dashboards must not contain executable scripts.');
-  add(findings, mode === 'interactive' && !hasAttribute(html, 'data-klopsi-filter-region'), 'FILTER_REGION_MISSING', 'Interactive dashboards require a labeled filter region.');
-  add(findings, mode === 'interactive' && !hasAttribute(html, 'data-klopsi-record-count'), 'RECORD_COUNT_MISSING', 'Interactive dashboards require a visible matching-record count.');
-  add(findings, mode === 'interactive' && !hasAttribute(html, 'data-klopsi-detail-table'), 'DETAIL_TABLE_MISSING', 'Interactive dashboards require a semantic detail table.');
-  add(findings, mode === 'interactive' && !hasAttribute(html, 'data-klopsi-reset'), 'RESET_MISSING', 'Interactive dashboards require a reset control.');
-  add(findings, mode === 'interactive' && !hasAttribute(html, 'data-klopsi-empty-state'), 'EMPTY_STATE_MISSING', 'Interactive dashboards require a visible empty-state region.');
-  add(findings, mode === 'interactive' && !/<noscript\b[^>]*>[\s\S]*?\S[\s\S]*?<\/noscript\s*>/iu.test(html), 'NOSCRIPT_MISSING', 'Interactive dashboards require a useful noscript summary.');
+  const interactiveStructure = mode === 'interactive' ? validInteractiveStructure(html) : undefined;
+  add(findings, mode === 'interactive' && !interactiveStructure.filter, 'FILTER_REGION_MISSING', 'Interactive dashboards require a labeled region containing labeled native controls.');
+  add(findings, mode === 'interactive' && !interactiveStructure.count, 'RECORD_COUNT_MISSING', 'Interactive dashboards require a visible polite live matching-record count.');
+  add(findings, mode === 'interactive' && !interactiveStructure.table, 'DETAIL_TABLE_MISSING', 'Interactive dashboards require a semantic detail table with a header group and headers.');
+  add(findings, mode === 'interactive' && !interactiveStructure.reset, 'RESET_MISSING', 'Interactive dashboards require a visible native reset button.');
+  add(findings, mode === 'interactive' && !interactiveStructure.empty, 'EMPTY_STATE_MISSING', 'Interactive dashboards require a useful nonempty empty-state region.');
+  add(findings, mode === 'interactive' && !interactiveStructure.noscript, 'NOSCRIPT_MISSING', 'Interactive dashboards require a useful noscript summary.');
   add(findings, hasTemplateMarker(html), 'TEMPLATE_MARKER_UNRESOLVED', 'Dashboard templates must not contain unresolved markers.');
 
   const boundedFindings = findings.slice(0, 100);

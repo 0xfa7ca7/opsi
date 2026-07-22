@@ -68,6 +68,9 @@
       <h2>Matching detail</h2>
       <table data-klopsi-detail-table>
         <caption>{{DETAIL_CAPTION}}</caption>
+        <!-- Replace DETAIL_HEADERS with semantic sortable headers. Keep data-field on each th so row rendering uses the same field:
+        <th scope="col" data-field="category" aria-sort="none"><button type="button" data-sort-field="category" data-sort-label="Category">Category</button></th>
+        -->
         <thead><tr>{{DETAIL_HEADERS}}</tr></thead>
         <tbody></tbody>
       </table>

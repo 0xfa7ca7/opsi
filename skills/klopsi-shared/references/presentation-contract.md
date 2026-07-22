@@ -11,14 +11,14 @@ This reference is the normative shared contract for static and interactive HTML 
 ## 2. Artifact and data limits
 
 - A complete HTML file, including embedded markup, styles, scripts, data, and geometry, must be no larger than 15 MB (15 * 1024 * 1024 bytes).
-- Interactive presentation data must contain at most 10,000 prepared rows and its UTF-8 JSON script body must be no larger than 5 MB (5 * 1024 * 1024 bytes).
-- Static mode embeds only the aggregate values needed by its visible views and sets `data.embeddedBytes` to `0`; it does not include an executable script or a presentation-data block.
+- Every presentation-data JSON body must be no larger than 5 MB (5 * 1024 * 1024 bytes), and interactive presentation data must contain at most 10,000 prepared rows.
+- Static mode embeds only aggregate values needed by visible views. A non-map board sets `data.embeddedBytes` to `0` and has no presentation-data block. A static map embeds exactly one inert presentation-data JSON block containing only its prepared spatial rows; the verifier checks its exact bytes, row count, coordinates or geometry, CRS, and exclusions. Static mode never includes executable JavaScript.
 
 ## 3. No silent truncation and reduction disclosure
 
 Never silently truncate. When the source exceeds a limit, aggregate or project first. Sample only when aggregation cannot answer the question, and ask before sampling when it could materially change interpretation.
 
-When `originalRows` exceeds `presentedRows`, include at least one reduction record and explain the same reduction visibly under `data-klopsi-disclosures`. A reduction record contains `method`, `originalRows`, `presentedRows`, `groupingFields`, `exclusions`, and `sampleBasis` (null when no sampling occurred). State grouping fields, exclusions, and the sample basis plainly.
+When `originalRows` equals `presentedRows`, `reductions` is empty, including the explicit zero-row case. When the count decreases, reductions form one ordered, strictly decreasing chain: the first `originalRows` equals the overall original count, each next original count equals the previous presented count, and the final presented count equals the overall presented count. Explain the same reductions visibly under `data-klopsi-disclosures`. Each exact reduction object contains only `method`, `originalRows`, `presentedRows`, `groupingFields`, `exclusions`, and `sampleBasis` (null when no sampling occurred). State grouping fields, exclusions, and the sample basis plainly.
 
 ## 4. Presentation manifest
 
@@ -33,28 +33,30 @@ Its JSON object has these exact required top-level fields:
 - `generator`: the string `"klopsi-agent-skill"`;
 - `generatedAt`: a canonical UTC ISO-8601 timestamp in `YYYY-MM-DDTHH:mm:ss.sssZ` form;
 - `title`: a nonempty presentation title;
-- `sources`: a nonempty array of `identity`, 64-character lowercase hexadecimal `sha256`, boolean `verified`, and optional nonempty `provenancePath` records;
+- `sources`: a nonempty array of exact objects containing only `identity`, 64-character lowercase hexadecimal `sha256`, boolean `verified`, and optional nonempty `provenancePath`;
 - `transformations`: an array of nonempty plain-language strings;
 - `reductions`: an array of the reduction records defined above;
-- `data`: nonnegative integer `originalRows`, `presentedRows`, and `embeddedBytes`, plus a nonempty `fields` array. Each field has nonempty `name` and `type`, and `unit` is a nonempty string or null;
+- `data`: an exact object containing nonnegative integer `originalRows`, `presentedRows`, and `embeddedBytes`, plus a nonempty `fields` array. Each exact field object contains only nonempty `name`, nonempty `type`, and `unit` as a nonempty string or null;
 - `geography`: one of the conditional forms below;
-- `views`: 2–6 records for static mode or 2–4 for interactive mode. Every record has nonempty `id`, `question`, `population`, `unit`, `takeaway`, and a nonnegative integer `recordCount`.
+- `views`: 2–6 exact records for static mode or 2–4 for interactive mode. Every record contains only nonempty `id`, `question`, `population`, `unit`, `takeaway`, and a nonnegative integer `recordCount`.
+
+Every manifest object uses only the keys defined here, recursively. Put non-row transformations in `transformations`; do not create a zero-effect reduction.
 
 Geography is conditional:
 
 - no map: exactly `{"kind":"none","crs":null}`;
-- point coordinates: exactly `kind`, `crs`, `latitudeField`, and `longitudeField`; `kind` is `"coordinates"`, `crs` is nonempty, and both field names exist in embedded data;
-- embedded geometry: exactly `kind`, `crs`, and `geometryField`; `kind` is `"geometry"`, `crs` is nonempty, and the field name exists in embedded data.
+- point coordinates: exactly `kind`, `crs`, `latitudeField`, `longitudeField`, `validRecords`, and `excludedRecords`; `kind` is `"coordinates"`, CRS is `EPSG:4326`, both field names exist in `data.fields`, and every embedded row has finite latitude −90…90 and longitude −180…180;
+- embedded geometry: exactly `kind`, `crs`, `geometryField`, `validRecords`, and `excludedRecords`; `kind` is `"geometry"`, CRS is one of `EPSG:4326`, `EPSG:3794`, or `OGC:CRS84`, the field exists in `data.fields`, and every embedded row contains structurally valid GeoJSON geometry with finite positions and geographic ranges when applicable.
 
-Do not map data without valid embedded coordinates or geometry and known CRS information. Never geocode, guess coordinates, infer a CRS, or fetch tiles.
+For either spatial form, `validRecords` equals the embedded row count. A nonzero `excludedRecords` must be covered by an ordered reduction with visible, nonempty exclusion reasons. Do not map data without validated embedded spatial rows and a listed CRS. Never geocode, guess coordinates, infer a CRS, or fetch tiles. If validation cannot be supplied, use `{"kind":"none","crs":null}` and a non-map view.
 
-Interactive mode additionally embeds exactly one `klopsi-presentation-data` application/JSON script whose body is a JSON array. Its UTF-8 byte length and row count must exactly equal manifest `embeddedBytes` and `presentedRows`.
+Interactive mode, and static mode only when geography is spatial, embeds exactly one `klopsi-presentation-data` application/JSON script whose body is a JSON array. Its UTF-8 byte length and row count exactly equal manifest `embeddedBytes` and `presentedRows`.
 
 ## 5. Offline and content security
 
-The artifact is one self-contained HTML file. Opening it must not load remote scripts, styles, images, fonts, frames, media, imports, data, telemetry, APIs, map tiles, or meta-refresh navigation. Ordinary visible citation anchors may link to sources because they do not load on open.
+The artifact is one self-contained HTML file. Opening it must not load any companion or remote script, style, image, font, frame, object, embed, media, form target, import, data file, API, telemetry, tile, relative/root/file/blob URL, CSS import/URL, or meta-refresh navigation. Ordinary visible citation anchors may link to sources because they do not load on open. Safe embedded raster/audio/video `data:` resources and fragment-only SVG references are allowed only in the elements appropriate to those media. Active `javascript:`, `vbscript:`, and HTML/XML `data:` URLs are forbidden.
 
-Include a Content Security Policy meta element that at minimum sets `default-src 'none'`, `connect-src 'none'`, `object-src 'none'`, `base-uri 'none'`, and `form-action 'none'`, with no duplicate directives. Inline styles and the interactive inline script may be enabled explicitly. Do not use inline `on*` event handlers, `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`, dynamic `import()`, `eval`, `new Function`, frames, objects, or embeds.
+Include exactly one Content Security Policy meta element that sets `default-src 'none'`, `connect-src 'none'`, `object-src 'none'`, `base-uri 'none'`, and `form-action 'none'`, with no duplicate directives. Do not allow `self`, remote, file, or blob sources. Inline style and the one interactive inline script may be enabled explicitly; embedded raster images may use `img-src data:`. Do not use inline `on*` handlers, network APIs, dynamic imports, `eval`, `new Function`, `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`/`writeln`, `DOMParser`, contextual fragments, HTML documents, `srcdoc`, frames, objects, or embeds.
 
 ## 6. Safe JSON and DOM text handling
 
@@ -62,11 +64,11 @@ Serialize JSON with every `<` escaped as `\u003c` before placing it in either ap
 
 ## 7. Accessibility and visual metadata
 
-Use a document language, UTF-8 charset, viewport metadata, a descriptive title, one main landmark, and a visible level-one heading. Every presentation includes visible `data-klopsi-summary`, `data-klopsi-disclosures`, and `data-klopsi-lineage` regions.
+Use an HTML doctype, nonempty document language, UTF-8 charset, device-width/initial-scale viewport, one nonempty title, exactly one nonhidden main landmark, and exactly one nonhidden nonempty level-one heading. Every presentation includes exactly one visible, nonempty `data-klopsi-summary`, `data-klopsi-disclosures`, and `data-klopsi-lineage` region. Comments and script text never satisfy structure or unresolved-marker checks.
 
 Choose encodings from the analytical question. Every view exposes its question, population, units, relevant record count, and plain-language takeaway. Do not use color as the only information carrier, fabricate precision, make unsupported causal claims, or leave scales unlabeled. Tables use semantic headers; controls are visibly labeled and keyboard operable; SVG graphics have an accessible name and description.
 
-Interactive dashboards also include `data-klopsi-filter-region`, `data-klopsi-record-count`, `data-klopsi-detail-table`, `data-klopsi-reset`, `data-klopsi-empty-state`, and a useful `noscript` summary. Reset restores the documented initial state and the matching count reflects the current filtered row set.
+Interactive dashboards also include a named filter region with visibly labeled native controls, a visible polite live `data-klopsi-record-count`, native reset button, semantic `table` with `thead` and `th`, useful nonempty empty-state region, and useful nonempty `noscript` summary. Reset restores the documented initial state and the matching count reflects the current filtered row set.
 
 ## 8. Verify before handoff
 
