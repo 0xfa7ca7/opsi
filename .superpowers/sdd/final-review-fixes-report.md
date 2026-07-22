@@ -314,6 +314,41 @@ CLI E2E: 82 passed
 pack: 3 passed
 ```
 
+## Round 4 optional-call and main-scope closure
+
+The final review confirmed two immediate syntax/scope equivalents. Both were
+captured before production changes. The prior verifier reported 11 expected
+failures and 113 passes across 124 focused tests: five HTML-producing optional
+calls, five network optional calls, and one hidden-extra-main scope bypass. The
+expanded inert application/JSON counterexample continued to pass.
+
+- Every existing prohibited network and HTML-producing method-call form now
+  accepts the JavaScript optional-call token between its property reference and
+  argument list. This applies consistently to dot, optional-property, and
+  single- or double-quoted bracket access. The adjacent `eval` matcher received
+  the same syntactic treatment; invalid optional forms for `new Function` and
+  dynamic `import()` were not invented.
+- Document validation and per-button validation now resolve main scope through
+  the same sole nonhidden, non-inert main predicate. Button validation fails
+  closed when that scope is absent or ambiguous. A hidden extra main therefore
+  no longer prevents an unnamed button in the real available main from being
+  checked.
+
+All 13 checked-in packages were regenerated from the source registry, and the
+recursive file-set/byte drift check is clean.
+
+Round 4 focused evidence before the exact-tree full gate:
+
+```text
+dashboard verifier: 124 passed
+verifier + package/setup/release unit matrix: 180 passed
+checked-in verifier syntax: passed
+static fixture verifier: valid, zero findings
+interactive fixture verifier: valid, zero findings
+generate-skills + packed CLI E2E: 11 passed
+git diff --check: passed
+```
+
 ## Concerns
 
 No code concern. The verifier remains intentionally bounded as a

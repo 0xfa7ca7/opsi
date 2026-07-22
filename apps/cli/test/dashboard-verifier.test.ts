@@ -356,11 +356,16 @@ describe("dashboard presentation verifier", () => {
     ["outer-html-bracket-spaced-compound", "target [ 'outerHTML' ] &&= row.label"],
     ["adjacent-html", "target.insertAdjacentHTML('beforeend', row.label)"],
     ["adjacent-html-optional-chain", "target?.insertAdjacentHTML('beforeend', row.label)"],
+    ["adjacent-html-optional-call", "target.insertAdjacentHTML?.('beforeend', 'row')"],
+    ["adjacent-html-optional-chain-call", "target?.insertAdjacentHTML?.('beforeend', 'row')"],
     ["adjacent-html-bracket", "target['insertAdjacentHTML']('beforeend', 'row')"],
+    ["adjacent-html-bracket-optional-call", "target['insertAdjacentHTML']?.('beforeend', 'row')"],
     ["unsafe-html-bracket", "target['setHTMLUnsafe']('<p>row</p>')"],
     ["document-write", "document.write(row.label)"],
+    ["document-write-optional-call", "document.write?.('row')"],
     ["document-writeln", "document.writeln(row.label)"],
     ["document-write-bracket", "document['write']('row')"],
+    ["document-write-bracket-optional-call", "document['write']?.('row')"],
     ["document-writeln-bracket", "document[\"writeln\"]('row')"],
     ["dom-parser", "new DOMParser().parseFromString(row.label, 'text/html')"],
     ["contextual-fragment", "document.createRange().createContextualFragment(row.label)"],
@@ -382,7 +387,8 @@ describe("dashboard presentation verifier", () => {
     const inertRows = replaceInteractiveData(interactiveFixture, [
       {
         category: "target.innerHTML += value",
-        note: 'target["outerHTML"] ??= value',
+        note: 'target["outerHTML"] ??= value; target.insertAdjacentHTML?.("beforeend", value)',
+        network: 'globalThis["fetch"]?.("/inert")',
         value: 1,
       },
     ]);
@@ -405,6 +411,19 @@ describe("dashboard presentation verifier", () => {
     const withCall = interactiveFixture.replace('"use strict";', `"use strict"; ${call};`);
 
     const result = await verifyContent(`network-bracket-${name}`, withCall, "interactive");
+    expect(result.findings?.map((item) => item.code)).toContain("NETWORK_API");
+  });
+
+  it.each([
+    ["dot-fetch", "globalThis.fetch?.('/harmless')"],
+    ["optional-property-fetch", "globalThis?.fetch?.('/harmless')"],
+    ["bracket-fetch", "globalThis['fetch']?.('/harmless')"],
+    ["dot-send-beacon", "navigator.sendBeacon?.('/harmless', '')"],
+    ["bracket-send-beacon", "navigator['sendBeacon']?.('/harmless', '')"],
+  ])("rejects the %s optional network call", async (name, call) => {
+    const withCall = interactiveFixture.replace('"use strict";', `"use strict"; ${call};`);
+
+    const result = await verifyContent(`network-optional-call-${name}`, withCall, "interactive");
     expect(result.findings?.map((item) => item.code)).toContain("NETWORK_API");
   });
 
@@ -1343,6 +1362,20 @@ describe("dashboard presentation verifier", () => {
     const unnamed = interactiveFixture.replace("</main>", '<button type="button"></button></main>');
 
     const result = await verifyContent("interactive-extra-unnamed-button", unnamed, "interactive");
+    expect(result.findings?.map((item) => item.code)).toContain("FILTER_REGION_MISSING");
+  });
+
+  it("scopes button validation to the sole available main when another main is hidden", async () => {
+    const hiddenExtraMain = interactiveFixture
+      .replace("</main>", '<button type="button"></button></main>')
+      .replace("<main>", '<main hidden><button type="button">Hidden action</button></main><main>');
+
+    const result = await verifyContent(
+      "interactive-hidden-extra-main-unnamed-button",
+      hiddenExtraMain,
+      "interactive",
+    );
+    expect(result.findings?.map((item) => item.code)).not.toContain("MAIN_INVALID");
     expect(result.findings?.map((item) => item.code)).toContain("FILTER_REGION_MISSING");
   });
 

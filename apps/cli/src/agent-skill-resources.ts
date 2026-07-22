@@ -61,7 +61,7 @@ Interactive mode, and static mode only when geography is spatial, embeds exactly
 
 The artifact is one self-contained HTML file. Opening it must not load any companion or remote script, style, image, font, frame, object, embed, media, form target, import, data file, API, telemetry, tile, relative/root/file/blob URL, CSS import/URL/image-set reference, or meta-refresh navigation. Ordinary visible citation anchors may link to sources because they do not load on open, but cannot use active URL forms. Safe embedded raster/audio/video \`data:\` resources and fragment-only SVG references are allowed only in the elements appropriate to those media. Active \`javascript:\`, \`vbscript:\`, HTML, XML, and SVG \`data:\` URLs are forbidden.
 
-Include exactly one Content Security Policy meta element inside the sole \`head\`, before the \`body\` and before any active content. Static mode uses exactly \`default-src 'none'\`, \`connect-src 'none'\`, \`object-src 'none'\`, \`base-uri 'none'\`, \`form-action 'none'\`, \`img-src data:\`, and \`style-src 'unsafe-inline'\`. Interactive mode adds exactly \`script-src 'unsafe-inline'\`. Do not add fallback or element/attribute-specific directives, duplicate directive names, or \`self\`, remote, file, or blob sources. Do not use inline \`on*\` handlers, network APIs, dynamic imports, \`eval\`, \`new Function\`, \`innerHTML\`, \`outerHTML\`, \`insertAdjacentHTML\`, \`document.write\`/\`writeln\`, \`DOMParser\`, contextual fragments, HTML documents, \`srcdoc\`, frames, objects, or embeds. Dot and quoted-bracket property calls are equally prohibited.
+Include exactly one Content Security Policy meta element inside the sole \`head\`, before the \`body\` and before any active content. Static mode uses exactly \`default-src 'none'\`, \`connect-src 'none'\`, \`object-src 'none'\`, \`base-uri 'none'\`, \`form-action 'none'\`, \`img-src data:\`, and \`style-src 'unsafe-inline'\`. Interactive mode adds exactly \`script-src 'unsafe-inline'\`. Do not add fallback or element/attribute-specific directives, duplicate directive names, or \`self\`, remote, file, or blob sources. Do not use inline \`on*\` handlers, network APIs, dynamic imports, \`eval\`, \`new Function\`, \`innerHTML\`, \`outerHTML\`, \`insertAdjacentHTML\`, \`document.write\`/\`writeln\`, \`DOMParser\`, contextual fragments, HTML documents, \`srcdoc\`, frames, objects, or embeds. Dot, optional-property, and quoted-bracket property calls are equally prohibited, whether they use an ordinary or optional call.
 
 ## 6. Safe JSON and DOM text handling
 
@@ -73,7 +73,7 @@ Use an HTML doctype, nonempty document language, UTF-8 charset, device-width/ini
 
 Choose encodings from the analytical question. Every view exposes its question, population, units, relevant record count, and plain-language takeaway. Do not use color as the only information carrier, fabricate precision, make unsupported causal claims, or leave scales unlabeled. Tables use semantic headers; controls are visibly labeled and keyboard operable; SVG graphics have an accessible name and description.
 
-Interactive dashboards also include a named filter region with visibly labeled, enabled, visible, keyboard-reachable native controls; a visible polite live \`data-klopsi-record-count\`; an enabled, visible, keyboard-reachable native reset button; a semantic \`table\` with \`thead\` and \`th\`; a useful nonempty empty-state region; and a useful nonempty \`noscript\` summary. Hidden, inert, or \`aria-hidden\` ancestors and disabled ancestor fieldsets make their descendant controls unavailable. Every button in the main interactive contract scope must individually have a nonempty accessible name and remain operable; one valid reset cannot compensate for another unnamed or unavailable button. Reset restores the documented initial state and the matching count reflects the current filtered row set.
+Interactive dashboards also include a named filter region with visibly labeled, enabled, visible, keyboard-reachable native controls; a visible polite live \`data-klopsi-record-count\`; an enabled, visible, keyboard-reachable native reset button; a semantic \`table\` with \`thead\` and \`th\`; a useful nonempty empty-state region; and a useful nonempty \`noscript\` summary. Hidden, inert, or \`aria-hidden\` ancestors and disabled ancestor fieldsets make their descendant controls unavailable. Every button in the sole nonhidden, available main contract scope must individually have a nonempty accessible name and remain operable; hidden extra main elements do not bypass validation of the available main, and ambiguous available-main scope fails closed. One valid reset cannot compensate for another unnamed or unavailable button. Reset restores the documented initial state and the matching count reflects the current filtered row set.
 
 ## 8. Verify before handoff
 
@@ -920,6 +920,18 @@ function isUnavailableElement(element) {
   return false;
 }
 
+function isUnavailableContainer(element) {
+  for (let current = element; current !== undefined; current = current.parent) {
+    if (isHiddenTag(current.tag) || hasNamedAttribute(current.tag, 'inert')) return true;
+  }
+  return false;
+}
+
+function availableMainElements(document) {
+  return document.elements.filter((element) => element.tagName === 'main'
+    && !isUnavailableContainer(element));
+}
+
 function visibleText(body) {
   return body.replace(/<[^>]*>/gu, ' ').replace(/&(?:nbsp|#160|#x0*a0);/giu, ' ').trim();
 }
@@ -931,6 +943,7 @@ function validVisibleRegion(html, attribute) {
 
 function validDocumentStructure(html) {
   const markup = markupOnly(html);
+  const document = structuralElements(html);
   const htmlTag = openingTags(markup).find((tag) => /^<html\b/iu.test(tag));
   const charset = openingTags(markup).some((tag) => /^<meta\b/iu.test(tag) && attributeValue(tag, 'charset')?.trim().toLowerCase() === 'utf-8');
   const viewport = openingTags(markup).some((tag) => /^<meta\b/iu.test(tag)
@@ -939,7 +952,7 @@ function validDocumentStructure(html) {
     && /(?:^|,)\s*initial-scale\s*=\s*1(?:\.0+)?(?:\s*,|$)/iu.test(attributeValue(tag, 'content') ?? ''));
   const head = elementBlocks(markup, (tagName) => tagName === 'head');
   const title = head.length === 1 ? elementBlocks(head[0].body, (tagName) => tagName === 'title') : [];
-  const mains = elementBlocks(markup, (tagName) => tagName === 'main').filter((block) => !isHiddenTag(block.tag));
+  const mains = availableMainElements(document);
   const headings = elementBlocks(markup, (tagName) => tagName === 'h1').filter((block) => !isHiddenTag(block.tag) && visibleText(block.body).length > 0);
   return {
     doctype: /^\s*<!doctype\s+html\s*>/iu.test(markup),
@@ -955,7 +968,7 @@ function validDocumentStructure(html) {
 function validInteractiveStructure(html) {
   const document = structuralElements(html);
   const filter = document.elements.filter((element) => hasNamedAttribute(element.tag, 'data-klopsi-filter-region'));
-  const main = document.elements.filter((element) => element.tagName === 'main');
+  const main = availableMainElements(document);
   let filterValid = filter.length === 1 && !isUnavailableElement(filter[0])
     && (isNonemptyString(attributeValue(filter[0].tag, 'aria-label')) || isNonemptyString(attributeValue(filter[0].tag, 'aria-labelledby')));
   if (filterValid) {
@@ -969,7 +982,7 @@ function validInteractiveStructure(html) {
   const scopedButtons = main.length === 1
     ? document.elements.filter((element) => element.tagName === 'button' && isDescendantOf(element, main[0]))
     : [];
-  const buttonsValid = scopedButtons.every((button) => !isUnavailableElement(button)
+  const buttonsValid = main.length === 1 && scopedButtons.every((button) => !isUnavailableElement(button)
     && hasAccessibleName(document, button, document.elements));
   const reset = document.elements.filter((element) => element.tagName === 'button' && hasNamedAttribute(element.tag, 'data-klopsi-reset'));
   const count = elementBlocks(html, (_tagName, tag) => hasNamedAttribute(tag, 'data-klopsi-record-count'));
@@ -1244,19 +1257,19 @@ async function main() {
   const executableScripts = executableScriptBodies(html);
   const eventHandlers = eventHandlerBodies(html);
   const executable = [...executableScripts, ...eventHandlers].join('\n');
-  const quotedNetworkCall = /\[\s*(['"])(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon)\1\s*\]\s*\(/u;
-  add(findings, /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\s*\(|\.sendBeacon\s*\(|\bimport\s*\(/u.test(executable)
+  const quotedNetworkCall = /\[\s*(['"])(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon)\1\s*\]\s*(?:\?\.\s*)?\(/u;
+  add(findings, /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\s*(?:\?\.\s*)?\(|\.sendBeacon\s*(?:\?\.\s*)?\(|\bimport\s*\(/u.test(executable)
     || quotedNetworkCall.test(executable), 'NETWORK_API', 'Dashboard scripts must not use network APIs or dynamic imports.');
   const htmlProducingAssignment = /(?:\.\s*(?:innerHTML|outerHTML|srcdoc)|\[\s*(['"])(?:innerHTML|outerHTML|srcdoc)\1\s*\])\s*(?:\?\?=|\|\|=|&&=|\*\*=|>>>=|<<=|>>=|[+\-*/%&|^]=|=(?!=))/u;
-  const quotedHtmlProducingCall = /\[\s*(['"])(?:insertAdjacentHTML|setHTMLUnsafe|createContextualFragment|createHTMLDocument|parseHTMLUnsafe)\1\s*\]\s*\(/u;
-  const quotedDocumentWriteCall = /\bdocument\s*\[\s*(['"])write(?:ln)?\1\s*\]\s*\(/u;
+  const quotedHtmlProducingCall = /\[\s*(['"])(?:insertAdjacentHTML|setHTMLUnsafe|createContextualFragment|createHTMLDocument|parseHTMLUnsafe)\1\s*\]\s*(?:\?\.\s*)?\(/u;
+  const quotedDocumentWriteCall = /\bdocument\s*\[\s*(['"])write(?:ln)?\1\s*\]\s*(?:\?\.\s*)?\(/u;
   add(findings, eventHandlers.length > 0
     || hasUnsafeElement(html)
     || hasActiveUrl(html)
     || htmlProducingAssignment.test(executable)
     || quotedHtmlProducingCall.test(executable)
     || quotedDocumentWriteCall.test(executable)
-    || /(?:javascript|vbscript):|data:text\/(?:html|xml)|\beval\s*\(|\bnew\s+Function\s*\(|(?:\?\.|\.)\s*(?:insertAdjacentHTML|setHTMLUnsafe|createContextualFragment|createHTMLDocument|parseHTMLUnsafe)\s*\(|\bdocument\s*\.\s*write(?:ln)?\s*\(|\bDOMParser\b/u.test(executable), 'UNSAFE_CODE', 'Dashboards must not use executable URL schemes, HTML parsing or injection sinks, inline handlers, dynamic code, frames, objects, or embeds.');
+    || /(?:javascript|vbscript):|data:text\/(?:html|xml)|\beval\s*(?:\?\.\s*)?\(|\bnew\s+Function\s*\(|(?:\?\.|\.)\s*(?:insertAdjacentHTML|setHTMLUnsafe|createContextualFragment|createHTMLDocument|parseHTMLUnsafe)\s*(?:\?\.\s*)?\(|\bdocument\s*\.\s*write(?:ln)?\s*(?:\?\.\s*)?\(|\bDOMParser\b/u.test(executable), 'UNSAFE_CODE', 'Dashboards must not use executable URL schemes, HTML parsing or injection sinks, inline handlers, dynamic code, frames, objects, or embeds.');
   add(findings, !hasValidCsp(html, mode), 'CSP_INVALID', 'The dashboard requires the mode-constrained offline Content Security Policy directives.');
   add(findings, !validVisibleRegion(html, 'data-klopsi-summary'), 'SUMMARY_MISSING', 'Dashboards require one visible nonempty plain-language summary.');
   add(findings, !validVisibleRegion(html, 'data-klopsi-disclosures'), 'DISCLOSURES_MISSING', 'Dashboards require one visible nonempty transformation and reduction disclosure region.');
