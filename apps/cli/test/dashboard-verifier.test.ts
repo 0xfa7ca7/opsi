@@ -84,6 +84,11 @@ function replaceInteractiveData(html: string, rows: readonly unknown[]): string 
     data.originalRows = rows.length;
     data.presentedRows = rows.length;
     data.embeddedBytes = Buffer.byteLength(body);
+    for (const view of manifest.views as Array<Record<string, unknown>>) {
+      if (typeof view.recordCount === "number") {
+        view.recordCount = Math.min(view.recordCount, rows.length);
+      }
+    }
   });
 }
 
@@ -120,6 +125,8 @@ describe("dashboard presentation verifier", () => {
     expect(staticFixture).toMatch(/<svg[\s\S]*?<title id=/u);
     expect(staticFixture).toMatch(/<svg[\s\S]*?<desc id=/u);
     expect(staticFixture).toContain("<table");
+    expect(staticFixture.match(/<article class="card kpi">/gu)).toHaveLength(3);
+    expect(staticFixture).toContain("Every fixture row is included; none are omitted.");
   });
 
   it("keeps the interactive fixture suitable for keyboard and state review", () => {
@@ -349,10 +356,17 @@ describe("dashboard presentation verifier", () => {
     ["outer-html-bracket-spaced-compound", "target [ 'outerHTML' ] &&= row.label"],
     ["adjacent-html", "target.insertAdjacentHTML('beforeend', row.label)"],
     ["adjacent-html-optional-chain", "target?.insertAdjacentHTML('beforeend', row.label)"],
+    ["adjacent-html-bracket", "target['insertAdjacentHTML']('beforeend', 'row')"],
+    ["unsafe-html-bracket", "target['setHTMLUnsafe']('<p>row</p>')"],
     ["document-write", "document.write(row.label)"],
     ["document-writeln", "document.writeln(row.label)"],
+    ["document-write-bracket", "document['write']('row')"],
+    ["document-writeln-bracket", "document[\"writeln\"]('row')"],
     ["dom-parser", "new DOMParser().parseFromString(row.label, 'text/html')"],
     ["contextual-fragment", "document.createRange().createContextualFragment(row.label)"],
+    ["contextual-fragment-bracket", "document.createRange()['createContextualFragment']('row')"],
+    ["html-document-bracket", "document.implementation['createHTMLDocument']('row')"],
+    ["parse-html-bracket", "Document['parseHTMLUnsafe']('<p>row</p>')"],
   ])("rejects the %s HTML-producing sink while inert JSON stays allowed", async (name, sink) => {
     const dangerousRows = replaceInteractiveData(interactiveFixture, [
       { category: "</script><script>alert(1)</script>", value: 1 },
@@ -382,12 +396,28 @@ describe("dashboard presentation verifier", () => {
   });
 
   it.each([
+    ["fetch", "globalThis['fetch']('/harmless')"],
+    ["xml-http-request", "new globalThis['XMLHttpRequest']()"],
+    ["web-socket", "new globalThis['WebSocket']('ws://invalid.test')"],
+    ["event-source", "new globalThis['EventSource']('/harmless')"],
+    ["send-beacon", "navigator['sendBeacon']('/harmless', '')"],
+  ])("rejects the quoted-bracket %s network call", async (name, call) => {
+    const withCall = interactiveFixture.replace('"use strict";', `"use strict"; ${call};`);
+
+    const result = await verifyContent(`network-bracket-${name}`, withCall, "interactive");
+    expect(result.findings?.map((item) => item.code)).toContain("NETWORK_API");
+  });
+
+  it.each([
     ["javascript-anchor", '<a href="javascript:alert(1)">Citation</a>'],
     ["vbscript-anchor", '<a href="vbscript:msgbox(1)">Citation</a>'],
     [
       "active-data-anchor",
       '<a href="data:text/html,%3Cscript%3Ealert(1)%3C/script%3E">Citation</a>',
     ],
+    ["xml-data-anchor", '<a href="data:text/xml,%3Croot/%3E">Citation</a>'],
+    ["xml-suffix-data-anchor", '<a href="data:application/atom+xml,%3Cfeed/%3E">Citation</a>'],
+    ["svg-data-anchor", '<a href="data:image/svg+xml,%3Csvg/%3E">Citation</a>'],
   ])("rejects the %s active URL scheme", async (name, markup) => {
     const withActiveUrl = interactiveFixture.replace("</main>", `${markup}</main>`);
 
@@ -475,6 +505,22 @@ describe("dashboard presentation verifier", () => {
     ["css-root-url", "<style>.chart { background: url(/chart.png) }</style>"],
     ["css-file-url", "<style>.chart { background: url(file:///tmp/chart.png) }</style>"],
     ["css-blob-url", "<style>.chart { background: url(blob:https://example.test/id) }</style>"],
+    [
+      "css-image-set-string",
+      '<style>.chart { background-image: image-set("chart.png" 1x) }</style>',
+    ],
+    [
+      "css-image-set-url",
+      "<style>.chart { background-image: image-set(url(chart.png) 1x) }</style>",
+    ],
+    [
+      "css-webkit-image-set-string",
+      '<style>.chart { background-image: -webkit-image-set("chart.png" 1x) }</style>',
+    ],
+    [
+      "css-webkit-image-set-url",
+      "<style>.chart { background-image: -webkit-image-set(url(chart.png) 1x) }</style>",
+    ],
   ])("rejects the %s loadable companion reference", async (name, markup) => {
     const withCompanion = staticFixture.replace("</main>", `${markup}</main>`);
 
@@ -485,6 +531,10 @@ describe("dashboard presentation verifier", () => {
   it("allows safe embedded raster data and fragment-only SVG references", async () => {
     const embedded = staticFixture
       .replace("</svg>", '<use href="#comparison-title"></use></svg>')
+      .replace(
+        "</style>",
+        '.embedded { background-image: image-set("data:image/png;base64,iVBORw0KGgo=" 1x, url(#comparison-title) 2x); }</style>',
+      )
       .replace(
         "</main>",
         '<img src="data:image/png;base64,iVBORw0KGgo=" alt="Embedded chart"></main>',
@@ -546,6 +596,17 @@ describe("dashboard presentation verifier", () => {
     );
 
     const result = await verifyContent("duplicate-csp-case", duplicateDirective, "static");
+    expect(result.findings?.map((item) => item.code)).toContain("CSP_INVALID");
+  });
+
+  it("rejects an exact CSP meta placed in the body", async () => {
+    const csp = staticFixture.match(
+      /\s*<meta\s+http-equiv="Content-Security-Policy"[\s\S]*?\/>/u,
+    )?.[0];
+    expect(csp).toBeDefined();
+    const bodyCsp = staticFixture.replace(csp!, "").replace("<body>", `<body>${csp}`);
+
+    const result = await verifyContent("body-csp", bodyCsp, "static");
     expect(result.findings?.map((item) => item.code)).toContain("CSP_INVALID");
   });
 
@@ -750,6 +811,41 @@ describe("dashboard presentation verifier", () => {
     }
   });
 
+  it.each([
+    ["negative", -1],
+    ["above-original", 3],
+  ])("rejects a %s view record count", async (name, recordCount) => {
+    const invalid = replaceManifest(staticFixture, (manifest) => {
+      const views = manifest.views as Array<Record<string, unknown>>;
+      views[0]!.recordCount = recordCount;
+    });
+
+    const result = await verifyContent(`view-record-count-${name}`, invalid, "static");
+    expect(result.findings?.map((item) => item.code)).toContain("VIEW_METADATA_INVALID");
+  });
+
+  it("limits interactive view record counts to embedded presented rows", async () => {
+    const invalid = replaceManifest(interactiveFixture, (manifest) => {
+      const data = manifest.data as Record<string, unknown>;
+      data.originalRows = 3;
+      manifest.reductions = [
+        {
+          method: "filter",
+          originalRows: 3,
+          presentedRows: 2,
+          groupingFields: [],
+          exclusions: ["One invalid source row"],
+          sampleBasis: null,
+        },
+      ];
+      const views = manifest.views as Array<Record<string, unknown>>;
+      views[0]!.recordCount = 3;
+    });
+
+    const result = await verifyContent("interactive-view-above-presented", invalid, "interactive");
+    expect(result.findings?.map((item) => item.code)).toContain("VIEW_METADATA_INVALID");
+  });
+
   it("requires canonical valid ISO-8601 presentation timestamps", async () => {
     for (const [name, generatedAt] of [
       ["loose", "2026-07-21"],
@@ -802,6 +898,9 @@ describe("dashboard presentation verifier", () => {
             sampleBasis: null,
           },
         ];
+        for (const view of manifest.views as Array<Record<string, unknown>>) {
+          view.recordCount = 1;
+        }
         manifest.geography = {
           kind: "coordinates",
           crs: "EPSG:4326",
@@ -849,6 +948,9 @@ describe("dashboard presentation verifier", () => {
           { name: "geometry", type: "geometry", unit: null },
           { name: "value", type: "number", unit: "count" },
         ];
+        for (const view of manifest.views as Array<Record<string, unknown>>) {
+          view.recordCount = 1;
+        }
         manifest.geography = {
           kind: "geometry",
           crs: "EPSG:4326",
@@ -1186,6 +1288,76 @@ describe("dashboard presentation verifier", () => {
         name,
       ).toContain(code);
     }
+  });
+
+  it.each([
+    [
+      "inert-region",
+      (html: string) =>
+        html.replace("data-klopsi-filter-region", "data-klopsi-filter-region inert"),
+    ],
+    [
+      "hidden-ancestor",
+      (html: string) =>
+        html
+          .replace(
+            '<section class="panel" data-klopsi-filter-region',
+            '<div hidden><section class="panel" data-klopsi-filter-region',
+          )
+          .replace(
+            '</section>\n\n      <section class="view-grid"',
+            '</section></div>\n\n      <section class="view-grid"',
+          ),
+    ],
+    [
+      "aria-hidden-ancestor",
+      (html: string) =>
+        html
+          .replace(
+            '<section class="panel" data-klopsi-filter-region',
+            '<div aria-hidden="true"><section class="panel" data-klopsi-filter-region',
+          )
+          .replace(
+            '</section>\n\n      <section class="view-grid"',
+            '</section></div>\n\n      <section class="view-grid"',
+          ),
+    ],
+    [
+      "disabled-fieldset",
+      (html: string) =>
+        html
+          .replace('<form class="filters">', '<form class="filters"><fieldset disabled>')
+          .replace("</form>", "</fieldset></form>"),
+    ],
+  ])("rejects controls and reset made unavailable by a %s", async (name, mutate) => {
+    const result = await verifyContent(
+      `interactive-ancestor-${name}`,
+      mutate(interactiveFixture),
+      "interactive",
+    );
+    expect(result.findings?.map((item) => item.code)).toContain("FILTER_REGION_MISSING");
+    expect(result.findings?.map((item) => item.code)).toContain("RESET_MISSING");
+  });
+
+  it("rejects any extra unnamed button in the interactive contract scope", async () => {
+    const unnamed = interactiveFixture.replace("</main>", '<button type="button"></button></main>');
+
+    const result = await verifyContent("interactive-extra-unnamed-button", unnamed, "interactive");
+    expect(result.findings?.map((item) => item.code)).toContain("FILTER_REGION_MISSING");
+  });
+
+  it("accepts individually named operable buttons in the interactive contract scope", async () => {
+    const named = interactiveFixture.replace(
+      "</main>",
+      '<button type="button" aria-label="Show methodology"></button></main>',
+    );
+
+    expect(
+      await verifyContent("interactive-extra-named-button", named, "interactive"),
+    ).toMatchObject({
+      exitCode: 0,
+      valid: true,
+    });
   });
 
   it("requires accessible SVG title and description when SVG exists", async () => {

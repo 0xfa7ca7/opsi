@@ -50,7 +50,7 @@
       }
       .grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 1rem;
         margin: 1.5rem 0;
       }
@@ -148,15 +148,20 @@
       </header>
 
       <section class="grid" aria-label="Headline findings and analytical view">
-        <article class="card">
+        <article class="card kpi">
           <h2>Headline value</h2>
           <strong class="metric">3</strong>
           <p>Total count across two fixture rows.</p>
         </article>
-        <article class="card">
+        <article class="card kpi">
           <h2>Largest category</h2>
           <strong class="metric">A</strong>
           <p>Category A contributes two of the three total units.</p>
+        </article>
+        <article class="card kpi">
+          <h2>Rows represented</h2>
+          <strong class="metric">2</strong>
+          <p>Every fixture row is included; none are omitted.</p>
         </article>
         <article class="card card--wide">
           <h2>Category comparison</h2>

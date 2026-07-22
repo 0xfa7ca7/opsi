@@ -248,8 +248,76 @@ CLI E2E: 82 passed
 pack: 3 passed
 ```
 
+## Round 3 clean-room review hardening
+
+The third independent review produced five confirmed verifier gaps and one
+fixture-content correction. All production changes were preceded by direct
+black-box regressions. Against the prior verifier, the first focused run
+reported 23 expected failures and 88 passes across 111 tests. The failures
+covered seven quoted-bracket HTML-producing calls, five quoted-bracket network
+calls, two active XML/SVG data URL forms, a CSS `image-set()` string reference,
+a body-scoped CSP meta, two impossible view counts, four ancestor/fieldset
+operability cases, and an extra unnamed button. Existing `text/xml`, negative
+counts, URL-form image sets, inert JSON, named operable buttons, safe raster
+data, and fragment references already passed and remain as counterexamples.
+
+The fixes map to the review findings as follows:
+
+- Prohibited network and HTML-producing calls now recognize equivalent
+  single- or double-quoted bracket property access for every previously named
+  method. Inert application/JSON bodies remain excluded from executable-code
+  scanning.
+- Interactive structure is scanned with a bounded element stack rather than a
+  flat substring of the marked filter region. Hidden, inert, and `aria-hidden`
+  ancestors and disabled fieldsets make descendant controls/reset unavailable.
+  Every button under the sole main contract scope is checked individually for
+  operability and a resolvable nonempty accessible name.
+- The exact CSP meta must be the sole policy, inside the sole head, before the
+  body and any active content. Moving the otherwise exact policy into the body
+  now produces the stable `CSP_INVALID` finding.
+- Active XML-derived and SVG data URLs are rejected even on citation anchors.
+  Standard and WebKit `image-set()` string and `url()` companion references are
+  rejected, while safe embedded raster data and fragment-only references stay
+  valid.
+- Every view count is nonnegative and no larger than original source rows.
+  Interactive view counts are additionally bounded by embedded presented rows;
+  static aggregate views may truthfully describe a larger source population.
+- The static fixture now contains three truthful headline KPI cards. Its exact
+  size is 7,592 bytes, its wide grid has three columns, and the existing 620px
+  breakpoint still collapses the grid to one column.
+
+All 13 checked-in packages were regenerated from the source registry. Recursive
+file-set and byte drift is clean. The in-app Browser workflow was attempted for
+the changed static fixture, but runtime discovery exposed no browser backend.
+No unrelated automation surface was substituted. The retained content tests
+assert the three KPI cards and truthful added content, while the fixture itself
+retains its narrow and print rules; earlier browser evidence continues to cover
+the unchanged chart/table and offline structure.
+
+Round 3 focused and final-tree evidence:
+
+```text
+dashboard verifier: 113 passed
+verifier + package/setup/release unit matrix: 169 passed
+checked-in verifier syntax: passed
+static fixture verifier: valid, zero findings
+interactive fixture verifier: valid, zero findings
+agent setup integration: 2 passed
+generate/setup/pack CLI E2E: 23 passed
+git diff --check: passed
+
+pnpm check: passed
+format, lint, typecheck, and build: passed
+unit: 563 passed
+integration: 310 passed
+CLI E2E: 82 passed
+pack: 3 passed
+```
+
 ## Concerns
 
-None. The verifier remains intentionally bounded as a dependency-free contract
-linter; it is not an HTML parser, sanitizer, browser renderer, or security
-sandbox.
+No code concern. The verifier remains intentionally bounded as a
+dependency-free contract linter; it is not a full HTML parser, sanitizer,
+browser renderer, or security sandbox. The only evidence limitation is the
+unavailable browser backend noted above; structural, responsive-content,
+offline, verifier, and prior visual evidence remain in place.

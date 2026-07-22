@@ -188,7 +188,10 @@ function validManifest(manifest) {
     || !manifest.data.fields.every(validField)
     || !validGeography(manifest.geography, manifest.data.fields)
     || !Array.isArray(manifest.views)
-    || !manifest.views.every(validView)) return false;
+    || !manifest.views.every((view) => validView(
+      view,
+      manifest.mode === 'interactive' ? manifest.data.presentedRows : manifest.data.originalRows,
+    ))) return false;
   if (manifest.reductions.length === 0) {
     if (manifest.data.originalRows !== manifest.data.presentedRows) return false;
   } else {
@@ -201,7 +204,7 @@ function validManifest(manifest) {
   return true;
 }
 
-function validView(view) {
+function validView(view, maximumRecordCount = Number.MAX_SAFE_INTEGER) {
   return isObject(view)
     && hasExactKeys(view, ['id', 'question', 'population', 'unit', 'recordCount', 'takeaway'])
     && isNonemptyString(view.id)
@@ -209,6 +212,7 @@ function validView(view) {
     && isNonemptyString(view.population)
     && isNonemptyString(view.unit)
     && isCount(view.recordCount)
+    && view.recordCount <= maximumRecordCount
     && isNonemptyString(view.takeaway);
 }
 
@@ -258,7 +262,7 @@ function isSafeEmbeddedData(value, tagName, attribute) {
 }
 
 function hasActiveUrl(html) {
-  const active = /^(?:javascript|vbscript):|^data:text\/(?:html|xml)|^data:application\/(?:xhtml\+xml|xml)/iu;
+  const active = /^(?:javascript|vbscript):|^data:(?:text\/html|(?:text|application|image)\/(?:xml|[a-z0-9.+-]*\+xml))/iu;
   for (const tag of openingTags(markupOnly(html))) {
     for (const name of ['href', 'src', 'srcset', 'poster', 'data', 'action', 'formaction', 'xlink:href']) {
       const value = attributeValue(tag, name);
@@ -298,12 +302,20 @@ function hasCompanionResource(html) {
 function hasUnsafeCssReference(css) {
   if (/@import\b/iu.test(css) || /\\(?:[0-9a-f]{1,6}\s?|.)/iu.test(css)) return true;
   for (const match of css.matchAll(/url\s*\(\s*(['"]?)(.*?)\1\s*\)/giu)) {
-    const value = normalizedUrl(match[2] ?? '');
-    if (value.startsWith('#')) continue;
-    if (/^data:image\/(?:png|jpeg|gif|webp|avif);base64,[a-z0-9+/=\s]+$/iu.test(value)) continue;
-    return true;
+    if (!isSafeCssResource(match[2] ?? '')) return true;
+  }
+  for (const match of css.matchAll(/(?:-webkit-)?image-set\s*\(([\s\S]*?)\)/giu)) {
+    for (const stringReference of (match[1] ?? '').matchAll(/(['"])(.*?)\1/gu)) {
+      if (!isSafeCssResource(stringReference[2] ?? '')) return true;
+    }
   }
   return false;
+}
+
+function isSafeCssResource(reference) {
+  const value = normalizedUrl(reference);
+  return value.startsWith('#')
+    || /^data:image\/(?:png|jpeg|gif|webp|avif);base64,[a-z0-9+/=\s]+$/iu.test(value);
 }
 
 function normalizedUrl(value) {
@@ -327,11 +339,18 @@ function hasMetaRefresh(html) {
 }
 
 function hasValidCsp(html, mode) {
-  const tags = openingTags(markupOnly(html)).filter((candidate) =>
-    /^<meta\b/iu.test(candidate)
-      && attributeValue(candidate, 'http-equiv')?.toLowerCase() === 'content-security-policy');
-  if (tags.length !== 1) return false;
-  const tag = tags[0];
+  const document = structuralElements(html);
+  const heads = document.elements.filter((element) => element.tagName === 'head');
+  const bodies = document.elements.filter((element) => element.tagName === 'body');
+  const policies = document.elements.filter((element) => element.tagName === 'meta'
+    && attributeValue(element.tag, 'http-equiv')?.toLowerCase() === 'content-security-policy');
+  if (heads.length !== 1 || bodies.length !== 1 || policies.length !== 1) return false;
+  const policy = policies[0];
+  if (!isDescendantOf(policy, heads[0]) || policy.start >= bodies[0].start) return false;
+  const activeBeforePolicy = document.elements.some((element) => element.start < policy.start
+    && ['style', 'script', 'link', 'img', 'image', 'audio', 'video', 'source', 'iframe', 'object', 'embed', 'form'].includes(element.tagName));
+  if (activeBeforePolicy) return false;
+  const tag = policy.tag;
   const content = attributeValue(tag, 'content');
   if (content === undefined) return false;
   const directives = new Map();
@@ -383,6 +402,48 @@ function elementBlocks(html, selector) {
   return blocks;
 }
 
+function structuralElements(html) {
+  const source = markupOnly(html);
+  const elements = [];
+  const stack = [];
+  const voidElements = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
+  const pattern = /<\/?([a-z][a-z0-9:-]*)\b[^>]*>/giu;
+  let match;
+  while ((match = pattern.exec(source)) !== null) {
+    const tagName = match[1].toLowerCase();
+    if (/^<\//u.test(match[0])) {
+      const index = stack.findLastIndex((element) => element.tagName === tagName);
+      if (index >= 0) {
+        stack[index].bodyEnd = match.index;
+        stack.splice(index);
+      }
+      continue;
+    }
+    const element = {
+      tagName,
+      tag: match[0],
+      start: match.index,
+      bodyStart: pattern.lastIndex,
+      bodyEnd: source.length,
+      parent: stack.at(-1),
+    };
+    elements.push(element);
+    if (!voidElements.has(tagName) && !/\/\s*>$/u.test(match[0])) stack.push(element);
+  }
+  return { source, elements };
+}
+
+function isDescendantOf(element, ancestor) {
+  for (let parent = element.parent; parent !== undefined; parent = parent.parent) {
+    if (parent === ancestor) return true;
+  }
+  return false;
+}
+
+function elementBody(document, element) {
+  return document.source.slice(element.bodyStart, element.bodyEnd);
+}
+
 function isHiddenTag(tag) {
   return /\shidden(?:\s|=|>)/iu.test(tag)
     || attributeValue(tag, 'aria-hidden')?.trim().toLowerCase() === 'true'
@@ -396,6 +457,16 @@ function isUnavailableControl(tag) {
     || attributeValue(tag, 'aria-disabled')?.trim().toLowerCase() === 'true'
     || attributeValue(tag, 'type')?.trim().toLowerCase() === 'hidden'
     || attributeValue(tag, 'tabindex')?.trim() === '-1';
+}
+
+function isUnavailableElement(element) {
+  if (isUnavailableControl(element.tag)) return true;
+  for (let ancestor = element.parent; ancestor !== undefined; ancestor = ancestor.parent) {
+    if (isHiddenTag(ancestor.tag)
+      || hasNamedAttribute(ancestor.tag, 'inert')
+      || (ancestor.tagName === 'fieldset' && hasNamedAttribute(ancestor.tag, 'disabled'))) return true;
+  }
+  return false;
 }
 
 function visibleText(body) {
@@ -431,35 +502,55 @@ function validDocumentStructure(html) {
 }
 
 function validInteractiveStructure(html) {
-  const filter = elementBlocks(html, (_tagName, tag) => hasNamedAttribute(tag, 'data-klopsi-filter-region'));
-  let filterValid = filter.length === 1 && !isHiddenTag(filter[0].tag)
+  const document = structuralElements(html);
+  const filter = document.elements.filter((element) => hasNamedAttribute(element.tag, 'data-klopsi-filter-region'));
+  const main = document.elements.filter((element) => element.tagName === 'main');
+  let filterValid = filter.length === 1 && !isUnavailableElement(filter[0])
     && (isNonemptyString(attributeValue(filter[0].tag, 'aria-label')) || isNonemptyString(attributeValue(filter[0].tag, 'aria-labelledby')));
   if (filterValid) {
-    const controls = openingTags(filter[0].body).filter((tag) => /^<(?:input|select|textarea|button)\b/iu.test(tag));
-    const customControls = openingTags(filter[0].body).some((tag) => /\srole\s*=\s*(?:"|')?(?:button|checkbox|combobox|listbox|radio|slider|spinbutton|textbox)/iu.test(tag));
-    filterValid = controls.length > 0 && !customControls && controls.every((tag) => {
-      if (isUnavailableControl(tag)) return false;
-      if (/^<button\b/iu.test(tag)) return isNonemptyString(attributeValue(tag, 'aria-label')) || /<button\b[^>]*>[\s\S]*?\S[\s\S]*?<\/button>/iu.test(filter[0].body);
-      const id = attributeValue(tag, 'id');
-      return isNonemptyString(attributeValue(tag, 'aria-label'))
-        || isNonemptyString(attributeValue(tag, 'aria-labelledby'))
-        || (isNonemptyString(id) && elementBlocks(filter[0].body, (tagName, labelTag) => tagName === 'label' && attributeValue(labelTag, 'for') === id)
-          .some((label) => visibleText(label.body).length > 0));
-    });
+    const scoped = document.elements.filter((element) => isDescendantOf(element, filter[0]));
+    const controls = scoped.filter((element) => ['input', 'select', 'textarea', 'button'].includes(element.tagName));
+    const customControls = scoped.some((element) => /\srole\s*=\s*(?:"|')?(?:button|checkbox|combobox|listbox|radio|slider|spinbutton|textbox)/iu.test(element.tag));
+    filterValid = controls.length > 0 && !customControls
+      && controls.every((control) => !isUnavailableElement(control)
+        && hasAccessibleName(document, control, scoped));
   }
-  const reset = elementBlocks(html, (tagName, tag) => tagName === 'button' && hasNamedAttribute(tag, 'data-klopsi-reset'));
+  const scopedButtons = main.length === 1
+    ? document.elements.filter((element) => element.tagName === 'button' && isDescendantOf(element, main[0]))
+    : [];
+  const buttonsValid = scopedButtons.every((button) => !isUnavailableElement(button)
+    && hasAccessibleName(document, button, document.elements));
+  const reset = document.elements.filter((element) => element.tagName === 'button' && hasNamedAttribute(element.tag, 'data-klopsi-reset'));
   const count = elementBlocks(html, (_tagName, tag) => hasNamedAttribute(tag, 'data-klopsi-record-count'));
   const table = elementBlocks(html, (tagName, tag) => tagName === 'table' && hasNamedAttribute(tag, 'data-klopsi-detail-table'));
   const empty = elementBlocks(html, (_tagName, tag) => hasNamedAttribute(tag, 'data-klopsi-empty-state'));
   const noscript = elementBlocks(html, (tagName) => tagName === 'noscript');
   return {
-    filter: filterValid,
-    reset: reset.length === 1 && !isUnavailableControl(reset[0].tag) && visibleText(reset[0].body).length > 0 && attributeValue(reset[0].tag, 'type')?.toLowerCase() === 'button',
+    filter: filterValid && buttonsValid,
+    reset: reset.length === 1 && !isUnavailableElement(reset[0])
+      && hasAccessibleName(document, reset[0], document.elements)
+      && attributeValue(reset[0].tag, 'type')?.toLowerCase() === 'button',
     count: count.length === 1 && !isHiddenTag(count[0].tag) && attributeValue(count[0].tag, 'aria-live')?.toLowerCase() === 'polite' && visibleText(count[0].body).length > 0,
     table: table.length === 1 && /<thead\b[^>]*>[\s\S]*<th\b[^>]*>[\s\S]*<\/thead>/iu.test(table[0].body),
     empty: empty.length === 1 && visibleText(empty[0].body).length > 0,
     noscript: noscript.length === 1 && visibleText(noscript[0].body).length > 0,
   };
+}
+
+function hasAccessibleName(document, element, scope) {
+  if (isNonemptyString(attributeValue(element.tag, 'aria-label'))) return true;
+  const labelledBy = (attributeValue(element.tag, 'aria-labelledby') ?? '').trim().split(/\s+/u).filter(Boolean);
+  if (labelledBy.some((id) => scope.some((candidate) => attributeValue(candidate.tag, 'id') === id
+    && visibleText(elementBody(document, candidate)).length > 0))) return true;
+  if (element.tagName === 'button' && visibleText(elementBody(document, element)).length > 0) return true;
+  const id = attributeValue(element.tag, 'id');
+  if (isNonemptyString(id) && scope.some((candidate) => candidate.tagName === 'label'
+    && attributeValue(candidate.tag, 'for') === id
+    && visibleText(elementBody(document, candidate)).length > 0)) return true;
+  for (let ancestor = element.parent; ancestor !== undefined; ancestor = ancestor.parent) {
+    if (ancestor.tagName === 'label' && visibleText(elementBody(document, ancestor)).length > 0) return true;
+  }
+  return false;
 }
 
 function hasNamedAttribute(tag, name) {
@@ -650,7 +741,12 @@ async function main() {
     add(findings, typeof manifestObject.mode === 'string' && manifestObject.mode !== mode, 'MODE_MISMATCH', 'The manifest mode does not match the expected presentation mode.');
     const minimumViews = 2;
     const maximumViews = mode === 'static' ? 6 : 4;
-    add(findings, manifestViews === undefined || manifestViews.length < minimumViews || manifestViews.length > maximumViews || !manifestViews.every(validView), 'VIEW_METADATA_INVALID', 'Views must have the required count and complete analytical metadata.');
+    const maximumViewRecords = manifestData !== undefined && isCount(manifestData.originalRows)
+      ? (mode === 'interactive' && isCount(manifestData.presentedRows)
+          ? manifestData.presentedRows
+          : manifestData.originalRows)
+      : Number.MAX_SAFE_INTEGER;
+    add(findings, manifestViews === undefined || manifestViews.length < minimumViews || manifestViews.length > maximumViews || !manifestViews.every((view) => validView(view, maximumViewRecords)), 'VIEW_METADATA_INVALID', 'Views must have the required count and complete analytical metadata.');
   }
   if (manifestData !== undefined) {
     add(findings, isCount(manifestData.embeddedBytes) && manifestData.embeddedBytes > MAX_DATA_BYTES, 'DATA_TOO_LARGE', 'Embedded presentation data exceeds the 5 MB limit.');
@@ -697,12 +793,18 @@ async function main() {
   const executableScripts = executableScriptBodies(html);
   const eventHandlers = eventHandlerBodies(html);
   const executable = [...executableScripts, ...eventHandlers].join('\n');
-  add(findings, /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\s*\(|\.sendBeacon\s*\(|\bimport\s*\(/u.test(executable), 'NETWORK_API', 'Dashboard scripts must not use network APIs or dynamic imports.');
+  const quotedNetworkCall = /\[\s*(['"])(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon)\1\s*\]\s*\(/u;
+  add(findings, /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\s*\(|\.sendBeacon\s*\(|\bimport\s*\(/u.test(executable)
+    || quotedNetworkCall.test(executable), 'NETWORK_API', 'Dashboard scripts must not use network APIs or dynamic imports.');
   const htmlProducingAssignment = /(?:\.\s*(?:innerHTML|outerHTML|srcdoc)|\[\s*(['"])(?:innerHTML|outerHTML|srcdoc)\1\s*\])\s*(?:\?\?=|\|\|=|&&=|\*\*=|>>>=|<<=|>>=|[+\-*/%&|^]=|=(?!=))/u;
+  const quotedHtmlProducingCall = /\[\s*(['"])(?:insertAdjacentHTML|setHTMLUnsafe|createContextualFragment|createHTMLDocument|parseHTMLUnsafe)\1\s*\]\s*\(/u;
+  const quotedDocumentWriteCall = /\bdocument\s*\[\s*(['"])write(?:ln)?\1\s*\]\s*\(/u;
   add(findings, eventHandlers.length > 0
     || hasUnsafeElement(html)
     || hasActiveUrl(html)
     || htmlProducingAssignment.test(executable)
+    || quotedHtmlProducingCall.test(executable)
+    || quotedDocumentWriteCall.test(executable)
     || /(?:javascript|vbscript):|data:text\/(?:html|xml)|\beval\s*\(|\bnew\s+Function\s*\(|(?:\?\.|\.)\s*(?:insertAdjacentHTML|setHTMLUnsafe|createContextualFragment|createHTMLDocument|parseHTMLUnsafe)\s*\(|\bdocument\s*\.\s*write(?:ln)?\s*\(|\bDOMParser\b/u.test(executable), 'UNSAFE_CODE', 'Dashboards must not use executable URL schemes, HTML parsing or injection sinks, inline handlers, dynamic code, frames, objects, or embeds.');
   add(findings, !hasValidCsp(html, mode), 'CSP_INVALID', 'The dashboard requires the mode-constrained offline Content Security Policy directives.');
   add(findings, !validVisibleRegion(html, 'data-klopsi-summary'), 'SUMMARY_MISSING', 'Dashboards require one visible nonempty plain-language summary.');

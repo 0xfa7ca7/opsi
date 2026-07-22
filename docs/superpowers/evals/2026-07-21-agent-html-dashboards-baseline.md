@@ -241,7 +241,7 @@ Both checked-in verifier commands exit 0:
 {"valid":true,"mode":"interactive","findings":[]}
 ```
 
-Initial browser preflight found that the verifier fixtures were contract-minimal rather than complete acceptance artifacts: the static fixture had no responsive or print CSS, SVG, or exact-values table, while the interactive fixture only populated its table and could not filter, sort, reach its empty state through controls, or reset state. Two content-contract tests were added first and failed as expected. The fixtures were then completed without changing the production verifier. After final contract hardening, the focused verifier suite passes 67 tests, and the final fixture sizes are 7,384 bytes static and 13,812 bytes interactive.
+Initial browser preflight found that the verifier fixtures were contract-minimal rather than complete acceptance artifacts: the static fixture had no responsive or print CSS, SVG, or exact-values table, while the interactive fixture only populated its table and could not filter, sort, reach its empty state through controls, or reset state. Two content-contract tests were added first and failed as expected. The fixtures were then completed without changing the production verifier. After subsequent verifier review hardening, the focused verifier suite passes 111 tests, and the current fixture sizes are 7,592 bytes static and 13,812 bytes interactive. The static fixture has three truthful headline KPI cards and retains its responsive single-column layout at the narrow breakpoint.
 
 ### Static fixture
 
