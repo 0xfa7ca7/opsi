@@ -39,6 +39,7 @@ export interface ProcessDuckDbUiRunnerOptions {
   readonly arch?: string;
   readonly spawnProcess?: SpawnDuckDbProcess;
   readonly fetchInstaller?: FetchInstaller;
+  readonly installerTimeoutMs?: number;
   readonly makeTemporaryDirectory?: () => Promise<string>;
   readonly removeTemporaryDirectory?: (path: string) => Promise<void>;
 }
@@ -123,13 +124,40 @@ function installerTarget(platform: NodeJS.Platform, arch: string): InstallerTarg
   throw installUnsupported(platform, arch);
 }
 
-async function boundedBody(response: Response): Promise<Buffer> {
+type BodyChunkResult = Awaited<ReturnType<ReadableStreamDefaultReader<Uint8Array>["read"]>>;
+
+async function readBodyChunk(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  signal: AbortSignal,
+): Promise<BodyChunkResult> {
+  if (signal.aborted) throw signal.reason;
+  return await new Promise<BodyChunkResult>((resolve, reject) => {
+    let settled = false;
+    const finish = (operation: () => void) => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener("abort", onAbort);
+      operation();
+    };
+    const onAbort = () => {
+      void reader.cancel().catch(() => undefined);
+      finish(() => reject(signal.reason));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    reader.read().then(
+      (result) => finish(() => resolve(result)),
+      (error: unknown) => finish(() => reject(error)),
+    );
+  });
+}
+
+async function boundedBody(response: Response, signal: AbortSignal): Promise<Buffer> {
   if (!response.ok || response.body === null) throw installFailed();
   const reader = response.body.getReader();
   const chunks: Buffer[] = [];
   let bytes = 0;
   while (true) {
-    const next = await reader.read();
+    const next = await readBodyChunk(reader, signal);
     if (next.done) break;
     const chunk = Buffer.from(next.value);
     bytes += chunk.length;
@@ -150,6 +178,7 @@ export class ProcessDuckDbUiRunner implements DuckDbUiRunner {
   readonly #arch: string;
   readonly #spawnProcess: SpawnDuckDbProcess;
   readonly #fetchInstaller: FetchInstaller;
+  readonly #installerTimeoutMs: number;
   readonly #makeTemporaryDirectory: () => Promise<string>;
   readonly #removeTemporaryDirectory: (path: string) => Promise<void>;
 
@@ -163,6 +192,7 @@ export class ProcessDuckDbUiRunner implements DuckDbUiRunner {
       ((command, arguments_, spawnOptions) => spawn(command, [...arguments_], spawnOptions));
     this.#fetchInstaller =
       options.fetchInstaller ?? ((url, fetchOptions) => fetch(url, fetchOptions));
+    this.#installerTimeoutMs = options.installerTimeoutMs ?? INSTALLER_TIMEOUT_MS;
     this.#makeTemporaryDirectory =
       options.makeTemporaryDirectory ?? (() => mkdtemp(join(tmpdir(), "klopsi-duckdb-install-")));
     this.#removeTemporaryDirectory =
@@ -225,18 +255,18 @@ export class ProcessDuckDbUiRunner implements DuckDbUiRunner {
     let directory: string | undefined;
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), INSTALLER_TIMEOUT_MS);
+      const timeout = setTimeout(() => controller.abort(), this.#installerTimeoutMs);
       timeout.unref();
-      let response: Response;
+      let installer: Buffer;
       try {
-        response = await this.#fetchInstaller(target.url, {
+        const response = await this.#fetchInstaller(target.url, {
           redirect: "error",
           signal: controller.signal,
         });
+        installer = await boundedBody(response, controller.signal);
       } finally {
         clearTimeout(timeout);
       }
-      const installer = await boundedBody(response);
       directory = await this.#makeTemporaryDirectory();
       const path = join(directory, target.filename);
       await writeFile(path, installer, { flag: "wx", mode: 0o700 });

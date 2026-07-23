@@ -216,4 +216,35 @@ describe("DuckDB UI process runner", () => {
     });
     expect(spawnProcess).not.toHaveBeenCalled();
   });
+
+  it("keeps the installer timeout active while streaming the response body", async () => {
+    const root = await mkdtemp(join(tmpdir(), "klopsi-duckdb-runner-timeout-"));
+    temporaryDirectories.push(root);
+    const spawnProcess = vi.fn<SpawnDuckDbProcess>((command) =>
+      command === "sh"
+        ? fakeChild({ interactive: true })
+        : fakeChild({ stdout: `v${DUCKDB_CLI_VERSION} test\n` }),
+    );
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("#!/bin/sh\n"));
+        setTimeout(() => controller.close(), 100);
+      },
+    });
+    const runner = new ProcessDuckDbUiRunner({
+      home: root,
+      env: {},
+      platform: "linux",
+      arch: "x64",
+      installerTimeoutMs: 5,
+      fetchInstaller: async () => new Response(body),
+      spawnProcess,
+    });
+
+    await expect(runner.install()).rejects.toMatchObject({
+      code: "DUCKDB_CLI_INSTALL_FAILED",
+      exitCode: 5,
+    });
+    expect(spawnProcess).not.toHaveBeenCalled();
+  });
 });
