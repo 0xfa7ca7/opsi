@@ -13,7 +13,7 @@ A catalogue request flows CLI → `KlopsiClient` → `ProviderRegistry` → sele
 Storage owns the DuckDB-agnostic derived-artifact policy: 30-day sliding expiry, once-daily touch throttling, expired-first/LRU pruning, and a default 10 GB derived-only budget. Data-engine owns writable staging, structural verification, and prepared read-only execution. Core coordinates lookup, single-builder publication, fallback, and `hit|miss|bypass` metadata. Cache objects are rebuildable performance artifacts, not a user database or an offline-content guarantee.
 
 Normal `dataset list` is the exception to the direct provider flow. A scheduled GitHub Actions
-publisher in the public `0xfa7ca7/klopsi` source repository traverses OPSI every six hours, validates and
+publisher in the public `0xfa7ca7/klopsi` source repository traverses OPSI once per day, validates and
 deterministically projects the catalogue to `id`, `title`, and `name`, then uses a
 repository-scoped deploy key to force-push only the generated site beneath `klopsi/` on the public,
 data-only `0xfa7ca7/0xfa7ca7.github.io` repository's `gh-pages` branch. Branch-based GitHub Pages
@@ -31,7 +31,7 @@ This is a static trust boundary, not an application server. GitHub Pages availab
 scheduled GitHub Actions publication are external dependencies and do not provide a hard uptime
 guarantee for this project. A valid fresh local cache permits offline use during an outage;
 missing, invalid, or stale cache state fails closed. See the
-[catalogue service operations guide](catalogue-service.md) for the six-hour publication,
+[catalogue service operations guide](catalogue-service.md) for the daily publication,
 48-hour immutable retention, branch-based Pages setup, deploy-key rotation, public verification,
 and recovery procedure.
 
