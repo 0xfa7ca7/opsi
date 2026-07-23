@@ -242,6 +242,24 @@ export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
     ],
   ),
   leaf(
+    "duckdb open",
+    "Open tabular data in DuckDB UI",
+    [argument("<input>", "local path or canonical resource reference")],
+    [
+      option("--sheet <name>", "XLSX sheet name"),
+      option("--entry <path>", "ZIP data entry path"),
+      option("--record-path <path>", "XML record element path"),
+      option("--install", "install the optional DuckDB CLI when unavailable"),
+      ...NETWORK_OPTIONS,
+    ],
+  ),
+  leaf(
+    "duckdb install",
+    "Install the optional DuckDB CLI",
+    [],
+    [option("--yes", "authorize the official DuckDB installer")],
+  ),
+  leaf(
     "service inspect",
     "Inspect a read-only WFS service",
     [argument("<resource>", "canonical WFS resource reference")],
@@ -360,6 +378,7 @@ const GROUP_DESCRIPTIONS: Readonly<Record<string, string>> = {
   cache: "Inspect and maintain the local cache",
   provenance: "Inspect and verify artifact provenance",
   service: "Inspect read-only WFS services",
+  duckdb: "Open data in DuckDB UI",
   config: "Inspect and update user configuration",
   agent: "Set up AI agent integrations",
 };

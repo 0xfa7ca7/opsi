@@ -14,6 +14,15 @@ export interface CliContext {
   readonly renderer?: { write(data: unknown, meta?: Readonly<Record<string, unknown>>): void };
   readonly openUrl?: (url: string) => Promise<void>;
 }
+export interface DuckDbCliInfo {
+  readonly executable: string;
+  readonly version: string;
+}
+export interface DuckDbUiRunner {
+  inspect(): Promise<DuckDbCliInfo | undefined>;
+  install(): Promise<DuckDbCliInfo>;
+  open(info: DuckDbCliInfo, databasePath: string): Promise<DuckDbCliInfo>;
+}
 export interface ProgramDependencies {
   readonly catalogue?: {
     list(options?: { readonly refresh?: boolean }): Promise<{
@@ -26,6 +35,7 @@ export interface ProgramDependencies {
       readonly source: "snapshot-cache" | "snapshot-remote";
     }>;
   };
+  readonly duckDbUiRunner?: DuckDbUiRunner;
 }
 export declare function createProgram(
   context: CliContext,
@@ -36,4 +46,5 @@ export declare const VERSION: string;
 export declare function runCli(
   argv: readonly string[],
   io: CliIo,
+  dependencies?: ProgramDependencies,
 ): Promise<0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8>;

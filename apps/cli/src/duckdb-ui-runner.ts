@@ -58,7 +58,7 @@ interface InstallerTarget {
   readonly installedExecutable: (home: string) => string;
 }
 
-function unavailable(cause?: unknown): KlopsiError {
+export function duckDbCliUnavailable(cause?: unknown): KlopsiError {
   return new KlopsiError({
     code: "DUCKDB_CLI_UNAVAILABLE",
     message: "The optional DuckDB CLI is unavailable.",
@@ -209,10 +209,10 @@ export class ProcessDuckDbUiRunner implements DuckDbUiRunner {
       result = await this.#run(executable, ["-version"], { capture: true });
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-      throw unavailable(error);
+      throw duckDbCliUnavailable(error);
     }
     const version = result.stdout.trim();
-    if (result.exitCode !== 0 || version.length === 0) throw unavailable();
+    if (result.exitCode !== 0 || version.length === 0) throw duckDbCliUnavailable();
     return { executable, version };
   }
 
