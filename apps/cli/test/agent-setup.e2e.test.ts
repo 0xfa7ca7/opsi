@@ -53,7 +53,7 @@ describe("agent setup", () => {
     expect(output).toContain("Setup preview");
     expect(output).toContain("No files will be changed");
     expect(output).toContain("Detected agents will be selected during installation");
-    expect(output).toContain("13 KLOPSI skills");
+    expect(output).toContain("14 KLOPSI skills");
     expect(output).toContain("klopsi agent setup --yes");
     expect(output).not.toMatch(/^installer\s+scope\s+selection/mu);
     expect(value.stderr).toEqual([]);
@@ -241,7 +241,7 @@ describe("agent setup", () => {
     expect(value.stderr.join("")).toContain("Detected agents");
     expect(value.stderr.join("")).toContain("Codex");
     expect(value.stderr.join("")).toContain("Claude Code");
-    expect(value.stderr.join("")).toContain("13 KLOPSI skills");
+    expect(value.stderr.join("")).toContain("14 KLOPSI skills");
     expect(confirm).toHaveBeenCalledWith("Install KLOPSI skills for these agents?");
     expect(runner.run).toHaveBeenCalledWith(
       expect.objectContaining({

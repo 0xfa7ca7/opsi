@@ -35,6 +35,9 @@ import { SkillsAgentInstallerRunner } from "./agent-installer-runner.js";
 import { PinnedAgentHostRegistry, type AgentHostRegistry } from "./agent-hosts.js";
 import { renderOnboarding } from "./onboarding.js";
 import { createPresentation } from "./presentation.js";
+import { homedir } from "node:os";
+import { registerDuckDbCommand } from "./commands/duckdb.js";
+import { ProcessDuckDbUiRunner, type DuckDbUiRunner } from "./duckdb-ui-runner.js";
 
 function requestInterval(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
@@ -101,6 +104,7 @@ export interface ProgramDependencies {
   readonly catalogue?: Pick<CatalogueSnapshotClient, "list">;
   readonly agentInstallerRunner?: AgentInstallerRunner;
   readonly agentHostRegistry?: AgentHostRegistry;
+  readonly duckDbUiRunner?: DuckDbUiRunner;
 }
 
 export function createProgram(
@@ -159,6 +163,16 @@ export function createProgram(
   registerValidateCommand(program, context, client);
   registerConvertCommand(program, context, client);
   registerQueryCommand(program, context, client);
+  registerDuckDbCommand(
+    program,
+    context,
+    client,
+    dependencies.duckDbUiRunner ??
+      new ProcessDuckDbUiRunner({
+        home: context.io.home ?? homedir(),
+        env: context.io.env ?? process.env,
+      }),
+  );
   registerServiceCommand(program, context, client);
   registerConfigCommand(program, context);
   registerDoctorCommand(program, context, client);

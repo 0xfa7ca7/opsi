@@ -10,6 +10,15 @@ Use Node.js `>=24.0.0` and npm compatible with that Node release. Required relea
 
 For a project-local installation run `npm install klopsi` and invoke `npx klopsi`; TypeScript/JavaScript consumers import `{ KlopsiClient, ProviderRegistry }` from `klopsi/sdk`. The SDK declarations intentionally require no private workspace, Zod, or DuckDB type package and compile when optional dependencies are omitted.
 
+## DuckDB dependencies
+
+KLOPSI uses two separate optional DuckDB components:
+
+- `@duckdb/node-api` is the optional npm native binding used to inspect, validate, convert, query, and stage tabular data. npm normally selects its platform package automatically. Omitting optional dependencies keeps catalogue, configuration, completion, and other non-native commands available.
+- The external DuckDB CLI provides DuckDB UI and is needed only for `klopsi duckdb open`. It is not installed during `npm install`, startup, `doctor`, or any ordinary data command.
+
+If `duckdb` is already on `PATH`, KLOPSI uses it. Otherwise run `klopsi duckdb install --yes`, or use `klopsi duckdb open <input> --install` to authorize installation and opening in one step. KLOPSI pins the compatible CLI version, downloads only DuckDB's official HTTPS installer, bounds the installer response to 1 MiB, executes it from an owner-only temporary directory without shell interpolation, verifies the resulting executable, and removes the temporary installer. Automatic installation supports Linux x64, macOS arm64, and Windows x64; other targets can install the CLI manually from DuckDB's official installation guide.
+
 ## Catalogue availability and offline use
 
 `klopsi dataset list` uses a compact static catalogue by default and supports the snapshot fields
@@ -33,4 +42,4 @@ Download `klopsi-<version>.tgz` and `SHA256SUMS` from the GitHub Release, then r
 
 ## Troubleshooting
 
-`DUCKDB_UNAVAILABLE` means npm omitted or could not select the native binding. Confirm the supported OS/architecture, Node 24, a glibc Linux distribution, and that install did not use `--omit=optional`; remove `node_modules`/lock as appropriate and reinstall. Catalogue/config/completion remain available meanwhile. Permission failures identify cache/temp paths; use `klopsi config path`, verify ownership, or set `KLOPSI_CACHE_DIR`/`KLOPSI_DOWNLOAD_DIR`. Snapshot-unavailable or stale errors should be checked against cache freshness and the [service operations guide](catalogue-service.md); use `--live` only when direct current OPSI access is intended. Proxy/DNS failures appear only in online doctor/catalogue commands. KLOPSI CLI never needs an AI key and sends no telemetry.
+`DUCKDB_UNAVAILABLE` means npm omitted or could not select the `@duckdb/node-api` native binding. Confirm the supported OS/architecture, Node 24, a glibc Linux distribution, and that install did not use `--omit=optional`; remove `node_modules`/lock as appropriate and reinstall. `DUCKDB_CLI_UNAVAILABLE` means the separate external DuckDB CLI is not installed; run `klopsi duckdb install --yes` or add `--install` to `duckdb open`. `DUCKDB_CLI_INSTALL_UNSUPPORTED` identifies a platform without automatic CLI installation, while `DUCKDB_CLI_INSTALL_FAILED` preserves a bounded diagnostic from the official installer. Catalogue/config/completion remain available meanwhile. Permission failures identify cache/temp paths; use `klopsi config path`, verify ownership, or set `KLOPSI_CACHE_DIR`/`KLOPSI_DOWNLOAD_DIR`. Snapshot-unavailable or stale errors should be checked against cache freshness and the [service operations guide](catalogue-service.md); use `--live` only when direct current OPSI access is intended. Proxy/DNS failures appear only in online doctor/catalogue commands. KLOPSI CLI never needs an AI key and sends no telemetry.

@@ -30,6 +30,7 @@ const EXPECTED_SKILLS = [
   "klopsi-download",
   "klopsi-validation",
   "klopsi-analysis",
+  "klopsi-duckdb-ui",
   "klopsi-services",
   "klopsi-provenance",
   "klopsi-static-dashboard",
@@ -79,6 +80,13 @@ const EXPECTED_INTERACTIVE_DASHBOARD_CAPABILITY_IDS = [
   "initial-overview",
   "linked-interaction",
   "verification",
+] as const;
+
+const EXPECTED_DUCKDB_UI_CAPABILITY_IDS = [
+  "exploration-fit",
+  "open-prepared-data",
+  "optional-installation",
+  "handoff",
 ] as const;
 
 const REQUIRED_GUIDANCE = {
@@ -138,6 +146,14 @@ const REQUIRED_GUIDANCE = {
     "--output",
     "--spreadsheet-safe",
     "provenance verify",
+  ],
+  "klopsi-duckdb-ui": [
+    "exploratory",
+    "table `data`",
+    "read-only",
+    "--install",
+    "static HTML",
+    "interactive HTML",
   ],
   "klopsi-provenance": ["provenance show", "provenance verify", "digest mismatch", "Do not mutate"],
 } as const;
@@ -239,6 +255,19 @@ describe("agent skill registry", () => {
       "klopsi-services",
       "klopsi-provenance",
     ]);
+  });
+
+  it("registers DuckDB UI as a command skill for exploratory visual analysis", () => {
+    const definition = AGENT_SKILLS.find((entry) => entry.name === "klopsi-duckdb-ui");
+
+    expect(definition).toMatchObject({
+      kind: "command",
+      commands: ["duckdb open", "duckdb install"],
+      related: ["klopsi-analysis", "klopsi-static-dashboard", "klopsi-interactive-dashboard"],
+    });
+    expect(definition?.capabilities.map((capability) => capability.id)).toEqual(
+      EXPECTED_DUCKDB_UI_CAPABILITY_IDS,
+    );
   });
 
   it("uses concise discovery triggers for every skill description", () => {
@@ -490,7 +519,15 @@ describe("agent skill rendering", () => {
     }
     expect(content).toContain("Generate installable Agent Skills");
     expect(router?.related).toEqual(
-      expect.arrayContaining(["klopsi-static-dashboard", "klopsi-interactive-dashboard"]),
+      expect.arrayContaining([
+        "klopsi-duckdb-ui",
+        "klopsi-static-dashboard",
+        "klopsi-interactive-dashboard",
+      ]),
+    );
+    expect(content).toContain("### Explore prepared data in DuckDB UI");
+    expect(content).toContain(
+      "Use `klopsi-duckdb-ui` for a local exploratory session over the staged `data` table.",
     );
     expect(content).toContain("### Analyze and present data");
     expect(content).toContain(

@@ -48,7 +48,7 @@ describe("generate-skills", () => {
 
     expect(JSON.parse(value.stdout.join(""))).toMatchObject({
       data: {
-        count: 13,
+        count: 14,
         outputDirectory: join(value.cwd, "skills"),
         skills: expect.arrayContaining(["klopsi", "klopsi-analysis", "klopsi-shared"]),
       },
@@ -133,7 +133,7 @@ describe("generate-skills", () => {
       "# KLOPSI orchestrator",
     );
     expect(JSON.parse(value.stdout.join(""))).toMatchObject({
-      data: { count: 13, outputDirectory: output },
+      data: { count: 14, outputDirectory: output },
     });
   });
 

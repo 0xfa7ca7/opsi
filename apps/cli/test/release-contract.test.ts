@@ -252,6 +252,32 @@ describe("documentation contract", () => {
     registerCommandManifest(program);
     const service = program.commands.find((command) => command.name() === "service");
     expect(service?.description()).toBe("Inspect read-only WFS services");
+    const duckdb = program.commands.find((command) => command.name() === "duckdb");
+    expect(duckdb?.description()).toBe("Open data in DuckDB UI");
+  });
+
+  it("documents the optional exploratory DuckDB UI dependency and security boundary", async () => {
+    const documents = {
+      readme: await text("README.md"),
+      packagedReadme: await text("apps/cli/README.md"),
+      commands: await text("docs/commands.md"),
+      installation: await text("docs/installation.md"),
+      security: await text("docs/security.md"),
+    };
+
+    for (const document of [documents.readme, documents.packagedReadme]) {
+      expect(document).toContain("klopsi duckdb open ./downloads/data.csv");
+      expect(document).toContain("klopsi duckdb open ./results.parquet --install");
+      expect(document).toContain("klopsi duckdb install --yes");
+      expect(document).toContain("table `data`");
+    }
+    expect(documents.commands).toContain("### `duckdb open`");
+    expect(documents.commands).toContain("### `duckdb install`");
+    expect(documents.commands).toContain("Closing DuckDB UI");
+    expect(documents.installation).toContain("external DuckDB CLI");
+    expect(documents.installation).toContain("`@duckdb/node-api`");
+    expect(documents.security).toContain("DuckDB UI");
+    expect(documents.security).toContain("not the bounded `klopsi query` sandbox");
   });
 
   it("documents installable Agent Skills and their generated release contract", async () => {
@@ -259,6 +285,7 @@ describe("documentation contract", () => {
     for (const expected of [
       "npx skills add https://github.com/0xfa7ca7/klopsi",
       "npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-analysis",
+      "npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-duckdb-ui",
       "npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-static-dashboard",
       "npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-interactive-dashboard",
       "klopsi generate-skills",
@@ -294,6 +321,7 @@ describe("documentation contract", () => {
     expect(packagedReadme).toContain("self-contained offline HTML");
     expect(packagedReadme).toContain("tree/main/skills/klopsi-static-dashboard");
     expect(packagedReadme).toContain("tree/main/skills/klopsi-interactive-dashboard");
+    expect(packagedReadme).toContain("tree/main/skills/klopsi-duckdb-ui");
     expect(packagedReadme).toContain("issues/28");
 
     const changelog = await text("apps/cli/CHANGELOG.md");

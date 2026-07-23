@@ -21,6 +21,7 @@ Use this skill as the main entry point for Slovenian public-data work with the `
 | Download selected provider resources through the CLI's bounded secure downloader. | [klopsi-download](../klopsi-download/SKILL.md) |
 | Validate data content or normalized metadata and explain actionable issues. | [klopsi-validation](../klopsi-validation/SKILL.md) |
 | Analyze tabular inputs with bounded read-only SQL or convert supported formats. | [klopsi-analysis](../klopsi-analysis/SKILL.md) |
+| Open a resolved tabular input as the read-only `data` table in DuckDB UI for local exploratory visual analysis. | [klopsi-duckdb-ui](../klopsi-duckdb-ui/SKILL.md) |
 | Access WFS feature services through bounded, schema-validated KLOPSI workflows. | [klopsi-services](../klopsi-services/SKILL.md) |
 | Inspect recorded lineage and verify an artifact against its digest. | [klopsi-provenance](../klopsi-provenance/SKILL.md) |
 | Turn a prepared local artifact into a self-contained semantic HTML and inline-SVG board that remains useful offline and without JavaScript. | [klopsi-static-dashboard](../klopsi-static-dashboard/SKILL.md) |
@@ -43,6 +44,13 @@ Do not pass `/klopsi`, `@klopsi`, or `$klopsi` to the shell. Those are host-spec
 1. Inspect the canonical WFS resource, list its layers, and inspect the selected layer schema.
 2. Preview or count a finite selection before exporting a bounded CSV; preserve the CLI's network safeguards and never send WFS transactions.
 3. Verify the exported artifact with provenance.
+
+### Explore prepared data in DuckDB UI
+
+1. Inspect or validate the selected acquired or computed artifact and verify available provenance.
+2. Use `klopsi-duckdb-ui` for a local exploratory session over the staged `data` table.
+3. Install the optional external DuckDB CLI only after explicit authorization; DuckDB UI is not the bounded `klopsi query` sandbox.
+4. Persist reproducible results with a bounded query export, or continue to a durable HTML presentation workflow.
 
 ### Analyze and present data
 

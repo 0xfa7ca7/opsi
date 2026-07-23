@@ -50,7 +50,7 @@ Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue, inspect and downloa
 - Node.js 24 or later
 - Linux x64 with glibc, macOS arm64, or Windows x64 for supported releases
 
-DuckDB is an optional native dependency. Catalogue, configuration, and completion commands remain available when a compatible binding cannot be installed; native data commands return `DUCKDB_UNAVAILABLE` with remediation guidance.
+KLOPSI's `@duckdb/node-api` binding is an optional native dependency. Catalogue, configuration, and completion commands remain available when a compatible binding cannot be installed; native data commands return `DUCKDB_UNAVAILABLE` with remediation guidance. The external DuckDB CLI is a separate optional dependency used only by `klopsi duckdb`.
 
 ### Install from npm
 
@@ -113,6 +113,14 @@ klopsi query ./downloads/data.csv \
   --json
 ```
 
+Open the same prepared table `data` in DuckDB UI. Install the external DuckDB CLI explicitly when it is not already available:
+
+```sh
+klopsi duckdb open ./downloads/data.csv
+klopsi duckdb open ./results.parquet --install
+klopsi duckdb install --yes
+```
+
 Convert the resource to Parquet and verify its provenance:
 
 ```sh
@@ -137,6 +145,7 @@ Run `klopsi --help` or read the [complete command reference](docs/commands.md) f
 | Download data                 | `klopsi download <ids...>`                                      |
 | Validate data or metadata     | `klopsi validate <input>`                                       |
 | Query tabular data            | `klopsi query <input> --sql <statement>`                        |
+| Explore data in DuckDB UI     | `klopsi duckdb open <input>`                                    |
 | Convert formats               | `klopsi convert <input> --to <format> --output <path>`          |
 | Verify provenance             | `klopsi provenance verify <path>`                               |
 | Inspect local state           | `klopsi cache info` / `klopsi config list`                      |
@@ -150,7 +159,7 @@ Run `klopsi --help` or read the [complete command reference](docs/commands.md) f
 
 `klopsi` can inspect and validate resilient CSV/TSV-style data (UTF-8/UTF-16, comma/tab/semicolon/pipe), JSON, NDJSON, XLSX, Parquet, bounded XML records, and one safely selected data entry inside a ZIP. Use `--entry` for ambiguous archives and `--record-path` for ambiguous XML. Read-only WFS workflows expose layers, schemas, bounded previews, counts, and CSV exports without leaving KLOPSI.
 
-The first query for a source imports it into a rebuildable DuckDB stage; later queries over identical bytes and the same XLSX sheet reuse that stage. JSON query metadata reports `cache.status` as `miss`, `hit`, or `bypass`. The derived cache defaults to a 10 GB budget and 30-day sliding lifetime, and its entries are visible through `klopsi cache info|list|verify|prune|clear`. Derived eviction never removes raw downloads or catalogue data merely to satisfy the DuckDB budget.
+The first query or DuckDB UI session for a source imports it into a rebuildable DuckDB stage with one table named `data`; later operations over identical bytes and the same XLSX sheet reuse that stage. JSON metadata reports `cache.status` as `miss`, `hit`, or `bypass`. The derived cache defaults to a 10 GB budget and 30-day sliding lifetime, and its entries are visible through `klopsi cache info|list|verify|prune|clear`. Derived eviction never removes raw downloads or catalogue data merely to satisfy the DuckDB budget.
 
 | Capability | Behavior                                                                        |
 | ---------- | ------------------------------------------------------------------------------- |
@@ -198,6 +207,7 @@ Or install only a focused skill and its `klopsi-shared` prerequisite:
 
 ```sh
 npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-analysis
+npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-duckdb-ui
 npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-shared
 ```
 
@@ -251,7 +261,7 @@ Offline commands never make network requests. Operations that require uncached m
 
 ## Security
 
-Remote content is subject to HTTPS, DNS, redirect, timeout, and download-size controls. Queries run with DuckDB external access and extension loading disabled. Downloads, conversions, and query exports publish atomically and record provenance.
+Remote content is subject to HTTPS, DNS, redirect, timeout, and download-size controls. Bounded `klopsi query` operations run with DuckDB external access and extension loading disabled. DuckDB UI is an explicitly launched local exploratory environment and is outside that query sandbox; KLOPSI opens only an invocation-local staged database read-only. Downloads, conversions, and query exports publish atomically and record provenance.
 
 Read the [security model](docs/security.md) and [security policy](SECURITY.md) before enabling network overrides or reporting a vulnerability.
 

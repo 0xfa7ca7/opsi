@@ -72,6 +72,18 @@ Syntax: `klopsi convert <input> --to <csv|tsv|json|ndjson|xlsx|parquet> --output
 
 Syntax: `klopsi query <input> --sql <statement> [options]`. Only one read-only SELECT, WITH…SELECT, or VALUES statement is accepted. Options include `--limit`, `--timeout-ms`, `--sheet`, `--entry`, `--record-path`, `--output`, `--force`, and network overrides. User SQL runs against KLOPSI-owned table `data` with row/time/memory/thread/cell/output bounds and external access disabled. Example: `klopsi query archive.zip --entry rows.csv --sql "select * from data limit 2" --json`.
 
+### `duckdb open`
+
+Syntax: `klopsi duckdb open <input> [options]`. Resolves any tabular input accepted by `query`, including provider resources and local CSV, TSV, JSON, NDJSON, XLSX, Parquet, XML, or ZIP selections, then opens its KLOPSI-owned table `data` in DuckDB UI. Use `--sheet`, `--entry`, or `--record-path` to disambiguate compound inputs. The invocation-local staged database is attached read-only and remains leased until DuckDB UI exits. Closing DuckDB UI releases and removes that invocation-local database. The canonical derived cache remains immutable and reusable; the selected source and any adjacent provenance sidecar are not modified.
+
+The external DuckDB CLI is optional. When it is unavailable, the command exits 5 with `DUCKDB_CLI_UNAVAILABLE`; add `--install` to explicitly authorize the official installer for that invocation. `--allow-insecure-http` and `--allow-private-network` retain their normal per-invocation remote-content meaning. Structured output reports the source, table name, CLI version, whether installation occurred, and stage-cache status after the UI closes. Example: `klopsi duckdb open ./downloads/data.csv`.
+
+DuckDB UI is a local, full SQL exploration environment for browsing tables, summaries, and temporary charts. It is not the bounded `klopsi query` sandbox. Use `klopsi query` for reproducible, policy-bounded SQL and durable exports.
+
+### `duckdb install`
+
+Syntax: `klopsi duckdb install [--yes]`. Reports the existing external DuckDB CLI without changing it. When the CLI is absent, `--yes` is required to authorize DuckDB's official installer; otherwise the command exits 2 with `CONFIRMATION_REQUIRED`. Automatic installation is supported on Linux x64, macOS arm64, and Windows x64 and verifies that the pinned CLI is usable before success. Example: `klopsi duckdb install --yes`.
+
 ### `service inspect`
 
 Syntax: `klopsi service inspect <resource>`. Inspects a canonical WFS resource and reports the negotiated service version, supported operations, output formats, and advertised layers. The remote-content overrides apply for one invocation. Example: `klopsi service inspect opsi:resource:ID --json`.

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   detectFormat,
   stageTabularInput,
@@ -41,6 +41,10 @@ export type QueryDatabaseExecutionOptions = Omit<
   PreparedQueryExecutionOptions,
   "databasePath" | "invocationDirectory"
 > & { readonly sheet?: string; readonly recordPath?: string };
+export type QueryDatabasePreparationOptions = Pick<
+  QueryDatabaseExecutionOptions,
+  "sheet" | "recordPath" | "signal"
+>;
 
 export interface QueryDatabaseCacheOptions {
   readonly derived?: DerivedCache;
@@ -55,6 +59,15 @@ export interface QueryDatabaseCacheOptions {
 export interface QueryDatabaseResult extends QueryResult {
   readonly cache: QueryCacheMetadata;
   readonly warnings: readonly QueryCacheWarning[];
+}
+
+export interface QueryDatabaseMetadata {
+  readonly cache: QueryCacheMetadata;
+  readonly warnings: readonly QueryCacheWarning[];
+}
+
+export interface QueryDatabaseLeaseResult<T> extends QueryDatabaseMetadata {
+  readonly value: T;
 }
 
 async function sourceDigest(input: DataInput, path: string): Promise<string> {
@@ -89,13 +102,15 @@ function cleanupFailure(failures: readonly unknown[], operationError: unknown): 
 export class QueryDatabaseCache {
   constructor(private readonly options: QueryDatabaseCacheOptions) {}
 
-  async execute(
+  async withDatabase<T>(
     source: DataInput,
-    options: QueryDatabaseExecutionOptions,
-  ): Promise<QueryDatabaseResult> {
+    options: QueryDatabasePreparationOptions,
+    operation: (databasePath: string, metadata: QueryDatabaseMetadata) => Promise<T>,
+  ): Promise<QueryDatabaseLeaseResult<T>> {
     let directory: string | undefined;
     let stage: TabularStage | undefined;
-    let result: QueryResult | undefined;
+    let result: T | undefined;
+    let operationCompleted = false;
     let status: QueryCacheStatus = "bypass";
     let operationError: unknown;
     const warnings: QueryCacheWarning[] = [];
@@ -226,20 +241,11 @@ export class QueryDatabaseCache {
         }
       }
 
-      result = await this.options.runner.executePrepared({
-        databasePath,
-        invocationDirectory: directory,
-        sql: options.sql,
-        ...(options.rowLimit === undefined ? {} : { rowLimit: options.rowLimit }),
-        ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
-        ...(options.maxSqlBytes === undefined ? {} : { maxSqlBytes: options.maxSqlBytes }),
-        ...(options.maxColumns === undefined ? {} : { maxColumns: options.maxColumns }),
-        ...(options.maxCellBytes === undefined ? {} : { maxCellBytes: options.maxCellBytes }),
-        ...(options.maxOutputBytes === undefined ? {} : { maxOutputBytes: options.maxOutputBytes }),
-        ...(options.memoryLimit === undefined ? {} : { memoryLimit: options.memoryLimit }),
-        ...(options.threads === undefined ? {} : { threads: options.threads }),
-        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      result = await operation(databasePath, {
+        cache: { status, kind: "duckdb-stage" },
+        warnings,
       });
+      operationCompleted = true;
     } catch (error) {
       operationError = error;
     } finally {
@@ -262,12 +268,35 @@ export class QueryDatabaseCache {
       if (failures.length > 0) operationError = cleanupFailure(failures, operationError);
     }
     if (operationError !== undefined) throw operationError;
-    if (result === undefined)
+    if (!operationCompleted)
       throw new KlopsiError({
         code: "QUERY_FAILED",
-        message: "The query completed without a result.",
+        message: "The staged database operation completed without a result.",
         exitCode: EXIT_CODES.QUERY_FAILURE,
       });
-    return { ...result, cache: { status, kind: "duckdb-stage" }, warnings };
+    return { value: result as T, cache: { status, kind: "duckdb-stage" }, warnings };
+  }
+
+  async execute(
+    source: DataInput,
+    options: QueryDatabaseExecutionOptions,
+  ): Promise<QueryDatabaseResult> {
+    const leased = await this.withDatabase(source, options, async (databasePath) =>
+      this.options.runner.executePrepared({
+        databasePath,
+        invocationDirectory: dirname(databasePath),
+        sql: options.sql,
+        ...(options.rowLimit === undefined ? {} : { rowLimit: options.rowLimit }),
+        ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+        ...(options.maxSqlBytes === undefined ? {} : { maxSqlBytes: options.maxSqlBytes }),
+        ...(options.maxColumns === undefined ? {} : { maxColumns: options.maxColumns }),
+        ...(options.maxCellBytes === undefined ? {} : { maxCellBytes: options.maxCellBytes }),
+        ...(options.maxOutputBytes === undefined ? {} : { maxOutputBytes: options.maxOutputBytes }),
+        ...(options.memoryLimit === undefined ? {} : { memoryLimit: options.memoryLimit }),
+        ...(options.threads === undefined ? {} : { threads: options.threads }),
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    );
+    return { ...leased.value, cache: leased.cache, warnings: leased.warnings };
   }
 }
