@@ -23,6 +23,8 @@ Use this skill as the main entry point for Slovenian public-data work with the `
 | Analyze tabular inputs with bounded read-only SQL or convert supported formats. | [klopsi-analysis](../klopsi-analysis/SKILL.md) |
 | Access WFS feature services through bounded, schema-validated KLOPSI workflows. | [klopsi-services](../klopsi-services/SKILL.md) |
 | Inspect recorded lineage and verify an artifact against its digest. | [klopsi-provenance](../klopsi-provenance/SKILL.md) |
+| Turn a prepared local artifact into a self-contained semantic HTML and inline-SVG board that remains useful offline and without JavaScript. | [klopsi-static-dashboard](../klopsi-static-dashboard/SKILL.md) |
+| Turn a bounded prepared local artifact into one offline exploratory HTML file whose useful initial overview and linked interactions share a single in-memory data flow. | [klopsi-interactive-dashboard](../klopsi-interactive-dashboard/SKILL.md) |
 | Manage local cache and validated non-secret CLI configuration. | [klopsi-local-state](../klopsi-local-state/SKILL.md) |
 | Generate installable Agent Skills, diagnose the CLI environment, and expose providers and shell integration. | [klopsi-diagnostics](../klopsi-diagnostics/SKILL.md) |
 
@@ -42,11 +44,18 @@ Do not pass `/klopsi`, `@klopsi`, or `$klopsi` to the shell. Those are host-spec
 2. Preview or count a finite selection before exporting a bounded CSV; preserve the CLI's network safeguards and never send WFS transactions.
 3. Verify the exported artifact with provenance.
 
+### Analyze and present data
+
+1. Prepare a bounded local artifact with analysis or WFS export, then verify available provenance.
+2. Choose `klopsi-static-dashboard` for a concise printable board or `klopsi-interactive-dashboard` for bounded exploration across linked views.
+3. Confirm the presentation language, color treatment, and one to three data-specific questions before creating HTML.
+4. Generate one self-contained offline HTML file, disclose reductions and verification status, and run the shared dashboard verifier before handoff.
+
 ### Refresh an agent installation
 
 1. Run `klopsi agent setup --dry-run` to inspect the planned selection and repertoire.
 2. With explicit authorization, select the intended host with `--agent <id>` and use `--yes` for non-interactive installation.
-3. Confirm the result includes the current repertoire, including `klopsi-services`; use `generate-skills` only when a portable skill tree is needed rather than an installation.
+3. Confirm the result includes the complete reported repertoire; use `generate-skills` only when a portable skill tree is needed rather than an installation.
 
 ## Routing rules
 

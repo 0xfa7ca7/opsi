@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'"
+    />
+    <title>Verified dashboard fixture</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #17202a;
+        --muted: #52606d;
+        --paper: #f4f7f8;
+        --card: #fff;
+        --line: #d7dce2;
+        --accent: #075985;
+        --accent-soft: #dff2fa;
+        --highlight: #a33a18;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+      }
+      main {
+        width: min(1000px, calc(100% - 2rem));
+        margin: 0 auto;
+        padding: 2rem 0 3rem;
+      }
+      h1,
+      h2,
+      p {
+        margin-top: 0;
+      }
+      h1 {
+        font-size: clamp(2rem, 7vw, 4rem);
+        line-height: 1.05;
+      }
+      .lede {
+        max-width: 68ch;
+        font-size: 1.1rem;
+      }
+      .panel {
+        margin-top: 1rem;
+        padding: 1rem;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--card);
+        box-shadow: 0 8px 24px rgb(23 32 42 / 7%);
+      }
+      .filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: end;
+        gap: 0.75rem;
+      }
+      .control {
+        display: grid;
+        flex: 1 1 12rem;
+        gap: 0.25rem;
+      }
+      label {
+        font-weight: 700;
+      }
+      input,
+      select,
+      button {
+        min-height: 44px;
+        padding: 0.55rem 0.7rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        color: inherit;
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+        font-weight: 700;
+      }
+      :focus-visible {
+        outline: 3px solid var(--highlight);
+        outline-offset: 3px;
+      }
+      .count {
+        margin-bottom: 0;
+        color: var(--muted);
+      }
+      .view-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+      }
+      .metric {
+        display: block;
+        font-size: 2rem;
+        font-variant-numeric: tabular-nums;
+      }
+      .empty {
+        border: 2px dashed var(--line);
+      }
+      [hidden] {
+        display: none !important;
+      }
+      .table-wrap {
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+      }
+      caption {
+        padding-bottom: 0.75rem;
+        text-align: left;
+        font-weight: 700;
+      }
+      th,
+      td {
+        padding: 0.65rem;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+      }
+      th {
+        background: var(--accent-soft);
+      }
+      th button {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        text-align: left;
+      }
+      @media (max-width: 620px) {
+        .view-grid {
+          grid-template-columns: 1fr;
+        }
+        .control {
+          flex-basis: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p>Interactive evidence dashboard</p>
+        <h1>Verified dashboard fixture</h1>
+        <p class="lede" data-klopsi-summary>
+          Explore the two fixture rows by category or text search; category A has the larger value.
+        </p>
+      </header>
+
+      <section class="panel" data-klopsi-filter-region aria-labelledby="filter-heading">
+        <h2 id="filter-heading">Explore the data</h2>
+        <form class="filters">
+          <div class="control">
+            <label for="category-filter">Category</label>
+            <select id="category-filter" data-filter-field="category">
+              <option value="">All categories</option>
+              <option value="A">Category A</option>
+              <option value="B">Category B</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="search-filter">Search category</label>
+            <input id="search-filter" type="search" data-filter-field="query" />
+          </div>
+          <button type="button" data-klopsi-reset>Reset filters</button>
+        </form>
+        <p>
+          Initial state: all categories, blank search, and the detail table sorted by category
+          ascending.
+        </p>
+        <p class="count" aria-live="polite" aria-atomic="true" data-klopsi-record-count>
+          2 of 2 records match.
+        </p>
+      </section>
+
+      <section class="view-grid" aria-label="Linked analytical views">
+        <article class="panel">
+          <h2>Matching rows</h2>
+          <strong class="metric" data-view-count>2</strong>
+          <p>This view and the table use the same filtered row set.</p>
+        </article>
+        <article class="panel">
+          <h2>Comparison</h2>
+          <p data-view-summary>Category A is larger than category B.</p>
+        </article>
+      </section>
+
+      <p class="panel empty" data-klopsi-empty-state hidden>
+        No records match the current filters. Reset filters or broaden the search.
+      </p>
+
+      <section class="panel table-wrap">
+        <h2>Matching detail</h2>
+        <table data-klopsi-detail-table>
+          <caption>
+            Every matching fixture row.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col" aria-sort="ascending">
+                <button type="button" data-sort-field="category" data-sort-label="Category">
+                  Category
+                </button>
+              </th>
+              <th scope="col" aria-sort="none">
+                <button type="button" data-sort-field="value" data-sort-label="Value">
+                  Value (count)
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section class="panel" data-klopsi-disclosures>
+        <h2>Method and disclosures</h2>
+        <p>No aggregation, sampling, projection, exclusion, or geographic inference was applied.</p>
+      </section>
+      <section class="panel" data-klopsi-lineage>
+        <h2>Source verification and lineage</h2>
+        <p>
+          Source: fixture.csv. The fixture digest and verified status are recorded in the manifest.
+        </p>
+      </section>
+    </main>
+    <noscript>
+      JavaScript is disabled. Static summary: category A has value 2 and category B has value 1;
+      category A is larger. No rows were omitted.
+    </noscript>
+    <script id="klopsi-presentation-manifest" type="application/json">
+      {
+        "schemaVersion": "1",
+        "mode": "interactive",
+        "generator": "klopsi-agent-skill",
+        "generatedAt": "2026-07-21T00:00:00.000Z",
+        "title": "Verified dashboard fixture",
+        "sources": [
+          {
+            "identity": "fixture.csv",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "verified": true
+          }
+        ],
+        "transformations": [],
+        "reductions": [],
+        "data": {
+          "originalRows": 2,
+          "presentedRows": 2,
+          "embeddedBytes": 55,
+          "fields": [{ "name": "category", "type": "string", "unit": null }]
+        },
+        "geography": { "kind": "none", "crs": null },
+        "views": [
+          {
+            "id": "summary",
+            "question": "How do categories compare?",
+            "population": "Two fixture rows",
+            "unit": "count",
+            "recordCount": 2,
+            "takeaway": "Category A is larger."
+          },
+          {
+            "id": "table",
+            "question": "What are the exact values?",
+            "population": "Two fixture rows",
+            "unit": "count",
+            "recordCount": 2,
+            "takeaway": "The table preserves exact values."
+          }
+        ]
+      }
+    </script>
+    <!-- prettier-ignore -->
+    <script id="klopsi-presentation-data" type="application/json">[{"category":"A","value":2},{"category":"B","value":1}]</script>
+    <script>
+      (() => {
+        "use strict";
+        const rows = JSON.parse(document.querySelector("#klopsi-presentation-data").textContent);
+        const form = document.querySelector("[data-klopsi-filter-region] form");
+        const resetButton = document.querySelector("[data-klopsi-reset]");
+        const count = document.querySelector("[data-klopsi-record-count]");
+        const viewCount = document.querySelector("[data-view-count]");
+        const viewSummary = document.querySelector("[data-view-summary]");
+        const table = document.querySelector("[data-klopsi-detail-table]");
+        const tableBody = table.querySelector("tbody");
+        const emptyState = document.querySelector("[data-klopsi-empty-state]");
+        const state = {
+          filters: { category: "", query: "" },
+          sortField: "category",
+          sortDirection: "ascending",
+          selection: null,
+        };
+        const initialState = JSON.parse(JSON.stringify(state));
+
+        function readFilters() {
+          for (const control of form.querySelectorAll("[data-filter-field]")) {
+            state.filters[control.dataset.filterField] = control.value;
+          }
+        }
+
+        function getFilteredRows() {
+          const query = state.filters.query.toLocaleLowerCase();
+          const filtered = rows.filter(
+            (row) =>
+              (state.filters.category === "" || row.category === state.filters.category) &&
+              (query === "" || row.category.toLocaleLowerCase().includes(query)),
+          );
+          return filtered.slice().sort((left, right) => {
+            const result = String(left[state.sortField] ?? "").localeCompare(
+              String(right[state.sortField] ?? ""),
+              undefined,
+              { numeric: true },
+            );
+            return state.sortDirection === "ascending" ? result : -result;
+          });
+        }
+
+        function renderCounts(filteredRows) {
+          count.textContent = `${filteredRows.length} of ${rows.length} records match.`;
+          viewCount.textContent = String(filteredRows.length);
+        }
+
+        function renderViews(filteredRows) {
+          viewSummary.textContent =
+            filteredRows.length === 0
+              ? "No comparison is available for the current filters."
+              : filteredRows.length === 1
+                ? `${filteredRows[0].category} is the only matching category.`
+                : "Category A is larger than category B.";
+        }
+
+        function renderTable(filteredRows) {
+          tableBody.replaceChildren();
+          for (const row of filteredRows) {
+            const tableRow = document.createElement("tr");
+            const category = document.createElement("td");
+            const value = document.createElement("td");
+            category.textContent = row.category;
+            value.textContent = String(row.value);
+            tableRow.append(category, value);
+            tableBody.append(tableRow);
+          }
+        }
+
+        function renderEmptyState(filteredRows) {
+          const isEmpty = filteredRows.length === 0;
+          emptyState.hidden = !isEmpty;
+          table.hidden = isEmpty;
+        }
+
+        function renderSortState() {
+          for (const button of document.querySelectorAll("[data-sort-field]")) {
+            const field = button.dataset.sortField;
+            const header = button.closest("th");
+            const direction = field === state.sortField ? state.sortDirection : "none";
+            header.setAttribute("aria-sort", direction);
+            const fieldLabel = button.dataset.sortLabel;
+            const nextDirection = direction === "ascending" ? "descending" : "ascending";
+            button.setAttribute(
+              "aria-label",
+              direction === "none"
+                ? `Sort ${fieldLabel} ascending; currently not sorted`
+                : `Sort ${fieldLabel} ${nextDirection}; currently ${direction}`,
+            );
+          }
+        }
+
+        function update() {
+          const filteredRows = getFilteredRows();
+          renderCounts(filteredRows);
+          renderViews(filteredRows);
+          renderTable(filteredRows);
+          renderEmptyState(filteredRows);
+          renderSortState();
+        }
+
+        form.addEventListener("input", () => {
+          readFilters();
+          update();
+        });
+        form.addEventListener("change", () => {
+          readFilters();
+          update();
+        });
+        for (const sortButton of document.querySelectorAll("[data-sort-field]")) {
+          sortButton.addEventListener("click", () => {
+            const field = sortButton.dataset.sortField;
+            state.sortDirection =
+              state.sortField === field && state.sortDirection === "ascending"
+                ? "descending"
+                : "ascending";
+            state.sortField = field;
+            update();
+          });
+        }
+        resetButton.addEventListener("click", () => {
+          form.reset();
+          state.filters = { ...initialState.filters };
+          state.sortField = initialState.sortField;
+          state.sortDirection = initialState.sortDirection;
+          state.selection = initialState.selection;
+          readFilters();
+          update();
+          form.querySelector("input, select, button")?.focus();
+        });
+        readFilters();
+        update();
+      })();
+    </script>
+  </body>
+</html>

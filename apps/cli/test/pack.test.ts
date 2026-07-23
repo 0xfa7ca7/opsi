@@ -293,13 +293,36 @@ describe("canonical npm tarball", () => {
       ["generate-skills", "--output-dir", generatedSkills, "--json"],
       { cwd: root },
     );
-    expect(JSON.parse(generated.stdout)).toMatchObject({ data: { count: 11 } });
+    expect(JSON.parse(generated.stdout)).toMatchObject({ data: { count: 13 } });
     expect(await readFile(join(generatedSkills, "klopsi", "SKILL.md"), "utf8")).toContain(
       "name: klopsi",
     );
     expect(await readFile(join(generatedSkills, "klopsi-analysis", "SKILL.md"), "utf8")).toContain(
       "klopsi query",
     );
+    expect(
+      await readFile(
+        join(generatedSkills, "klopsi-shared", "scripts", "verify-dashboard.mjs"),
+        "utf8",
+      ),
+    ).toContain("const MAX_HTML_BYTES = 15 * 1024 * 1024;");
+    expect(
+      await readFile(
+        join(generatedSkills, "klopsi-static-dashboard", "assets", "static-board.html"),
+        "utf8",
+      ),
+    ).toContain("{{PRESENTATION_MANIFEST_JSON}}");
+    expect(
+      await readFile(
+        join(
+          generatedSkills,
+          "klopsi-interactive-dashboard",
+          "assets",
+          "interactive-dashboard.html",
+        ),
+        "utf8",
+      ),
+    ).toContain("data-klopsi-filter-region");
     const installer = await execute(
       process.execPath,
       ["--input-type=module", "-e", "console.log(import.meta.resolve('skills/bin/cli.mjs'))"],

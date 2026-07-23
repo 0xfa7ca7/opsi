@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; img-src data:; style-src 'unsafe-inline'">
+  <title>{{TITLE}}</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #52606d;
+      --paper: #f7f5ef;
+      --card: #ffffff;
+      --line: #d7dce2;
+      --accent: #075985;
+      --accent-soft: #dff2fa;
+      --highlight: #a33a18;
+      --color-blue: #075985;
+      --color-blue-soft: #e0f2fe;
+      --color-cyan: #0e7490;
+      --color-cyan-soft: #cffafe;
+      --color-green: #15803d;
+      --color-green-soft: #dcfce7;
+      --color-amber: #b45309;
+      --color-amber-soft: #fef3c7;
+      --color-orange: #c2410c;
+      --color-orange-soft: #ffedd5;
+      --color-magenta: #be185d;
+      --color-magenta-soft: #fce7f3;
+      --color-violet: #6d28d9;
+      --color-violet-soft: #ede9fe;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; }
+    main { width: min(1180px, calc(100% - 2rem)); margin: 0 auto; padding: 2.5rem 0 3rem; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 22ch; font-size: clamp(2rem, 5vw, 4.5rem); line-height: 1; letter-spacing: -0.04em; }
+    h2 { font-size: 1.25rem; }
+    .lede { max-width: 72ch; font-size: 1.15rem; }
+    .meta { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; color: var(--muted); }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin: 2rem 0; }
+    .kpi, .view, .notes, .details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 28px rgba(23, 32, 42, .06); }
+    .kpi { min-height: 140px; padding: 1.1rem; }
+    .kpi strong { display: block; font-size: 2rem; font-variant-numeric: tabular-nums; }
+    .kpi[class*="accent-"], .view[class*="accent-"] { border-top: 5px solid var(--card-accent); background: linear-gradient(180deg, var(--card-tint) 0, var(--card) 7rem); }
+    .accent-blue { --card-accent: var(--color-blue); --card-tint: var(--color-blue-soft); }
+    .accent-cyan { --card-accent: var(--color-cyan); --card-tint: var(--color-cyan-soft); }
+    .accent-green { --card-accent: var(--color-green); --card-tint: var(--color-green-soft); }
+    .accent-amber { --card-accent: var(--color-amber); --card-tint: var(--color-amber-soft); }
+    .accent-orange { --card-accent: var(--color-orange); --card-tint: var(--color-orange-soft); }
+    .accent-magenta { --card-accent: var(--color-magenta); --card-tint: var(--color-magenta-soft); }
+    .accent-violet { --card-accent: var(--color-violet); --card-tint: var(--color-violet-soft); }
+    .view-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1rem; }
+    .view { grid-column: span 6; padding: 1.25rem; }
+    .view--wide { grid-column: 1 / -1; }
+    .view-meta { color: var(--muted); font-size: .88rem; }
+    .takeaway { border-left: 4px solid var(--highlight); padding-left: .8rem; }
+    svg { display: block; width: 100%; height: auto; overflow: visible; }
+    .axis { stroke: var(--ink); stroke-width: 1; }
+    .mark { fill: var(--accent); }
+    .mark-secondary { fill: var(--accent-soft); stroke: var(--accent); }
+    .mark-blue { fill: var(--color-blue); }
+    .mark-cyan { fill: var(--color-cyan); }
+    .mark-green { fill: var(--color-green); }
+    .mark-amber { fill: var(--color-amber); }
+    .mark-orange { fill: var(--color-orange); }
+    .mark-magenta { fill: var(--color-magenta); }
+    .mark-violet { fill: var(--color-violet); }
+    .legend { display: flex; flex-wrap: wrap; gap: .55rem 1rem; align-items: center; margin: .75rem 0; padding: 0; list-style: none; font-size: .88rem; color: var(--muted); }
+    .legend-swatch { display: inline-block; width: .85rem; height: .85rem; margin-right: .35rem; border: 1px solid rgba(23, 32, 42, .35); border-radius: 3px; vertical-align: -.08rem; }
+    .heatmap { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: .55rem; }
+    .heat-cell { min-height: 5.5rem; display: grid; place-content: center; gap: .2rem; border: 1px solid var(--line); border-radius: 10px; background: var(--color-blue-soft); text-align: center; }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    caption { padding-bottom: .75rem; text-align: left; font-weight: 700; }
+    th, td { border-bottom: 1px solid var(--line); padding: .65rem; text-align: left; vertical-align: top; }
+    th { background: var(--accent-soft); }
+    .details, .notes { margin-top: 1rem; padding: 1.25rem; }
+    a { color: var(--accent); text-underline-offset: .2em; }
+    a:focus-visible { outline: 3px solid var(--highlight); outline-offset: 3px; }
+    @media (max-width: 760px) { .view { grid-column: 1 / -1; } }
+    @media print {
+      @page { margin: 12mm; }
+      body { background: #fff; font-size: 10pt; }
+      main { width: 100%; padding: 0; }
+      .kpi, .view, .notes, .details, table, svg { break-inside: avoid; border-color: #8a8f98; box-shadow: none; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>{{TITLE}}</h1>
+      <p class="lede" data-klopsi-summary>{{SUMMARY}}</p>
+      <p class="meta"><span><strong>Scope:</strong> {{SCOPE}}</span><span><strong>Period:</strong> {{PERIOD}}</span><span><strong>Source:</strong> {{SOURCE}}</span></p>
+    </header>
+
+    <!-- Replace KPI_CARDS with three to five article.kpi elements. -->
+    <section class="kpi-grid" aria-label="Headline findings">
+      {{KPI_CARDS}}
+    </section>
+
+    <!-- Replace VIEW_CARDS with two to six article.view elements. An accessible inline-SVG pattern follows:
+    <article class="view"><h2>View heading</h2><p class="view-meta">Question · population · unit · record count</p>
+      <svg role="img" aria-labelledby="view-title view-desc" viewBox="0 0 640 320">
+        <title id="view-title">Descriptive chart title</title><desc id="view-desc">Chart type, axes, population, unit, and principal pattern.</desc>
+        <line class="axis" x1="48" y1="280" x2="620" y2="280"></line><rect class="mark" x="80" y="120" width="72" height="160"></rect>
+      </svg><p class="takeaway">Plain-language takeaway.</p></article>
+    -->
+    <section class="view-grid" aria-label="Analytical views">
+      {{VIEW_CARDS}}
+    </section>
+
+    <section class="details">
+      <h2>Exact values</h2>
+      <table>
+        <caption>{{DETAIL_CAPTION}}</caption>
+        <thead><tr>{{DETAIL_HEADERS}}</tr></thead>
+        <tbody>{{DETAIL_ROWS}}</tbody>
+      </table>
+    </section>
+
+    <section class="notes" data-klopsi-disclosures>
+      <h2>Method and disclosures</h2>
+      {{DISCLOSURES}}
+    </section>
+
+    <section class="notes" data-klopsi-lineage>
+      <h2>Source verification and lineage</h2>
+      {{LINEAGE}}
+    </section>
+  </main>
+
+  <script id="klopsi-presentation-manifest" type="application/json">{{PRESENTATION_MANIFEST_JSON}}</script>
+</body>
+</html>

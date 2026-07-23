@@ -13,5 +13,7 @@ Installable Agent Skills for using the KLOPSI CLI from compatible AI agents. Run
 | [klopsi-analysis](../skills/klopsi-analysis/SKILL.md) | Use when querying or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports. |
 | [klopsi-services](../skills/klopsi-services/SKILL.md) | Use when Slovenian public data is exposed through WFS and the request needs capabilities, layers, schemas, bounded feature previews, counts, or CSV exports. |
 | [klopsi-provenance](../skills/klopsi-provenance/SKILL.md) | Use when inspecting or verifying KLOPSI artifact provenance, transformations, or integrity mismatches. |
+| [klopsi-static-dashboard](../skills/klopsi-static-dashboard/SKILL.md) | Use when prepared Slovenian public data needs a concise static HTML dashboard, presentation board, printable visual summary, chart panel, heatmap, ranked list, or offline map. |
+| [klopsi-interactive-dashboard](../skills/klopsi-interactive-dashboard/SKILL.md) | Use when prepared Slovenian public data needs a self-contained interactive HTML dashboard with filters, linked charts, maps, heatmaps, search, sorting, drill-down, or exploratory detail. |
 | [klopsi-local-state](../skills/klopsi-local-state/SKILL.md) | Use when inspecting or changing the KLOPSI cache or non-secret configuration. |
 | [klopsi-diagnostics](../skills/klopsi-diagnostics/SKILL.md) | Use when diagnosing KLOPSI, generating shell completion or Agent Skills, or performing agent setup. |

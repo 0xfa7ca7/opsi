@@ -259,6 +259,8 @@ describe("documentation contract", () => {
     for (const expected of [
       "npx skills add https://github.com/0xfa7ca7/klopsi",
       "npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-analysis",
+      "npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-static-dashboard",
+      "npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-interactive-dashboard",
       "klopsi generate-skills",
       "klopsi agent setup",
       "docs/skills.md",
@@ -266,6 +268,9 @@ describe("documentation contract", () => {
       "@klopsi",
       "$klopsi",
       "Run bare `klopsi` for guided getting-started steps",
+      "agent-authored and contract-verified",
+      "self-contained offline HTML",
+      "issues/28",
     ]) {
       expect(readme).toContain(expected);
     }
@@ -275,7 +280,8 @@ describe("documentation contract", () => {
     expect(commands).toContain("`agent setup`");
     expect(commands).toContain("automatic agent detection");
     expect(commands).toContain("`--output-dir`");
-    expect(commands).toContain("known generated `SKILL.md` targets");
+    expect(commands).toContain("known generated files");
+    expect(commands).toContain("nested templates, references, and scripts");
     expect(commands).toContain("structured output");
     expect(commands).toContain("sectioned human summary");
 
@@ -284,6 +290,11 @@ describe("documentation contract", () => {
     expect(packagedReadme).toContain("klopsi agent setup");
     expect(packagedReadme).toContain("docs/skills.md");
     expect(packagedReadme).toContain("Run bare `klopsi` for guided getting-started steps");
+    expect(packagedReadme).toContain("agent-authored and contract-verified");
+    expect(packagedReadme).toContain("self-contained offline HTML");
+    expect(packagedReadme).toContain("tree/main/skills/klopsi-static-dashboard");
+    expect(packagedReadme).toContain("tree/main/skills/klopsi-interactive-dashboard");
+    expect(packagedReadme).toContain("issues/28");
 
     const changelog = await text("apps/cli/CHANGELOG.md");
     expect(changelog).toMatch(/^# klopsi\n\n## 0\.0\.1\n/u);

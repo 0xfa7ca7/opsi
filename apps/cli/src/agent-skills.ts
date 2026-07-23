@@ -8,6 +8,14 @@ import {
   type CommandManifestEntry,
   type CommandOptionManifest,
 } from "./command-manifest.js";
+import { resourcesForAgentSkill } from "./agent-skill-resources.js";
+
+export type AgentSkillKind = "router" | "shared" | "command" | "workflow";
+
+export interface AgentSkillPackage {
+  readonly name: string;
+  readonly files: ReadonlyMap<string, string>;
+}
 
 export interface AgentSkillCapabilityGuide {
   readonly id: string;
@@ -16,6 +24,7 @@ export interface AgentSkillCapabilityGuide {
 }
 
 export interface AgentSkillDefinition {
+  readonly kind: AgentSkillKind;
   readonly name: string;
   readonly description: string;
   readonly commands: readonly string[];
@@ -28,6 +37,7 @@ export interface AgentSkillDefinition {
 
 export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   {
+    kind: "router",
     name: "klopsi",
     description:
       "Use when a Slovenian public-data, OPSI catalogue, or KLOPSI CLI request needs the relevant skill selected.",
@@ -37,6 +47,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     workflows: [
       "Acquire and analyze data",
       "Inspect and export WFS data",
+      "Analyze and present data",
       "Refresh an agent installation",
     ],
     capabilities: [],
@@ -49,11 +60,14 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "klopsi-analysis",
       "klopsi-services",
       "klopsi-provenance",
+      "klopsi-static-dashboard",
+      "klopsi-interactive-dashboard",
       "klopsi-local-state",
       "klopsi-diagnostics",
     ],
   },
   {
+    kind: "shared",
     name: "klopsi-shared",
     description:
       "Use when any KLOPSI CLI skill needs shared installation, output, offline, safety, or error-handling guidance.",
@@ -72,6 +86,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: [],
   },
   {
+    kind: "command",
     name: "klopsi-catalogue",
     description:
       "Use when discovering Slovenian public-data or OPSI datasets, metadata, resources, schemas, or public pages.",
@@ -118,6 +133,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-resources", "klopsi-download", "klopsi-validation"],
   },
   {
+    kind: "command",
     name: "klopsi-resources",
     description:
       "Use when inspecting an OPSI resource, its secure access, headers, or bounded preview before the next step.",
@@ -157,6 +173,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-catalogue", "klopsi-download", "klopsi-validation", "klopsi-analysis"],
   },
   {
+    kind: "command",
     name: "klopsi-download",
     description:
       "Use when securely downloading an OPSI dataset or resource and choosing a destination or overwrite handling.",
@@ -193,6 +210,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-catalogue", "klopsi-resources", "klopsi-validation", "klopsi-provenance"],
   },
   {
+    kind: "command",
     name: "klopsi-validation",
     description:
       "Use when checking local or provider data, or OPSI metadata, for integrity issues and remediation.",
@@ -229,6 +247,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-resources", "klopsi-download", "klopsi-analysis"],
   },
   {
+    kind: "command",
     name: "klopsi-analysis",
     description:
       "Use when querying or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports.",
@@ -279,6 +298,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-resources", "klopsi-validation", "klopsi-provenance"],
   },
   {
+    kind: "command",
     name: "klopsi-services",
     description:
       "Use when Slovenian public data is exposed through WFS and the request needs capabilities, layers, schemas, bounded feature previews, counts, or CSV exports.",
@@ -337,6 +357,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-catalogue", "klopsi-resources", "klopsi-analysis", "klopsi-provenance"],
   },
   {
+    kind: "command",
     name: "klopsi-provenance",
     description:
       "Use when inspecting or verifying KLOPSI artifact provenance, transformations, or integrity mismatches.",
@@ -365,6 +386,142 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-download", "klopsi-analysis"],
   },
   {
+    kind: "workflow",
+    name: "klopsi-static-dashboard",
+    description:
+      "Use when prepared Slovenian public data needs a concise static HTML dashboard, presentation board, printable visual summary, chart panel, heatmap, ranked list, or offline map.",
+    commands: [],
+    purpose:
+      "Turn a prepared local artifact into a self-contained semantic HTML and inline-SVG board that remains useful offline and without JavaScript.",
+    workflows: [
+      "Confirm presentation preferences, verify the prepared source, select honest encodings, copy the static template to a new HTML destination, replace every marker, embed the presentation manifest, verify the board, and hand off its absolute path.",
+    ],
+    capabilities: [
+      {
+        id: "presentation-preflight",
+        title: "Confirm presentation preferences",
+        instructions: [
+          "Before creating HTML, ask one compact checkpoint for the preferred language (English or Slovenian), color treatment (color-rich or restrained), and one to three additional data-specific questions that materially affect scope, comparison, audience, or emphasis.",
+          "Do not create or copy the HTML template until the user answers. Do not choose defaults. Skip a language or color question only when the user explicitly names a supported choice; `use your judgment`, `make sensible choices`, urgency, or a request not to ask are not answers. Ask only the missing data-specific items.",
+        ],
+      },
+      {
+        id: "input-readiness",
+        title: "Verify and prepare the source",
+        instructions: [
+          "Read `../klopsi-shared/references/presentation-contract.md`. Start from a prepared local artifact and retain its exact identity and SHA-256 digest. Check for `<artifact>.provenance.json`; when it exists, run `klopsi provenance verify <artifact> --json` and stop on failure. When it does not exist, mark the source `verified: false` without inventing lineage.",
+          "Route validation failures to `klopsi-validation`, reshaping or aggregation to `klopsi-analysis`, and bounded WFS selection or export to `klopsi-services` before presentation. Do not silently truncate, guess units, relabel measures, or hide missing-data and source limitations.",
+        ],
+      },
+      {
+        id: "encoding-selection",
+        title: "Choose evidence-matched encodings",
+        instructions: [
+          "Read `references/encoding-guide.md`; select each view from its analytical question and record its question, population, unit, relevant count, and plain-language takeaway in both the board and manifest.",
+          "Create a map only from valid embedded coordinates or geometry with a known CRS. Never invent outlines, positions, boundaries, or a CRS; use a ranked list, bars, or a semantic table when spatial prerequisites are absent.",
+        ],
+      },
+      {
+        id: "board-composition",
+        title: "Compose the static board",
+        instructions: [
+          "Copy `assets/static-board.html` to a new destination; do not overwrite an existing file without authorization. Replace every `{{MARKER}}` with escaped, data-grounded content, and remove optional sections entirely instead of leaving markers.",
+          "Use the selected language for every visible label, control, note, table heading, accessibility description, and the document `lang` value. Use a subject-specific title and omit generic format labels such as `Static evidence board`, `dashboard`, or `report` unless the user explicitly requests one.",
+          "For a color-rich presentation, use the template's named palette and distinct `accent-*` classes across KPI and view cards. For a restrained presentation, omit decorative `accent-*` variety and keep one primary data accent plus neutral structure. In both versions, keep labels, position, length, patterns, or symbols so color is never the only signal.",
+          "Keep three to five KPI cards, two to six complementary view cards, adjacent interpretation, a semantic exact-values table, visible disclosures, and lineage. Preserve script-like source strings as text and never concatenate them into markup.",
+          "Write exactly one inert `klopsi-presentation-manifest` JSON block. Escape every less-than character as `\\u003c`, describe all transformations and ordered reductions, and keep visible disclosures consistent with the manifest. For a non-map board, set `embeddedBytes` to `0` and omit presentation data. For a spatial board, add one inert `klopsi-presentation-data` block containing only the validated map rows and set its exact bytes and count in the manifest.",
+        ],
+      },
+      {
+        id: "verification",
+        title: "Verify and hand off",
+        instructions: [
+          "Keep the result one self-contained offline HTML file with inline styles and SVG only: no executable JavaScript, CDN, remote font, image, tile, stylesheet, script, API, or companion data file.",
+          "Respect the 15 MB HTML limit and the shared 5 MB embedded-data and 10,000-row interactive limits. Static mode uses no executable JavaScript. It embeds aggregate display values in semantic HTML or SVG; only a valid spatial view may also use the inert spatial presentation-data evidence required by the shared contract. Do not silently truncate; disclose every aggregation, projection, exclusion, or sample.",
+          "Run `node ../klopsi-shared/scripts/verify-dashboard.mjs <dashboard.html> --mode static --json`, repair every finding, then review rendered chart marks, legends, heatmap cells, reading order, responsive layout, and grayscale print output before handing off the absolute HTML path with the verifier JSON and source-verification status.",
+        ],
+      },
+    ],
+    safety: [
+      "Do not claim provenance from a presentation-verifier pass; use `provenance verify` for provenance claims.",
+      "Do not fabricate geography, units, precision, causal claims, verification, or lineage.",
+    ],
+    related: ["klopsi-analysis", "klopsi-services", "klopsi-provenance"],
+  },
+  {
+    kind: "workflow",
+    name: "klopsi-interactive-dashboard",
+    description:
+      "Use when prepared Slovenian public data needs a self-contained interactive HTML dashboard with filters, linked charts, maps, heatmaps, search, sorting, drill-down, or exploratory detail.",
+    commands: [],
+    purpose:
+      "Turn a bounded prepared local artifact into one offline exploratory HTML file whose useful initial overview and linked interactions share a single in-memory data flow.",
+    workflows: [
+      "Confirm presentation preferences, verify and bound the prepared source, copy the interactive template to a new HTML destination, replace every marker, embed safe normalized data and the presentation manifest, verify the dashboard, and hand off its absolute path.",
+    ],
+    capabilities: [
+      {
+        id: "presentation-preflight",
+        title: "Confirm presentation preferences",
+        instructions: [
+          "Before creating HTML, ask one compact checkpoint for the preferred language (English or Slovenian), color treatment (color-rich or restrained), and one to three additional data-specific questions that materially affect scope, comparison, audience, or emphasis.",
+          "Do not create or copy the HTML template until the user answers. Do not choose defaults. Skip a language or color question only when the user explicitly names a supported choice; `use your judgment`, `make sensible choices`, urgency, or a request not to ask are not answers. Ask only the missing data-specific items.",
+        ],
+      },
+      {
+        id: "input-readiness",
+        title: "Verify and prepare the source",
+        instructions: [
+          "Read `../klopsi-shared/references/presentation-contract.md`. Start from a prepared local artifact and retain its exact identity and SHA-256 digest. Check for `<artifact>.provenance.json`; when it exists, run `klopsi provenance verify <artifact> --json` and stop on failure. When it does not exist, mark the source `verified: false` without inventing lineage.",
+          "Route invalid input to `klopsi-validation`, reshaping or aggregation to `klopsi-analysis`, and bounded WFS selection or export to `klopsi-services`. Create a map only from valid embedded coordinates or geometry with a known CRS; otherwise choose a non-map view.",
+        ],
+      },
+      {
+        id: "bounded-embedding",
+        title: "Bound and disclose embedded presentation data",
+        instructions: [
+          "Normalize the prepared rows to JSON and measure the exact UTF-8 presentation-data script body before authoring. Block when it exceeds 10,000 rows, 5 MB, or would make the complete HTML exceed 15 MB; never use a companion file, live query, or browser file picker to evade these limits.",
+          "Do not silently truncate. Return to `klopsi-analysis` or `klopsi-services` for a deliberate aggregation, projection, or bounded selection. Use sampling only when aggregation cannot answer the question and ask first when it could change interpretation. Record and visibly disclose original and presented counts, method, grouping fields, exclusions, sample basis, and interpretive impact.",
+        ],
+      },
+      {
+        id: "initial-overview",
+        title: "Compose a useful initial overview",
+        instructions: [
+          "Read `references/interaction-guide.md`. Copy `assets/interactive-dashboard.html` to a new destination without overwriting an existing file without authorization, replace every `{{MARKER}}`, and remove optional sections rather than leaving markers.",
+          "Use the selected language for every visible label, control, empty state, table heading, accessibility description, and the document `lang` value. Use a subject-specific title and omit generic format labels such as `Interactive evidence dashboard`, `dashboard`, or `report` unless the user explicitly requests one.",
+          "For a color-rich presentation, use the template's named palette and distinct `accent-*` classes across linked views. For a restrained presentation, omit decorative `accent-*` variety and keep one primary data accent plus neutral structure. In both versions, use visible marks, heatmap fallbacks, labels, and legends so color is never the only signal.",
+          "Make the documented initial state answer the broad question before interaction. Include a concise summary, visible matching and total counts, two to four complementary linked views, a semantic detail table, definitions, reduction disclosures, lineage, and a useful static `noscript` summary.",
+          "Serialize exactly one manifest and one presentation-data JSON block, escaping every less-than character as `\\u003c`. Render every data-derived label, cell, summary, and tooltip alternative with DOM methods and `textContent`, never data-concatenated markup.",
+        ],
+      },
+      {
+        id: "linked-interaction",
+        title: "Drive every linked view from one filtered result",
+        instructions: [
+          "Keep one `state` object in memory. On each filter, search, range, sort, selection, or reset change, derive one filtered row array and pass it to counts, every linked view, the detail table, and the empty state so they cannot disagree.",
+          'Use visibly labeled native controls and buttons, preserve keyboard operation and visible focus, provide one-click reset to the documented initial state, keep the matching count in an `aria-live="polite"` region, and retain reset plus a meaningful message when no rows match.',
+          "Expose the centralized sort field and direction on every sortable table header with `aria-sort`, and keep each sort button's accessible name synchronized with its current and next action. Run the same sort-state renderer on initial display, every sort update, and reset so stale direction labels cannot survive.",
+        ],
+      },
+      {
+        id: "verification",
+        title: "Verify and hand off",
+        instructions: [
+          "Keep the result one self-contained offline HTML file. Use no CDN, remote script, stylesheet, font, image, tile, API, telemetry, network constructor, dynamic import, browser storage, arbitrary expression, inline event handler, `eval`, or `new Function`.",
+          "Run `node ../klopsi-shared/scripts/verify-dashboard.mjs <dashboard.html> --mode interactive --json`, repair every finding, then review the useful initial state, linked counts and views, computed styles or a screenshot for nonzero chart marks and distinct heatmap fills, legends, keyboard order, reset, sorting, empty state, one filtered state, responsive layout, and offline opening before handoff.",
+          "Hand off the absolute HTML path, verifier JSON, exact embedded row and byte counts, reduction disclosure when applicable, and source-verification status. A verifier pass is presentation evidence, not official artifact provenance.",
+        ],
+      },
+    ],
+    safety: [
+      "Do not claim provenance from a presentation-verifier pass; use `provenance verify` for provenance claims.",
+      "Do not fabricate geography, units, precision, causal claims, verification, lineage, or reduction details.",
+    ],
+    related: ["klopsi-analysis", "klopsi-services", "klopsi-provenance"],
+  },
+  {
+    kind: "command",
     name: "klopsi-local-state",
     description: "Use when inspecting or changing the KLOPSI cache or non-secret configuration.",
     commands: [
@@ -413,6 +570,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     related: ["klopsi-diagnostics"],
   },
   {
+    kind: "command",
     name: "klopsi-diagnostics",
     description:
       "Use when diagnosing KLOPSI, generating shell completion or Agent Skills, or performing agent setup.",
@@ -489,11 +647,12 @@ export function validateAgentSkills(
     }
     if (seenNames.has(entry.name)) problems.push(`Duplicate skill name "${entry.name}".`);
     seenNames.add(entry.name);
-    if ((entry.name === "klopsi" || entry.name === "klopsi-shared") && entry.commands.length > 0) {
-      problems.push(`Reserved skill "${entry.name}" must not own commands.`);
+    if (entry.kind === "command" && entry.commands.length === 0) {
+      problems.push(`Command skill "${entry.name}" must own at least one command.`);
     }
-    if (entry.name !== "klopsi" && entry.name !== "klopsi-shared" && entry.commands.length === 0) {
-      problems.push(`Domain skill "${entry.name}" must own at least one command.`);
+    if (entry.kind !== "command" && entry.commands.length > 0) {
+      const kind = `${entry.kind[0]?.toUpperCase()}${entry.kind.slice(1)}`;
+      problems.push(`${kind} skill "${entry.name}" must not own commands.`);
     }
     const seenCapabilityIds = new Set<string>();
     for (const capability of entry.capabilities) {
@@ -706,9 +865,16 @@ Do not pass \`/klopsi\`, \`@klopsi\`, or \`$klopsi\` to the shell. Those are hos
 
 ### ${definition.workflows[2]}
 
+1. Prepare a bounded local artifact with analysis or WFS export, then verify available provenance.
+2. Choose \`klopsi-static-dashboard\` for a concise printable board or \`klopsi-interactive-dashboard\` for bounded exploration across linked views.
+3. Confirm the presentation language, color treatment, and one to three data-specific questions before creating HTML.
+4. Generate one self-contained offline HTML file, disclose reductions and verification status, and run the shared dashboard verifier before handoff.
+
+### ${definition.workflows[3]}
+
 1. Run \`klopsi agent setup --dry-run\` to inspect the planned selection and repertoire.
 2. With explicit authorization, select the intended host with \`--agent <id>\` and use \`--yes\` for non-interactive installation.
-3. Confirm the result includes the current repertoire, including \`klopsi-services\`; use \`generate-skills\` only when a portable skill tree is needed rather than an installation.
+3. Confirm the result includes the complete reported repertoire; use \`generate-skills\` only when a portable skill tree is needed rather than an installation.
 
 ## Routing rules
 
@@ -771,6 +937,12 @@ Use the installed CLI as the source of truth when its help differs from generate
 
 - Supported tabular workflow formats include JSON, NDJSON, CSV, TSV, XLSX, Parquet, ZIP, and XML when their selected content is supported.
 - Choose \`--json\` for one bounded envelope, \`--ndjson\` for records, and command-specific \`--output\` for a persisted artifact; use spreadsheet-safe output when needed.
+
+## Presentation artifacts
+
+- Read [the dashboard presentation contract](references/presentation-contract.md) before creating a static or interactive HTML presentation.
+- Run \`node ../klopsi-shared/scripts/verify-dashboard.mjs <dashboard.html> --mode <static|interactive> --json\` and repair every finding before handoff.
+- Passing the dashboard verifier is presentation evidence, not official artifact provenance; use \`klopsi provenance verify\` for provenance claims.
 
 ## Global options
 
@@ -835,16 +1007,17 @@ function renderCapabilities(definition: AgentSkillDefinition): string {
   return `## Capability guide\n\n${sections}\n\n`;
 }
 
+function renderSafety(definition: AgentSkillDefinition): string {
+  if (definition.safety.length === 0) return "";
+  return `## Safety\n\n${definition.safety.map((item) => `- ${item}`).join("\n")}\n\n`;
+}
+
 function renderDomainSkill(definition: AgentSkillDefinition, version: string): string {
   const entries = definition.commands.map((path) => {
     const entry = COMMAND_MANIFEST.find((candidate) => candidate.path === path);
     if (entry === undefined) throw new Error(`Missing command manifest entry: ${path}`);
     return entry;
   });
-  const safety =
-    definition.safety.length === 0
-      ? ""
-      : `## Safety\n\n${definition.safety.map((item) => `- ${item}`).join("\n")}\n\n`;
   return `${frontmatter(definition)}
 # ${definition.name}
 
@@ -858,20 +1031,86 @@ ${definition.workflows.map((workflow) => `- ${workflow}`).join("\n")}
 
 ${renderCapabilities(definition)}## Commands
 
-${entries.map(renderCommand).join("\n")}${safety}${renderRelated(definition)}`;
+${entries.map(renderCommand).join("\n")}${renderSafety(definition)}${renderRelated(definition)}`;
+}
+
+function renderWorkflowSkill(definition: AgentSkillDefinition, version: string): string {
+  return `${frontmatter(definition)}
+# ${definition.name}
+
+> **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before creating an artifact.
+
+${definition.purpose} Generated for \`klopsi\` ${version}.
+
+## Workflow
+
+${definition.workflows.map((item) => `- ${item}`).join("\n")}
+
+${renderCapabilities(definition)}${renderSafety(definition)}${renderRelated(definition)}`;
 }
 
 function renderSkill(definition: AgentSkillDefinition, version: string): string {
-  if (definition.name === "klopsi") return renderOrchestrator(definition, version);
-  if (definition.name === "klopsi-shared") return renderShared(definition, version);
+  if (definition.kind === "router") return renderOrchestrator(definition, version);
+  if (definition.kind === "shared") return renderShared(definition, version);
+  if (definition.kind === "workflow") return renderWorkflowSkill(definition, version);
   return renderDomainSkill(definition, version);
 }
 
-export function renderAgentSkillFiles(version: string): ReadonlyMap<string, string> {
+function renderAgentSkillFilesInternal(version: string): ReadonlyMap<string, string> {
   const problems = validateAgentSkills();
   if (problems.length > 0) throw new Error(problems.join("\n"));
   return new Map(
     AGENT_SKILLS.map((entry) => [entry.name, `${renderSkill(entry, version).trimEnd()}\n`]),
+  );
+}
+
+const RESOURCE_SEGMENT = /^[a-z0-9][a-z0-9._-]*$/u;
+
+function validateResourcePath(path: string): void {
+  if (
+    isAbsolute(path) ||
+    path.includes("\\") ||
+    path
+      .split("/")
+      .some((segment) => segment === "." || segment === ".." || !RESOURCE_SEGMENT.test(segment))
+  ) {
+    throw invalidSkillOutput(path);
+  }
+}
+
+export function renderAgentSkillPackages(version: string): ReadonlyMap<string, AgentSkillPackage> {
+  const skillFiles = renderAgentSkillFilesInternal(version);
+  return new Map(
+    [...skillFiles].map(([name, skillFile]) => {
+      const resources = resourcesForAgentSkill(name);
+      for (const resource of resources) validateResourcePath(resource.path);
+      return [
+        name,
+        {
+          name,
+          files: new Map([
+            ["SKILL.md", skillFile],
+            ...resources.map(
+              (resource) =>
+                [
+                  resource.path,
+                  resource.content.endsWith("\n") ? resource.content : `${resource.content}\n`,
+                ] as const,
+            ),
+          ]),
+        },
+      ];
+    }),
+  );
+}
+
+export function renderAgentSkillFiles(version: string): ReadonlyMap<string, string> {
+  return new Map(
+    [...renderAgentSkillPackages(version)].map(([name, skillPackage]) => {
+      const skillFile = skillPackage.files.get("SKILL.md");
+      if (skillFile === undefined) throw new Error(`Missing SKILL.md for Agent Skill: ${name}`);
+      return [name, skillFile];
+    }),
   );
 }
 
@@ -924,13 +1163,72 @@ async function ensurePlainDirectory(path: string): Promise<void> {
   }
 }
 
+async function ensureNestedDirectory(root: string, relativeDirectory: string): Promise<string> {
+  let directory = root;
+  for (const segment of relativeDirectory === "" ? [] : relativeDirectory.split("/")) {
+    directory = join(directory, segment);
+    await ensurePlainDirectory(directory);
+  }
+  return directory;
+}
+
+async function ensureReplaceableFile(path: string): Promise<void> {
+  try {
+    const metadata = await lstat(path);
+    if (metadata.isSymbolicLink()) throw invalidSkillOutput(path);
+    if (!metadata.isFile()) throw new Error(`Agent Skill file target is not a file: ${path}`);
+  } catch (error) {
+    if (error instanceof KlopsiError) throw error;
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+}
+
 async function writeSkillFile(path: string, content: string): Promise<void> {
   const temporary = `${path}.${randomUUID()}.tmp`;
   try {
+    await ensureReplaceableFile(path);
     await writeFile(temporary, content, { encoding: "utf8", flag: "wx" });
     await rename(temporary, path);
   } finally {
     await rm(temporary, { force: true });
+  }
+}
+
+function skillGenerationFailed(outputDirectory: string, cause: unknown): KlopsiError {
+  return new KlopsiError({
+    code: "SKILL_GENERATION_FAILED",
+    message: `Agent Skills could not be written to ${outputDirectory}.`,
+    exitCode: EXIT_CODES.INTERNAL,
+    suggestion: "Check directory permissions and available disk space, then try again.",
+    cause,
+  });
+}
+
+export async function writeAgentSkillPackages(
+  outputDirectory: string,
+  packages: ReadonlyMap<string, AgentSkillPackage>,
+): Promise<void> {
+  try {
+    await ensurePlainDirectory(outputDirectory);
+    for (const [name, skillPackage] of packages) {
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(name) || skillPackage.name !== name) {
+        throw invalidSkillOutput(name);
+      }
+      const skillDirectory = join(outputDirectory, name);
+      await ensurePlainDirectory(skillDirectory);
+      for (const [relativePath, content] of skillPackage.files) {
+        if (relativePath !== "SKILL.md") validateResourcePath(relativePath);
+        const segments = relativePath.split("/");
+        const fileName = segments.pop();
+        if (fileName === undefined) throw invalidSkillOutput(relativePath);
+        const directory = await ensureNestedDirectory(skillDirectory, segments.join("/"));
+        await writeSkillFile(join(directory, fileName), content);
+      }
+    }
+  } catch (error) {
+    if (error instanceof KlopsiError) throw error;
+    throw skillGenerationFailed(outputDirectory, error);
   }
 }
 
@@ -941,29 +1239,13 @@ export async function generateAgentSkills(
   const outputDirectory = isAbsolute(requested)
     ? resolve(requested)
     : resolve(options.cwd, requested);
-  const files = renderAgentSkillFiles(options.version);
+  const packages = renderAgentSkillPackages(options.version);
 
-  try {
-    await ensurePlainDirectory(outputDirectory);
-    for (const [name, content] of files) {
-      const directory = join(outputDirectory, name);
-      await ensurePlainDirectory(directory);
-      await writeSkillFile(join(directory, "SKILL.md"), content);
-    }
-  } catch (error) {
-    if (error instanceof KlopsiError) throw error;
-    throw new KlopsiError({
-      code: "SKILL_GENERATION_FAILED",
-      message: `Agent Skills could not be written to ${outputDirectory}.`,
-      exitCode: EXIT_CODES.INTERNAL,
-      suggestion: "Check directory permissions and available disk space, then try again.",
-      cause: error,
-    });
-  }
+  await writeAgentSkillPackages(outputDirectory, packages);
 
   return {
     outputDirectory,
-    count: files.size,
-    skills: [...files.keys()],
+    count: packages.size,
+    skills: [...packages.keys()],
   };
 }
