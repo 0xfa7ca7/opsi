@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { stageTabularInput, type QueryResult } from "@klopsi/data-engine";
 import { ContentCache, DerivedArtifactCache } from "@klopsi/storage";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryDatabaseCache } from "../src/query-database-cache.js";
+import { QueryService } from "../src/queries.js";
 
 let directory: string;
 let input: string;
@@ -68,6 +69,43 @@ function coordinatorWith(derived: DerivedArtifactCache, overrides: Partial<Deriv
 }
 
 describe("QueryDatabaseCache", () => {
+  it("leases a verified staged database and removes it after the callback", async () => {
+    const { coordinator, stageCount } = setup();
+    let leasedPath = "";
+
+    const leased = await coordinator.withDatabase(input, {}, async (databasePath, metadata) => {
+      leasedPath = databasePath;
+      await expect(access(databasePath)).resolves.toBeUndefined();
+      expect(metadata).toMatchObject({
+        cache: { status: "miss", kind: "duckdb-stage" },
+        warnings: [],
+      });
+      return "opened";
+    });
+
+    expect(leased).toEqual({
+      value: "opened",
+      cache: { status: "miss", kind: "duckdb-stage" },
+      warnings: [],
+    });
+    expect(stageCount()).toBe(1);
+    await expect(access(leasedPath)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("removes a leased database when the callback fails", async () => {
+    const { coordinator } = setup();
+    let leasedPath = "";
+    const failure = new Error("UI process failed");
+
+    await expect(
+      coordinator.withDatabase(input, {}, async (databasePath) => {
+        leasedPath = databasePath;
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+    await expect(access(leasedPath)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("returns a miss followed by a reusable content-addressed hit", async () => {
     const { coordinator, stageCount } = setup();
     const first = await coordinator.execute(input, { sql: "SELECT count(*) AS count FROM data" });
@@ -218,5 +256,69 @@ describe("QueryDatabaseCache", () => {
       cache: { status: "bypass" },
     });
     expect(stageCount()).toBe(1);
+  });
+});
+
+describe("QueryService staged database lease", () => {
+  it("resolves selectors and returns source plus database metadata", async () => {
+    const withResolvedInput = vi.fn(
+      async (_input: string, _options: unknown, operation: (source: string) => Promise<unknown>) =>
+        operation(input),
+    );
+    const withDatabase = vi.fn(
+      async (
+        _source: string,
+        _options: unknown,
+        operation: (
+          path: string,
+          metadata: {
+            cache: { status: "hit"; kind: "duckdb-stage" };
+            warnings: readonly [];
+          },
+        ) => Promise<unknown>,
+      ) => {
+        const metadata = {
+          cache: { status: "hit" as const, kind: "duckdb-stage" as const },
+          warnings: [] as const,
+        };
+        return {
+          value: await operation("/tmp/data.duckdb", metadata),
+          ...metadata,
+        };
+      },
+    );
+    const service = new QueryService({ withResolvedInput } as never, { withDatabase } as never);
+
+    const result = await service.withDatabase(
+      "archive.zip",
+      {
+        entry: "rows.csv",
+        sheet: "Sheet1",
+        recordPath: "/root/row",
+        allowPrivateNetwork: true,
+      },
+      async (databasePath) => ({ databasePath }),
+    );
+
+    expect(result).toEqual({
+      value: { databasePath: "/tmp/data.duckdb" },
+      source: input,
+      cache: { status: "hit", kind: "duckdb-stage" },
+      warnings: [],
+    });
+    expect(withResolvedInput).toHaveBeenCalledWith(
+      "archive.zip",
+      expect.objectContaining({
+        entry: "rows.csv",
+        recordPath: "/root/row",
+        allowPrivateNetwork: true,
+      }),
+      expect.any(Function),
+    );
+    expect(withDatabase).toHaveBeenCalledWith(
+      input,
+      expect.objectContaining({ sheet: "Sheet1", recordPath: "/root/row" }),
+      expect.any(Function),
+    );
   });
 });

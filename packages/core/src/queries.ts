@@ -8,6 +8,7 @@ import { publishArtifactPair, type PairPublicationOptions } from "@klopsi/storag
 import type { DataResolutionOptions, DataService } from "./data.js";
 import {
   QueryDatabaseCache,
+  type QueryDatabaseMetadata,
   type QueryCacheMetadata,
   type QueryCacheWarning,
 } from "./query-database-cache.js";
@@ -32,6 +33,16 @@ export interface QueryServiceResult extends QueryResult {
   readonly warnings: readonly QueryCacheWarning[];
   readonly output?: string;
   readonly provenancePath?: string;
+}
+
+export interface QueryDatabaseServiceOptions extends DataResolutionOptions {
+  readonly sheet?: string;
+  readonly signal?: AbortSignal;
+}
+
+export interface QueryDatabaseServiceResult<T> extends QueryDatabaseMetadata {
+  readonly value: T;
+  readonly source: string;
 }
 
 async function digest(path: string): Promise<{ readonly sha256: string; readonly bytes: number }> {
@@ -134,6 +145,28 @@ export class QueryService {
     private readonly databases: QueryDatabaseCache,
     private readonly publicationOptions: PairPublicationOptions = {},
   ) {}
+
+  withDatabase<T>(
+    input: string,
+    options: QueryDatabaseServiceOptions,
+    operation: (databasePath: string, metadata: QueryDatabaseMetadata) => Promise<T>,
+  ): Promise<QueryDatabaseServiceResult<T>> {
+    return this.data.withResolvedInput(input, options, async (source) => {
+      const leased = await this.databases.withDatabase(
+        source,
+        {
+          ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
+          ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
+          ...(options.signal === undefined ? {} : { signal: options.signal }),
+        },
+        operation,
+      );
+      return {
+        ...leased,
+        source: resolve(sourcePath(source)),
+      };
+    });
+  }
 
   execute(input: string, options: QueryServiceOptions): Promise<QueryServiceResult> {
     return this.data.withResolvedInput(input, options, async (source) => {

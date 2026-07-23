@@ -10,7 +10,12 @@ export type { DataConversionOptions, DataOperationOptions, DataResolutionOptions
 export { ConversionService } from "./conversions.js";
 export type { ConversionServiceOptions } from "./conversions.js";
 export { QueryService } from "./queries.js";
-export type { QueryServiceOptions, QueryServiceResult } from "./queries.js";
+export type {
+  QueryDatabaseServiceOptions,
+  QueryDatabaseServiceResult,
+  QueryServiceOptions,
+  QueryServiceResult,
+} from "./queries.js";
 export { QueryDatabaseCache } from "./query-database-cache.js";
 export type {
   QueryCacheMetadata,
@@ -18,6 +23,9 @@ export type {
   QueryCacheWarning,
   QueryDatabaseCacheOptions,
   QueryDatabaseExecutionOptions,
+  QueryDatabaseLeaseResult,
+  QueryDatabaseMetadata,
+  QueryDatabasePreparationOptions,
   QueryDatabaseResult,
 } from "./query-database-cache.js";
 export { validateDatasetMetadata, validateResourceMetadata } from "./metadata-validation.js";
