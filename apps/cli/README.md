@@ -29,7 +29,7 @@ klopsi --version
 klopsi doctor --offline
 ```
 
-DuckDB is an optional native dependency. Catalogue, configuration, and completion commands remain available when a compatible binding cannot be installed; native data commands return `DUCKDB_UNAVAILABLE` with remediation guidance.
+KLOPSI's `@duckdb/node-api` binding is an optional native dependency. Catalogue, configuration, and completion commands remain available when a compatible binding cannot be installed; native data commands return `DUCKDB_UNAVAILABLE` with remediation guidance. The external DuckDB CLI is a separate optional dependency used only by `klopsi duckdb`.
 
 For project-local use, run `npm install klopsi` and invoke the CLI with `npx klopsi`. See the [installation guide](https://github.com/0xfa7ca7/klopsi/blob/main/docs/installation.md) for release verification and troubleshooting.
 
@@ -56,6 +56,14 @@ klopsi query ./downloads/data.csv \
   --json
 ```
 
+Open the prepared table `data` in DuckDB UI, optionally authorizing installation of the external CLI:
+
+```sh
+klopsi duckdb open ./downloads/data.csv
+klopsi duckdb open ./results.parquet --install
+klopsi duckdb install --yes
+```
+
 Convert the resource to Parquet and verify its provenance:
 
 ```sh
@@ -79,6 +87,7 @@ Run `klopsi --help` or read the [complete command reference](https://github.com/
 | Download data                 | `klopsi download <ids...>`                                      |
 | Validate data or metadata     | `klopsi validate <input>`                                       |
 | Query tabular data            | `klopsi query <input> --sql <statement>`                        |
+| Explore data in DuckDB UI     | `klopsi duckdb open <input>`                                    |
 | Convert formats               | `klopsi convert <input> --to <format> --output <path>`          |
 | Verify provenance             | `klopsi provenance verify <path>`                               |
 | Diagnose the installation     | `klopsi doctor`                                                 |
@@ -103,6 +112,12 @@ The repertoire includes two agent-authored and contract-verified presentation wo
 npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-static-dashboard
 npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-interactive-dashboard
 npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-shared
+```
+
+For quick visual exploration in DuckDB UI, install the focused workflow skill:
+
+```sh
+npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-duckdb-ui
 ```
 
 This first version is agent-authored and contract-verified, not deterministically rendered by a CLI command. [Issue #28](https://github.com/0xfa7ca7/klopsi/issues/28) tracks the future deterministic CLI-backed renderer.

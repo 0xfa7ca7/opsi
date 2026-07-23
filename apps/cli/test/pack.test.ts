@@ -293,12 +293,15 @@ describe("canonical npm tarball", () => {
       ["generate-skills", "--output-dir", generatedSkills, "--json"],
       { cwd: root },
     );
-    expect(JSON.parse(generated.stdout)).toMatchObject({ data: { count: 13 } });
+    expect(JSON.parse(generated.stdout)).toMatchObject({ data: { count: 14 } });
     expect(await readFile(join(generatedSkills, "klopsi", "SKILL.md"), "utf8")).toContain(
       "name: klopsi",
     );
     expect(await readFile(join(generatedSkills, "klopsi-analysis", "SKILL.md"), "utf8")).toContain(
       "klopsi query",
+    );
+    expect(await readFile(join(generatedSkills, "klopsi-duckdb-ui", "SKILL.md"), "utf8")).toContain(
+      "klopsi duckdb open",
     );
     expect(
       await readFile(
