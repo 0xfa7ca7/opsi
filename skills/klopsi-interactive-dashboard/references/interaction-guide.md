@@ -24,6 +24,12 @@ Put `data-field="<row-key>"` on every rendered `th`, matching the row property e
 
 Use two to four complementary views. Every view states its question, population, unit, relevant count, and takeaway. Pair linked highlighting with labels, patterns, or symbols so color is not the only signal. Any tooltip value must also be reachable by keyboard focus, selection text, an adjacent list, or the semantic detail table. Keep focused drill-down reversible and preserve a clear path back to the initial overview.
 
+## Color and visible rendering
+
+Use the template's named palette and distinct `accent-*` classes to give linked views visual hierarchy. Use categorical colors only for distinct groups, a perceptually ordered scale for magnitude, and a centered diverging scale only when the data has a meaningful midpoint. Provide a labeled legend whenever color encodes data, and keep labels or exact values available so color is never the only signal.
+
+Every generated mark needs visible geometry and a fallback color. Keep `.bar` block-level, give every heat cell a non-white CSS fallback, and use comma-separated `rgb(r, g, b)` syntax when JavaScript computes an inline intensity color. A DOM node count is not visual verification: inspect representative computed style values or a screenshot and confirm nonzero mark dimensions, distinct heatmap fills, readable text, legends, the empty state, and at least one filtered state.
+
 ## Geography and disclosure
 
 Map only valid embedded coordinates or geometry with a known CRS. Never geocode names, invent positions or outlines, infer a CRS, or load tiles. When spatial prerequisites are absent, use bars, a ranked list, heatmap, or semantic table.

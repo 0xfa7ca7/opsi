@@ -28,6 +28,7 @@ Turn a prepared local artifact into a self-contained semantic HTML and inline-SV
 ### Compose the static board
 
 - Copy `assets/static-board.html` to a new destination; do not overwrite an existing file without authorization. Replace every `{{MARKER}}` with escaped, data-grounded content, and remove optional sections entirely instead of leaving markers.
+- Use the template's named palette and distinct `accent-*` classes across KPI and view cards. Use `mark-*`, heatmap, and legend primitives for data color; keep labels, position, length, patterns, or symbols so color is never the only signal.
 - Keep three to five KPI cards, two to six complementary view cards, adjacent interpretation, a semantic exact-values table, visible disclosures, and lineage. Preserve script-like source strings as text and never concatenate them into markup.
 - Write exactly one inert `klopsi-presentation-manifest` JSON block. Escape every less-than character as `\u003c`, describe all transformations and ordered reductions, and keep visible disclosures consistent with the manifest. For a non-map board, set `embeddedBytes` to `0` and omit presentation data. For a spatial board, add one inert `klopsi-presentation-data` block containing only the validated map rows and set its exact bytes and count in the manifest.
 
@@ -35,7 +36,7 @@ Turn a prepared local artifact into a self-contained semantic HTML and inline-SV
 
 - Keep the result one self-contained offline HTML file with inline styles and SVG only: no executable JavaScript, CDN, remote font, image, tile, stylesheet, script, API, or companion data file.
 - Respect the 15 MB HTML limit and the shared 5 MB embedded-data and 10,000-row interactive limits. Static mode uses no executable JavaScript. It embeds aggregate display values in semantic HTML or SVG; only a valid spatial view may also use the inert spatial presentation-data evidence required by the shared contract. Do not silently truncate; disclose every aggregation, projection, exclusion, or sample.
-- Run `node ../klopsi-shared/scripts/verify-dashboard.mjs <dashboard.html> --mode static --json`, repair every finding, review the rendered reading order and print layout, then hand off the absolute HTML path with the verifier JSON and source-verification status.
+- Run `node ../klopsi-shared/scripts/verify-dashboard.mjs <dashboard.html> --mode static --json`, repair every finding, then review rendered chart marks, legends, heatmap cells, reading order, responsive layout, and grayscale print output before handing off the absolute HTML path with the verifier JSON and source-verification status.
 
 ## Safety
 

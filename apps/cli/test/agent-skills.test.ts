@@ -555,6 +555,22 @@ describe("agent skill rendering", () => {
     expect(template).toContain(
       '<script id="klopsi-presentation-manifest" type="application/json">',
     );
+    for (const token of [
+      "--color-blue:",
+      "--color-cyan:",
+      "--color-green:",
+      "--color-amber:",
+      "--color-orange:",
+      "--color-magenta:",
+      "--color-violet:",
+      ".accent-blue",
+      ".accent-green",
+      ".accent-amber",
+      ".legend",
+      ".heat-cell",
+    ]) {
+      expect(template, token).toContain(token);
+    }
 
     for (const token of [
       "Question",
@@ -567,6 +583,9 @@ describe("agent skill rendering", () => {
       "Do not use color as the only",
       "precision",
       "ranked",
+      "named palette",
+      "labeled legend",
+      "screen and print",
     ]) {
       expect(encoding, token).toContain(token);
     }
@@ -658,6 +677,30 @@ describe("agent skill rendering", () => {
       '<script id="klopsi-presentation-manifest" type="application/json">',
     );
     expect(template).toContain('<script id="klopsi-presentation-data" type="application/json">');
+    for (const token of [
+      "--color-blue:",
+      "--color-cyan:",
+      "--color-green:",
+      "--color-amber:",
+      "--color-orange:",
+      "--color-magenta:",
+      "--color-violet:",
+      ".accent-blue",
+      ".accent-green",
+      ".accent-amber",
+      ".legend",
+      ".heat-cell",
+      "--control-line: #8a8f98",
+      "border: 1px solid var(--control-line)",
+      "@media print",
+    ]) {
+      expect(template, token).toContain(token);
+    }
+    expect(template).toMatch(
+      /\.bar\s*\{[^}]*display:\s*block;[^}]*height:\s*100%;[^}]*background:\s*var\(--color-blue\);/su,
+    );
+    expect(template).not.toMatch(/\.bar\s*\{[^}]*min-width:/su);
+    expect(template).toMatch(/\.heat-cell\s*\{[^}]*background:\s*var\(--color-blue-soft\)/su);
 
     for (const token of [
       "categorical filters",
@@ -674,6 +717,10 @@ describe("agent skill rendering", () => {
       "sorting",
       "bounded detail rows",
       "progressive disclosure",
+      "comma-separated",
+      "computed style",
+      "screenshot",
+      "labeled legend",
     ]) {
       expect(interaction, token).toContain(token);
     }

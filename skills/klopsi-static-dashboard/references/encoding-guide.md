@@ -28,4 +28,6 @@ Map only valid embedded coordinates or geometry with known CRS information. Coor
 
 ## Color and legibility
 
-Do not use color as the only information carrier. Pair color with position, length, pattern, labels, or symbols; preserve readable contrast in screen and print output. Use a restrained categorical palette, a perceptually ordered sequential scale for magnitude, and an explicitly centered diverging scale only when a meaningful midpoint exists. Provide a labeled legend whenever color encodes data.
+Use the template's named palette—blue, cyan, green, amber, orange, magenta, and violet—to give KPI and view cards clear visual hierarchy. Reuse the `accent-*`, `mark-*`, `legend`, `legend-swatch`, `heatmap`, and `heat-cell` classes instead of inventing unrelated colors for each board.
+
+Do not use color as the only information carrier. Pair color with position, length, pattern, labels, or symbols; preserve readable contrast in screen and print output. Use categorical colors only for distinct groups, a perceptually ordered sequential scale for magnitude, and an explicitly centered diverging scale only when a meaningful midpoint exists. Provide a labeled legend whenever color encodes data. Keep exact values adjacent and verify that borders, labels, and chart structure remain legible in grayscale print.

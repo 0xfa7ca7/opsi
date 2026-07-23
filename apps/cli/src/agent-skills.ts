@@ -418,6 +418,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         title: "Compose the static board",
         instructions: [
           "Copy `assets/static-board.html` to a new destination; do not overwrite an existing file without authorization. Replace every `{{MARKER}}` with escaped, data-grounded content, and remove optional sections entirely instead of leaving markers.",
+          "Use the template's named palette and distinct `accent-*` classes across KPI and view cards. Use `mark-*`, heatmap, and legend primitives for data color; keep labels, position, length, patterns, or symbols so color is never the only signal.",
           "Keep three to five KPI cards, two to six complementary view cards, adjacent interpretation, a semantic exact-values table, visible disclosures, and lineage. Preserve script-like source strings as text and never concatenate them into markup.",
           "Write exactly one inert `klopsi-presentation-manifest` JSON block. Escape every less-than character as `\\u003c`, describe all transformations and ordered reductions, and keep visible disclosures consistent with the manifest. For a non-map board, set `embeddedBytes` to `0` and omit presentation data. For a spatial board, add one inert `klopsi-presentation-data` block containing only the validated map rows and set its exact bytes and count in the manifest.",
         ],
@@ -428,7 +429,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         instructions: [
           "Keep the result one self-contained offline HTML file with inline styles and SVG only: no executable JavaScript, CDN, remote font, image, tile, stylesheet, script, API, or companion data file.",
           "Respect the 15 MB HTML limit and the shared 5 MB embedded-data and 10,000-row interactive limits. Static mode uses no executable JavaScript. It embeds aggregate display values in semantic HTML or SVG; only a valid spatial view may also use the inert spatial presentation-data evidence required by the shared contract. Do not silently truncate; disclose every aggregation, projection, exclusion, or sample.",
-          "Run `node ../klopsi-shared/scripts/verify-dashboard.mjs <dashboard.html> --mode static --json`, repair every finding, review the rendered reading order and print layout, then hand off the absolute HTML path with the verifier JSON and source-verification status.",
+          "Run `node ../klopsi-shared/scripts/verify-dashboard.mjs <dashboard.html> --mode static --json`, repair every finding, then review rendered chart marks, legends, heatmap cells, reading order, responsive layout, and grayscale print output before handing off the absolute HTML path with the verifier JSON and source-verification status.",
         ],
       },
     ],
@@ -471,6 +472,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         title: "Compose a useful initial overview",
         instructions: [
           "Read `references/interaction-guide.md`. Copy `assets/interactive-dashboard.html` to a new destination without overwriting an existing file without authorization, replace every `{{MARKER}}`, and remove optional sections rather than leaving markers.",
+          "Use the template's named palette and distinct `accent-*` classes across linked views. Use visible block-level chart marks, heatmap fallbacks, labels, and legends so color strengthens hierarchy without becoming the only signal.",
           "Make the documented initial state answer the broad question before interaction. Include a concise summary, visible matching and total counts, two to four complementary linked views, a semantic detail table, definitions, reduction disclosures, lineage, and a useful static `noscript` summary.",
           "Serialize exactly one manifest and one presentation-data JSON block, escaping every less-than character as `\\u003c`. Render every data-derived label, cell, summary, and tooltip alternative with DOM methods and `textContent`, never data-concatenated markup.",
         ],
@@ -489,7 +491,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         title: "Verify and hand off",
         instructions: [
           "Keep the result one self-contained offline HTML file. Use no CDN, remote script, stylesheet, font, image, tile, API, telemetry, network constructor, dynamic import, browser storage, arbitrary expression, inline event handler, `eval`, or `new Function`.",
-          "Run `node ../klopsi-shared/scripts/verify-dashboard.mjs <dashboard.html> --mode interactive --json`, repair every finding, then review the useful initial state, linked counts and views, keyboard order, reset, sorting, empty state, responsive layout, and offline opening before handoff.",
+          "Run `node ../klopsi-shared/scripts/verify-dashboard.mjs <dashboard.html> --mode interactive --json`, repair every finding, then review the useful initial state, linked counts and views, computed styles or a screenshot for nonzero chart marks and distinct heatmap fills, legends, keyboard order, reset, sorting, empty state, one filtered state, responsive layout, and offline opening before handoff.",
           "Hand off the absolute HTML path, verifier JSON, exact embedded row and byte counts, reduction disclosure when applicable, and source-verification status. A verifier pass is presentation evidence, not official artifact provenance.",
         ],
       },

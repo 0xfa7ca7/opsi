@@ -28,6 +28,7 @@ Turn a bounded prepared local artifact into one offline exploratory HTML file wh
 ### Compose a useful initial overview
 
 - Read `references/interaction-guide.md`. Copy `assets/interactive-dashboard.html` to a new destination without overwriting an existing file without authorization, replace every `{{MARKER}}`, and remove optional sections rather than leaving markers.
+- Use the template's named palette and distinct `accent-*` classes across linked views. Use visible block-level chart marks, heatmap fallbacks, labels, and legends so color strengthens hierarchy without becoming the only signal.
 - Make the documented initial state answer the broad question before interaction. Include a concise summary, visible matching and total counts, two to four complementary linked views, a semantic detail table, definitions, reduction disclosures, lineage, and a useful static `noscript` summary.
 - Serialize exactly one manifest and one presentation-data JSON block, escaping every less-than character as `\u003c`. Render every data-derived label, cell, summary, and tooltip alternative with DOM methods and `textContent`, never data-concatenated markup.
 
@@ -40,7 +41,7 @@ Turn a bounded prepared local artifact into one offline exploratory HTML file wh
 ### Verify and hand off
 
 - Keep the result one self-contained offline HTML file. Use no CDN, remote script, stylesheet, font, image, tile, API, telemetry, network constructor, dynamic import, browser storage, arbitrary expression, inline event handler, `eval`, or `new Function`.
-- Run `node ../klopsi-shared/scripts/verify-dashboard.mjs <dashboard.html> --mode interactive --json`, repair every finding, then review the useful initial state, linked counts and views, keyboard order, reset, sorting, empty state, responsive layout, and offline opening before handoff.
+- Run `node ../klopsi-shared/scripts/verify-dashboard.mjs <dashboard.html> --mode interactive --json`, repair every finding, then review the useful initial state, linked counts and views, computed styles or a screenshot for nonzero chart marks and distinct heatmap fills, legends, keyboard order, reset, sorting, empty state, one filtered state, responsive layout, and offline opening before handoff.
 - Hand off the absolute HTML path, verifier JSON, exact embedded row and byte counts, reduction disclosure when applicable, and source-verification status. A verifier pass is presentation evidence, not official artifact provenance.
 
 ## Safety

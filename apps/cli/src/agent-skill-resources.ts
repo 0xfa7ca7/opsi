@@ -108,6 +108,20 @@ const STATIC_BOARD_TEMPLATE = `<!doctype html>
       --accent: #075985;
       --accent-soft: #dff2fa;
       --highlight: #a33a18;
+      --color-blue: #075985;
+      --color-blue-soft: #e0f2fe;
+      --color-cyan: #0e7490;
+      --color-cyan-soft: #cffafe;
+      --color-green: #15803d;
+      --color-green-soft: #dcfce7;
+      --color-amber: #b45309;
+      --color-amber-soft: #fef3c7;
+      --color-orange: #c2410c;
+      --color-orange-soft: #ffedd5;
+      --color-magenta: #be185d;
+      --color-magenta-soft: #fce7f3;
+      --color-violet: #6d28d9;
+      --color-violet-soft: #ede9fe;
     }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; }
@@ -119,9 +133,17 @@ const STATIC_BOARD_TEMPLATE = `<!doctype html>
     .lede { max-width: 72ch; font-size: 1.15rem; }
     .meta { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; color: var(--muted); }
     .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin: 2rem 0; }
-    .kpi, .view, .notes, .details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 28px rgb(23 32 42 / 6%); }
+    .kpi, .view, .notes, .details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 28px rgba(23, 32, 42, .06); }
     .kpi { min-height: 140px; padding: 1.1rem; }
     .kpi strong { display: block; font-size: 2rem; font-variant-numeric: tabular-nums; }
+    .kpi[class*="accent-"], .view[class*="accent-"] { border-top: 5px solid var(--card-accent); background: linear-gradient(180deg, var(--card-tint) 0, var(--card) 7rem); }
+    .accent-blue { --card-accent: var(--color-blue); --card-tint: var(--color-blue-soft); }
+    .accent-cyan { --card-accent: var(--color-cyan); --card-tint: var(--color-cyan-soft); }
+    .accent-green { --card-accent: var(--color-green); --card-tint: var(--color-green-soft); }
+    .accent-amber { --card-accent: var(--color-amber); --card-tint: var(--color-amber-soft); }
+    .accent-orange { --card-accent: var(--color-orange); --card-tint: var(--color-orange-soft); }
+    .accent-magenta { --card-accent: var(--color-magenta); --card-tint: var(--color-magenta-soft); }
+    .accent-violet { --card-accent: var(--color-violet); --card-tint: var(--color-violet-soft); }
     .view-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1rem; }
     .view { grid-column: span 6; padding: 1.25rem; }
     .view--wide { grid-column: 1 / -1; }
@@ -131,6 +153,17 @@ const STATIC_BOARD_TEMPLATE = `<!doctype html>
     .axis { stroke: var(--ink); stroke-width: 1; }
     .mark { fill: var(--accent); }
     .mark-secondary { fill: var(--accent-soft); stroke: var(--accent); }
+    .mark-blue { fill: var(--color-blue); }
+    .mark-cyan { fill: var(--color-cyan); }
+    .mark-green { fill: var(--color-green); }
+    .mark-amber { fill: var(--color-amber); }
+    .mark-orange { fill: var(--color-orange); }
+    .mark-magenta { fill: var(--color-magenta); }
+    .mark-violet { fill: var(--color-violet); }
+    .legend { display: flex; flex-wrap: wrap; gap: .55rem 1rem; align-items: center; margin: .75rem 0; padding: 0; list-style: none; font-size: .88rem; color: var(--muted); }
+    .legend-swatch { display: inline-block; width: .85rem; height: .85rem; margin-right: .35rem; border: 1px solid rgba(23, 32, 42, .35); border-radius: 3px; vertical-align: -.08rem; }
+    .heatmap { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: .55rem; }
+    .heat-cell { min-height: 5.5rem; display: grid; place-content: center; gap: .2rem; border: 1px solid var(--line); border-radius: 10px; background: var(--color-blue-soft); text-align: center; }
     table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
     caption { padding-bottom: .75rem; text-align: left; font-weight: 700; }
     th, td { border-bottom: 1px solid var(--line); padding: .65rem; text-align: left; vertical-align: top; }
@@ -143,7 +176,7 @@ const STATIC_BOARD_TEMPLATE = `<!doctype html>
       @page { margin: 12mm; }
       body { background: #fff; font-size: 10pt; }
       main { width: 100%; padding: 0; }
-      .kpi, .view, .notes, .details, table, svg { break-inside: avoid; box-shadow: none; }
+      .kpi, .view, .notes, .details, table, svg { break-inside: avoid; border-color: #8a8f98; box-shadow: none; }
       a { color: inherit; text-decoration: none; }
     }
   </style>
@@ -228,7 +261,9 @@ Map only valid embedded coordinates or geometry with known CRS information. Coor
 
 ## Color and legibility
 
-Do not use color as the only information carrier. Pair color with position, length, pattern, labels, or symbols; preserve readable contrast in screen and print output. Use a restrained categorical palette, a perceptually ordered sequential scale for magnitude, and an explicitly centered diverging scale only when a meaningful midpoint exists. Provide a labeled legend whenever color encodes data.
+Use the template's named palette—blue, cyan, green, amber, orange, magenta, and violet—to give KPI and view cards clear visual hierarchy. Reuse the \`accent-*\`, \`mark-*\`, \`legend\`, \`legend-swatch\`, \`heatmap\`, and \`heat-cell\` classes instead of inventing unrelated colors for each board.
+
+Do not use color as the only information carrier. Pair color with position, length, pattern, labels, or symbols; preserve readable contrast in screen and print output. Use categorical colors only for distinct groups, a perceptually ordered sequential scale for magnitude, and an explicitly centered diverging scale only when a meaningful midpoint exists. Provide a labeled legend whenever color encodes data. Keep exact values adjacent and verify that borders, labels, and chart structure remain legible in grayscale print.
 `;
 
 const INTERACTIVE_DASHBOARD_TEMPLATE = `<!doctype html>
@@ -239,7 +274,32 @@ const INTERACTIVE_DASHBOARD_TEMPLATE = `<!doctype html>
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
   <title>{{TITLE}}</title>
   <style>
-    :root { color-scheme: light; --ink: #17202a; --muted: #52606d; --paper: #f4f7f8; --card: #fff; --line: #d7dce2; --accent: #075985; --accent-soft: #dff2fa; --highlight: #a33a18; }
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #52606d;
+      --paper: #f4f7f8;
+      --card: #fff;
+      --line: #d7dce2;
+      --control-line: #8a8f98;
+      --accent: #075985;
+      --accent-soft: #dff2fa;
+      --highlight: #a33a18;
+      --color-blue: #075985;
+      --color-blue-soft: #e0f2fe;
+      --color-cyan: #0e7490;
+      --color-cyan-soft: #cffafe;
+      --color-green: #15803d;
+      --color-green-soft: #dcfce7;
+      --color-amber: #b45309;
+      --color-amber-soft: #fef3c7;
+      --color-orange: #c2410c;
+      --color-orange-soft: #ffedd5;
+      --color-magenta: #be185d;
+      --color-magenta-soft: #fce7f3;
+      --color-violet: #6d28d9;
+      --color-violet-soft: #ede9fe;
+    }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; }
     main { width: min(1240px, calc(100% - 2rem)); margin: 0 auto; padding: 2rem 0 3rem; }
@@ -248,12 +308,12 @@ const INTERACTIVE_DASHBOARD_TEMPLATE = `<!doctype html>
     .eyebrow { color: var(--accent); font-size: .8rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
     .lede { max-width: 75ch; font-size: 1.1rem; }
     .meta, .count { color: var(--muted); }
-    .filter-panel, .view, .details, .notes { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 28px rgb(23 32 42 / 6%); }
+    .filter-panel, .view, .details, .notes { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 28px rgba(23, 32, 42, .06); }
     .filter-panel { margin: 1.5rem 0; padding: 1rem; }
     .filters { display: flex; flex-wrap: wrap; align-items: end; gap: .8rem; }
     .control { display: grid; gap: .25rem; min-width: 12rem; }
     label { font-weight: 700; }
-    input, select, button { min-height: 44px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: inherit; font: inherit; padding: .55rem .7rem; }
+    input, select, button { min-height: 44px; border: 1px solid var(--control-line); border-radius: 8px; background: #fff; color: inherit; font: inherit; padding: .55rem .7rem; }
     button { cursor: pointer; font-weight: 700; }
     button:hover { border-color: var(--accent); }
     :focus-visible { outline: 3px solid var(--highlight); outline-offset: 3px; }
@@ -261,6 +321,23 @@ const INTERACTIVE_DASHBOARD_TEMPLATE = `<!doctype html>
     .view { grid-column: span 6; min-height: 220px; padding: 1rem; }
     .view--wide { grid-column: 1 / -1; }
     .view-meta { color: var(--muted); font-size: .9rem; }
+    .view[class*="accent-"] { border-top: 5px solid var(--card-accent); background: linear-gradient(180deg, var(--card-tint) 0, var(--card) 7rem); }
+    .accent-blue { --card-accent: var(--color-blue); --card-tint: var(--color-blue-soft); }
+    .accent-cyan { --card-accent: var(--color-cyan); --card-tint: var(--color-cyan-soft); }
+    .accent-green { --card-accent: var(--color-green); --card-tint: var(--color-green-soft); }
+    .accent-amber { --card-accent: var(--color-amber); --card-tint: var(--color-amber-soft); }
+    .accent-orange { --card-accent: var(--color-orange); --card-tint: var(--color-orange-soft); }
+    .accent-magenta { --card-accent: var(--color-magenta); --card-tint: var(--color-magenta-soft); }
+    .accent-violet { --card-accent: var(--color-violet); --card-tint: var(--color-violet-soft); }
+    .track { display: block; height: 1rem; overflow: hidden; border-radius: 999px; background: #e6edf1; }
+    .bar { display: block; height: 100%; border-radius: inherit; background: var(--color-blue); }
+    .bar-green { background: var(--color-green); }
+    .bar-amber { background: var(--color-amber); }
+    .bar-magenta { background: var(--color-magenta); }
+    .legend { display: flex; flex-wrap: wrap; gap: .55rem 1rem; align-items: center; margin: .75rem 0; padding: 0; list-style: none; font-size: .88rem; color: var(--muted); }
+    .legend-swatch { display: inline-block; width: .85rem; height: .85rem; margin-right: .35rem; border: 1px solid rgba(23, 32, 42, .35); border-radius: 3px; vertical-align: -.08rem; }
+    .heatmap { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: .55rem; }
+    .heat-cell { min-height: 5.5rem; display: grid; place-content: center; gap: .2rem; border: 1px solid var(--line); border-radius: 10px; background: var(--color-blue-soft); text-align: center; }
     .details, .notes { margin-top: 1rem; padding: 1rem; overflow-x: auto; }
     .empty { border: 2px dashed var(--line); border-radius: 10px; margin: 1rem 0; padding: 1rem; }
     [hidden] { display: none !important; }
@@ -270,6 +347,12 @@ const INTERACTIVE_DASHBOARD_TEMPLATE = `<!doctype html>
     th { background: var(--accent-soft); }
     a { color: var(--accent); text-underline-offset: .2em; }
     @media (max-width: 760px) { .view { grid-column: 1 / -1; } .control { width: 100%; } }
+    @media print {
+      body { background: #fff; font-size: 10pt; }
+      main { width: 100%; padding: 0; }
+      .filter-panel, .view, .details, .notes, input, select, button, table { border-color: #8a8f98; box-shadow: none; }
+      .filter-panel, .view, .details, .notes, table { break-inside: avoid; }
+    }
   </style>
 </head>
 <body>
@@ -290,7 +373,7 @@ const INTERACTIVE_DASHBOARD_TEMPLATE = `<!doctype html>
       <p class="count" aria-live="polite" aria-atomic="true" data-klopsi-record-count><strong>{{INITIAL_MATCHING_COUNT}}</strong> of {{TOTAL_COUNT}} records match.</p>
     </section>
 
-    <!-- Replace VIEW_CARDS with two to four linked article.view elements. Give data-derived labels dedicated elements and update them with textContent. -->
+    <!-- Replace VIEW_CARDS with two to four linked article.view elements. Use distinct accent-* classes, visible chart marks, and labeled legends. Give data-derived labels dedicated elements and update them with textContent. -->
     <section class="view-grid" aria-label="Linked analytical views">
       {{VIEW_CARDS}}
     </section>
@@ -441,6 +524,12 @@ Put \`data-field="<row-key>"\` on every rendered \`th\`, matching the row proper
 ## Views, selection, and tooltip alternatives
 
 Use two to four complementary views. Every view states its question, population, unit, relevant count, and takeaway. Pair linked highlighting with labels, patterns, or symbols so color is not the only signal. Any tooltip value must also be reachable by keyboard focus, selection text, an adjacent list, or the semantic detail table. Keep focused drill-down reversible and preserve a clear path back to the initial overview.
+
+## Color and visible rendering
+
+Use the template's named palette and distinct \`accent-*\` classes to give linked views visual hierarchy. Use categorical colors only for distinct groups, a perceptually ordered scale for magnitude, and a centered diverging scale only when the data has a meaningful midpoint. Provide a labeled legend whenever color encodes data, and keep labels or exact values available so color is never the only signal.
+
+Every generated mark needs visible geometry and a fallback color. Keep \`.bar\` block-level, give every heat cell a non-white CSS fallback, and use comma-separated \`rgb(r, g, b)\` syntax when JavaScript computes an inline intensity color. A DOM node count is not visual verification: inspect representative computed style values or a screenshot and confirm nonzero mark dimensions, distinct heatmap fills, readable text, legends, the empty state, and at least one filtered state.
 
 ## Geography and disclosure
 
