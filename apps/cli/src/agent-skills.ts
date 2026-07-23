@@ -47,6 +47,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     workflows: [
       "Acquire and analyze data",
       "Inspect and export WFS data",
+      "Explore prepared data in DuckDB UI",
       "Analyze and present data",
       "Refresh an agent installation",
     ],
@@ -58,6 +59,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "klopsi-download",
       "klopsi-validation",
       "klopsi-analysis",
+      "klopsi-duckdb-ui",
       "klopsi-services",
       "klopsi-provenance",
       "klopsi-static-dashboard",
@@ -296,6 +298,61 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "Confirm before replacing an existing output with --force.",
     ],
     related: ["klopsi-resources", "klopsi-validation", "klopsi-provenance"],
+  },
+  {
+    kind: "command",
+    name: "klopsi-duckdb-ui",
+    description:
+      "Use when acquired or computed Slovenian public data should be explored interactively in DuckDB UI with SQL, tables, summaries, or temporary charts.",
+    commands: ["duckdb open", "duckdb install"],
+    purpose:
+      "Open a resolved tabular input as the read-only `data` table in DuckDB UI for local exploratory visual analysis.",
+    workflows: [
+      "Inspect or validate the selected input, verify important artifact provenance, then open it in DuckDB UI for an attached exploratory session.",
+      "Use an existing DuckDB CLI when available and install it only after explicit authorization.",
+      "Move reproducible results back through bounded KLOPSI query exports or a durable HTML dashboard workflow.",
+    ],
+    capabilities: [
+      {
+        id: "exploration-fit",
+        title: "Choose exploratory DuckDB UI",
+        instructions: [
+          "Use DuckDB UI for a local exploratory session that needs iterative SQL, profiling, tables, summaries, or temporary charts over acquired or computed data.",
+          "Do not treat a UI session as the final artifact when the user needs a reproducible export, a self-contained presentation, or a result that another person can open without DuckDB.",
+        ],
+      },
+      {
+        id: "open-prepared-data",
+        title: "Open prepared data",
+        instructions: [
+          "Prefer a verified downloaded, converted, WFS-exported, or query-exported local artifact; use `--entry`, `--record-path`, or `--sheet` when the selected ZIP, XML, or XLSX input requires it.",
+          "Run `klopsi duckdb open <input>` and query the staged table `data`. KLOPSI opens the leased database read-only and removes it after DuckDB UI exits.",
+          "DuckDB UI is an attached local SQL environment, not the bounded read-only SQL sandbox provided by `klopsi query`; keep untrusted SQL and extensions out of the session.",
+        ],
+      },
+      {
+        id: "optional-installation",
+        title: "Authorize optional installation",
+        instructions: [
+          "Use the already installed external DuckDB CLI when available. If it is absent, request explicit authorization before `klopsi duckdb install --yes` or `klopsi duckdb open <input> --install`.",
+          "Do not infer installation consent from a request to inspect data, and do not run the official installer when the user requires offline execution.",
+        ],
+      },
+      {
+        id: "handoff",
+        title: "Preserve reproducible results",
+        instructions: [
+          "For a reproducible computed artifact, rerun the final bounded SQL through `klopsi query --output <path>` and verify its provenance rather than relying on UI-only state.",
+          "Use `klopsi-static-dashboard` for a concise static HTML board or `klopsi-interactive-dashboard` for a self-contained interactive HTML presentation; those durable workflows are distinct from temporary DuckDB UI charts.",
+        ],
+      },
+    ],
+    safety: [
+      "Install the external DuckDB CLI only after explicit authorization.",
+      "Do not describe DuckDB UI SQL as KLOPSI's bounded query sandbox.",
+      "Do not claim durable provenance for temporary UI state or charts.",
+    ],
+    related: ["klopsi-analysis", "klopsi-static-dashboard", "klopsi-interactive-dashboard"],
   },
   {
     kind: "command",
@@ -865,12 +922,19 @@ Do not pass \`/klopsi\`, \`@klopsi\`, or \`$klopsi\` to the shell. Those are hos
 
 ### ${definition.workflows[2]}
 
+1. Inspect or validate the selected acquired or computed artifact and verify available provenance.
+2. Use \`klopsi-duckdb-ui\` for a local exploratory session over the staged \`data\` table.
+3. Install the optional external DuckDB CLI only after explicit authorization; DuckDB UI is not the bounded \`klopsi query\` sandbox.
+4. Persist reproducible results with a bounded query export, or continue to a durable HTML presentation workflow.
+
+### ${definition.workflows[3]}
+
 1. Prepare a bounded local artifact with analysis or WFS export, then verify available provenance.
 2. Choose \`klopsi-static-dashboard\` for a concise printable board or \`klopsi-interactive-dashboard\` for bounded exploration across linked views.
 3. Confirm the presentation language, color treatment, and one to three data-specific questions before creating HTML.
 4. Generate one self-contained offline HTML file, disclose reductions and verification status, and run the shared dashboard verifier before handoff.
 
-### ${definition.workflows[3]}
+### ${definition.workflows[4]}
 
 1. Run \`klopsi agent setup --dry-run\` to inspect the planned selection and repertoire.
 2. With explicit authorization, select the intended host with \`--agent <id>\` and use \`--yes\` for non-interactive installation.
