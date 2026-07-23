@@ -37,7 +37,6 @@
     main { width: min(1240px, calc(100% - 2rem)); margin: 0 auto; padding: 2rem 0 3rem; }
     h1, h2, h3, p { margin-top: 0; }
     h1 { max-width: 24ch; font-size: clamp(2rem, 5vw, 4rem); line-height: 1.05; letter-spacing: -.035em; }
-    .eyebrow { color: var(--accent); font-size: .8rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
     .lede { max-width: 75ch; font-size: 1.1rem; }
     .meta, .count { color: var(--muted); }
     .filter-panel, .view, .details, .notes { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 28px rgba(23, 32, 42, .06); }
@@ -90,7 +89,6 @@
 <body>
   <main>
     <header>
-      <p class="eyebrow">Interactive evidence dashboard</p>
       <h1>{{TITLE}}</h1>
       <p class="lede" data-klopsi-summary>{{SUMMARY}}</p>
       <p class="meta"><span><strong>Scope:</strong> {{SCOPE}}</span> · <span><strong>Period:</strong> {{PERIOD}}</span> · <span><strong>Source:</strong> {{SOURCE}}</span></p>

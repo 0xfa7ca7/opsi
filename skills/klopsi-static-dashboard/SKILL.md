@@ -11,9 +11,14 @@ Turn a prepared local artifact into a self-contained semantic HTML and inline-SV
 
 ## Workflow
 
-- Verify the prepared source, select honest encodings, copy the static template to a new HTML destination, replace every marker, embed the presentation manifest, verify the board, and hand off its absolute path.
+- Confirm presentation preferences, verify the prepared source, select honest encodings, copy the static template to a new HTML destination, replace every marker, embed the presentation manifest, verify the board, and hand off its absolute path.
 
 ## Capability guide
+
+### Confirm presentation preferences
+
+- Before creating HTML, ask one compact checkpoint for the preferred language (English or Slovenian), color treatment (color-rich or restrained), and one to three additional data-specific questions that materially affect scope, comparison, audience, or emphasis.
+- Do not create or copy the HTML template until the user answers. Do not choose defaults. Skip a language or color question only when the user explicitly names a supported choice; `use your judgment`, `make sensible choices`, urgency, or a request not to ask are not answers. Ask only the missing data-specific items.
 
 ### Verify and prepare the source
 
@@ -28,7 +33,8 @@ Turn a prepared local artifact into a self-contained semantic HTML and inline-SV
 ### Compose the static board
 
 - Copy `assets/static-board.html` to a new destination; do not overwrite an existing file without authorization. Replace every `{{MARKER}}` with escaped, data-grounded content, and remove optional sections entirely instead of leaving markers.
-- Use the template's named palette and distinct `accent-*` classes across KPI and view cards. Use `mark-*`, heatmap, and legend primitives for data color; keep labels, position, length, patterns, or symbols so color is never the only signal.
+- Use the selected language for every visible label, control, note, table heading, accessibility description, and the document `lang` value. Use a subject-specific title and omit generic format labels such as `Static evidence board`, `dashboard`, or `report` unless the user explicitly requests one.
+- For a color-rich presentation, use the template's named palette and distinct `accent-*` classes across KPI and view cards. For a restrained presentation, omit decorative `accent-*` variety and keep one primary data accent plus neutral structure. In both versions, keep labels, position, length, patterns, or symbols so color is never the only signal.
 - Keep three to five KPI cards, two to six complementary view cards, adjacent interpretation, a semantic exact-values table, visible disclosures, and lineage. Preserve script-like source strings as text and never concatenate them into markup.
 - Write exactly one inert `klopsi-presentation-manifest` JSON block. Escape every less-than character as `\u003c`, describe all transformations and ordered reductions, and keep visible disclosures consistent with the manifest. For a non-map board, set `embeddedBytes` to `0` and omit presentation data. For a spatial board, add one inert `klopsi-presentation-data` block containing only the validated map rows and set its exact bytes and count in the manifest.
 

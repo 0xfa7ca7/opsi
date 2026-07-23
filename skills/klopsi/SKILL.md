@@ -48,7 +48,8 @@ Do not pass `/klopsi`, `@klopsi`, or `$klopsi` to the shell. Those are host-spec
 
 1. Prepare a bounded local artifact with analysis or WFS export, then verify available provenance.
 2. Choose `klopsi-static-dashboard` for a concise printable board or `klopsi-interactive-dashboard` for bounded exploration across linked views.
-3. Generate one self-contained offline HTML file, disclose reductions and verification status, and run the shared dashboard verifier before handoff.
+3. Confirm the presentation language, color treatment, and one to three data-specific questions before creating HTML.
+4. Generate one self-contained offline HTML file, disclose reductions and verification status, and run the shared dashboard verifier before handoff.
 
 ### Refresh an agent installation
 

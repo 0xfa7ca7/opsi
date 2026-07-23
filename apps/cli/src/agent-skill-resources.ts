@@ -7,25 +7,35 @@ const PRESENTATION_CONTRACT = `# KLOPSI dashboard presentation contract
 
 This reference is the normative shared contract for static and interactive HTML dashboard artifacts. The verifier is a bounded, dependency-free contract linter; it is not an HTML parser, sanitizer, browser, or security sandbox.
 
-## 1. Input readiness and source verification
+## 1. User preflight before presentation creation
+
+Before creating or copying any presentation HTML, ask one compact checkpoint containing:
+
+- the preferred language: English or Slovenian;
+- the visual treatment: color-rich or restrained;
+- one to three additional data-specific questions that materially affect the presentation, chosen from audience, decision or use, geographic or population scope, comparison basis, time emphasis, priority measure, or desired analytical focus.
+
+Do not start HTML composition until the user answers this checkpoint. Do not choose defaults. Skip a language or color question only when the user explicitly names a supported choice; \`use your judgment\`, \`make sensible choices\`, urgency, or a request not to ask are not answers. Ask only the missing data-specific items. Apply the chosen language to all visible text, controls, table headings, accessibility descriptions, and the document language. Apply the chosen color treatment consistently while keeping every encoding readable without color. Use subject-specific headings; omit generic format labels such as “Static evidence board”, “Interactive evidence dashboard”, “dashboard”, or “report” unless the user explicitly requests one.
+
+## 2. Input readiness and source verification
 
 - Start from a prepared local artifact or a bounded structured result persisted through KLOPSI when that path is supported. Route invalid input to \`klopsi-validation\` and reshaping, projection, aggregation, or sampling to \`klopsi-analysis\` or \`klopsi-services\`.
 - Run \`klopsi provenance verify <artifact> --json\` whenever an adjacent KLOPSI provenance record exists. Stop on verification failure. If no record exists, mark the source \`verified: false\`; never invent verification or lineage.
 - Preserve exact source identities and compute or retain a SHA-256 digest for every presented source.
 
-## 2. Artifact and data limits
+## 3. Artifact and data limits
 
 - A complete HTML file, including embedded markup, styles, scripts, data, and geometry, must be no larger than 15 MB (15 * 1024 * 1024 bytes).
 - Every presentation-data JSON body must be no larger than 5 MB (5 * 1024 * 1024 bytes), and interactive presentation data must contain at most 10,000 prepared rows.
 - Static mode embeds only aggregate values needed by visible views. A non-map board sets \`data.embeddedBytes\` to \`0\` and has no presentation-data block. A static map embeds exactly one inert presentation-data JSON block containing only its prepared spatial rows; the verifier checks its exact bytes, row count, coordinates or geometry, CRS, and exclusions. Static mode never includes executable JavaScript.
 
-## 3. No silent truncation and reduction disclosure
+## 4. No silent truncation and reduction disclosure
 
 Never silently truncate. When the source exceeds a limit, aggregate or project first. Sample only when aggregation cannot answer the question, and ask before sampling when it could materially change interpretation.
 
 When \`originalRows\` equals \`presentedRows\`, \`reductions\` is empty, including the explicit zero-row case. When the count decreases, reductions form one ordered, strictly decreasing chain: the first \`originalRows\` equals the overall original count, each next original count equals the previous presented count, and the final presented count equals the overall presented count. Explain the same reductions visibly under \`data-klopsi-disclosures\`. Each exact reduction object contains only \`method\`, \`originalRows\`, \`presentedRows\`, \`groupingFields\`, \`exclusions\`, and \`sampleBasis\` (null when no sampling occurred). State grouping fields, exclusions, and the sample basis plainly.
 
-## 4. Presentation manifest
+## 5. Presentation manifest
 
 Embed exactly one non-executable block named \`klopsi-presentation-manifest\`:
 
@@ -57,17 +67,17 @@ For either spatial form, \`validRecords\` equals the embedded row count. A nonze
 
 Interactive mode, and static mode only when geography is spatial, embeds exactly one \`klopsi-presentation-data\` application/JSON script whose body is a JSON array. Its UTF-8 byte length and row count exactly equal manifest \`embeddedBytes\` and \`presentedRows\`.
 
-## 5. Offline and content security
+## 6. Offline and content security
 
 The artifact is one self-contained HTML file. Opening it must not load any companion or remote script, style, image, font, frame, object, embed, media, form target, import, data file, API, telemetry, tile, relative/root/file/blob URL, CSS import/URL/image-set reference, or meta-refresh navigation. Ordinary visible citation anchors may link to sources because they do not load on open, but cannot use active URL forms. Safe embedded raster/audio/video \`data:\` resources and fragment-only SVG references are allowed only in the elements appropriate to those media. Active \`javascript:\`, \`vbscript:\`, HTML, XML, and SVG \`data:\` URLs are forbidden.
 
 Include exactly one Content Security Policy meta element inside the sole \`head\`, before the \`body\` and before any active content. Static mode uses exactly \`default-src 'none'\`, \`connect-src 'none'\`, \`object-src 'none'\`, \`base-uri 'none'\`, \`form-action 'none'\`, \`img-src data:\`, and \`style-src 'unsafe-inline'\`. Interactive mode adds exactly \`script-src 'unsafe-inline'\`. Do not add fallback or element/attribute-specific directives, duplicate directive names, or \`self\`, remote, file, or blob sources. Do not use inline \`on*\` handlers, network APIs, dynamic imports, \`eval\`, \`new Function\`, \`innerHTML\`, \`outerHTML\`, \`insertAdjacentHTML\`, \`document.write\`/\`writeln\`, \`DOMParser\`, contextual fragments, HTML documents, \`srcdoc\`, frames, objects, or embeds. Dot, optional-property, and quoted-bracket property calls are equally prohibited, whether they use an ordinary or optional call.
 
-## 6. Safe JSON and DOM text handling
+## 7. Safe JSON and DOM text handling
 
 Serialize JSON with every \`<\` escaped as \`\\u003c\` before placing it in either application/JSON script body, so data cannot terminate the containing element. Parse only those inert JSON blocks. Render data-derived labels, cells, tooltips, and summaries with \`textContent\`, DOM node creation, or equivalent attribute-safe APIs; never concatenate data into \`innerHTML\`.
 
-## 7. Accessibility and visual metadata
+## 8. Accessibility and visual metadata
 
 Use an HTML doctype, nonempty document language, UTF-8 charset, device-width/initial-scale viewport, one nonempty title, exactly one nonhidden main landmark, and exactly one nonhidden nonempty level-one heading. Every presentation includes exactly one visible, nonempty \`data-klopsi-summary\`, \`data-klopsi-disclosures\`, and \`data-klopsi-lineage\` region. Comments and script text never satisfy structure or unresolved-marker checks.
 
@@ -75,7 +85,7 @@ Choose encodings from the analytical question. Every view exposes its question, 
 
 Interactive dashboards also include a named filter region with visibly labeled, enabled, visible, keyboard-reachable native controls; a visible polite live \`data-klopsi-record-count\`; an enabled, visible, keyboard-reachable native reset button; a semantic \`table\` with \`thead\` and \`th\`; a useful nonempty empty-state region; and a useful nonempty \`noscript\` summary. Hidden, inert, or \`aria-hidden\` ancestors and disabled ancestor fieldsets make their descendant controls unavailable. Every button in the sole nonhidden, available main contract scope must individually have a nonempty accessible name and remain operable; hidden extra main elements do not bypass validation of the available main, and ambiguous available-main scope fails closed. One valid reset cannot compensate for another unnamed or unavailable button. Reset restores the documented initial state and the matching count reflects the current filtered row set.
 
-## 8. Verify before handoff
+## 9. Verify before handoff
 
 Run the shared verifier after writing or changing the dashboard:
 
@@ -85,7 +95,7 @@ node ../klopsi-shared/scripts/verify-dashboard.mjs <dashboard.html> --mode <stat
 
 Exit 0 means the bounded checks found no contract violations. Exit 1 returns repairable contract findings with stable \`code\` and \`message\` values. Exit 2 means the invocation or input path is invalid. Repair every finding and rerun before handoff. A pass does not mean arbitrary HTML is safe; review the produced artifact and open it only in an appropriately isolated environment.
 
-## 9. Presentation evidence is not provenance
+## 10. Presentation evidence is not provenance
 
 The embedded manifest records presentation evidence, source digests, verification status, transformations, reductions, and visual semantics. It is not a KLOPSI provenance sidecar and passing the dashboard verifier is not official artifact provenance. Use \`klopsi provenance verify\` to make provenance claims.
 `;
@@ -129,7 +139,6 @@ const STATIC_BOARD_TEMPLATE = `<!doctype html>
     h1, h2, h3, p { margin-top: 0; }
     h1 { max-width: 22ch; font-size: clamp(2rem, 5vw, 4.5rem); line-height: 1; letter-spacing: -0.04em; }
     h2 { font-size: 1.25rem; }
-    .eyebrow { color: var(--accent); font-size: .8rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
     .lede { max-width: 72ch; font-size: 1.15rem; }
     .meta { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; color: var(--muted); }
     .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin: 2rem 0; }
@@ -184,7 +193,6 @@ const STATIC_BOARD_TEMPLATE = `<!doctype html>
 <body>
   <main>
     <header>
-      <p class="eyebrow">Static evidence board</p>
       <h1>{{TITLE}}</h1>
       <p class="lede" data-klopsi-summary>{{SUMMARY}}</p>
       <p class="meta"><span><strong>Scope:</strong> {{SCOPE}}</span><span><strong>Period:</strong> {{PERIOD}}</span><span><strong>Source:</strong> {{SOURCE}}</span></p>
@@ -305,7 +313,6 @@ const INTERACTIVE_DASHBOARD_TEMPLATE = `<!doctype html>
     main { width: min(1240px, calc(100% - 2rem)); margin: 0 auto; padding: 2rem 0 3rem; }
     h1, h2, h3, p { margin-top: 0; }
     h1 { max-width: 24ch; font-size: clamp(2rem, 5vw, 4rem); line-height: 1.05; letter-spacing: -.035em; }
-    .eyebrow { color: var(--accent); font-size: .8rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
     .lede { max-width: 75ch; font-size: 1.1rem; }
     .meta, .count { color: var(--muted); }
     .filter-panel, .view, .details, .notes { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 28px rgba(23, 32, 42, .06); }
@@ -358,7 +365,6 @@ const INTERACTIVE_DASHBOARD_TEMPLATE = `<!doctype html>
 <body>
   <main>
     <header>
-      <p class="eyebrow">Interactive evidence dashboard</p>
       <h1>{{TITLE}}</h1>
       <p class="lede" data-klopsi-summary>{{SUMMARY}}</p>
       <p class="meta"><span><strong>Scope:</strong> {{SCOPE}}</span> · <span><strong>Period:</strong> {{PERIOD}}</span> · <span><strong>Source:</strong> {{SOURCE}}</span></p>

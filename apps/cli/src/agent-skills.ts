@@ -394,9 +394,17 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     purpose:
       "Turn a prepared local artifact into a self-contained semantic HTML and inline-SVG board that remains useful offline and without JavaScript.",
     workflows: [
-      "Verify the prepared source, select honest encodings, copy the static template to a new HTML destination, replace every marker, embed the presentation manifest, verify the board, and hand off its absolute path.",
+      "Confirm presentation preferences, verify the prepared source, select honest encodings, copy the static template to a new HTML destination, replace every marker, embed the presentation manifest, verify the board, and hand off its absolute path.",
     ],
     capabilities: [
+      {
+        id: "presentation-preflight",
+        title: "Confirm presentation preferences",
+        instructions: [
+          "Before creating HTML, ask one compact checkpoint for the preferred language (English or Slovenian), color treatment (color-rich or restrained), and one to three additional data-specific questions that materially affect scope, comparison, audience, or emphasis.",
+          "Do not create or copy the HTML template until the user answers. Do not choose defaults. Skip a language or color question only when the user explicitly names a supported choice; `use your judgment`, `make sensible choices`, urgency, or a request not to ask are not answers. Ask only the missing data-specific items.",
+        ],
+      },
       {
         id: "input-readiness",
         title: "Verify and prepare the source",
@@ -418,7 +426,8 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         title: "Compose the static board",
         instructions: [
           "Copy `assets/static-board.html` to a new destination; do not overwrite an existing file without authorization. Replace every `{{MARKER}}` with escaped, data-grounded content, and remove optional sections entirely instead of leaving markers.",
-          "Use the template's named palette and distinct `accent-*` classes across KPI and view cards. Use `mark-*`, heatmap, and legend primitives for data color; keep labels, position, length, patterns, or symbols so color is never the only signal.",
+          "Use the selected language for every visible label, control, note, table heading, accessibility description, and the document `lang` value. Use a subject-specific title and omit generic format labels such as `Static evidence board`, `dashboard`, or `report` unless the user explicitly requests one.",
+          "For a color-rich presentation, use the template's named palette and distinct `accent-*` classes across KPI and view cards. For a restrained presentation, omit decorative `accent-*` variety and keep one primary data accent plus neutral structure. In both versions, keep labels, position, length, patterns, or symbols so color is never the only signal.",
           "Keep three to five KPI cards, two to six complementary view cards, adjacent interpretation, a semantic exact-values table, visible disclosures, and lineage. Preserve script-like source strings as text and never concatenate them into markup.",
           "Write exactly one inert `klopsi-presentation-manifest` JSON block. Escape every less-than character as `\\u003c`, describe all transformations and ordered reductions, and keep visible disclosures consistent with the manifest. For a non-map board, set `embeddedBytes` to `0` and omit presentation data. For a spatial board, add one inert `klopsi-presentation-data` block containing only the validated map rows and set its exact bytes and count in the manifest.",
         ],
@@ -448,9 +457,17 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     purpose:
       "Turn a bounded prepared local artifact into one offline exploratory HTML file whose useful initial overview and linked interactions share a single in-memory data flow.",
     workflows: [
-      "Verify and bound the prepared source, copy the interactive template to a new HTML destination, replace every marker, embed safe normalized data and the presentation manifest, verify the dashboard, and hand off its absolute path.",
+      "Confirm presentation preferences, verify and bound the prepared source, copy the interactive template to a new HTML destination, replace every marker, embed safe normalized data and the presentation manifest, verify the dashboard, and hand off its absolute path.",
     ],
     capabilities: [
+      {
+        id: "presentation-preflight",
+        title: "Confirm presentation preferences",
+        instructions: [
+          "Before creating HTML, ask one compact checkpoint for the preferred language (English or Slovenian), color treatment (color-rich or restrained), and one to three additional data-specific questions that materially affect scope, comparison, audience, or emphasis.",
+          "Do not create or copy the HTML template until the user answers. Do not choose defaults. Skip a language or color question only when the user explicitly names a supported choice; `use your judgment`, `make sensible choices`, urgency, or a request not to ask are not answers. Ask only the missing data-specific items.",
+        ],
+      },
       {
         id: "input-readiness",
         title: "Verify and prepare the source",
@@ -472,7 +489,8 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         title: "Compose a useful initial overview",
         instructions: [
           "Read `references/interaction-guide.md`. Copy `assets/interactive-dashboard.html` to a new destination without overwriting an existing file without authorization, replace every `{{MARKER}}`, and remove optional sections rather than leaving markers.",
-          "Use the template's named palette and distinct `accent-*` classes across linked views. Use visible block-level chart marks, heatmap fallbacks, labels, and legends so color strengthens hierarchy without becoming the only signal.",
+          "Use the selected language for every visible label, control, empty state, table heading, accessibility description, and the document `lang` value. Use a subject-specific title and omit generic format labels such as `Interactive evidence dashboard`, `dashboard`, or `report` unless the user explicitly requests one.",
+          "For a color-rich presentation, use the template's named palette and distinct `accent-*` classes across linked views. For a restrained presentation, omit decorative `accent-*` variety and keep one primary data accent plus neutral structure. In both versions, use visible marks, heatmap fallbacks, labels, and legends so color is never the only signal.",
           "Make the documented initial state answer the broad question before interaction. Include a concise summary, visible matching and total counts, two to four complementary linked views, a semantic detail table, definitions, reduction disclosures, lineage, and a useful static `noscript` summary.",
           "Serialize exactly one manifest and one presentation-data JSON block, escaping every less-than character as `\\u003c`. Render every data-derived label, cell, summary, and tooltip alternative with DOM methods and `textContent`, never data-concatenated markup.",
         ],
@@ -849,7 +867,8 @@ Do not pass \`/klopsi\`, \`@klopsi\`, or \`$klopsi\` to the shell. Those are hos
 
 1. Prepare a bounded local artifact with analysis or WFS export, then verify available provenance.
 2. Choose \`klopsi-static-dashboard\` for a concise printable board or \`klopsi-interactive-dashboard\` for bounded exploration across linked views.
-3. Generate one self-contained offline HTML file, disclose reductions and verification status, and run the shared dashboard verifier before handoff.
+3. Confirm the presentation language, color treatment, and one to three data-specific questions before creating HTML.
+4. Generate one self-contained offline HTML file, disclose reductions and verification status, and run the shared dashboard verifier before handoff.
 
 ### ${definition.workflows[3]}
 

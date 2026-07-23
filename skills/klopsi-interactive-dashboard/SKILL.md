@@ -11,9 +11,14 @@ Turn a bounded prepared local artifact into one offline exploratory HTML file wh
 
 ## Workflow
 
-- Verify and bound the prepared source, copy the interactive template to a new HTML destination, replace every marker, embed safe normalized data and the presentation manifest, verify the dashboard, and hand off its absolute path.
+- Confirm presentation preferences, verify and bound the prepared source, copy the interactive template to a new HTML destination, replace every marker, embed safe normalized data and the presentation manifest, verify the dashboard, and hand off its absolute path.
 
 ## Capability guide
+
+### Confirm presentation preferences
+
+- Before creating HTML, ask one compact checkpoint for the preferred language (English or Slovenian), color treatment (color-rich or restrained), and one to three additional data-specific questions that materially affect scope, comparison, audience, or emphasis.
+- Do not create or copy the HTML template until the user answers. Do not choose defaults. Skip a language or color question only when the user explicitly names a supported choice; `use your judgment`, `make sensible choices`, urgency, or a request not to ask are not answers. Ask only the missing data-specific items.
 
 ### Verify and prepare the source
 
@@ -28,7 +33,8 @@ Turn a bounded prepared local artifact into one offline exploratory HTML file wh
 ### Compose a useful initial overview
 
 - Read `references/interaction-guide.md`. Copy `assets/interactive-dashboard.html` to a new destination without overwriting an existing file without authorization, replace every `{{MARKER}}`, and remove optional sections rather than leaving markers.
-- Use the template's named palette and distinct `accent-*` classes across linked views. Use visible block-level chart marks, heatmap fallbacks, labels, and legends so color strengthens hierarchy without becoming the only signal.
+- Use the selected language for every visible label, control, empty state, table heading, accessibility description, and the document `lang` value. Use a subject-specific title and omit generic format labels such as `Interactive evidence dashboard`, `dashboard`, or `report` unless the user explicitly requests one.
+- For a color-rich presentation, use the template's named palette and distinct `accent-*` classes across linked views. For a restrained presentation, omit decorative `accent-*` variety and keep one primary data accent plus neutral structure. In both versions, use visible marks, heatmap fallbacks, labels, and legends so color is never the only signal.
 - Make the documented initial state answer the broad question before interaction. Include a concise summary, visible matching and total counts, two to four complementary linked views, a semantic detail table, definitions, reduction disclosures, lineage, and a useful static `noscript` summary.
 - Serialize exactly one manifest and one presentation-data JSON block, escaping every less-than character as `\u003c`. Render every data-derived label, cell, summary, and tooltip alternative with DOM methods and `textContent`, never data-concatenated markup.
 

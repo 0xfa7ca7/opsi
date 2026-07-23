@@ -65,6 +65,7 @@ const EXPECTED_WFS_CAPABILITY_IDS = [
 ] as const;
 
 const EXPECTED_STATIC_DASHBOARD_CAPABILITY_IDS = [
+  "presentation-preflight",
   "input-readiness",
   "encoding-selection",
   "board-composition",
@@ -72,6 +73,7 @@ const EXPECTED_STATIC_DASHBOARD_CAPABILITY_IDS = [
 ] as const;
 
 const EXPECTED_INTERACTIVE_DASHBOARD_CAPABILITY_IDS = [
+  "presentation-preflight",
   "input-readiness",
   "bounded-embedding",
   "initial-overview",
@@ -498,7 +500,10 @@ describe("agent skill rendering", () => {
       "2. Choose `klopsi-static-dashboard` for a concise printable board or `klopsi-interactive-dashboard` for bounded exploration across linked views.",
     );
     expect(content).toContain(
-      "3. Generate one self-contained offline HTML file, disclose reductions and verification status, and run the shared dashboard verifier before handoff.",
+      "Confirm the presentation language, color treatment, and one to three data-specific questions before creating HTML.",
+    );
+    expect(content).toContain(
+      "4. Generate one self-contained offline HTML file, disclose reductions and verification status, and run the shared dashboard verifier before handoff.",
     );
     expect(content).toContain("Confirm the result includes the complete reported repertoire");
     expect(content).not.toContain("including `klopsi-services`");
@@ -507,6 +512,8 @@ describe("agent skill rendering", () => {
 
   it("renders the static dashboard workflow and complete authoring resources", () => {
     const packages = renderAgentSkillPackages("1.2.3");
+    const presentationContract =
+      packages.get("klopsi-shared")?.files.get("references/presentation-contract.md") ?? "";
     const skill = packages.get("klopsi-static-dashboard")?.files.get("SKILL.md") ?? "";
     const template =
       packages.get("klopsi-static-dashboard")?.files.get("assets/static-board.html") ?? "";
@@ -526,10 +533,22 @@ describe("agent skill rendering", () => {
       "known CRS",
       "verify-dashboard.mjs",
       "Check for `<artifact>.provenance.json`",
+      "Confirm presentation preferences",
+      "English or Slovenian",
+      "color-rich or restrained",
+      "one to three additional data-specific questions",
+      "Do not create or copy the HTML template until the user answers",
+      "Do not choose defaults",
+      "`use your judgment`",
+      "subject-specific title",
     ]) {
       expect(skill, token).toContain(token);
     }
     expect(skill).not.toContain("## Commands");
+    expect(presentationContract).toContain("## 1. User preflight before presentation creation");
+    expect(presentationContract).toContain(
+      "Do not start HTML composition until the user answers this checkpoint.",
+    );
 
     for (const marker of [
       "{{TITLE}}",
@@ -551,6 +570,7 @@ describe("agent skill rendering", () => {
     expect(template).toContain("data-klopsi-summary");
     expect(template).toContain("data-klopsi-disclosures");
     expect(template).toContain("data-klopsi-lineage");
+    expect(template).not.toContain("Static evidence board");
     expect(template.match(/<script\b/gu)).toHaveLength(1);
     expect(template).toContain(
       '<script id="klopsi-presentation-manifest" type="application/json">',
@@ -619,6 +639,14 @@ describe("agent skill rendering", () => {
       "verify-dashboard.mjs",
       "Check for `<artifact>.provenance.json`",
       "textContent",
+      "Confirm presentation preferences",
+      "English or Slovenian",
+      "color-rich or restrained",
+      "one to three additional data-specific questions",
+      "Do not create or copy the HTML template until the user answers",
+      "Do not choose defaults",
+      "`use your judgment`",
+      "subject-specific title",
     ]) {
       expect(skill, token).toContain(token);
     }
@@ -656,6 +684,7 @@ describe("agent skill rendering", () => {
     expect(template).not.toMatch(/<form\b[^>]*\saction\s*=/iu);
     expect(template).toContain('aria-live="polite"');
     expect(template).toContain("<noscript>");
+    expect(template).not.toContain("Interactive evidence dashboard");
     expect(template).toContain("const state =");
     expect(template).toContain("const filteredRows =");
     for (const renderer of [
