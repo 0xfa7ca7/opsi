@@ -1,7 +1,7 @@
 import { extname, resolve } from "node:path";
 import { boundedFileSample, normalizeInput } from "./sample.js";
 import { decodeTextSample, sniffDelimitedDialect } from "./text-decoding.js";
-import type { DelimitedDialect, TextEncoding } from "./text-decoding.js";
+import type { DelimitedDialect } from "./text-decoding.js";
 import type {
   DataInput,
   DetectedTextEncoding,
