@@ -127,6 +127,38 @@ DATA=1;`,
     });
   });
 
+  it("keeps case-collision-safe PC-Axis schema names and exact code-column types", async () => {
+    const path = await temporaryFile(
+      "case-collisions.px",
+      `CODEPAGE="utf-8";
+MATRIX="case collisions";
+STUB="Region","region","VALUE","VALUE__SYMBOL","Region__CODE";
+VALUES("Region")="1";
+CODES("Region")="R1";
+VALUES("region")="2";
+CODES("region")="r1";
+VALUES("VALUE")="3";
+VALUES("VALUE__SYMBOL")="4";
+VALUES("Region__CODE")="5";
+CODES("Region__CODE")="RC";
+DATA=7;`,
+    );
+
+    await expect(engine.inferSchema(path)).resolves.toMatchObject({
+      fields: [
+        expect.objectContaining({ name: "Region", type: "integer" }),
+        expect.objectContaining({ name: "Region__code", type: "string" }),
+        expect.objectContaining({ name: "region__2", type: "integer" }),
+        expect.objectContaining({ name: "region__2__code", type: "string" }),
+        expect.objectContaining({ name: "VALUE__2", type: "integer" }),
+        expect.objectContaining({ name: "VALUE__SYMBOL__2", type: "integer" }),
+        expect.objectContaining({ name: "Region__CODE__2", type: "integer" }),
+        expect.objectContaining({ name: "Region__CODE__2__code", type: "string" }),
+        expect.objectContaining({ name: "value", type: "integer" }),
+      ],
+    });
+  });
+
   it("clamps PC-Axis schema sampling to the effective default emission limit", async () => {
     const path = await temporaryFile(
       "default-limits.px",

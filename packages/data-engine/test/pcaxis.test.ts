@@ -58,7 +58,7 @@ HEADING="Year";
 VALUES("Place")="Ljubljana";
 VALUES("Year")="2023","2024";
 DATA=
-${data}`;
+${data};`;
 }
 
 afterEach(async () => {
@@ -283,6 +283,49 @@ DATA=7;`);
     });
   });
 
+  it("allocates columns with DuckDB's ASCII case-insensitive identifier semantics", async () => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="case collisions";
+STUB="Region","region","VALUE","VALUE__SYMBOL","Region__CODE";
+VALUES("Region")="North";
+CODES("Region")="R1";
+VALUES("region")="South";
+CODES("region")="r1";
+VALUES("VALUE")="Measure";
+VALUES("VALUE__SYMBOL")="Status";
+VALUES("Region__CODE")="Generated collision";
+CODES("Region__CODE")="RC";
+DATA=7;`);
+
+    await expect(previewPcAxis(path, { limit: 1 })).resolves.toMatchObject({
+      columns: [
+        "Region",
+        "Region__code",
+        "region__2",
+        "region__2__code",
+        "VALUE__2",
+        "VALUE__SYMBOL__2",
+        "Region__CODE__2",
+        "Region__CODE__2__code",
+        "value",
+      ],
+      codeColumns: ["Region__code", "region__2__code", "Region__CODE__2__code"],
+      rows: [
+        {
+          Region: "North",
+          Region__code: "R1",
+          region__2: "South",
+          region__2__code: "r1",
+          VALUE__2: "Measure",
+          VALUE__SYMBOL__2: "Status",
+          Region__CODE__2: "Generated collision",
+          Region__CODE__2__code: "RC",
+          value: 7,
+        },
+      ],
+    });
+  });
+
   it("bounds preview rows without expanding or requiring the remaining Cartesian product", async () => {
     const { path } = await fixture(`CODEPAGE="utf-8";
 MATRIX="large";
@@ -301,6 +344,44 @@ DATA=1 2`);
       ],
       returnedCount: 2,
       truncated: true,
+    });
+  });
+
+  it("requires the final DATA semicolon when a preview or stage scans the complete cube", async () => {
+    const { directory, path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="unterminated";
+STUB="Place";
+VALUES("Place")="A","B";
+DATA=1 2
+   `);
+    const output = join(directory, "rows.ndjson");
+
+    await expect(previewPcAxis(path, { limit: 2 })).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      exitCode: 6,
+    });
+    await expect(writePcAxisRowsAsNdjson(path, output)).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      exitCode: 6,
+    });
+    await expect(access(output)).rejects.toThrow();
+  });
+
+  it("accepts a final DATA semicolon followed only by whitespace", async () => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="terminated";
+STUB="Place";
+VALUES("Place")="A","B";
+DATA=1 2;
+
+\t`);
+
+    await expect(previewPcAxis(path, { limit: 2 })).resolves.toMatchObject({
+      rows: [
+        { Place: "A", value: 1 },
+        { Place: "B", value: 2 },
+      ],
+      truncated: false,
     });
   });
 
@@ -379,6 +460,37 @@ DATA=1 2;`);
     await expect(parsePcAxisMetadata(path)).rejects.toMatchObject({
       code: "INVALID_PCAXIS_DATA",
       context: expect.objectContaining({ dimension: "Place" }),
+    });
+  });
+
+  it.each([
+    {
+      name: "qualified VALUES for an unknown dimension",
+      variant: 'VALUES[en]("Other")="English";',
+    },
+    {
+      name: "qualified CODES for an unknown dimension",
+      variant: 'CODES[en]("Other")="E";',
+    },
+    {
+      name: "qualified VALUES with the wrong cardinality",
+      variant: 'VALUES[en]("Place")="One";',
+    },
+    {
+      name: "qualified CODES with the wrong cardinality",
+      variant: 'CODES[en]("Place")="01";',
+    },
+  ])("rejects $name", async ({ variant }) => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="language variants";
+STUB="Place";
+VALUES("Place")="A","B";
+${variant}
+DATA=1 2;`);
+
+    await expect(parsePcAxisMetadata(path)).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      exitCode: 6,
     });
   });
 

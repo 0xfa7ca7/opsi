@@ -62,6 +62,18 @@ DATA=1 ".";`,
     });
   });
 
+  it("rejects PC-Axis DATA without a final semicolon during full validation", async () => {
+    const path = await fixture(
+      `CODEPAGE="utf-8";MATRIX="unterminated";STUB="Row";VALUES("Row")="A","B";DATA=1 2`,
+      "unterminated.px",
+    );
+
+    await expect(engine.validate(path)).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      exitCode: 6,
+    });
+  });
+
   it("applies shared validation bounds to PC-Axis rows", async () => {
     const path = await fixture(
       `AXIS-VERSION="2024";CODEPAGE="utf-8";MATRIX="bounded";STUB="Row";VALUES("Row")="A","B";DATA=1 2;`,

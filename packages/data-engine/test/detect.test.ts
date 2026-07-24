@@ -116,13 +116,64 @@ describe("format detection", () => {
   );
 
   it("recognizes the PC-Axis media type", async () => {
-    const path = await fileNamed("cache-object", "metadata without delimiters");
+    const path = await fileNamed("cache-object", "ordinary,comma,text\none,two,three");
 
     await expect(detectFormat({ path, mediaType: "text/x-pcaxis" })).resolves.toMatchObject({
       format: "pcaxis",
       confidence: "media-type",
     });
   });
+
+  it("does not let comma-heavy content override an explicit .px extension", async () => {
+    const path = await fileNamed(
+      "table.px",
+      'CODEPAGE="utf-8";\nMATRIX="bank";\nSTUB="Item";\nVALUES("Item")="One","Two";\nDATA=1,2;',
+    );
+
+    await expect(detectFormat(path)).resolves.toMatchObject({
+      format: "pcaxis",
+      confidence: "extension",
+    });
+  });
+
+  it("does not let comma-heavy content override a declared PC-Axis format", async () => {
+    const path = await fileNamed(
+      "cache-object",
+      'CODEPAGE="utf-8";\nMATRIX="bank";\nSTUB="Item";\nVALUES("Item")="One","Two";\nDATA=1,2;',
+    );
+
+    await expect(detectFormat({ path, declaredFormat: "PCAXIS" })).resolves.toMatchObject({
+      format: "pcaxis",
+      confidence: "declared-format",
+    });
+  });
+
+  it("detects a PC-Axis assignment signature without AXIS-VERSION in generic binary content", async () => {
+    const path = await fileNamed(
+      "cache-object",
+      'CHARSET="ANSI";\nCODEPAGE="windows-1250";\nMATRIX="bank";\nSTUB="Item";\nVALUES("Item")="One","Two";\nDATA=1,2;',
+    );
+
+    await expect(
+      detectFormat({ path, mediaType: "application/octet-stream" }),
+    ).resolves.toMatchObject({
+      format: "pcaxis",
+      confidence: "content",
+      encoding: "windows-1250",
+    });
+  });
+
+  it.each([
+    ["unknown", "CODEPAGE documentation\nMATRIX notes\nSTUB heading\nVALUES and DATA"],
+    ["csv", "CODEPAGE,MATRIX,STUB,VALUES,DATA\none,two,three,four,five"],
+  ])(
+    "does not mistake unrelated %s text for a PC-Axis assignment signature",
+    async (format, text) => {
+      const path = await fileNamed("notes.txt", text);
+
+      await expect(detectFormat(path)).resolves.toMatchObject({ format });
+    },
+  );
 
   it("detects a Windows-1250 PC-Axis signature before comma-delimited content", async () => {
     const path = await fileNamed(

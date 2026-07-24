@@ -60,8 +60,47 @@ function result(
 
 function pcAxisSignature(head: Buffer): { readonly encoding?: DetectedTextEncoding } | undefined {
   const text = head.toString("latin1").replace(/^\u00ef\u00bb\u00bf/u, "");
-  if (!/^\s*(?:CHARSET\s*=\s*"[^"]*"\s*;\s*)?AXIS-VERSION\s*=\s*"[^"]*"\s*;/iu.test(text))
-    return undefined;
+  const keywords = new Set<string>();
+  let position = 0;
+  for (let statements = 0; statements < 64; statements += 1) {
+    while (position < text.length && /\s/u.test(text[position] ?? "")) position += 1;
+    const assignment = /^([A-Za-z][A-Za-z0-9_-]*)(?:\[[^\]\r\n]+\])?(?:\([\s\S]*?\))?\s*=/u.exec(
+      text.slice(position),
+    );
+    if (assignment === null) break;
+    const keyword = assignment[1]?.toUpperCase();
+    if (keyword === undefined) break;
+    keywords.add(keyword);
+    position += assignment[0].length;
+    if (keyword === "DATA") break;
+
+    let inQuotes = false;
+    let terminated = false;
+    while (position < text.length) {
+      const character = text[position];
+      if (character === '"') {
+        if (inQuotes && text[position + 1] === '"') position += 1;
+        else inQuotes = !inQuotes;
+      } else if (character === ";" && !inQuotes) {
+        position += 1;
+        terminated = true;
+        break;
+      }
+      position += 1;
+    }
+    if (!terminated) break;
+  }
+  const hasEncoding = keywords.has("CODEPAGE") || keywords.has("CHARSET");
+  const hasDimension = keywords.has("STUB") || keywords.has("HEADING");
+  const robustDenseSignature =
+    hasEncoding &&
+    keywords.has("MATRIX") &&
+    hasDimension &&
+    keywords.has("VALUES") &&
+    keywords.has("DATA");
+  const legacyVersionSignature =
+    keywords.has("AXIS-VERSION") && hasEncoding && keywords.has("DATA");
+  if (!robustDenseSignature && !legacyVersionSignature) return undefined;
   const codepage = /\bCODEPAGE\s*=\s*"([^"]*)"\s*;/iu.exec(text)?.[1]?.trim().toLowerCase();
   const encoding =
     codepage === "windows-1250" ||
@@ -144,6 +183,14 @@ export async function detectFormat(input: DataInput): Promise<FormatDetection> {
     return result(path, bySignature, "signature", source.mediaType, extension);
 
   const pcAxis = pcAxisSignature(head);
+  const mediaType = source.mediaType?.split(";", 1)[0]?.trim().toLowerCase();
+  const declared = source.declaredFormat?.trim().toLowerCase().replace(/^\./u, "");
+  if (MEDIA_TYPES[mediaType ?? ""] === "pcaxis")
+    return result(path, "pcaxis", "media-type", source.mediaType, extension, pcAxis);
+  if (declared === "pcaxis" || declared === "pc-axis" || declared === "px")
+    return result(path, "pcaxis", "declared-format", source.mediaType, extension, pcAxis);
+  if (EXTENSIONS[extension] === "pcaxis")
+    return result(path, "pcaxis", "extension", source.mediaType, extension, pcAxis);
   if (pcAxis !== undefined)
     return result(path, "pcaxis", "content", source.mediaType, extension, pcAxis);
 
@@ -157,7 +204,6 @@ export async function detectFormat(input: DataInput): Promise<FormatDetection> {
   const dialect =
     structuredData === undefined && text !== undefined ? sniffDelimitedDialect(text) : undefined;
   const dialectFormat = dialect === undefined ? undefined : dialect === "\t" ? "tsv" : "csv";
-  const mediaType = source.mediaType?.split(";", 1)[0]?.trim().toLowerCase();
   const byMediaType = mediaType === undefined ? undefined : MEDIA_TYPES[mediaType];
   if (byMediaType !== undefined) {
     const correctedDelimited =
@@ -182,15 +228,12 @@ export async function detectFormat(input: DataInput): Promise<FormatDetection> {
       ...(dialect === undefined ? {} : { delimiter: dialect }),
     });
 
-  const declared = source.declaredFormat?.trim().toLowerCase().replace(/^\./u, "");
   const byDeclared =
     declared === "jsonl"
       ? "ndjson"
-      : declared === "pcaxis" || declared === "pc-axis" || declared === "px"
-        ? "pcaxis"
-        : (["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"] as const).find(
-            (format) => format === declared,
-          );
+      : (["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"] as const).find(
+          (format) => format === declared,
+        );
   if (byDeclared !== undefined)
     return result(path, byDeclared, "declared-format", source.mediaType, extension);
 

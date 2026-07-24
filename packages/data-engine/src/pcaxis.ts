@@ -578,16 +578,33 @@ function buildDimensions(
     });
   }
 
+  const dimensionsByName = new Map(dimensions.map((dimension) => [dimension.name, dimension]));
   for (const assignment of assignments) {
-    if (
-      assignment.language === undefined &&
-      (assignment.keyword === "VALUES" || assignment.keyword === "CODES") &&
-      (assignment.subkeys.length !== 1 ||
-        assignment.subkeys[0] === undefined ||
-        !dimensionNameSet.has(assignment.subkeys[0]))
-    )
+    if (assignment.keyword !== "VALUES" && assignment.keyword !== "CODES") continue;
+    const dimensionName = assignment.subkeys[0];
+    const dimension =
+      assignment.subkeys.length === 1 && dimensionName !== undefined
+        ? dimensionsByName.get(dimensionName)
+        : undefined;
+    if (dimension === undefined)
       throw invalidPcAxis(
-        `An unqualified ${assignment.keyword} assignment does not identify a declared dimension.`,
+        `A ${assignment.keyword} assignment does not identify a declared default dimension.`,
+        {
+          keyword: assignment.keyword,
+          language: assignment.language,
+          dimension: dimensionName,
+        },
+      );
+    if (assignment.language !== undefined && assignment.values.length !== dimension.values.length)
+      throw invalidPcAxis(
+        `A language-qualified ${assignment.keyword} list does not match its default dimension cardinality.`,
+        {
+          keyword: assignment.keyword,
+          language: assignment.language,
+          dimension: dimension.name,
+          expected: dimension.values.length,
+          actual: assignment.values.length,
+        },
       );
   }
   return dimensions;
@@ -745,6 +762,7 @@ async function* dataTokens(
   let quoted = false;
   let inQuotes = false;
   let afterQuote = false;
+  let hasFinalTerminator = false;
 
   const append = (character: string): void => {
     token += character;
@@ -768,6 +786,7 @@ async function* dataTokens(
   function* scan(text: string): Generator<CellToken> {
     for (const character of text) {
       signal?.throwIfAborted();
+      if (!inQuotes && !/\s/u.test(character)) hasFinalTerminator = character === ";";
       if (!started) {
         if (isDelimiter(character)) continue;
         started = true;
@@ -809,6 +828,10 @@ async function* dataTokens(
     yield* scan(decoder.decode());
     if (inQuotes) throw invalidPcAxis("A quoted PC-Axis DATA token is unterminated.");
     if (started) yield take();
+    if (!hasFinalTerminator)
+      throw invalidPcAxis(
+        "The PC-Axis DATA assignment is missing its final terminating semicolon.",
+      );
   } finally {
     stream.destroy();
   }
@@ -843,20 +866,27 @@ function columnBindings(dimensions: readonly PxDimension[]): {
   readonly baseColumns: readonly string[];
   readonly codeColumns: readonly string[];
 } {
-  const reserved = new Set(["value", "value__symbol"]);
+  const identifierKey = (identifier: string): string =>
+    identifier.replace(/[A-Z]/gu, (character) => character.toLowerCase());
+  const reserved = new Set(["value", "value__symbol"].map(identifierKey));
   const used = new Set<string>();
   const allocate = (base: string): string => {
     const normalized = base.trim().length === 0 ? "dimension" : base.trim();
-    if (!reserved.has(normalized) && !used.has(normalized)) {
-      used.add(normalized);
+    const normalizedKey = identifierKey(normalized);
+    if (!reserved.has(normalizedKey) && !used.has(normalizedKey)) {
+      used.add(normalizedKey);
       return normalized;
     }
     let suffix = 2;
-    while (reserved.has(`${normalized}__${suffix}`) || used.has(`${normalized}__${suffix}`))
+    while (true) {
+      const candidate = `${normalized}__${suffix}`;
+      const candidateKey = identifierKey(candidate);
+      if (!reserved.has(candidateKey) && !used.has(candidateKey)) {
+        used.add(candidateKey);
+        return candidate;
+      }
       suffix += 1;
-    const candidate = `${normalized}__${suffix}`;
-    used.add(candidate);
-    return candidate;
+    }
   };
 
   const bindings: ColumnBinding[] = [];
