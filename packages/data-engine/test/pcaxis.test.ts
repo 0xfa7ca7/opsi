@@ -306,6 +306,83 @@ DATA=1;`);
     },
   );
 
+  it.each([
+    {
+      name: "a dimension-qualified NOTE",
+      assignment: 'NOTE("A")',
+      expectedCollection: "notes" as const,
+      expected: {
+        keyword: "NOTE",
+        subkeys: ["A"],
+        values: ['First "quoted" second'],
+      },
+    },
+    {
+      name: "a language-qualified DESCRIPTION",
+      assignment: "DESCRIPTION[en]",
+      expectedCollection: "languageVariants" as const,
+      expected: {
+        keyword: "DESCRIPTION",
+        language: "en",
+        subkeys: [],
+        values: ['First "quoted" second'],
+      },
+    },
+  ])(
+    "concatenates adjacent quoted segments for $name",
+    async ({ assignment, expected, expectedCollection }) => {
+      const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="long text";
+STUB="A";
+VALUES("A")="a";
+${assignment}="First ""quoted"" "
+  "second";
+DATA=1;`);
+
+      const metadata = await parsePcAxisMetadata(path);
+      expect(metadata[expectedCollection]).toContainEqual(expected);
+    },
+  );
+
+  it.each([
+    { assignment: "TITLE[en]", keyword: "TITLE" },
+    { assignment: "SOURCE[en]", keyword: "SOURCE" },
+    { assignment: "DATABASE[en]", keyword: "DATABASE" },
+    { assignment: "CONTACT[en]", keyword: "CONTACT" },
+    { assignment: "BASEPERIOD[en]", keyword: "BASEPERIOD" },
+    { assignment: "REFPERIOD[en]", keyword: "REFPERIOD" },
+    { assignment: "INFOFILE[en]", keyword: "INFOFILE" },
+    { assignment: "INFO[en]", keyword: "INFO" },
+    { assignment: "CELLNOTE[en]", keyword: "CELLNOTE" },
+    { assignment: "CELLNOTEX[en]", keyword: "CELLNOTEX" },
+    { assignment: "DATANOTE[en]", keyword: "DATANOTE" },
+    { assignment: "DATANOTECELL[en]", keyword: "DATANOTECELL" },
+    { assignment: "DATANOTESUM[en]", keyword: "DATANOTESUM" },
+    { assignment: "NOTE[en]", keyword: "NOTE" },
+    { assignment: "NOTEX[en]", keyword: "NOTEX" },
+    { assignment: "VALUENOTE[en]", keyword: "VALUENOTE" },
+    { assignment: "VALUENOTEX[en]", keyword: "VALUENOTEX" },
+  ])(
+    "concatenates adjacent quoted $keyword long-text scalar segments",
+    async ({ assignment, keyword }) => {
+      const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="long text variants";
+STUB="A";
+VALUES("A")="a";
+${assignment}="First "
+  "second";
+DATA=1;`);
+
+      const metadata = await parsePcAxisMetadata(path);
+      expect(metadata.languageVariants).toContainEqual({
+        keyword,
+        language: "en",
+        subkeys: [],
+        values: ["First second"],
+      });
+    },
+  );
+
   it("uses canonical SURS-style dimensions while resolving translated metadata names", async () => {
     const { path } = await fixture(`CODEPAGE="utf-8";
 MATRIX="tourism";
@@ -917,6 +994,10 @@ DATA=1;`);
       statement: 'VALUES("A")="a" "b";',
     },
     {
+      name: "an adjacent quoted MATRIX scalar",
+      statement: 'VALUES("A")="a";MATRIX="first " "second";',
+    },
+    {
       name: "junk after a quoted NOTEX scalar",
       statement: 'VALUES("A")="a";NOTEX="note"junk;',
     },
@@ -927,6 +1008,14 @@ DATA=1;`);
     {
       name: "an unterminated NOTEX continuation",
       statement: 'VALUES("A")="a";NOTEX="first " "second;',
+    },
+    {
+      name: "junk after a continued NOTE scalar",
+      statement: 'VALUES("A")="a";NOTE="first " "second"junk;',
+    },
+    {
+      name: "an unterminated DESCRIPTION continuation",
+      statement: 'VALUES("A")="a";DESCRIPTION="first " "second;',
     },
     {
       name: "a mixed quoted and unquoted VALUES list",
@@ -945,12 +1034,41 @@ DATA=1;`);
     });
   });
 
+  it("keeps comma-separated quoted VALUES as list items", async () => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="list semantics";
+STUB="A";
+VALUES("A")="first ","second";
+DATA=1 2;`);
+
+    await expect(parsePcAxisMetadata(path)).resolves.toMatchObject({
+      dimensions: [{ name: "A", values: ["first ", "second"] }],
+    });
+  });
+
   it("applies the decoded-string bound to the concatenated NOTEX scalar", async () => {
     const { path } = await fixture(`CODEPAGE="utf-8";
 MATRIX="notes";
 STUB="A";
 VALUES("A")="a";
 NOTEX="12345678"
+  "90123456";
+DATA=1;`);
+
+    await expect(
+      parsePcAxisMetadata(path, limits({ maxDecodedStringBytes: 12 })),
+    ).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      exitCode: 6,
+    });
+  });
+
+  it("applies the decoded-string bound to a concatenated DESCRIPTION scalar", async () => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="description";
+STUB="A";
+VALUES("A")="a";
+DESCRIPTION="12345678"
   "90123456";
 DATA=1;`);
 

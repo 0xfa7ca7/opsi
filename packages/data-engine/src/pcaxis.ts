@@ -128,7 +128,18 @@ const NOTE_KEYWORDS = new Set([
   "VALUENOTE",
   "VALUENOTEX",
 ]);
-const ADJACENT_QUOTED_SCALAR_KEYWORDS = new Set(["CELLNOTEX", "NOTEX", "VALUENOTEX"]);
+const LONG_TEXT_SCALAR_KEYWORDS = new Set([
+  "BASEPERIOD",
+  "CONTACT",
+  "DATABASE",
+  "DESCRIPTION",
+  "INFO",
+  "INFOFILE",
+  "REFPERIOD",
+  "SOURCE",
+  "TITLE",
+  ...NOTE_KEYWORDS,
+]);
 const REPEATABLE_KEYWORDS = NOTE_KEYWORDS;
 const DATA_SYMBOLS = ["-", ".", "..", "...", "....", ".....", "......"] as const;
 const NUMBER_TOKEN = /^[+-]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:[Ee][+-]?\d+)?$/u;
@@ -576,7 +587,7 @@ function parseAssignment(statement: string, limits: PcAxisLimits, enforce: boole
   const values = [
     ...(timeval !== undefined
       ? timeval.values
-      : ADJACENT_QUOTED_SCALAR_KEYWORDS.has(keyword)
+      : LONG_TEXT_SCALAR_KEYWORDS.has(keyword)
         ? parseAdjacentQuotedScalar(right, limits, enforce)
         : parseList(right, limits, enforce)),
   ];
