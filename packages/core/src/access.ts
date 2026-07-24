@@ -21,6 +21,34 @@ function supportsDirectDataOperations(format: DetectedInputFormat): boolean {
   return format !== "zip" && format !== "unknown";
 }
 
+type ArchiveFailure =
+  | { readonly kind: "selection"; readonly entries: readonly string[] }
+  | { readonly kind: "selected-content" }
+  | { readonly kind: "archive-content" };
+
+const SELECTED_ARCHIVE_CONTENT_ERRORS = new Set([
+  "INVALID_JSON",
+  "INVALID_NDJSON",
+  "INVALID_PCAXIS_DATA",
+  "INVALID_TABULAR_DATA",
+  "INVALID_XML_DATA",
+  "PARSE_ERROR",
+]);
+
+function classifyArchiveFailure(error: unknown): ArchiveFailure | undefined {
+  if (!(error instanceof KlopsiError)) return undefined;
+  if (error.code === "ARCHIVE_ENTRY_REQUIRED")
+    return {
+      kind: "selection",
+      entries: (error.context?.choices as readonly string[] | undefined) ?? [],
+    };
+  if (["INVALID_ARCHIVE_DATA", "ARCHIVE_NO_SUPPORTED_ENTRY"].includes(error.code))
+    return { kind: "archive-content" };
+  if (SELECTED_ARCHIVE_CONTENT_ERRORS.has(error.code) || error.code.startsWith("PCAXIS_"))
+    return { kind: "selected-content" };
+  return undefined;
+}
+
 function dataDescriptor(
   input: string,
   kind: "local" | "file" | "archive",
@@ -61,6 +89,28 @@ function dataDescriptor(
   };
 }
 
+function archiveFailureDescriptor(
+  input: string,
+  failure: ArchiveFailure,
+  downloadable: boolean,
+): ResourceAccessDescriptor {
+  const descriptor = dataDescriptor(input, "archive", "zip", {
+    ...(failure.kind === "selection" ? { selections: { entries: failure.entries } } : {}),
+    direct: false,
+    downloadable,
+  });
+  if (failure.kind === "selection") return descriptor;
+  return {
+    ...descriptor,
+    limitations: [
+      ...descriptor.limitations,
+      failure.kind === "archive-content"
+        ? "The ZIP archive is malformed or contains no supported data entry."
+        : "The selected entry must still pass format parsing or validation.",
+    ],
+  };
+}
+
 export class ResourceAccessService {
   private readonly local: LocalProvider;
   constructor(
@@ -88,13 +138,8 @@ export class ResourceAccessService {
               direct: true,
             });
           } catch (error) {
-            if (error instanceof KlopsiError && error.code === "ARCHIVE_ENTRY_REQUIRED")
-              return dataDescriptor(input, "archive", "zip", {
-                selections: {
-                  entries: (error.context?.choices as readonly string[]) ?? [],
-                },
-                direct: false,
-              });
+            const failure = classifyArchiveFailure(error);
+            if (failure !== undefined) return archiveFailureDescriptor(input, failure, false);
             throw error;
           }
         }
@@ -189,28 +234,8 @@ export class ResourceAccessService {
           downloadable: true,
         });
       } catch (error) {
-        if (error instanceof KlopsiError && error.code === "ARCHIVE_ENTRY_REQUIRED")
-          return dataDescriptor(canonical, "archive", "zip", {
-            selections: {
-              entries: (error.context?.choices as readonly string[]) ?? [],
-            },
-            direct: false,
-            downloadable: true,
-          });
-        if (
-          error instanceof KlopsiError &&
-          ["INVALID_TABULAR_DATA", "INVALID_XML_DATA", "PARSE_ERROR"].includes(error.code)
-        )
-          return {
-            ...dataDescriptor(canonical, "archive", "zip", {
-              direct: false,
-              downloadable: true,
-            }),
-            limitations: [
-              "Only one non-nested supported ZIP entry is extracted per operation.",
-              "The selected entry must still pass format parsing or validation.",
-            ],
-          };
+        const failure = classifyArchiveFailure(error);
+        if (failure !== undefined) return archiveFailureDescriptor(canonical, failure, true);
         throw error;
       }
     }

@@ -4,6 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
+  DEFAULT_PCAXIS_LIMITS,
   detectFormat,
   stageTabularInput,
   verifyStagedDatabase,
@@ -86,6 +87,15 @@ async function sourceDigest(input: DataInput, path: string): Promise<string> {
 
 function supported(format: string): format is SupportedInputFormat {
   return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml", "pcaxis"].includes(format);
+}
+
+function pcAxisStageVersion(limits: PcAxisLimits | undefined): string {
+  const effective = { ...DEFAULT_PCAXIS_LIMITS, ...limits };
+  const canonical = JSON.stringify(
+    Object.entries(effective).sort(([left], [right]) => left.localeCompare(right)),
+  );
+  const digest = createHash("sha256").update(canonical, "utf8").digest("hex");
+  return `${QUERY_STAGE_VERSION}:pcaxis:${digest}`;
 }
 
 function cleanupFailure(failures: readonly unknown[], operationError: unknown): KlopsiError {
@@ -172,7 +182,10 @@ export class QueryDatabaseCache {
           sourceSha256: await sourceDigest(source, detection.path),
           format: detection.format as Exclude<SupportedInputFormat, "xml">,
           ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
-          stagingVersion: QUERY_STAGE_VERSION,
+          stagingVersion:
+            detection.format === "pcaxis"
+              ? pcAxisStageVersion(this.options.pcAxisLimits)
+              : QUERY_STAGE_VERSION,
           duckdbVersion: QUERY_STAGE_DUCKDB_VERSION,
         };
         let lookupFailed = false;

@@ -143,9 +143,40 @@ DATA=1 2;`,
     await expect(derived.list()).resolves.toEqual([
       expect.objectContaining({
         format: "pcaxis",
-        stagingVersion: QUERY_STAGE_VERSION,
+        stagingVersion: expect.stringMatching(
+          new RegExp(`^${QUERY_STAGE_VERSION}:pcaxis:[a-f\\d]{64}$`, "u"),
+        ),
       }),
     ]);
+  });
+
+  it("does not reuse a PC-Axis stage built under different parser limits", async () => {
+    input = join(directory, "limit-identity.px");
+    await writeFile(
+      input,
+      `AXIS-VERSION="2024";
+CODEPAGE="utf-8";
+MATRIX="limit identity";
+STUB="Place";
+VALUES("Place")="A","B";
+DATA=1 2;`,
+    );
+    const { coordinator, derived } = setup();
+    await expect(coordinator.execute(input, { sql: "SELECT * FROM data" })).resolves.toMatchObject({
+      cache: { status: "miss" },
+    });
+    const strict = new QueryDatabaseCache({
+      derived,
+      runner: {
+        executePrepared: async (options: { readonly sql: string }) => result(options.sql),
+      } as never,
+      pcAxisLimits: { ...DEFAULT_PCAXIS_LIMITS, maxCells: 1 },
+    });
+
+    await expect(strict.execute(input, { sql: "SELECT * FROM data" })).rejects.toMatchObject({
+      code: "PCAXIS_CELL_LIMIT",
+      context: { limit: 1 },
+    });
   });
 
   it("propagates configured PC-Axis limits into query staging", async () => {

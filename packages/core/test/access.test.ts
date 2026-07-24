@@ -18,12 +18,38 @@ afterEach(async () =>
   Promise.all(temporary.splice(0).map((path) => rm(path, { recursive: true, force: true }))),
 );
 
-async function fixture(name: string, contents: string): Promise<string> {
+async function fixture(name: string, contents: string | Uint8Array): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), "klopsi-access-"));
   temporary.push(directory);
   const path = join(directory, name);
   await writeFile(path, contents);
   return path;
+}
+
+function providerArchiveClient(): KlopsiClient {
+  const resource: Resource = {
+    id: resourceId("archive"),
+    datasetId: datasetId("dataset"),
+    providerId: providerId("fixture"),
+    title: "Archive",
+    url: "https://example.test/archive.zip",
+    format: "ZIP",
+    reference: "fixture:resource:archive",
+  };
+  const provider: DataProvider = {
+    descriptor: { id: providerId("fixture"), name: "fixture", capabilities: [] },
+    search: async () => ({ items: [], total: 0, limit: 0, offset: 0 }),
+    getDataset: async () => {
+      throw new Error("unused");
+    },
+    getResource: async () => resource,
+    listDatasetResources: async () => [],
+    resolveResource: async () => ({ resource, kind: "archive", url: resource.url }),
+  };
+  return new KlopsiClient({
+    registry: new ProviderRegistry([provider]),
+    providerId: "fixture",
+  });
 }
 
 describe("resource access guidance", () => {
@@ -89,29 +115,7 @@ DATA=1;`,
   });
 
   it("keeps archive inspection available when its sole entry is malformed", async () => {
-    const resource: Resource = {
-      id: resourceId("archive"),
-      datasetId: datasetId("dataset"),
-      providerId: providerId("fixture"),
-      title: "Archive",
-      url: "https://example.test/archive.zip",
-      format: "ZIP",
-      reference: "fixture:resource:archive",
-    };
-    const provider: DataProvider = {
-      descriptor: { id: providerId("fixture"), name: "fixture", capabilities: [] },
-      search: async () => ({ items: [], total: 0, limit: 0, offset: 0 }),
-      getDataset: async () => {
-        throw new Error("unused");
-      },
-      getResource: async () => resource,
-      listDatasetResources: async () => [],
-      resolveResource: async () => ({ resource, kind: "archive", url: resource.url }),
-    };
-    const client = new KlopsiClient({
-      registry: new ProviderRegistry([provider]),
-      providerId: "fixture",
-    });
+    const client = providerArchiveClient();
     client.data.preview = async () => {
       throw new KlopsiError({
         code: "INVALID_TABULAR_DATA",
@@ -131,29 +135,7 @@ DATA=1;`,
   });
 
   it("offers entry-specific actions without claiming unresolved archive operations", async () => {
-    const resource: Resource = {
-      id: resourceId("archive"),
-      datasetId: datasetId("dataset"),
-      providerId: providerId("fixture"),
-      title: "Archive",
-      url: "https://example.test/archive.zip",
-      format: "ZIP",
-      reference: "fixture:resource:archive",
-    };
-    const provider: DataProvider = {
-      descriptor: { id: providerId("fixture"), name: "fixture", capabilities: [] },
-      search: async () => ({ items: [], total: 0, limit: 0, offset: 0 }),
-      getDataset: async () => {
-        throw new Error("unused");
-      },
-      getResource: async () => resource,
-      listDatasetResources: async () => [],
-      resolveResource: async () => ({ resource, kind: "archive", url: resource.url }),
-    };
-    const client = new KlopsiClient({
-      registry: new ProviderRegistry([provider]),
-      providerId: "fixture",
-    });
+    const client = providerArchiveClient();
     client.data.preview = async () => {
       throw new KlopsiError({
         code: "ARCHIVE_ENTRY_REQUIRED",
@@ -173,5 +155,66 @@ DATA=1;`,
         { action: "resource.preview", argv: expect.arrayContaining(["--entry", "b.csv"]) },
       ],
     });
+  });
+
+  it.each([
+    "INVALID_PCAXIS_DATA",
+    "PCAXIS_CELL_COUNT_MISMATCH",
+    "INVALID_ARCHIVE_DATA",
+    "ARCHIVE_NO_SUPPORTED_ENTRY",
+  ])("keeps provider archive guidance truthful after %s", async (code) => {
+    const client = providerArchiveClient();
+    client.data.preview = async () => {
+      throw new KlopsiError({
+        code,
+        message: "selected archive content is unavailable",
+        exitCode: 6,
+      });
+    };
+
+    await expect(client.access.inspect("fixture:resource:archive")).resolves.toMatchObject({
+      kind: "archive",
+      detectedFormat: "zip",
+      operations: ["inspect", "download"],
+      nextActions: [],
+    });
+  });
+
+  it.each([
+    {
+      name: "broken.zip",
+      contents: Buffer.from("PK\u0003\u0004not-a-zip"),
+    },
+    {
+      name: "unsupported.zip",
+      contents: Buffer.from(
+        "UEsDBBQAAAAIAGEb+FyGphA2BwAAAAUAAAAKAAAAcmVhZG1lLnR4dMtIzcnJBwBQSwECFAAUAAAACABhG/hchqYQNgcAAAAFAAAACgAAAAAAAAAAAAAAAAAAAAAAcmVhZG1lLnR4dFBLBQYAAAAAAQABADgAAAAvAAAAAAA=",
+        "base64",
+      ),
+    },
+  ])("keeps local archive inspection truthful for $name", async ({ name, contents }) => {
+    const path = await fixture(name, contents);
+    const client = new KlopsiClient({ registry: new ProviderRegistry(), providerId: "opsi" });
+
+    await expect(client.access.inspect(path)).resolves.toMatchObject({
+      kind: "archive",
+      detectedFormat: "zip",
+      operations: ["inspect"],
+      nextActions: [],
+    });
+  });
+
+  it("does not swallow unrelated provider archive failures", async () => {
+    const client = providerArchiveClient();
+    const failure = new KlopsiError({
+      code: "DOWNLOAD_FAILED",
+      message: "network unavailable",
+      exitCode: 4,
+    });
+    client.data.preview = async () => {
+      throw failure;
+    };
+
+    await expect(client.access.inspect("fixture:resource:archive")).rejects.toBe(failure);
   });
 });
