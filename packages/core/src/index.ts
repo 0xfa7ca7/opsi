@@ -16,6 +16,18 @@ export type {
   QueryServiceOptions,
   QueryServiceResult,
 } from "./queries.js";
+export {
+  DEFAULT_PROFILE_TOP,
+  MAX_PROFILE_COLUMNS,
+  MAX_PROFILE_TOP,
+  ProfileService,
+} from "./profiles.js";
+export type {
+  FieldProfile,
+  ProfileServiceOptions,
+  ProfileServiceResult,
+  ProfileTopValue,
+} from "./profiles.js";
 export { QueryDatabaseCache } from "./query-database-cache.js";
 export type {
   QueryCacheMetadata,

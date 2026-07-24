@@ -58,7 +58,7 @@ describe("generate-skills", () => {
     );
     expect(
       await readFile(join(value.cwd, "skills", "klopsi-analysis", "SKILL.md"), "utf8"),
-    ).toContain("klopsi query");
+    ).toContain("klopsi profile");
     expect(
       await readFile(
         join(value.cwd, "skills", "klopsi-shared", "references", "presentation-contract.md"),

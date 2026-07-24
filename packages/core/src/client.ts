@@ -17,6 +17,7 @@ import {
 import { DataService } from "./data.js";
 import { ConversionService } from "./conversions.js";
 import { QueryService } from "./queries.js";
+import { ProfileService } from "./profiles.js";
 import { DuckDbQueryRunner } from "@klopsi/data-engine";
 import { QueryDatabaseCache } from "./query-database-cache.js";
 import { existsSync } from "node:fs";
@@ -52,6 +53,7 @@ export class KlopsiClient {
   readonly data: DataService;
   readonly conversions: ConversionService;
   readonly query: QueryService;
+  readonly profile: ProfileService;
   readonly services: { readonly wfs: WfsService };
   readonly access: ResourceAccessService;
   private readonly registry: ProviderRegistry;
@@ -85,6 +87,7 @@ export class KlopsiClient {
         ...(options.xmlLimits === undefined ? {} : { xmlLimits: options.xmlLimits }),
       }),
     );
+    this.profile = new ProfileService(this.query);
     this.services = {
       wfs: new WfsService({
         registry: this.registry,

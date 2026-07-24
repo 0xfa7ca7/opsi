@@ -29,7 +29,7 @@ Inspect a resource safely without committing to a full data workflow. Generated 
 ### Resolve structured content
 
 - Use one `--entry` or `--record-path` reported by resource inspect or the relevant operation's structured error/output; resource inspect can surface ZIP entries and XML record paths.
-- Without `--sheet`, XLSX resource preview, validate, or query emits `SHEET_REQUIRED` with `context.sheets` and a suggestion; use one listed sheet.
+- Without `--sheet`, XLSX resource preview, validate, profile, or query emits `SHEET_REQUIRED` with `context.sheets` and a suggestion; use one listed sheet.
 
 ## Commands
 

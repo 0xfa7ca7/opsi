@@ -45,12 +45,13 @@ klopsi dataset show DATASET_ID --json
 klopsi dataset resources DATASET_ID
 ```
 
-Download a returned resource, then preview, validate, and query it locally:
+Download a returned resource, then preview, validate, profile, and query it locally:
 
 ```sh
 klopsi download opsi:resource:RESOURCE_ID --output ./downloads
 klopsi resource preview ./downloads/data.csv --limit 10
 klopsi validate ./downloads/data.csv --json
+klopsi profile ./downloads/data.csv --top 5 --json
 klopsi query ./downloads/data.csv \
   --sql "select * from data limit 10" \
   --json
@@ -86,6 +87,7 @@ Run `klopsi --help` or read the [complete command reference](https://github.com/
 | Inspect or preview a resource | `klopsi resource show <id>` / `klopsi resource preview <input>` |
 | Download data                 | `klopsi download <ids...>`                                      |
 | Validate data or metadata     | `klopsi validate <input>`                                       |
+| Profile tabular data          | `klopsi profile <input> --top 5`                                |
 | Query tabular data            | `klopsi query <input> --sql <statement>`                        |
 | Explore data in DuckDB UI     | `klopsi duckdb open <input>`                                    |
 | Convert formats               | `klopsi convert <input> --to <format> --output <path>`          |

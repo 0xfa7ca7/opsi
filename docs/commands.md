@@ -72,6 +72,12 @@ Syntax: `klopsi convert <input> --to <csv|tsv|json|ndjson|xlsx|parquet> --output
 
 Syntax: `klopsi query <input> --sql <statement> [options]`. Only one read-only SELECT, WITH…SELECT, or VALUES statement is accepted. Options include `--limit`, `--timeout-ms`, `--sheet`, `--entry`, `--record-path`, `--output`, `--force`, and network overrides. User SQL runs against KLOPSI-owned table `data` with row/time/memory/thread/cell/output bounds and external access disabled. Example: `klopsi query archive.zip --entry rows.csv --sql "select * from data limit 2" --json`.
 
+### `profile`
+
+Syntax: `klopsi profile <input> [--top <values>] [--timeout-ms <milliseconds>] [--sheet <name>] [--entry <path>] [--record-path <path>]`. The command accepts the same local paths, canonical provider resources, formats, and compound-input selectors as `query`. It returns one record per field with DuckDB type, row count, exact null count and fractional null rate, exact distinct non-null count, type-aware minimum/maximum/mean, and bounded top non-null values for `VARCHAR`, `BOOLEAN`, and `ENUM` fields. `--top` defaults to 5 and accepts 1 through 20; numeric columns do not receive categorical top values.
+
+Profiles reuse the immutable DuckDB stage cache and report `cache.status` as `miss`, `hit`, or `bypass`. The generated read-only query inherits query timeout, memory, thread, cell, and output bounds with external access disabled. Inputs wider than 256 columns fail explicitly instead of returning a partial profile. The network overrides `--allow-insecure-http` and `--allow-private-network` retain their one-invocation meaning. Example: `klopsi profile archive.zip --entry rows.csv --top 3 --json`.
+
 ### `duckdb open`
 
 Syntax: `klopsi duckdb open <input> [options]`. Resolves any tabular input accepted by `query`, including provider resources and local CSV, TSV, JSON, NDJSON, XLSX, Parquet, XML, or ZIP selections, then opens its KLOPSI-owned relation `data` in DuckDB UI. Use `--sheet`, `--entry`, or `--record-path` to disambiguate compound inputs. DuckDB UI opens a writable invocation-local workbench; KLOPSI attaches the staged dataset to that workbench read-only and exposes `data` as a view. The lease remains live until DuckDB UI exits. Closing DuckDB UI releases and removes the invocation-local stage and workbench. The canonical derived cache remains immutable and reusable; the selected source and any adjacent provenance sidecar are not modified.

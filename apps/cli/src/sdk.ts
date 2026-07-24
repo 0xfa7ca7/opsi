@@ -1,6 +1,10 @@
 export { KlopsiClient, ProviderRegistry } from "@klopsi/core";
 export type { KlopsiClientOptions } from "@klopsi/core";
 export type {
+  FieldProfile,
+  ProfileServiceOptions,
+  ProfileServiceResult,
+  ProfileTopValue,
   WfsCapabilities,
   WfsField,
   WfsLayer,

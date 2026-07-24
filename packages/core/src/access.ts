@@ -24,8 +24,17 @@ function dataDescriptor(
 ): ResourceAccessDescriptor {
   const archive = kind === "archive" || format === "zip";
   const operations = archive
-    ? (["inspect", "preview", "schema", "validate", "query", "convert", "download"] as const)
-    : (["inspect", "preview", "schema", "validate", "query", "convert"] as const);
+    ? ([
+        "inspect",
+        "preview",
+        "schema",
+        "validate",
+        "profile",
+        "query",
+        "convert",
+        "download",
+      ] as const)
+    : (["inspect", "preview", "schema", "validate", "profile", "query", "convert"] as const);
   const nextActions = selections.entries?.map((entry) =>
     action(
       "resource.preview",

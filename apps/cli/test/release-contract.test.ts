@@ -182,6 +182,27 @@ describe("clean CI and release contract", () => {
 });
 
 describe("documentation contract", () => {
+  it("documents and exports the experimental bounded profile workflow", async () => {
+    const rootReadme = await text("README.md");
+    const packagedReadme = await text("apps/cli/README.md");
+    const commands = await text("docs/commands.md");
+    const sdkSource = await text("apps/cli/src/sdk.ts");
+    const sdkDeclaration = await text("apps/cli/src/public-sdk.d.ts");
+
+    for (const document of [rootReadme, packagedReadme]) {
+      expect(document).toContain("klopsi profile");
+      expect(document).toContain("--top");
+    }
+    expect(commands).toContain("### `profile`");
+    expect(commands).toContain("exact distinct");
+    expect(commands).toContain("256");
+    expect(commands).toContain("--top");
+    expect(sdkSource).toContain("FieldProfile");
+    expect(sdkSource).toContain("ProfileServiceResult");
+    expect(sdkDeclaration).toContain("interface FieldProfile");
+    expect(sdkDeclaration).toContain("interface ProfileServiceResult");
+  });
+
   it("ships the complete MIT license in both locations", async () => {
     const root = await text("LICENSE");
     const packaged = await text("apps/cli/LICENSE");

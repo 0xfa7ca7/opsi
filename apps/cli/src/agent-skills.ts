@@ -167,7 +167,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         title: "Resolve structured content",
         instructions: [
           "Use one `--entry` or `--record-path` reported by resource inspect or the relevant operation's structured error/output; resource inspect can surface ZIP entries and XML record paths.",
-          "Without `--sheet`, XLSX resource preview, validate, or query emits `SHEET_REQUIRED` with `context.sheets` and a suggestion; use one listed sheet.",
+          "Without `--sheet`, XLSX resource preview, validate, profile, or query emits `SHEET_REQUIRED` with `context.sheets` and a suggestion; use one listed sheet.",
         ],
       },
     ],
@@ -233,7 +233,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         title: "Select structured data",
         instructions: [
           "Use one `--entry` or `--record-path` reported by resource inspect or the relevant operation's structured error/output; resource inspect can surface ZIP entries and XML record paths.",
-          "Without `--sheet`, XLSX resource preview, validate, or query emits `SHEET_REQUIRED` with `context.sheets` and a suggestion; use one listed sheet.",
+          "Without `--sheet`, XLSX resource preview, validate, profile, or query emits `SHEET_REQUIRED` with `context.sheets` and a suggestion; use one listed sheet.",
         ],
       },
       {
@@ -252,11 +252,12 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     kind: "command",
     name: "klopsi-analysis",
     description:
-      "Use when querying or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports.",
-    commands: ["query", "convert"],
-    purpose: "Analyze tabular inputs with bounded read-only SQL or convert supported formats.",
+      "Use when profiling, querying, or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports.",
+    commands: ["profile", "query", "convert"],
+    purpose:
+      "Profile tabular inputs, analyze them with bounded read-only SQL, or convert supported formats.",
     workflows: [
-      "Preview and validate input before running a bounded query.",
+      "Preview and validate input, then run a bounded profile before writing exploratory SQL.",
       "Convert an input and then verify the generated provenance record.",
     ],
     capabilities: [
@@ -264,8 +265,16 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         id: "supported-inputs",
         title: "Choose a supported input",
         instructions: [
-          "Query or convert CSV, TSV, JSON, NDJSON, XLSX, Parquet, ZIP, or XML only after inspection identifies a usable tabular member.",
+          "Profile, query, or convert CSV, TSV, JSON, NDJSON, XLSX, Parquet, ZIP, or XML only after inspection identifies a usable tabular member.",
           "Use a resolved `--entry`, `--record-path`, or `--sheet` whenever ZIP, XML, or XLSX input is ambiguous.",
+        ],
+      },
+      {
+        id: "bounded-profile",
+        title: "Profile a tabular input",
+        instructions: [
+          "Use `klopsi profile <input> --json` for an initial schema, row-count, completeness, exact distinct-count, numeric-range, and categorical-frequency summary before composing custom SQL.",
+          "Keep `--top` at its bounded default or lower it when compact agent context matters. Treat inferred DuckDB types and type-based categories as orientation signals, not domain semantics.",
         ],
       },
       {
@@ -294,6 +303,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       },
     ],
     safety: [
+      "Keep profiles bounded with --top and the inherited query deadline.",
       "Keep SQL read-only and bounded.",
       "Confirm before replacing an existing output with --force.",
     ],
@@ -1016,7 +1026,7 @@ Use the installed CLI as the source of truth when its help differs from generate
 
 - Use a local path for data already on disk and a canonical \`opsi:resource:\` reference for provider data; do not invent IDs or references.
 - Use one \`--entry\` or \`--record-path\` reported by resource inspect or the relevant operation's structured error/output; resource inspect can surface ZIP entries and XML record paths.
-- Without \`--sheet\`, XLSX resource preview, validate, or query emits \`SHEET_REQUIRED\` with \`context.sheets\` and a suggestion; use one listed sheet.
+- Without \`--sheet\`, XLSX resource preview, validate, profile, or query emits \`SHEET_REQUIRED\` with \`context.sheets\` and a suggestion; use one listed sheet.
 
 ## Formats and outputs
 

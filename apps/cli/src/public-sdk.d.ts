@@ -101,6 +101,7 @@ export type ResourceAccessOperation =
   | "preview"
   | "schema"
   | "validate"
+  | "profile"
   | "query"
   | "convert"
   | "download"
@@ -605,6 +606,44 @@ export interface DuckDbCachePolicy {
 declare class QueryService {
   execute(input: string, options: QueryServiceOptions): Promise<QueryServiceResult>;
 }
+export interface ProfileTopValue {
+  readonly value: string | number | boolean;
+  readonly count: number;
+  readonly rate: number;
+}
+export interface FieldProfile {
+  readonly name: string;
+  readonly type: string;
+  readonly rowCount: number;
+  readonly nullCount: number;
+  readonly nullRate: number;
+  readonly distinctCount: number;
+  readonly min: string | number | boolean | null;
+  readonly max: string | number | boolean | null;
+  readonly mean: string | number | null;
+  readonly topValues: readonly ProfileTopValue[];
+}
+export interface ProfileServiceOptions extends DataResolutionOptions {
+  readonly top?: number;
+  readonly timeoutMs?: number;
+  readonly memoryLimit?: string;
+  readonly threads?: number;
+  readonly sheet?: string;
+  readonly signal?: AbortSignal;
+}
+export interface ProfileServiceResult {
+  readonly fields: readonly FieldProfile[];
+  readonly source: string;
+  readonly rowCount: number;
+  readonly columnCount: number;
+  readonly top: number;
+  readonly durationMs: number;
+  readonly cache: QueryCacheMetadata;
+  readonly warnings: readonly QueryCacheWarning[];
+}
+declare class ProfileService {
+  execute(input: string, options?: ProfileServiceOptions): Promise<ProfileServiceResult>;
+}
 
 export type WfsVersion = "2.0.0" | "1.1.0" | "1.0.0";
 export interface WfsLayer {
@@ -711,6 +750,7 @@ export class KlopsiClient {
   readonly data: DataService;
   readonly conversions: ConversionService;
   readonly query: QueryService;
+  readonly profile: ProfileService;
   readonly services: { readonly wfs: WfsService };
   readonly access: ResourceAccessService;
   search(query: SearchQuery): Promise<SearchPage>;

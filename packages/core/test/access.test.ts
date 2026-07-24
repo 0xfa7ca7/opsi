@@ -34,7 +34,7 @@ describe("resource access guidance", () => {
     expect(descriptor).toMatchObject({
       kind: "local",
       detectedFormat: "csv",
-      operations: expect.arrayContaining(["preview", "query", "convert"]),
+      operations: expect.arrayContaining(["preview", "profile", "query", "convert"]),
       nextActions: [{ action: "resource.preview", argv: expect.any(Array) }],
     });
     expect(JSON.stringify(descriptor)).not.toMatch(/curl|https?:\/\//u);

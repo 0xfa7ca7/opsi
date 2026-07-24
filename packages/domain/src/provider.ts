@@ -44,6 +44,7 @@ export type ResourceAccessOperation =
   | "preview"
   | "schema"
   | "validate"
+  | "profile"
   | "query"
   | "convert"
   | "download"
