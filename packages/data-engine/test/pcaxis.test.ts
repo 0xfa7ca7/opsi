@@ -260,6 +260,45 @@ DATA=
     });
   });
 
+  it("accepts SURS-style TIMEVAL lists in default and language-qualified metadata", async () => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="tourism";
+STUB="DAN";
+STUB[en]="DAY";
+VALUES("DAN")="20230101","20230102";
+TIMEVAL("DAN")=TLIST(D1),"20230101","20230102";
+TIMEVAL[en]("DAY")=TLIST(D1),"20230101","20230102";
+DATA=1 2;`);
+
+    const metadata = await parsePcAxisMetadata(path);
+    expect(metadata.languageVariants).toContainEqual({
+      keyword: "TIMEVAL",
+      language: "en",
+      subkeys: ["DAY"],
+      values: ["TLIST(D1)", "20230101", "20230102"],
+    });
+    await expect(previewPcAxis(path, { limit: 2 })).resolves.toMatchObject({
+      rows: [
+        { DAN: "20230101", value: 1 },
+        { DAN: "20230102", value: 2 },
+      ],
+      truncated: false,
+    });
+  });
+
+  it("accepts the compact official TIMEVAL range syntax", async () => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="annual";
+STUB="Year";
+VALUES("Year")="2023","2024";
+TIMEVAL("Year")=TLIST(A1, "2023"-"2024");
+DATA=1 2;`);
+
+    await expect(parsePcAxisMetadata(path)).resolves.toMatchObject({
+      expectedCellCount: 2,
+    });
+  });
+
   it("allocates deterministic collision-safe label and code columns", async () => {
     const { path } = await fixture(`CODEPAGE="utf-8";
 MATRIX="collisions";

@@ -397,6 +397,30 @@ function parseList(text: string, limits: PcAxisLimits, enforce: boolean): readon
   return values;
 }
 
+function parseTimevalValues(
+  text: string,
+  limits: PcAxisLimits,
+  enforce: boolean,
+): readonly string[] {
+  const expanded = /^(TLIST\(\s*[AHQMWD]1\s*\))\s*,([\s\S]+)$/iu.exec(text.trim());
+  if (expanded !== null) {
+    const directive = expanded[1] as string;
+    chargeString(directive, limits, enforce);
+    return [directive, ...parseList(expanded[2] as string, limits, enforce)];
+  }
+
+  const compact = /^(TLIST\(\s*[AHQMWD]1\s*,\s*"(?:[^"]|"")*"\s*-\s*"(?:[^"]|"")*"\s*\))$/iu.exec(
+    text.trim(),
+  );
+  if (compact !== null) {
+    const directive = compact[1] as string;
+    chargeString(directive, limits, enforce);
+    return [directive];
+  }
+
+  throw invalidPcAxis("TIMEVAL must use a valid TLIST assignment.");
+}
+
 function parseAssignment(statement: string, limits: PcAxisLimits, enforce: boolean): PxAssignment {
   const equals = assignmentEquals(statement);
   if (equals < 0) throw invalidPcAxis("A PC-Axis metadata statement is missing an equals sign.");
@@ -414,7 +438,11 @@ function parseAssignment(statement: string, limits: PcAxisLimits, enforce: boole
     chargeString(language, limits, enforce);
   }
   const subkeys = match[3] === undefined ? [] : [...parseList(match[3], limits, enforce)];
-  const values = [...parseList(right, limits, enforce)];
+  const values = [
+    ...(keyword === "TIMEVAL"
+      ? parseTimevalValues(right, limits, enforce)
+      : parseList(right, limits, enforce)),
+  ];
   return {
     keyword,
     ...(language === undefined ? {} : { language }),
