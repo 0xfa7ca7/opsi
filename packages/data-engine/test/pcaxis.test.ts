@@ -186,6 +186,48 @@ DATA=
     });
   });
 
+  it("normalizes physical line wraps inside quoted labels without changing logical content", async () => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="wrapped labels";
+STUB="Label";
+VALUES("Label")="between\r\nwords","line\nfeed","carriage\rreturn","punctuation,\r\nnext","before \r\n after","keeps  ordinary ""quoted"" text";
+DATA=1 2 3 4 5 6;`);
+
+    const expected = [
+      "between words",
+      "line feed",
+      "carriage return",
+      "punctuation, next",
+      "before after",
+      'keeps  ordinary "quoted" text',
+    ];
+    await expect(parsePcAxisMetadata(path)).resolves.toMatchObject({
+      dimensions: [{ name: "Label", values: expected }],
+    });
+    const preview = await previewPcAxis(path, { limit: 6 });
+    expect(preview.rows.map((row) => row.Label)).toEqual(expected);
+  });
+
+  it("applies decoded-string bounds after quoted line-wrap normalization", async () => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="bounds";
+STUB="Label";
+VALUES("Label")="1234 \r\n 5678";
+DATA=1;`);
+
+    await expect(
+      parsePcAxisMetadata(path, limits({ maxDecodedStringBytes: 9 })),
+    ).resolves.toMatchObject({
+      dimensions: [{ name: "Label", values: ["1234 5678"] }],
+    });
+    await expect(
+      parsePcAxisMetadata(path, limits({ maxDecodedStringBytes: 8 })),
+    ).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      exitCode: 6,
+    });
+  });
+
   it("concatenates adjacent quoted NOTEX scalar segments into one logical note value", async () => {
     const { path } = await fixture(`CODEPAGE="utf-8";
 MATRIX="notes";

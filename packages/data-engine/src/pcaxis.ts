@@ -342,6 +342,10 @@ function chargeString(value: string, limits: PcAxisLimits, enforce: boolean): vo
     });
 }
 
+function normalizeQuotedLineWraps(value: string): string {
+  return value.replace(/[ \t]*(?:\r\n|\r|\n)[ \t]*/gu, " ");
+}
+
 function parseList(
   text: string,
   limits: PcAxisLimits,
@@ -381,6 +385,7 @@ function parseList(
         index += 1;
       }
       if (!closed) throw invalidPcAxis("A quoted PC-Axis value is unterminated.");
+      value = normalizeQuotedLineWraps(value);
       while (index < text.length && /\s/u.test(text[index] ?? "")) index += 1;
       if (index < text.length && text[index] !== ",")
         throw invalidPcAxis("Unexpected text follows a quoted PC-Axis value.");
