@@ -5,7 +5,7 @@ description: "Use when a Slovenian public-data, OPSI catalogue, or KLOPSI CLI re
 
 # KLOPSI orchestrator
 
-Use this skill as the main entry point for Slovenian public-data work with the `klopsi` CLI. Generated for `klopsi` 0.0.1.
+Use this skill as the main entry point for Slovenian public-data work with the `klopsi` CLI. Generated for `klopsi` 0.0.2.
 
 ## Route requests
 

@@ -7,7 +7,7 @@ description: "Use when prepared Slovenian public data needs a self-contained int
 
 > **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before creating an artifact.
 
-Turn a bounded prepared local artifact into one offline exploratory HTML file whose useful initial overview and linked interactions share a single in-memory data flow. Generated for `klopsi` 0.0.1.
+Turn a bounded prepared local artifact into one offline exploratory HTML file whose useful initial overview and linked interactions share a single in-memory data flow. Generated for `klopsi` 0.0.2.
 
 ## Workflow
 

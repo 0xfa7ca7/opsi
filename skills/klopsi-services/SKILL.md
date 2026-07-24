@@ -7,7 +7,7 @@ description: "Use when Slovenian public data is exposed through WFS and the requ
 
 > **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before executing these commands.
 
-Access WFS feature services through bounded, schema-validated KLOPSI workflows. Generated for `klopsi` 0.0.1.
+Access WFS feature services through bounded, schema-validated KLOPSI workflows. Generated for `klopsi` 0.0.2.
 
 ## Workflow
 

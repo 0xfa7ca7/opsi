@@ -7,7 +7,7 @@ description: "Use when checking local or provider data, or OPSI metadata, for in
 
 > **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before executing these commands.
 
-Validate data content or normalized metadata and explain actionable issues. Generated for `klopsi` 0.0.1.
+Validate data content or normalized metadata and explain actionable issues. Generated for `klopsi` 0.0.2.
 
 ## Workflow
 

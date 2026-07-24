@@ -7,7 +7,7 @@ description: "Use when discovering Slovenian public-data or OPSI datasets, metad
 
 > **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before executing these commands.
 
-Find datasets and inspect their normalized metadata and tabular schemas. Generated for `klopsi` 0.0.1.
+Find datasets and inspect their normalized metadata and tabular schemas. Generated for `klopsi` 0.0.2.
 
 ## Workflow
 

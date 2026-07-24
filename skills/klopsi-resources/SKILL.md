@@ -7,7 +7,7 @@ description: "Use when inspecting an OPSI resource, its secure access, headers, 
 
 > **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before executing these commands.
 
-Inspect a resource safely without committing to a full data workflow. Generated for `klopsi` 0.0.1.
+Inspect a resource safely without committing to a full data workflow. Generated for `klopsi` 0.0.2.
 
 ## Workflow
 

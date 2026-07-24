@@ -38,9 +38,9 @@ describe("public CLI package", () => {
   it("uses the public klopsi identity while internal packages stay private", () => {
     expect(packageMetadata).toMatchObject({
       name: "klopsi",
-      version: "0.0.1",
       engines: { node: ">=24.0.0" },
     });
+    expect(packageMetadata.version).toMatch(/^\d+\.\d+\.\d+$/u);
     expect(packageMetadata.private).toBeUndefined();
     expect(changesetsConfig.access).toBe("public");
     expect(internalPackages.every((metadata) => metadata.private === true)).toBe(true);

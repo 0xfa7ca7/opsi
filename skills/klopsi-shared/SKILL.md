@@ -5,7 +5,7 @@ description: "Use when any KLOPSI CLI skill needs shared installation, output, o
 
 # KLOPSI shared execution contract
 
-Read this before using any KLOPSI domain skill. Generated for `klopsi` 0.0.1.
+Read this before using any KLOPSI domain skill. Generated for `klopsi` 0.0.2.
 
 ## Install and discover
 
