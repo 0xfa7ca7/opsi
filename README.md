@@ -157,7 +157,7 @@ Run `klopsi --help` or read the [complete command reference](docs/commands.md) f
 
 ## Working with data
 
-`klopsi` can inspect and validate resilient CSV/TSV-style data (UTF-8/UTF-16, comma/tab/semicolon/pipe), JSON, NDJSON, XLSX, Parquet, bounded XML records, and one safely selected data entry inside a ZIP. Use `--entry` for ambiguous archives and `--record-path` for ambiguous XML. Read-only WFS workflows expose layers, schemas, bounded previews, counts, and CSV exports without leaving KLOPSI.
+`klopsi` can inspect and validate resilient CSV/TSV-style data (UTF-8/UTF-16, comma/tab/semicolon/pipe), JSON, NDJSON, XLSX, Parquet, bounded XML records, dense PC-Axis, and one safely selected data entry inside a ZIP. Dense PC-Axis is input-only and becomes bounded long-form rows that preserve dimension labels, zero-padded codes, numeric values, and source data symbols. Use `--entry` for ambiguous archives and `--record-path` for ambiguous XML. Read-only WFS workflows expose layers, schemas, bounded previews, counts, and CSV exports without leaving KLOPSI.
 
 The first query or DuckDB UI session for a source imports it into a rebuildable DuckDB stage with one table named `data`; later operations over identical bytes and the same XLSX sheet reuse that stage. JSON metadata reports `cache.status` as `miss`, `hit`, or `bypass`. The derived cache defaults to a 10 GB budget and 30-day sliding lifetime, and its entries are visible through `klopsi cache info|list|verify|prune|clear`. Derived eviction never removes raw downloads or catalogue data merely to satisfy the DuckDB budget.
 

@@ -10,6 +10,23 @@ Query and export: `klopsi query ./downloads/data.csv --sql "select * from data l
 
 Convert and verify: `klopsi convert data.csv --to parquet --output data.parquet`; `klopsi provenance show data.parquet`; `klopsi provenance verify data.parquet --json`.
 
+## Dense PC-Axis
+
+Inspect a `.px` resource before analysis, then keep its long-form code and missing-symbol semantics:
+
+```sh
+klopsi resource inspect table.px --json
+klopsi resource preview table.px --limit 10 --json
+klopsi validate table.px --json
+klopsi query table.px \
+  --sql 'select "Municipality__code", "Year", value, value__symbol from data where value IS NULL' \
+  --json
+klopsi convert table.px --to parquet --output table.parquet
+klopsi provenance verify table.parquet --json
+```
+
+A municipality code such as `061` remains a string in `Municipality__code`; do not cast it to a number. Labels remain in `Municipality`. A row with `value IS NULL` and a non-null `value__symbol` reflects a source suppression/missing token, while numeric zero remains `value = 0`. PC-Axis is input-only, so choose CSV, TSV, JSON, NDJSON, XLSX, or Parquet as the conversion target. v1 rejects sparse `KEYS` cubes explicitly rather than returning partial rows.
+
 ## Complete reproducible workflow
 
 Create a directory, search, inspect, download by canonical reference, validate locally, query, convert, and verify:

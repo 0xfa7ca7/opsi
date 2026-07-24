@@ -233,7 +233,7 @@ export type ParsedCanonicalReference =
   ParsedDatasetReference | ParsedResourceReference | ParsedLocalFileReference;
 
 type SupportedDataFormat = DataFormat;
-type SupportedInputFormat = SupportedDataFormat | "xml" | "pcaxis";
+export type SupportedInputFormat = SupportedDataFormat | "xml" | "pcaxis";
 export type DetectedTextEncoding = "utf-8" | "utf-16le" | "utf-16be" | "windows-1250";
 export interface ArchiveLimits {
   readonly maxEntries: number;
@@ -250,6 +250,21 @@ export interface XmlLimits {
   readonly maxColumns: number;
   readonly maxRecords: number;
   readonly maxStateBytes: number;
+}
+export interface PcAxisLimits {
+  readonly maxSourceBytes: number;
+  readonly maxMetadataBytes: number;
+  readonly maxMetadataStatements: number;
+  readonly maxStatementBytes: number;
+  readonly maxDimensions: number;
+  readonly maxValuesPerDimension: number;
+  readonly maxCells: number;
+  readonly maxDecodedStringBytes: number;
+  readonly maxNotes: number;
+  readonly maxLanguageVariants: number;
+  readonly maxCellTokenBytes: number;
+  readonly maxEmittedRecords: number;
+  readonly maxStagingBytes: number;
 }
 type DetectedInputFormat = SupportedInputFormat | "zip" | "unknown";
 type DetectionConfidence =
@@ -293,7 +308,7 @@ interface EngineValidationIssue {
   readonly field?: string;
   readonly context?: Readonly<Record<string, unknown>>;
 }
-interface DataPreview {
+export interface DataPreview {
   readonly format: SupportedInputFormat;
   readonly columns: readonly string[];
   readonly codeColumns?: readonly string[];
@@ -704,6 +719,7 @@ export interface KlopsiClientOptions {
   readonly queryWorkerPath?: string | URL;
   readonly archiveLimits?: ArchiveLimits;
   readonly xmlLimits?: XmlLimits;
+  readonly pcAxisLimits?: PcAxisLimits;
 }
 export class KlopsiClient {
   constructor(options: KlopsiClientOptions);

@@ -170,6 +170,14 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
           "Without `--sheet`, XLSX resource preview, validate, or query emits `SHEET_REQUIRED` with `context.sheets` and a suggestion; use one listed sheet.",
         ],
       },
+      {
+        id: "pcaxis-preview",
+        title: "Interpret PC-Axis previews",
+        instructions: [
+          "Dense PC-Axis preview emits deterministic long-form rows: each STUB or HEADING dimension becomes a label column, and a sibling `<dimension>__code` column appears when source CODES exist.",
+          "Treat `__code` values as strings so zero-padded identifiers survive. A source data symbol produces `value: null` plus `value__symbol`; numeric zero remains `value: 0` without a symbol.",
+        ],
+      },
     ],
     safety: ["Keep previews bounded and do not weaken network controls implicitly."],
     related: ["klopsi-catalogue", "klopsi-download", "klopsi-validation", "klopsi-analysis"],
@@ -242,6 +250,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         instructions: [
           "Treat exit 6 as a validation or integrity failure: report the issues and repair, replace, or reselect the input before retrying.",
           "Do not treat validation or integrity failure as a transient network error or bypass it before analysis.",
+          "PC-Axis v1 supports dense DATA only: `KEYS` fails explicitly with `PCAXIS_KEYS_UNSUPPORTED`, and code pages other than windows-1250 or utf-8 fail with `PCAXIS_ENCODING_UNSUPPORTED`.",
         ],
       },
     ],
@@ -264,8 +273,10 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         id: "supported-inputs",
         title: "Choose a supported input",
         instructions: [
-          "Query or convert CSV, TSV, JSON, NDJSON, XLSX, Parquet, ZIP, or XML only after inspection identifies a usable tabular member.",
+          "Query or convert CSV, TSV, JSON, NDJSON, XLSX, Parquet, ZIP, XML, or dense PC-Axis only after inspection identifies usable tabular content.",
           "Use a resolved `--entry`, `--record-path`, or `--sheet` whenever ZIP, XML, or XLSX input is ambiguous.",
+          "PC-Axis is input-only: convert it to CSV, TSV, JSON, NDJSON, XLSX, or Parquet, never to PC-Axis.",
+          "In staged PC-Axis rows, keep `__code` fields as strings and interpret a source-symbol null as `value IS NULL` with the original token in `value__symbol`; do not confuse it with numeric zero.",
         ],
       },
       {
@@ -999,7 +1010,8 @@ Use the installed CLI as the source of truth when its help differs from generate
 
 ## Formats and outputs
 
-- Supported tabular workflow formats include JSON, NDJSON, CSV, TSV, XLSX, Parquet, ZIP, and XML when their selected content is supported.
+- Supported tabular workflow formats include JSON, NDJSON, CSV, TSV, XLSX, Parquet, ZIP, XML, and dense PC-Axis when their selected content is supported.
+- PC-Axis is input-only and becomes deterministic long-form rows. Preserve sibling \`__code\` strings and distinguish a source-symbol null (\`value: null\` plus \`value__symbol\`) from numeric zero.
 - Choose \`--json\` for one bounded envelope, \`--ndjson\` for records, and command-specific \`--output\` for a persisted artifact; use spreadsheet-safe output when needed.
 
 ## Presentation artifacts

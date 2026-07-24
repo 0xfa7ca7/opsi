@@ -51,4 +51,4 @@ export type {
   WfsVersion,
 } from "./wfs/index.js";
 export { ResourceAccessService } from "./access.js";
-export type { ArchiveLimits, XmlLimits } from "@klopsi/data-engine";
+export type { ArchiveLimits, PcAxisLimits, XmlLimits } from "@klopsi/data-engine";

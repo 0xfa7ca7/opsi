@@ -28,7 +28,7 @@ Syntax: `klopsi dataset resources <id>`. Returns resources belonging to the data
 
 ### `dataset schema`
 
-Syntax: `klopsi dataset schema <id> [--resource <id-or-reference>] [--sheet <name>] [--entry <path>] [--record-path <path>]`. If exactly one tabular resource exists it is selected; otherwise `--resource` is required. Use `--sheet` for XLSX, `--entry` for ambiguous ZIP archives, and `--record-path` for ambiguous XML. Network safety overrides are available. Output contains inferred fields/types. Ambiguous selection exits 2, missing content exits 3, unsupported formats exit 5. Example: `klopsi dataset schema dataset-traffic-001 --resource resource-traffic-csv-001 --json`.
+Syntax: `klopsi dataset schema <id> [--resource <id-or-reference>] [--sheet <name>] [--entry <path>] [--record-path <path>]`. If exactly one tabular resource exists it is selected; otherwise `--resource` is required. Use `--sheet` for XLSX, `--entry` for ambiguous ZIP archives, and `--record-path` for ambiguous XML. Network safety overrides are available. Output contains inferred fields/types. Dense PC-Axis schema exposes dimension labels, string `__code` siblings when CODES exist, numeric `value`, and sampled nullable `value__symbol`. Ambiguous selection exits 2, missing content exits 3, unsupported formats exit 5. Example: `klopsi dataset schema dataset-traffic-001 --resource resource-traffic-csv-001 --json`.
 
 ### `dataset open`
 
@@ -40,7 +40,7 @@ Syntax: `klopsi resource show <id>`. Returns normalized resource metadata, canon
 
 ### `resource preview`
 
-Syntax: `klopsi resource preview <input> [--limit <rows>] [--sheet <name>] [--entry <path>] [--record-path <path>]`. Input may be local or a canonical resource. Previewing is bounded. XLSX, ambiguous ZIP, and ambiguous XML require their explicit selection option. Example: `klopsi resource preview archive.zip --entry data/rows.csv --limit 10 --json`.
+Syntax: `klopsi resource preview <input> [--limit <rows>] [--sheet <name>] [--entry <path>] [--record-path <path>]`. Input may be local or a canonical resource. Previewing is bounded. XLSX, ambiguous ZIP, and ambiguous XML require their explicit selection option. Dense PC-Axis preview returns long-form rows; preserve zero-padded `__code` strings, and interpret `value: null` with `value__symbol` as a source data symbol rather than numeric zero. Example: `klopsi resource preview archive.zip --entry data/rows.csv --limit 10 --json`.
 
 ### `resource inspect`
 
@@ -62,19 +62,19 @@ Syntax: `klopsi download <ids...> [--dataset|--resource] [--destination <path>|-
 
 ### `validate`
 
-Syntax: `klopsi validate <input> [--metadata] [--sheet <name>] [--entry <path>] [--record-path <path>]`. Without `--metadata`, validates local/provider content; use `--sheet` for XLSX, `--entry` for ambiguous ZIP archives, and `--record-path` for ambiguous XML. With `--metadata`, input must be a canonical dataset/resource reference and only metadata is checked. The remote-content overrides `--allow-insecure-http` and `--allow-private-network` apply to content validation for one invocation. Output includes issues, severities, and recommendations. Invalid data exits 6. Example: `klopsi validate ./downloads/traffic.csv --json`.
+Syntax: `klopsi validate <input> [--metadata] [--sheet <name>] [--entry <path>] [--record-path <path>]`. Without `--metadata`, validates local/provider content; use `--sheet` for XLSX, `--entry` for ambiguous ZIP archives, and `--record-path` for ambiguous XML. With `--metadata`, input must be a canonical dataset/resource reference and only metadata is checked. The remote-content overrides `--allow-insecure-http` and `--allow-private-network` apply to content validation for one invocation. PC-Axis validation checks its dense cube, cardinalities, code lists, symbols, encoding, and hard limits; v1 `KEYS` input returns `PCAXIS_KEYS_UNSUPPORTED`, while an unsupported code page returns `PCAXIS_ENCODING_UNSUPPORTED`. Output includes issues, severities, and recommendations. Invalid data exits 6. Example: `klopsi validate ./downloads/traffic.csv --json`.
 
 ### `convert`
 
-Syntax: `klopsi convert <input> --to <csv|tsv|json|ndjson|xlsx|parquet> --output <path> [options]`. Options include `--sheet`, `--entry`, `--record-path`, `--force`, `--spreadsheet-safe`, and network overrides. Publication is atomic. Example: `klopsi convert stations.xml --record-path /root/station --to parquet --output stations.parquet`.
+Syntax: `klopsi convert <input> --to <csv|tsv|json|ndjson|xlsx|parquet> --output <path> [options]`. Options include `--sheet`, `--entry`, `--record-path`, `--force`, `--spreadsheet-safe`, and network overrides. PC-Axis is accepted only as input; the converted long-form artifact preserves `__code`, `value`, and `value__symbol` semantics and receives the normal provenance sidecar. PC-Axis is not a `--to` choice. Publication is atomic. Example: `klopsi convert table.px --to parquet --output table.parquet`.
 
 ### `query`
 
-Syntax: `klopsi query <input> --sql <statement> [options]`. Only one read-only SELECT, WITH…SELECT, or VALUES statement is accepted. Options include `--limit`, `--timeout-ms`, `--sheet`, `--entry`, `--record-path`, `--output`, `--force`, and network overrides. User SQL runs against KLOPSI-owned table `data` with row/time/memory/thread/cell/output bounds and external access disabled. Example: `klopsi query archive.zip --entry rows.csv --sql "select * from data limit 2" --json`.
+Syntax: `klopsi query <input> --sql <statement> [options]`. Only one read-only SELECT, WITH…SELECT, or VALUES statement is accepted. Options include `--limit`, `--timeout-ms`, `--sheet`, `--entry`, `--record-path`, `--output`, `--force`, and network overrides. User SQL runs against KLOPSI-owned table `data` with row/time/memory/thread/cell/output bounds and external access disabled. Dense PC-Axis is staged as the same deterministic long form used by preview and conversion; quote non-ASCII or punctuation-bearing column names and filter source-symbol nulls with `value IS NULL` plus `value__symbol`. Query exports retain normal provenance. Example: `klopsi query table.px --sql 'select * from data where value is not null limit 2' --json`.
 
 ### `duckdb open`
 
-Syntax: `klopsi duckdb open <input> [options]`. Resolves any tabular input accepted by `query`, including provider resources and local CSV, TSV, JSON, NDJSON, XLSX, Parquet, XML, or ZIP selections, then opens its KLOPSI-owned table `data` in DuckDB UI. Use `--sheet`, `--entry`, or `--record-path` to disambiguate compound inputs. The invocation-local staged database is attached read-only and remains leased until DuckDB UI exits. Closing DuckDB UI releases and removes that invocation-local database. The canonical derived cache remains immutable and reusable; the selected source and any adjacent provenance sidecar are not modified.
+Syntax: `klopsi duckdb open <input> [options]`. Resolves any tabular input accepted by `query`, including provider resources and local CSV, TSV, JSON, NDJSON, XLSX, Parquet, XML, dense PC-Axis, or ZIP selections, then opens its KLOPSI-owned table `data` in DuckDB UI. PC-Axis uses the same label, `__code`, `value`, and `value__symbol` long form. Use `--sheet`, `--entry`, or `--record-path` to disambiguate compound inputs. The invocation-local staged database is attached read-only and remains leased until DuckDB UI exits. Closing DuckDB UI releases and removes that invocation-local database. The canonical derived cache remains immutable and reusable; the selected source and any adjacent provenance sidecar are not modified.
 
 The external DuckDB CLI is optional. When it is unavailable, the command exits 5 with `DUCKDB_CLI_UNAVAILABLE`; add `--install` to explicitly authorize the official installer for that invocation. `--allow-insecure-http` and `--allow-private-network` retain their normal per-invocation remote-content meaning. Structured output reports the source, table name, CLI version, whether installation occurred, and stage-cache status after the UI closes. Example: `klopsi duckdb open ./downloads/data.csv`.
 
@@ -158,7 +158,7 @@ Returns platform user configuration and current project configuration paths. Exa
 
 ### `doctor`
 
-Syntax: `klopsi doctor [--offline]`. Aggregates Node, configuration, writable cache/temp, connectivity (or deterministic skip), real DuckDB load/query, and real CSV/TSV/JSON/NDJSON/XLSX/Parquet handler previews. Output is `{status,checks[]}` where each check is `pass`, `fail`, or `skip`. All checks run before failure. Native absence exits 5 as `DUCKDB_UNAVAILABLE`; connectivity failure exits 4; other failed checks exit 6. Example: `klopsi doctor --offline --json`.
+Syntax: `klopsi doctor [--offline]`. Aggregates Node, configuration, writable cache/temp, connectivity (or deterministic skip), real DuckDB load/query, real CSV/TSV/JSON/NDJSON/XLSX/Parquet handler previews, and a separate real dense PC-Axis input probe. The PC-Axis check verifies zero-padded `__code` preservation and `value__symbol` handling without treating PC-Axis as an output format. Output is `{status,checks[]}` where each check is `pass`, `fail`, or `skip`. All checks run before failure. Native absence exits 5 as `DUCKDB_UNAVAILABLE`; connectivity failure exits 4; other failed checks exit 6. Example: `klopsi doctor --offline --json`.
 
 ### `completion`
 

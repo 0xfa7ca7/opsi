@@ -51,10 +51,13 @@ async function compileSdkConsumer(directory: string): Promise<void> {
   type Dataset,
   type DatasetId,
   type DuckDbCachePolicy,
+  type DataPreview,
   type DownloadRecord,
   type Field,
+  type KlopsiClientOptions,
   type NextAction,
   type ParsedCanonicalReference,
+  type PcAxisLimits,
   type ProviderId,
   type Provenance,
   type QueryResult,
@@ -127,6 +130,31 @@ const queryWarning: QueryCacheWarning = {
   message: 'temporary staging',
 };
 const duckdbCache: DuckDbCachePolicy = { enabled: true, maxBytes: 10_000, ttlMs: 86_400_000 };
+const pcAxisLimits: PcAxisLimits = {
+  maxSourceBytes: 512_000_000,
+  maxMetadataBytes: 16_000_000,
+  maxMetadataStatements: 100_000,
+  maxStatementBytes: 4_000_000,
+  maxDimensions: 64,
+  maxValuesPerDimension: 1_000_000,
+  maxCells: 100_000_000,
+  maxDecodedStringBytes: 1_000_000,
+  maxNotes: 10_000,
+  maxLanguageVariants: 10_000,
+  maxCellTokenBytes: 64_000,
+  maxEmittedRecords: 1_000_000,
+  maxStagingBytes: 1_000_000_000,
+};
+const pcAxisPreview: DataPreview = {
+  format: 'pcaxis',
+  columns: ['Municipality', 'Municipality__code', 'value'],
+  codeColumns: ['Municipality__code'],
+  rows: [{ Municipality: 'Ljubljana', Municipality__code: '061', value: 42 }],
+  returnedCount: 1,
+  truncated: false,
+  warnings: [],
+  encoding: 'utf-8',
+};
 const dataset: Dataset = {
   id: datasetId,
   providerId,
@@ -145,11 +173,15 @@ const parsed: ParsedCanonicalReference = { providerId, kind: 'resource', id: res
 if (parsed.kind === 'resource') parsed.id.toUpperCase();
 
 const registry = new ProviderRegistry([]);
-const client: KlopsiClient = new KlopsiClient({
+const clientOptions: KlopsiClientOptions = {
   registry,
   providerId,
   duckdbCache,
+  pcAxisLimits,
   downloads: { downloadDir: '/tmp', limits: { maxBytes: 1_000, timeoutMs: 1_000 } },
+};
+const client: KlopsiClient = new KlopsiClient({
+  ...clientOptions,
 });
 const search: SearchQuery = { text: 'promet', filters: { formats: ['csv'] } };
 const operations = [
@@ -176,7 +208,7 @@ const operations = [
 ];
 void [access.kind, dataset.providerMetadata?.raw.source, validation.schema?.fields[0]?.nullable,
   download.provenance.transformations[0]?.operation, queryResult.rows[0]?.count,
-  queryCache.status, queryWarning.code, operations];
+  queryCache.status, queryWarning.code, pcAxisPreview.codeColumns?.[0], operations];
 `,
   );
   await writeFile(
@@ -267,6 +299,10 @@ describe("canonical npm tarball", () => {
     );
     expect(sdkDeclaration).toContain("readonly downloads?: DownloadService");
     expect(sdkDeclaration).toContain("readonly cache?: CacheService");
+    expect(sdkDeclaration).toContain("export interface PcAxisLimits");
+    expect(sdkDeclaration).toContain("export interface DataPreview");
+    expect(sdkDeclaration).toContain("readonly codeColumns?: readonly string[]");
+    expect(sdkDeclaration).toContain("readonly pcAxisLimits?: PcAxisLimits");
   });
 
   it("installs the exact tarball cleanly and smokes CLI, native formats, and SDK", async () => {

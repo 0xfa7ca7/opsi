@@ -10,8 +10,10 @@ export type {
   WfsSelectionOptions,
   WfsVersion,
   ArchiveLimits,
+  PcAxisLimits,
   XmlLimits,
 } from "@klopsi/core";
+export type { DataPreview, SupportedInputFormat } from "@klopsi/data-engine";
 export type {
   CanonicalReference,
   Configuration,

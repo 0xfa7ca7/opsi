@@ -280,6 +280,41 @@ describe("documentation contract", () => {
     expect(documents.security).toContain("not the bounded `klopsi query` sandbox");
   });
 
+  it("documents the bounded input-only PC-Axis contract across user and architecture guides", async () => {
+    const documents = {
+      readme: await text("README.md"),
+      architecture: await text("docs/architecture.md"),
+      configuration: await text("docs/configuration.md"),
+      formats: await text("docs/formats.md"),
+      commands: await text("docs/commands.md"),
+      recipes: await text("docs/recipes.md"),
+    };
+
+    expect(documents.readme).toContain("dense PC-Axis");
+    expect(documents.readme).toContain("input-only");
+    expect(documents.architecture).toContain("deterministic long-form");
+    expect(documents.architecture).toContain("staging-contract");
+    expect(documents.configuration).toContain("`maxMetadataBytes`: 16 MiB");
+    expect(documents.configuration).toContain("`maxCells`: 100,000,000");
+    expect(documents.configuration).toContain("`maxStagingBytes`: 1 GiB");
+
+    for (const document of [documents.formats, documents.commands, documents.recipes]) {
+      expect(document).toContain("value__symbol");
+      expect(document).toContain("__code");
+      expect(document).toContain("KEYS");
+    }
+    expect(documents.formats).toContain("windows-1250");
+    expect(documents.formats).toContain("utf-8");
+    expect(documents.formats).toContain("STUB");
+    expect(documents.formats).toContain("HEADING");
+    expect(documents.formats).toContain("PCAXIS_ENCODING_UNSUPPORTED");
+    expect(documents.formats).toContain("PCAXIS_KEYS_UNSUPPORTED");
+    expect(documents.commands).toContain("PC-Axis is accepted only as input");
+    expect(documents.commands).toContain("normal provenance sidecar");
+    expect(documents.recipes).toContain("061");
+    expect(documents.recipes).toContain("IS NULL");
+  });
+
   it("documents installable Agent Skills and their generated release contract", async () => {
     const readme = await text("README.md");
     for (const expected of [
@@ -331,6 +366,17 @@ describe("documentation contract", () => {
     for (const skill of AGENT_SKILLS) {
       const generated = await text(`skills/${skill.name}/SKILL.md`);
       expect(generated, skill.name).toContain("Generated for `klopsi` 0.0.1.");
+    }
+
+    const pcAxisSkillTokens: Readonly<Record<string, readonly string[]>> = {
+      "klopsi-shared": ["PC-Axis", "input-only", "long-form"],
+      "klopsi-resources": ["__code", "zero-padded", "value__symbol"],
+      "klopsi-validation": ["PCAXIS_KEYS_UNSUPPORTED", "PCAXIS_ENCODING_UNSUPPORTED"],
+      "klopsi-analysis": ["source-symbol null", "CSV, TSV, JSON, NDJSON, XLSX, or Parquet"],
+    };
+    for (const [name, required] of Object.entries(pcAxisSkillTokens)) {
+      const generated = await text(`skills/${name}/SKILL.md`);
+      for (const token of required) expect(generated, `${name}: ${token}`).toContain(token);
     }
   });
 });

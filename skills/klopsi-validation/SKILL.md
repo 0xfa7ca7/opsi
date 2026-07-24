@@ -29,6 +29,7 @@ Validate data content or normalized metadata and explain actionable issues. Gene
 
 - Treat exit 6 as a validation or integrity failure: report the issues and repair, replace, or reselect the input before retrying.
 - Do not treat validation or integrity failure as a transient network error or bypass it before analysis.
+- PC-Axis v1 supports dense DATA only: `KEYS` fails explicitly with `PCAXIS_KEYS_UNSUPPORTED`, and code pages other than windows-1250 or utf-8 fail with `PCAXIS_ENCODING_UNSUPPORTED`.
 
 ## Commands
 

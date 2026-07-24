@@ -12,6 +12,7 @@ import {
   DataEngine,
   type ArchiveLimits,
   type DataEngineOptions,
+  type PcAxisLimits,
   type XmlLimits,
 } from "@klopsi/data-engine";
 import { DataService } from "./data.js";
@@ -34,6 +35,7 @@ export interface KlopsiClientOptions {
   readonly queryWorkerPath?: string | URL;
   readonly archiveLimits?: ArchiveLimits;
   readonly xmlLimits?: XmlLimits;
+  readonly pcAxisLimits?: PcAxisLimits;
 }
 
 function defaultQueryWorkerPath(): URL {
@@ -65,6 +67,7 @@ export class KlopsiClient {
     this.providers = new ProviderCatalog(this.registry);
     const dataEngineOptions: DataEngineOptions = {
       ...(options.xmlLimits === undefined ? {} : { xmlLimits: options.xmlLimits }),
+      ...(options.pcAxisLimits === undefined ? {} : { pcAxisLimits: options.pcAxisLimits }),
     };
     this.data = new DataService(this, new DataEngine(dataEngineOptions), {
       cwd: options.cwd ?? process.cwd(),
@@ -83,6 +86,7 @@ export class KlopsiClient {
         runner,
         ...(derived === undefined ? {} : { derived }),
         ...(options.xmlLimits === undefined ? {} : { xmlLimits: options.xmlLimits }),
+        ...(options.pcAxisLimits === undefined ? {} : { pcAxisLimits: options.pcAxisLimits }),
       }),
     );
     this.services = {
