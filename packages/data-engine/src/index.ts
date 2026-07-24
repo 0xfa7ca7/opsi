@@ -6,6 +6,20 @@ export { DEFAULT_ARCHIVE_LIMITS, extractArchiveEntry, inspectArchive } from "./a
 export type { ArchiveEntry, ArchiveInspection, ArchiveLimits } from "./archive.js";
 export { DEFAULT_XML_LIMITS, discoverXmlRecords, previewXml, writeXmlRowsAsNdjson } from "./xml.js";
 export type { XmlDiscovery, XmlLimits, XmlPreview } from "./xml.js";
+export {
+  DEFAULT_PCAXIS_LIMITS,
+  parsePcAxisMetadata,
+  previewPcAxis,
+  writePcAxisRowsAsNdjson,
+} from "./pcaxis.js";
+export type {
+  PcAxisLimits,
+  PcAxisMetadata,
+  PcAxisPreview,
+  PxDimension,
+  PxMetadataVariant,
+  PxNote,
+} from "./pcaxis.js";
 export { DataEngine, inferredType } from "./inspect.js";
 export { QueryPolicy } from "./query-policy.js";
 export { DuckDbQueryRunner } from "./query.js";

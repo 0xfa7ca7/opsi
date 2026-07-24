@@ -107,6 +107,7 @@ export interface DataEngineOptions {
   readonly conversionFileSystem?: Partial<ConversionFileSystem>;
   readonly conversionStageClose?: (close: () => Promise<void>) => Promise<void>;
   readonly xmlLimits?: import("./xml.js").XmlLimits;
+  readonly pcAxisLimits?: import("./pcaxis.js").PcAxisLimits;
 }
 
 export interface ConversionFileSystem {
