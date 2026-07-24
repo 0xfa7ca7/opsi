@@ -34,7 +34,7 @@
 **Interfaces:**
 - Consumes: `DuckDbUiRunner.open(info: DuckDbCliInfo, databasePath: string): Promise<DuckDbCliInfo>`
 - Produces: the same public signature, with `databasePath` treated as the staged source and `dirname(databasePath)/workbench.duckdb` as the writable UI database
-- Produces: startup SQL `ATTACH '<escaped-stage>' (READ_ONLY) AS dataset; CREATE VIEW main.data AS SELECT * FROM dataset.main.data;`
+- Produces: startup SQL `ATTACH '<escaped-stage>' AS dataset (READ_ONLY); CREATE VIEW main.data AS SELECT * FROM dataset.main.data;`
 
 - [ ] **Step 1: Replace the runner launch expectation with a failing writable-workbench test**
 
@@ -48,7 +48,7 @@ expect(spawnProcess).toHaveBeenLastCalledWith(
   [
     "/tmp/data's stage/workbench.duckdb",
     "-cmd",
-    "ATTACH '/tmp/data''s stage/data.duckdb' (READ_ONLY) AS dataset; " +
+    "ATTACH '/tmp/data''s stage/data.duckdb' AS dataset (READ_ONLY); " +
       "CREATE VIEW main.data AS SELECT * FROM dataset.main.data;",
     "-ui",
   ],
@@ -85,7 +85,7 @@ function sqlString(value: string): string {
 function workbenchInvocation(databasePath: string): readonly string[] {
   const workbenchPath = join(dirname(databasePath), "workbench.duckdb");
   const prepare =
-    `ATTACH ${sqlString(databasePath)} (READ_ONLY) AS dataset; ` +
+    `ATTACH ${sqlString(databasePath)} AS dataset (READ_ONLY); ` +
     "CREATE VIEW main.data AS SELECT * FROM dataset.main.data;";
   return [workbenchPath, "-cmd", prepare, "-ui"];
 }
@@ -350,4 +350,3 @@ gh pr checks 31 --watch --interval 10
 ```
 
 The PR body must explain the corrected writable-workbench/read-only-attachment model, broad `klopsi-dataset-workbench` name, optional `Example queries` notebook workflow, polished handoff, and exact verification counts.
-

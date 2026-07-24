@@ -41,7 +41,7 @@ The callback receives an invocation-local staged-database path, never the canoni
 
 ### External CLI runner
 
-A focused CLI module owns external DuckDB discovery, installation, and execution. It uses argument-array process spawning rather than a shell command. UI launch creates `workbench.duckdb` beside the leased staged database and passes it as the writable DuckDB filename. A startup command attaches the staged database with `(READ_ONLY) AS dataset` and creates `main.data` as a view over `dataset.main.data` before `-ui` starts. SQL string literals escape the KLOPSI-created staged path, and no shell interprets the command.
+A focused CLI module owns external DuckDB discovery, installation, and execution. It uses argument-array process spawning rather than a shell command. UI launch creates `workbench.duckdb` beside the leased staged database and passes it as the writable DuckDB filename. A startup command attaches the staged database with `AS dataset (READ_ONLY)` and creates `main.data` as a view over `dataset.main.data` before `-ui` starts. SQL string literals escape the KLOPSI-created staged path, and no shell interprets the command.
 
 The default installer:
 

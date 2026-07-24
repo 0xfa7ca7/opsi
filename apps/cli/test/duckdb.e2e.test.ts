@@ -1,6 +1,6 @@
 import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { DuckDBInstance } from "@duckdb/node-api";
 import { KlopsiError, EXIT_CODES } from "@klopsi/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -75,6 +75,7 @@ describe("DuckDB UI commands", () => {
         leasedPath = databasePath;
         await expect(access(databasePath)).resolves.toBeUndefined();
         await expect(countRows(databasePath)).resolves.toBe(2);
+        await writeFile(join(dirname(databasePath), "workbench.duckdb"), "");
         return info;
       }),
     };
@@ -98,6 +99,9 @@ describe("DuckDB UI commands", () => {
     expect(runner.install).not.toHaveBeenCalled();
     expect(runner.open).toHaveBeenCalledWith(available, leasedPath);
     await expect(access(leasedPath)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(access(join(dirname(leasedPath), "workbench.duckdb"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
     expect(value.stderr).toEqual([]);
   });
 

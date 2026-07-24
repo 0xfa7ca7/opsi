@@ -48,7 +48,7 @@ SQL policy uses DuckDB statement extraction/preparation, rejects multiple/diagno
 
 ## DuckDB UI boundary
 
-`klopsi duckdb open` reuses the same validated staging pipeline, exposes only the KLOPSI-owned table `data`, and gives the external DuckDB CLI an invocation-local database path with `-readonly`. The lease remains live only while the UI process is attached; closing DuckDB UI releases and removes the invocation-local database. The canonical derived-cache object is never passed to the UI and remains immutable.
+`klopsi duckdb open` reuses the same validated staging pipeline and gives the external CLI a writable invocation-local workbench path, never the canonical cache object. The staged database is attached to that workbench with DuckDB's `READ_ONLY` option as `dataset`, and `main.data` is a view over `dataset.main.data`. The lease remains live only while the UI process is attached; closing DuckDB UI releases and removes both invocation-local databases. The canonical derived-cache object remains immutable.
 
 DuckDB UI is an explicitly launched local exploration tool, not the bounded `klopsi query` sandbox. KLOPSI does not apply its single-statement, row, time, memory, extension, or external-access policy inside the UI. Treat SQL, extension choices, imports, exports, and paths entered there as direct local DuckDB actions. Use the bounded query command for reproducible automation or untrusted SQL.
 
