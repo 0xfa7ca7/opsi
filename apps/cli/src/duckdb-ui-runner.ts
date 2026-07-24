@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 
 export const DUCKDB_CLI_VERSION = "1.5.4";
@@ -122,6 +122,18 @@ function installerTarget(platform: NodeJS.Platform, arch: string): InstallerTarg
     };
   }
   throw installUnsupported(platform, arch);
+}
+
+function sqlString(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
+}
+
+function workbenchInvocation(databasePath: string): readonly string[] {
+  const workbenchPath = join(dirname(databasePath), "workbench.duckdb");
+  const prepare =
+    `ATTACH ${sqlString(databasePath)} AS dataset (READ_ONLY); ` +
+    "CREATE VIEW main.data AS SELECT * FROM dataset.main.data;";
+  return [workbenchPath, "-cmd", prepare, "-ui"];
 }
 
 type BodyChunkResult = Awaited<ReturnType<ReadableStreamDefaultReader<Uint8Array>["read"]>>;
@@ -297,7 +309,7 @@ export class ProcessDuckDbUiRunner implements DuckDbUiRunner {
   async open(info: DuckDbCliInfo, databasePath: string): Promise<DuckDbCliInfo> {
     let result: ProcessResult;
     try {
-      result = await this.#run(info.executable, ["-readonly", databasePath, "-ui"], {
+      result = await this.#run(info.executable, workbenchInvocation(databasePath), {
         capture: false,
       });
     } catch (error) {

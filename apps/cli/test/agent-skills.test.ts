@@ -30,7 +30,7 @@ const EXPECTED_SKILLS = [
   "klopsi-download",
   "klopsi-validation",
   "klopsi-analysis",
-  "klopsi-duckdb-ui",
+  "klopsi-dataset-workbench",
   "klopsi-services",
   "klopsi-provenance",
   "klopsi-static-dashboard",
@@ -82,11 +82,13 @@ const EXPECTED_INTERACTIVE_DASHBOARD_CAPABILITY_IDS = [
   "verification",
 ] as const;
 
-const EXPECTED_DUCKDB_UI_CAPABILITY_IDS = [
-  "exploration-fit",
-  "open-prepared-data",
+const EXPECTED_DATASET_WORKBENCH_CAPABILITY_IDS = [
+  "representation-fit",
+  "open-workbench",
+  "example-queries",
   "optional-installation",
   "handoff",
+  "preserve-results",
 ] as const;
 
 const REQUIRED_GUIDANCE = {
@@ -147,10 +149,20 @@ const REQUIRED_GUIDANCE = {
     "--spreadsheet-safe",
     "provenance verify",
   ],
-  "klopsi-duckdb-ui": [
-    "exploratory",
+  "klopsi-dataset-workbench": [
+    "represent",
+    "writable",
+    "attached read-only",
     "table `data`",
-    "read-only",
+    "Example queries",
+    "supported UI",
+    "never claim",
+    "DuckDB dataset workbench",
+    "Open workbench",
+    "Dataset",
+    "Checks",
+    "Sources",
+    "session-local",
     "--install",
     "static HTML",
     "interactive HTML",
@@ -257,8 +269,8 @@ describe("agent skill registry", () => {
     ]);
   });
 
-  it("registers DuckDB UI as a command skill for exploratory visual analysis", () => {
-    const definition = AGENT_SKILLS.find((entry) => entry.name === "klopsi-duckdb-ui");
+  it("registers the dataset workbench as a command skill for database representation", () => {
+    const definition = AGENT_SKILLS.find((entry) => entry.name === "klopsi-dataset-workbench");
 
     expect(definition).toMatchObject({
       kind: "command",
@@ -266,7 +278,7 @@ describe("agent skill registry", () => {
       related: ["klopsi-analysis", "klopsi-static-dashboard", "klopsi-interactive-dashboard"],
     });
     expect(definition?.capabilities.map((capability) => capability.id)).toEqual(
-      EXPECTED_DUCKDB_UI_CAPABILITY_IDS,
+      EXPECTED_DATASET_WORKBENCH_CAPABILITY_IDS,
     );
   });
 
@@ -520,14 +532,14 @@ describe("agent skill rendering", () => {
     expect(content).toContain("Generate installable Agent Skills");
     expect(router?.related).toEqual(
       expect.arrayContaining([
-        "klopsi-duckdb-ui",
+        "klopsi-dataset-workbench",
         "klopsi-static-dashboard",
         "klopsi-interactive-dashboard",
       ]),
     );
-    expect(content).toContain("### Explore prepared data in DuckDB UI");
+    expect(content).toContain("### Represent and explore a dataset in a database workbench");
     expect(content).toContain(
-      "Use `klopsi-duckdb-ui` for a local exploratory session over the staged `data` table.",
+      "Use `klopsi-dataset-workbench` to represent the prepared dataset as the `data` relation in a writable local workbench with the staged source attached read-only.",
     );
     expect(content).toContain("### Analyze and present data");
     expect(content).toContain(
@@ -545,6 +557,21 @@ describe("agent skill rendering", () => {
     expect(content).toContain("Confirm the result includes the complete reported repertoire");
     expect(content).not.toContain("including `klopsi-services`");
     expect(content).not.toContain("### `search`");
+  });
+
+  it("renders accurate Example queries notebook and handoff guidance", () => {
+    const content = renderAgentSkillFiles("1.2.3").get("klopsi-dataset-workbench") ?? "";
+
+    expect(content).toContain("Example queries");
+    expect(content).toContain("supported UI");
+    expect(content).toContain("never claim");
+    expect(content).toContain("DuckDB dataset workbench");
+    expect(content).toContain("Open workbench");
+    expect(content).toContain("Dataset");
+    expect(content).toContain("Checks");
+    expect(content).toContain("Sources");
+    expect(content).toContain("session-local");
+    expect(content).not.toContain("_duckdb_ui");
   });
 
   it("renders the static dashboard workflow and complete authoring resources", () => {
