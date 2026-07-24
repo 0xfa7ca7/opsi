@@ -61,6 +61,7 @@ function result(
 function pcAxisSignature(head: Buffer): { readonly encoding?: DetectedTextEncoding } | undefined {
   const text = head.toString("latin1").replace(/^\u00ef\u00bb\u00bf/u, "");
   const keywords = new Set<string>();
+  const leadingKeywords: string[] = [];
   let position = 0;
   for (let statements = 0; statements < 64; statements += 1) {
     while (position < text.length && /\s/u.test(text[position] ?? "")) position += 1;
@@ -71,6 +72,7 @@ function pcAxisSignature(head: Buffer): { readonly encoding?: DetectedTextEncodi
     const keyword = assignment[1]?.toUpperCase();
     if (keyword === undefined) break;
     keywords.add(keyword);
+    leadingKeywords.push(keyword);
     position += assignment[0].length;
     if (keyword === "DATA") break;
 
@@ -93,13 +95,10 @@ function pcAxisSignature(head: Buffer): { readonly encoding?: DetectedTextEncodi
   const hasEncoding = keywords.has("CODEPAGE") || keywords.has("CHARSET");
   const hasDimension = keywords.has("STUB") || keywords.has("HEADING");
   const robustDenseSignature =
-    hasEncoding &&
-    keywords.has("MATRIX") &&
-    hasDimension &&
-    keywords.has("VALUES") &&
-    keywords.has("DATA");
+    hasEncoding && keywords.has("MATRIX") && hasDimension && keywords.has("VALUES");
   const legacyVersionSignature =
-    keywords.has("AXIS-VERSION") && hasEncoding && keywords.has("DATA");
+    leadingKeywords[0] === "AXIS-VERSION" ||
+    (leadingKeywords[0] === "CHARSET" && leadingKeywords[1] === "AXIS-VERSION");
   if (!robustDenseSignature && !legacyVersionSignature) return undefined;
   const codepage = /\bCODEPAGE\s*=\s*"([^"]*)"\s*;/iu.exec(text)?.[1]?.trim().toLowerCase();
   const encoding =

@@ -163,9 +163,63 @@ describe("format detection", () => {
     });
   });
 
+  it("detects a strong pre-DATA signature when DATA is beyond 64 assignments and 64 KiB", async () => {
+    const padding = Array.from(
+      { length: 70 },
+      (_, index) => `NOTE="padding-${index}-${"x".repeat(1_024)}";`,
+    ).join("\n");
+    const path = await fileNamed(
+      "cache-object",
+      `CODEPAGE="utf-8";
+MATRIX="large metadata";
+STUB="Item";
+VALUES("Item")="One","Two";
+${padding}
+DATA=1,2;`,
+    );
+
+    await expect(
+      detectFormat({ path, mediaType: "application/octet-stream" }),
+    ).resolves.toMatchObject({
+      format: "pcaxis",
+      confidence: "content",
+      encoding: "utf-8",
+    });
+  });
+
+  it("preserves a leading AXIS-VERSION signature when dense metadata is beyond the sample", async () => {
+    const padding = Array.from(
+      { length: 70 },
+      (_, index) => `NOTE="padding-${index}-${"x".repeat(1_024)}";`,
+    ).join("\n");
+    const path = await fileNamed(
+      "cache-object",
+      Buffer.from(
+        `CHARSET="ANSI";
+AXIS-VERSION="2010";
+CODEPAGE="windows-1250";
+${padding}
+MATRIX="large metadata";
+STUB="Item";
+VALUES("Item")="One","Two";
+DATA=1,2;`,
+        "latin1",
+      ),
+    );
+
+    await expect(
+      detectFormat({ path, mediaType: "application/octet-stream" }),
+    ).resolves.toMatchObject({
+      format: "pcaxis",
+      confidence: "content",
+      encoding: "windows-1250",
+    });
+  });
+
   it.each([
     ["unknown", "CODEPAGE documentation\nMATRIX notes\nSTUB heading\nVALUES and DATA"],
     ["csv", "CODEPAGE,MATRIX,STUB,VALUES,DATA\none,two,three,four,five"],
+    ["csv", "AXIS-VERSION,CODEPAGE,MATRIX,STUB,VALUES\n2010,utf-8,table,Item,One"],
   ])(
     "does not mistake unrelated %s text for a PC-Axis assignment signature",
     async (format, text) => {
