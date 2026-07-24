@@ -56,7 +56,7 @@ klopsi query ./downloads/data.csv \
   --json
 ```
 
-Open the prepared table `data` in DuckDB UI, optionally authorizing installation of the external CLI:
+Open the prepared table `data` in a DuckDB dataset workbench, optionally authorizing installation of the external CLI. The writable workbench is session-local, while KLOPSI attaches the staged source read-only:
 
 ```sh
 klopsi duckdb open ./downloads/data.csv
@@ -114,10 +114,10 @@ npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-intera
 npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-shared
 ```
 
-For quick visual exploration in DuckDB UI, install the focused workflow skill:
+For broad database representation and exploration, install the dataset workbench skill. It covers SQL, profiles, tables, charts, and an optional DuckDB UI notebook named `Example queries`:
 
 ```sh
-npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-duckdb-ui
+npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-dataset-workbench
 ```
 
 This first version is agent-authored and contract-verified, not deterministically rendered by a CLI command. [Issue #28](https://github.com/0xfa7ca7/klopsi/issues/28) tracks the future deterministic CLI-backed renderer.

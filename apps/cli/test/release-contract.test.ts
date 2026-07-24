@@ -285,7 +285,7 @@ describe("documentation contract", () => {
     for (const expected of [
       "npx skills add https://github.com/0xfa7ca7/klopsi",
       "npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-analysis",
-      "npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-duckdb-ui",
+      "npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-dataset-workbench",
       "npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-static-dashboard",
       "npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-interactive-dashboard",
       "klopsi generate-skills",
@@ -321,7 +321,7 @@ describe("documentation contract", () => {
     expect(packagedReadme).toContain("self-contained offline HTML");
     expect(packagedReadme).toContain("tree/main/skills/klopsi-static-dashboard");
     expect(packagedReadme).toContain("tree/main/skills/klopsi-interactive-dashboard");
-    expect(packagedReadme).toContain("tree/main/skills/klopsi-duckdb-ui");
+    expect(packagedReadme).toContain("tree/main/skills/klopsi-dataset-workbench");
     expect(packagedReadme).toContain("issues/28");
 
     const changelog = await text("apps/cli/CHANGELOG.md");

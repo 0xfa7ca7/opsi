@@ -300,9 +300,9 @@ describe("canonical npm tarball", () => {
     expect(await readFile(join(generatedSkills, "klopsi-analysis", "SKILL.md"), "utf8")).toContain(
       "klopsi query",
     );
-    expect(await readFile(join(generatedSkills, "klopsi-duckdb-ui", "SKILL.md"), "utf8")).toContain(
-      "klopsi duckdb open",
-    );
+    expect(
+      await readFile(join(generatedSkills, "klopsi-dataset-workbench", "SKILL.md"), "utf8"),
+    ).toContain("klopsi duckdb open");
     expect(
       await readFile(
         join(generatedSkills, "klopsi-shared", "scripts", "verify-dashboard.mjs"),
