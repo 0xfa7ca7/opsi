@@ -233,7 +233,8 @@ export type ParsedCanonicalReference =
   ParsedDatasetReference | ParsedResourceReference | ParsedLocalFileReference;
 
 type SupportedDataFormat = DataFormat;
-type SupportedInputFormat = SupportedDataFormat | "xml";
+type SupportedInputFormat = SupportedDataFormat | "xml" | "pcaxis";
+export type DetectedTextEncoding = "utf-8" | "utf-16le" | "utf-16be" | "windows-1250";
 export interface ArchiveLimits {
   readonly maxEntries: number;
   readonly maxPathBytes: number;
@@ -276,6 +277,7 @@ interface FormatDetection {
   readonly confidence: DetectionConfidence;
   readonly mediaType?: string;
   readonly extension?: string;
+  readonly encoding?: DetectedTextEncoding;
 }
 interface DataInspection extends FormatDetection {
   readonly sizeBytes: number;
@@ -299,6 +301,7 @@ interface DataPreview {
   readonly truncated: boolean;
   readonly sheet?: string;
   readonly warnings: readonly EngineValidationIssue[];
+  readonly encoding?: DetectedTextEncoding;
 }
 type InferredFieldType = "boolean" | "integer" | "double" | "date" | "timestamp" | "string";
 interface InferredField {

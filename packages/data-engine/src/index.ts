@@ -24,6 +24,7 @@ export type {
   ConversionResult,
   ConversionFileSystem,
   DetectedInputFormat,
+  DetectedTextEncoding,
   DetectionConfidence,
   FormatDetection,
   InferredField,

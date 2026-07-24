@@ -3,7 +3,7 @@ import { Readable } from "node:stream";
 import { createHash } from "node:crypto";
 import { parse } from "csv-parse";
 import { extname } from "node:path";
-import { KlopsiError } from "@klopsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { detectFormat } from "./detect.js";
 import { scanWithDuckDb } from "./duckdb-import.js";
 import { inferredType, type DataEngine } from "./inspect.js";
@@ -521,14 +521,16 @@ export async function validateData(
 
   if (detection.format === "csv" || detection.format === "tsv") {
     const delimiter = detection.delimiter ?? (detection.format === "csv" ? "," : "\t");
+    const encoding = detection.encoding;
+    if (encoding === "windows-1250")
+      throw new KlopsiError({
+        code: "UNSUPPORTED_FORMAT",
+        message: "Windows-1250 text requires a PC-Axis reader.",
+        exitCode: EXIT_CODES.UNSUPPORTED,
+      });
     try {
       issues.push(
-        ...(await validateDelimitedStream(
-          detection.path,
-          delimiter,
-          detection.encoding ?? "utf-8",
-          limits,
-        )),
+        ...(await validateDelimitedStream(detection.path, delimiter, encoding ?? "utf-8", limits)),
       );
     } catch (error) {
       if (error instanceof KlopsiError) throw error;

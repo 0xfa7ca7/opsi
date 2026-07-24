@@ -93,4 +93,63 @@ describe("format detection", () => {
       }),
     ).resolves.toMatchObject({ format: "csv", confidence: "declared-format" });
   });
+
+  it("recognizes the .px extension as PC-Axis", async () => {
+    const path = await fileNamed("table.px", "metadata without delimiters");
+
+    await expect(detectFormat(path)).resolves.toMatchObject({
+      format: "pcaxis",
+      confidence: "extension",
+    });
+  });
+
+  it.each(["PCAXIS", "PC-Axis", "PX"])(
+    "accepts %s as a declared PC-Axis format",
+    async (declaredFormat) => {
+      const path = await fileNamed("cache-object", "metadata without delimiters");
+
+      await expect(detectFormat({ path, declaredFormat })).resolves.toMatchObject({
+        format: "pcaxis",
+        confidence: "declared-format",
+      });
+    },
+  );
+
+  it("recognizes the PC-Axis media type", async () => {
+    const path = await fileNamed("cache-object", "metadata without delimiters");
+
+    await expect(detectFormat({ path, mediaType: "text/x-pcaxis" })).resolves.toMatchObject({
+      format: "pcaxis",
+      confidence: "media-type",
+    });
+  });
+
+  it("detects a Windows-1250 PC-Axis signature before comma-delimited content", async () => {
+    const path = await fileNamed(
+      "misleading.csv",
+      Buffer.from(
+        'CHARSET="ANSI";\nAXIS-VERSION="2010";\nCODEPAGE="windows-1250";\nDATA="one,two,three";',
+        "latin1",
+      ),
+    );
+
+    await expect(detectFormat(path)).resolves.toMatchObject({
+      format: "pcaxis",
+      confidence: "content",
+      encoding: "windows-1250",
+    });
+  });
+
+  it("detects a UTF-8 PC-Axis signature before comma-delimited content", async () => {
+    const path = await fileNamed(
+      "misleading.csv",
+      'CHARSET="UTF-8";\nAXIS-VERSION="2010";\nCODEPAGE="UTF-8";\nDATA="one,two,three";',
+    );
+
+    await expect(detectFormat(path)).resolves.toMatchObject({
+      format: "pcaxis",
+      confidence: "content",
+      encoding: "utf-8",
+    });
+  });
 });

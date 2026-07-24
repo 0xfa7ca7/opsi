@@ -4,6 +4,7 @@ import { decodeTextSample, sniffDelimitedDialect } from "./text-decoding.js";
 import type { DelimitedDialect, TextEncoding } from "./text-decoding.js";
 import type {
   DataInput,
+  DetectedTextEncoding,
   DetectionConfidence,
   DetectedInputFormat,
   FormatDetection,
@@ -21,6 +22,7 @@ const EXTENSIONS: Readonly<Record<string, DetectedInputFormat>> = {
   ".parquet": "parquet",
   ".zip": "zip",
   ".xml": "xml",
+  ".px": "pcaxis",
 };
 
 const MEDIA_TYPES: Readonly<Record<string, SupportedInputFormat>> = {
@@ -34,6 +36,7 @@ const MEDIA_TYPES: Readonly<Record<string, SupportedInputFormat>> = {
   "application/parquet": "parquet",
   "application/xml": "xml",
   "text/xml": "xml",
+  "text/x-pcaxis": "pcaxis",
 };
 
 function result(
@@ -42,7 +45,7 @@ function result(
   confidence: DetectionConfidence,
   mediaType: string | undefined,
   extension: string,
-  text?: { readonly encoding: TextEncoding; readonly delimiter?: DelimitedDialect },
+  text?: { readonly encoding?: DetectedTextEncoding; readonly delimiter?: DelimitedDialect },
 ): FormatDetection {
   return {
     path,
@@ -53,6 +56,23 @@ function result(
     ...(text?.encoding === undefined ? {} : { encoding: text.encoding }),
     ...(text?.delimiter === undefined ? {} : { delimiter: text.delimiter }),
   };
+}
+
+function pcAxisSignature(head: Buffer): { readonly encoding?: DetectedTextEncoding } | undefined {
+  const text = head.toString("latin1").replace(/^\u00ef\u00bb\u00bf/u, "");
+  if (!/^\s*(?:CHARSET\s*=\s*"[^"]*"\s*;\s*)?AXIS-VERSION\s*=\s*"[^"]*"\s*;/iu.test(text))
+    return undefined;
+  const codepage = /\bCODEPAGE\s*=\s*"([^"]*)"\s*;/iu.exec(text)?.[1]?.trim().toLowerCase();
+  const encoding =
+    codepage === "windows-1250" ||
+    codepage === "windows1250" ||
+    codepage === "cp1250" ||
+    codepage === "1250"
+      ? "windows-1250"
+      : codepage === "utf-8" || codepage === "utf8"
+        ? "utf-8"
+        : undefined;
+  return encoding === undefined ? {} : { encoding };
 }
 
 function signature(head: Buffer, tail: Buffer): DetectedInputFormat | undefined {
@@ -123,6 +143,10 @@ export async function detectFormat(input: DataInput): Promise<FormatDetection> {
   if (bySignature !== undefined)
     return result(path, bySignature, "signature", source.mediaType, extension);
 
+  const pcAxis = pcAxisSignature(head);
+  if (pcAxis !== undefined)
+    return result(path, "pcaxis", "content", source.mediaType, extension, pcAxis);
+
   const decoded = decodeTextSample(head);
   const text = decoded?.text;
   const extensionFormat = EXTENSIONS[extension];
@@ -162,9 +186,11 @@ export async function detectFormat(input: DataInput): Promise<FormatDetection> {
   const byDeclared =
     declared === "jsonl"
       ? "ndjson"
-      : (["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"] as const).find(
-          (format) => format === declared,
-        );
+      : declared === "pcaxis" || declared === "pc-axis" || declared === "px"
+        ? "pcaxis"
+        : (["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"] as const).find(
+            (format) => format === declared,
+          );
   if (byDeclared !== undefined)
     return result(path, byDeclared, "declared-format", source.mediaType, extension);
 

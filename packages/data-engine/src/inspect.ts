@@ -22,7 +22,7 @@ import { convertData } from "./convert.js";
 import type { ConversionOptions } from "./types.js";
 import { previewXml } from "./xml.js";
 
-function supported(format: string): format is SupportedInputFormat {
+function supported(format: string): format is Exclude<SupportedInputFormat, "pcaxis"> {
   return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"].includes(format);
 }
 
@@ -120,10 +120,12 @@ export class DataEngine {
       this.options.onAdapter?.(detection.format);
       let parsed;
       const delimiter = detection.delimiter ?? (detection.format === "csv" ? "," : "\t");
+      const encoding = detection.encoding;
+      if (encoding === "windows-1250") unsupported(detection.format);
       try {
         parsed = await readDelimited(detection.path, delimiter, {
           limit,
-          ...(detection.encoding === undefined ? {} : { encoding: detection.encoding }),
+          ...(encoding === undefined ? {} : { encoding }),
         });
       } catch (error) {
         if (error instanceof KlopsiError) throw error;
@@ -139,7 +141,7 @@ export class DataEngine {
       const rows = recordsToRows(parsed.headers, parsed.records);
       return {
         format: detection.format,
-        ...(detection.encoding === undefined ? {} : { encoding: detection.encoding }),
+        ...(encoding === undefined ? {} : { encoding }),
         delimiter,
         columns: parsed.headers,
         rows,

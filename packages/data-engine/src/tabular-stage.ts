@@ -22,12 +22,12 @@ export interface TabularStage {
   close(): Promise<void>;
 }
 
-function supported(format: string): format is SupportedInputFormat {
+function supported(format: string): format is Exclude<SupportedInputFormat, "pcaxis"> {
   return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"].includes(format);
 }
 
 function sourceExpression(
-  format: Exclude<SupportedInputFormat, "xlsx" | "xml">,
+  format: Exclude<SupportedInputFormat, "xlsx" | "xml" | "pcaxis">,
   path: string,
   detection: FormatDetection,
 ): string {
@@ -124,10 +124,8 @@ export async function stageTabularInput(options: {
 
   let warnings: readonly ValidationIssue[] = [];
   let stagedSource = detection.path;
-  let stagedFormat: Exclude<SupportedInputFormat, "xlsx" | "xml"> = detection.format as Exclude<
-    SupportedInputFormat,
-    "xlsx" | "xml"
-  >;
+  let stagedFormat: Exclude<SupportedInputFormat, "xlsx" | "xml" | "pcaxis"> =
+    detection.format as Exclude<SupportedInputFormat, "xlsx" | "xml" | "pcaxis">;
   if (detection.format === "xlsx") {
     warnings = await xlsxAsNdjson(
       detection.path,
