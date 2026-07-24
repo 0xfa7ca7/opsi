@@ -60,6 +60,7 @@ export interface PcAxisMetadata {
 export interface PcAxisPreview {
   readonly format: "pcaxis";
   readonly columns: readonly string[];
+  readonly codeColumns: readonly string[];
   readonly rows: readonly DataRow[];
   readonly returnedCount: number;
   readonly truncated: boolean;
@@ -840,6 +841,7 @@ function parseCell(token: CellToken): ParsedCell {
 function columnBindings(dimensions: readonly PxDimension[]): {
   readonly bindings: readonly ColumnBinding[];
   readonly baseColumns: readonly string[];
+  readonly codeColumns: readonly string[];
 } {
   const reserved = new Set(["value", "value__symbol"]);
   const used = new Set<string>();
@@ -859,15 +861,19 @@ function columnBindings(dimensions: readonly PxDimension[]): {
 
   const bindings: ColumnBinding[] = [];
   const columns: string[] = [];
+  const codeColumns: string[] = [];
   for (const dimension of dimensions) {
     const label = allocate(dimension.name);
     const code = dimension.codes === undefined ? undefined : allocate(`${label}__code`);
     bindings.push({ label, ...(code === undefined ? {} : { code }) });
     columns.push(label);
-    if (code !== undefined) columns.push(code);
+    if (code !== undefined) {
+      columns.push(code);
+      codeColumns.push(code);
+    }
   }
   columns.push("value");
-  return { bindings, baseColumns: columns };
+  return { bindings, baseColumns: columns, codeColumns };
 }
 
 function rowForCell(
@@ -967,7 +973,7 @@ export async function previewPcAxis(
       });
     const metadata = await parsePcAxisMetadata(path, limits);
     options.signal?.throwIfAborted();
-    const { bindings, baseColumns } = columnBindings(metadata.dimensions);
+    const { bindings, baseColumns, codeColumns } = columnBindings(metadata.dimensions);
     const rows: DataRow[] = [];
     const symbols = new Map<string, number>();
     const coordinate = metadata.dimensions.map(() => 0);
@@ -996,6 +1002,7 @@ export async function previewPcAxis(
     return {
       format: "pcaxis",
       columns: hasSymbols ? [...baseColumns, "value__symbol"] : baseColumns,
+      codeColumns,
       rows,
       returnedCount: rows.length,
       truncated: metadata.expectedCellCount > rows.length,

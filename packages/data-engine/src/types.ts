@@ -40,6 +40,7 @@ export interface PreviewOptions {
 export interface DataPreview {
   readonly format: SupportedInputFormat;
   readonly columns: readonly string[];
+  readonly codeColumns?: readonly string[];
   readonly rows: readonly DataRow[];
   readonly returnedCount: number;
   readonly truncated: boolean;

@@ -213,6 +213,7 @@ export class DataEngine {
       if (detection.format === "pcaxis") limit = pcAxisRecordLimit;
     }
     const preview = await this.preview(input, { ...options, limit });
+    const codeColumns = new Set(preview.codeColumns ?? []);
     const fields = preview.columns.map((name) => {
       const values = preview.rows.map((row) => row[name]);
       const nonNull = values.filter((value) => inferredType(value) !== "null");
@@ -221,10 +222,9 @@ export class DataEngine {
         .map((value) => JSON.parse(value) as unknown);
       return {
         name,
-        type:
-          preview.format === "pcaxis" && name.endsWith("__code")
-            ? "string"
-            : mergeTypes(nonNull.map((value) => inferredType(value) as InferredFieldType)),
+        type: codeColumns.has(name)
+          ? "string"
+          : mergeTypes(nonNull.map((value) => inferredType(value) as InferredFieldType)),
         nullable: preview.truncated || nonNull.length !== values.length,
         evidence,
       };

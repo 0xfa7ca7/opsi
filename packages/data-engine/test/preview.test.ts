@@ -65,6 +65,7 @@ DATA=1.5 ".";`,
       format: "pcaxis",
       encoding: "utf-8",
       columns: ["Place", "Place__code", "Year", "value", "value__symbol"],
+      codeColumns: ["Place__code"],
       rows: [
         { Place: "Ljubljana", Place__code: "001", Year: "2023", value: 1.5 },
         {
@@ -94,6 +95,36 @@ DATA=1.5 ".";`,
       ]),
     });
     expect(adapters).toEqual(["pcaxis", "pcaxis"]);
+  });
+
+  it("uses explicit PC-Axis code-column identity after collision-safe allocation", async () => {
+    const path = await temporaryFile(
+      "code-collision.px",
+      `AXIS-VERSION="2024";
+CODEPAGE="utf-8";
+MATRIX="code collision";
+STUB="A__code";
+HEADING="A";
+VALUES("A__code")="123";
+VALUES("A")="label";
+CODES("A")="001";
+DATA=1;`,
+    );
+
+    await expect(engine.inferSchema(path)).resolves.toMatchObject({
+      fields: expect.arrayContaining([
+        expect.objectContaining({
+          name: "A__code",
+          type: "integer",
+          evidence: ["123"],
+        }),
+        expect.objectContaining({
+          name: "A__code__2",
+          type: "string",
+          evidence: ["001"],
+        }),
+      ]),
+    });
   });
 
   it("clamps PC-Axis schema sampling to the effective default emission limit", async () => {
