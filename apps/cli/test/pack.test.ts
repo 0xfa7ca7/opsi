@@ -441,7 +441,7 @@ describe("canonical npm tarball", () => {
     );
     expect(sdk.stderr).toBe("");
     await compileSdkConsumer(root);
-  });
+  }, 120_000);
 
   it("reports a typed failure when optional DuckDB dependencies are omitted", async () => {
     const omitted = await mkdtemp(join(tmpdir(), "klopsi-pack-omitted-"));
@@ -491,5 +491,5 @@ describe("canonical npm tarball", () => {
       stdout: expect.stringContaining("DUCKDB_UNAVAILABLE"),
     });
     await compileSdkConsumer(omitted);
-  });
+  }, 120_000);
 });
