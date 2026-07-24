@@ -113,6 +113,18 @@ describe("ContentCache", () => {
     expect(await readFile(destination, "utf8")).toBe("database");
   });
 
+  it("rejects materializing a verified object above the invocation byte limit", async () => {
+    const cache = new ContentCache(await root());
+    const object = await cache.putObject(Readable.from(["cached"]));
+    const destination = join(await root(), "bounded-download");
+
+    await expect(cache.materialize(object.sha256, destination, false, 5)).rejects.toMatchObject({
+      code: "DOWNLOAD_TOO_LARGE",
+      exitCode: 2,
+    });
+    await expect(lstat(destination)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("cleans a partial copy and releases locks when link materialization fails", async () => {
     const cache = new ContentCache(await root(), {
       linkObject: async () => {

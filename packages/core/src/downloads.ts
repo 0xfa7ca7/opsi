@@ -112,6 +112,7 @@ export class DownloadService {
         cached.sha256,
         stagedDestination,
         false,
+        this.options.limits.maxBytes,
       );
       result = {
         path: materialized.path,
@@ -157,6 +158,7 @@ export class DownloadService {
           cachedRecord.value.sha256,
           stagedDestination,
           false,
+          this.options.limits.maxBytes,
         );
         result = {
           path: materialized.path,

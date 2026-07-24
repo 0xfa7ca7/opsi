@@ -279,8 +279,15 @@ export class ContentCache implements MetadataCache {
     sha256: string,
     requestedDestination: string,
     force = false,
+    maxBytes = this.maxObjectBytes,
   ): Promise<CacheObject> {
     const object = await this.getObject(sha256);
+    if (object.bytes > maxBytes)
+      throw new KlopsiError({
+        code: "DOWNLOAD_TOO_LARGE",
+        message: "The download exceeds the byte limit.",
+        exitCode: EXIT_CODES.INVALID_INPUT,
+      });
     const destination = resolve(requestedDestination);
     const directory = dirname(destination);
     const lock = await CacheLock.acquire(directory, `materialize:${destination}`);
