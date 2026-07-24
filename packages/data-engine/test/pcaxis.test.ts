@@ -264,7 +264,7 @@ DATA=1;`);
     },
   );
 
-  it("uses unqualified SURS-style 4D values and codes instead of language variants", async () => {
+  it("uses canonical SURS-style dimensions while resolving translated metadata names", async () => {
     const { path } = await fixture(`CODEPAGE="utf-8";
 MATRIX="tourism";
 TITLE="Prenočitve";
@@ -274,15 +274,17 @@ STUB[en]="Region","Accommodation";
 HEADING="Mesec","Kazalnik";
 HEADING[en]="Month","Measure";
 VALUES("Regija")="Vzhod","Zahod";
-VALUES[en]("Regija")="East","West";
+VALUES[en]("Region")="East","West";
 CODES("Regija")="01","02";
-CODES[en]("Regija")="E","W";
+CODES[en]("Region")="E","W";
 VALUES("Nastanitev")="Hoteli","Kampi";
-VALUES[en]("Nastanitev")="Hotels","Camps";
+VALUES[en]("Accommodation")="Hotels","Camps";
 VALUES("Mesec")="Januar","Februar";
-VALUES[en]("Mesec")="January","February";
+VALUES[en]("Month")="January","February";
 VALUES("Kazalnik")="Prihodi","Prenočitve";
-VALUES[en]("Kazalnik")="Arrivals","Stays";
+VALUES[en]("Measure")="Arrivals","Stays";
+TIMEVAL("Mesec")=TLIST(M1),"202301","202302";
+TIMEVAL[en]("Month")=TLIST(M1),"202301","202302";
 DATA=
 1,2 3;4
 5\t6,7;8
@@ -344,6 +346,7 @@ MATRIX="tourism";
 STUB="DAN";
 STUB[en]="DAY";
 VALUES("DAN")="20230101","20230102";
+VALUES[en]("DAY")="January 1","January 2";
 TIMEVAL("DAN")=TLIST(D1),"20230101","20230102";
 TIMEVAL[en]("DAY")=TLIST(D1),"20230101","20230102";
 DATA=1 2;`);
@@ -374,6 +377,189 @@ DATA=1 2;`);
 
     await expect(parsePcAxisMetadata(path)).resolves.toMatchObject({
       expectedCellCount: 2,
+    });
+  });
+
+  it("uses canonical qualified dimension names when no translated role list exists", async () => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="fallback";
+STUB="Place";
+VALUES("Place")="A","B";
+VALUES[en]("Place")="One","Two";
+CODES[en]("Place")="01","02";
+TIMEVAL[en]("Place")=TLIST(D1),"20230101","20230102";
+DATA=1 2;`);
+
+    await expect(parsePcAxisMetadata(path)).resolves.toMatchObject({
+      dimensions: [{ name: "Place", values: ["A", "B"] }],
+    });
+  });
+
+  it.each([
+    {
+      name: "a translated role list with the wrong cardinality",
+      translated: 'STUB[en]="Only";',
+    },
+    {
+      name: "a duplicate translated name within one role",
+      translated: 'STUB[en]="Same","Same";',
+    },
+    {
+      name: "a duplicate translated name across roles",
+      translated: 'STUB[en]="Same","Other";HEADING[en]="Same";',
+    },
+  ])("rejects $name", async ({ translated }) => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="translated roles";
+STUB="A","B";
+HEADING="C";
+${translated}
+VALUES("A")="a";
+VALUES("B")="b";
+VALUES("C")="c";
+DATA=1;`);
+
+    await expect(parsePcAxisMetadata(path)).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      exitCode: 6,
+    });
+  });
+
+  it.each([
+    {
+      name: "VALUES with an unknown translated name",
+      variant: 'VALUES[en]("Other")="One","Two";',
+    },
+    {
+      name: "CODES with an unknown translated name",
+      variant: 'CODES[en]("Other")="01","02";',
+    },
+    {
+      name: "TIMEVAL with an unknown translated name",
+      variant: 'TIMEVAL[en]("Other")=TLIST(D1),"20230101","20230102";',
+    },
+    {
+      name: "VALUES using a canonical name hidden by a translated role list",
+      variant: 'VALUES[en]("Place")="One","Two";',
+    },
+    {
+      name: "CODES using a canonical name hidden by a translated role list",
+      variant: 'CODES[en]("Place")="01","02";',
+    },
+    {
+      name: "TIMEVAL using a canonical name hidden by a translated role list",
+      variant: 'TIMEVAL[en]("Place")=TLIST(D1),"20230101","20230102";',
+    },
+  ])("rejects $name", async ({ variant }) => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="authoritative translation";
+STUB="Place";
+STUB[en]="Location";
+VALUES("Place")="A","B";
+${variant}
+DATA=1 2;`);
+
+    await expect(parsePcAxisMetadata(path)).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      exitCode: 6,
+    });
+  });
+
+  it.each([
+    { name: "VALUES without a dimension", variant: 'VALUES[en]="One","Two";' },
+    {
+      name: "VALUES with multiple dimensions",
+      variant: 'VALUES[en]("Location","Other")="One","Two";',
+    },
+    { name: "CODES without a dimension", variant: 'CODES[en]="01","02";' },
+    {
+      name: "CODES with multiple dimensions",
+      variant: 'CODES[en]("Location","Other")="01","02";',
+    },
+    {
+      name: "TIMEVAL without a dimension",
+      variant: 'TIMEVAL[en]=TLIST(D1),"20230101","20230102";',
+    },
+    {
+      name: "TIMEVAL with multiple dimensions",
+      variant: 'TIMEVAL[en]("Location","Other")=TLIST(D1),"20230101","20230102";',
+    },
+  ])("rejects $name", async ({ variant }) => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="assignment dimensions";
+STUB="Place";
+STUB[en]="Location";
+VALUES("Place")="A","B";
+${variant}
+DATA=1 2;`);
+
+    await expect(parsePcAxisMetadata(path)).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      exitCode: 6,
+    });
+  });
+
+  it.each([
+    {
+      name: "qualified VALUES",
+      variant: 'VALUES[en]("Location")="One";',
+    },
+    {
+      name: "qualified CODES",
+      variant: 'CODES[en]("Location")="01";',
+    },
+    {
+      name: "qualified TIMEVAL",
+      variant: 'TIMEVAL[en]("Location")=TLIST(D1),"20230101";',
+    },
+  ])("rejects a cardinality mismatch in $name", async ({ variant }) => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="qualified cardinality";
+STUB="Place";
+STUB[en]="Location";
+VALUES("Place")="A","B";
+${variant}
+DATA=1 2;`);
+
+    await expect(parsePcAxisMetadata(path)).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      exitCode: 6,
+      context: expect.objectContaining({
+        dimension: "Place",
+        expected: 2,
+        actual: 1,
+      }),
+    });
+  });
+
+  it.each([
+    {
+      name: "an unquoted expanded period",
+      assignment: 'TIMEVAL("DAN")=TLIST(D1),20230101;',
+    },
+    {
+      name: "an unknown default dimension",
+      assignment: 'TIMEVAL("OTHER")=TLIST(D1),"20230101","20230102";',
+    },
+    {
+      name: "an expanded period-count mismatch",
+      assignment: 'TIMEVAL("DAN")=TLIST(D1),"20230101";',
+    },
+    {
+      name: "a compact period-count mismatch",
+      assignment: 'TIMEVAL("DAN")=TLIST(A1, "2023"-"2025");',
+    },
+  ])("rejects TIMEVAL with $name", async ({ assignment }) => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="time validation";
+STUB="DAN";
+VALUES("DAN")="One","Two";
+${assignment}
+DATA=1 2;`);
+
+    await expect(parsePcAxisMetadata(path)).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      exitCode: 6,
     });
   });
 

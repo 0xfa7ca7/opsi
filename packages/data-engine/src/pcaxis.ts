@@ -94,6 +94,12 @@ interface PxAssignment {
   readonly language?: string;
   readonly subkeys: readonly string[];
   readonly values: readonly string[];
+  readonly timePeriodCount?: number;
+}
+
+interface ParsedTimeval {
+  readonly values: readonly string[];
+  readonly periodCount: number;
 }
 
 interface ColumnBinding {
@@ -336,7 +342,12 @@ function chargeString(value: string, limits: PcAxisLimits, enforce: boolean): vo
     });
 }
 
-function parseList(text: string, limits: PcAxisLimits, enforce: boolean): readonly string[] {
+function parseList(
+  text: string,
+  limits: PcAxisLimits,
+  enforce: boolean,
+  requireQuoted = false,
+): readonly string[] {
   const values: string[] = [];
   const quotedValues: boolean[] = [];
   let index = 0;
@@ -393,7 +404,7 @@ function parseList(text: string, limits: PcAxisLimits, enforce: boolean): readon
     }
   }
   if (values.length === 0) throw invalidPcAxis("A PC-Axis assignment has no value.");
-  if (values.length > 1 && quotedValues.some((quoted) => !quoted))
+  if ((requireQuoted || values.length > 1) && quotedValues.some((quoted) => !quoted))
     throw invalidPcAxis("Every item in a multi-value PC-Axis list must be quoted.");
   return values;
 }
@@ -438,25 +449,102 @@ function parseAdjacentQuotedScalar(
   return [value];
 }
 
-function parseTimevalValues(
-  text: string,
-  limits: PcAxisLimits,
-  enforce: boolean,
-): readonly string[] {
-  const expanded = /^(TLIST\(\s*[AHQMWD]1\s*\))\s*,([\s\S]+)$/iu.exec(text.trim());
+function periodParts(value: string, expression: RegExp, scale: string): readonly number[] {
+  const match = expression.exec(value);
+  if (match === null) throw invalidPcAxis(`TIMEVAL contains an invalid ${scale} period.`);
+  return match.slice(1).map((part) => Number(part));
+}
+
+function utcDayOrdinal(year: number, month: number, day: number): number {
+  const date = new Date(0);
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCFullYear(year, month - 1, day);
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  )
+    throw invalidPcAxis("TIMEVAL contains an invalid daily period.");
+  return Math.floor(date.getTime() / 86_400_000);
+}
+
+function isoWeeksInYear(year: number): number {
+  const januaryFirst = new Date(0);
+  januaryFirst.setUTCHours(0, 0, 0, 0);
+  januaryFirst.setUTCFullYear(year, 0, 1);
+  const weekday = januaryFirst.getUTCDay();
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  return weekday === 4 || (weekday === 3 && leap) ? 53 : 52;
+}
+
+function compactPeriodOrdinal(scale: string, period: string): number {
+  switch (scale[0]) {
+    case "A": {
+      const [year] = periodParts(period, /^(\d{4})$/u, "annual");
+      return year as number;
+    }
+    case "H": {
+      const [year, half] = periodParts(period, /^(\d{4})H?([12])$/iu, "half-year");
+      return (year as number) * 2 + (half as number) - 1;
+    }
+    case "Q": {
+      const [year, quarter] = periodParts(period, /^(\d{4})Q?([1-4])$/iu, "quarterly");
+      return (year as number) * 4 + (quarter as number) - 1;
+    }
+    case "M": {
+      const [year, month] = periodParts(period, /^(\d{4})M?(\d{2})$/iu, "monthly");
+      if ((month as number) < 1 || (month as number) > 12)
+        throw invalidPcAxis("TIMEVAL contains an invalid monthly period.");
+      return (year as number) * 12 + (month as number) - 1;
+    }
+    case "W": {
+      const [year, week] = periodParts(period, /^(\d{4})W?(\d{2})$/iu, "weekly");
+      if ((week as number) < 1 || (week as number) > isoWeeksInYear(year as number))
+        throw invalidPcAxis("TIMEVAL contains an invalid weekly period.");
+      const januaryFourth = utcDayOrdinal(year as number, 1, 4);
+      const weekday = new Date(januaryFourth * 86_400_000).getUTCDay() || 7;
+      const monday = januaryFourth - weekday + 1 + ((week as number) - 1) * 7;
+      return Math.floor(monday / 7);
+    }
+    case "D": {
+      const [year, month, day] = periodParts(period, /^(\d{4})(\d{2})(\d{2})$/u, "daily");
+      return utcDayOrdinal(year as number, month as number, day as number);
+    }
+    default:
+      throw invalidPcAxis("TIMEVAL contains an unsupported time scale.");
+  }
+}
+
+function compactPeriodCount(scale: string, first: string, last: string): number {
+  const count = compactPeriodOrdinal(scale, last) - compactPeriodOrdinal(scale, first) + 1;
+  if (!Number.isSafeInteger(count) || count <= 0)
+    throw invalidPcAxis("TIMEVAL contains an invalid compact period range.");
+  return count;
+}
+
+function parseTimevalValues(text: string, limits: PcAxisLimits, enforce: boolean): ParsedTimeval {
+  const expanded = /^(TLIST\(\s*([AHQMWD]1)\s*\))\s*,([\s\S]+)$/iu.exec(text.trim());
   if (expanded !== null) {
     const directive = expanded[1] as string;
+    const periods = parseList(expanded[3] as string, limits, enforce, true);
     chargeString(directive, limits, enforce);
-    return [directive, ...parseList(expanded[2] as string, limits, enforce)];
+    return { values: [directive, ...periods], periodCount: periods.length };
   }
 
-  const compact = /^(TLIST\(\s*[AHQMWD]1\s*,\s*"(?:[^"]|"")*"\s*-\s*"(?:[^"]|"")*"\s*\))$/iu.exec(
-    text.trim(),
-  );
+  const compact =
+    /^(TLIST\(\s*([AHQMWD]1)\s*,\s*"((?:[^"]|"")*)"\s*-\s*"((?:[^"]|"")*)"\s*\))$/iu.exec(
+      text.trim(),
+    );
   if (compact !== null) {
     const directive = compact[1] as string;
+    const scale = (compact[2] as string).toUpperCase();
+    const first = (compact[3] as string).replaceAll('""', '"');
+    const last = (compact[4] as string).replaceAll('""', '"');
     chargeString(directive, limits, enforce);
-    return [directive];
+    return {
+      values: [directive],
+      periodCount: compactPeriodCount(scale, first, last),
+    };
   }
 
   throw invalidPcAxis("TIMEVAL must use a valid TLIST assignment.");
@@ -479,9 +567,10 @@ function parseAssignment(statement: string, limits: PcAxisLimits, enforce: boole
     chargeString(language, limits, enforce);
   }
   const subkeys = match[3] === undefined ? [] : [...parseList(match[3], limits, enforce)];
+  const timeval = keyword === "TIMEVAL" ? parseTimevalValues(right, limits, enforce) : undefined;
   const values = [
-    ...(keyword === "TIMEVAL"
-      ? parseTimevalValues(right, limits, enforce)
+    ...(timeval !== undefined
+      ? timeval.values
       : ADJACENT_QUOTED_SCALAR_KEYWORDS.has(keyword)
         ? parseAdjacentQuotedScalar(right, limits, enforce)
         : parseList(right, limits, enforce)),
@@ -491,6 +580,7 @@ function parseAssignment(statement: string, limits: PcAxisLimits, enforce: boole
     ...(language === undefined ? {} : { language }),
     subkeys,
     values,
+    ...(timeval === undefined ? {} : { timePeriodCount: timeval.periodCount }),
   };
 }
 
@@ -601,6 +691,106 @@ function dimensionNames(
   return defaultAssignment(assignments, keyword)?.values ?? [];
 }
 
+function dimensionResolver(
+  assignments: readonly PxAssignment[],
+  dimensions: readonly PxDimension[],
+): (assignment: PxAssignment) => PxDimension {
+  const defaults = new Map(dimensions.map((dimension) => [dimension.name, dimension]));
+  const namespaces = new Map<string, ReadonlyMap<string, PxDimension>>();
+  const roleKeywords = ["STUB", "HEADING"] as const;
+
+  const namespace = (language: string): ReadonlyMap<string, PxDimension> => {
+    const existing = namespaces.get(language);
+    if (existing !== undefined) return existing;
+
+    const aliases = new Map<string, PxDimension>();
+    for (const keyword of roleKeywords) {
+      const role = keyword === "STUB" ? "stub" : "heading";
+      const roleDimensions = dimensions.filter((dimension) => dimension.role === role);
+      const translated = assignments.find(
+        (assignment) =>
+          assignment.keyword === keyword &&
+          assignment.language === language &&
+          assignment.subkeys.length === 0,
+      );
+      if (translated !== undefined && translated.values.length !== roleDimensions.length)
+        throw invalidPcAxis(
+          `The translated ${keyword} list does not match its default cardinality.`,
+          {
+            keyword,
+            language,
+            expected: roleDimensions.length,
+            actual: translated.values.length,
+          },
+        );
+      const names =
+        translated === undefined
+          ? roleDimensions.map((dimension) => dimension.name)
+          : translated.values;
+      for (const [index, name] of names.entries()) {
+        const dimension = roleDimensions[index];
+        if (dimension === undefined)
+          throw invalidPcAxis(`The translated ${keyword} list has an invalid dimension position.`, {
+            keyword,
+            language,
+            dimension: name,
+          });
+        if (aliases.has(name))
+          throw invalidPcAxis("Translated PC-Axis dimension names must be unique across roles.", {
+            language,
+            dimension: name,
+          });
+        aliases.set(name, dimension);
+      }
+    }
+    namespaces.set(language, aliases);
+    return aliases;
+  };
+
+  for (const assignment of assignments) {
+    if (
+      (assignment.keyword === "STUB" || assignment.keyword === "HEADING") &&
+      assignment.subkeys.length > 0
+    )
+      throw invalidPcAxis(`The ${assignment.keyword} assignment cannot have a dimension subkey.`, {
+        keyword: assignment.keyword,
+        language: assignment.language,
+      });
+    if (
+      (assignment.keyword === "STUB" || assignment.keyword === "HEADING") &&
+      assignment.language !== undefined
+    )
+      namespace(assignment.language);
+  }
+
+  return (assignment: PxAssignment): PxDimension => {
+    const name = assignment.subkeys[0];
+    if (assignment.subkeys.length !== 1 || name === undefined)
+      throw invalidPcAxis(
+        `A ${assignment.keyword} assignment must identify exactly one dimension.`,
+        {
+          keyword: assignment.keyword,
+          language: assignment.language,
+          actual: assignment.subkeys.length,
+        },
+      );
+    const dimension =
+      assignment.language === undefined
+        ? defaults.get(name)
+        : namespace(assignment.language).get(name);
+    if (dimension === undefined)
+      throw invalidPcAxis(
+        `A ${assignment.keyword} assignment does not identify a declared dimension.`,
+        {
+          keyword: assignment.keyword,
+          language: assignment.language,
+          dimension: name,
+        },
+      );
+    return dimension;
+  };
+}
+
 function buildDimensions(
   assignments: readonly PxAssignment[],
   limits: PcAxisLimits,
@@ -649,32 +839,31 @@ function buildDimensions(
     });
   }
 
-  const dimensionsByName = new Map(dimensions.map((dimension) => [dimension.name, dimension]));
+  const resolveDimension = dimensionResolver(assignments, dimensions);
   for (const assignment of assignments) {
-    if (assignment.keyword !== "VALUES" && assignment.keyword !== "CODES") continue;
-    const dimensionName = assignment.subkeys[0];
-    const dimension =
-      assignment.subkeys.length === 1 && dimensionName !== undefined
-        ? dimensionsByName.get(dimensionName)
-        : undefined;
-    if (dimension === undefined)
+    if (
+      assignment.keyword !== "VALUES" &&
+      assignment.keyword !== "CODES" &&
+      assignment.keyword !== "TIMEVAL"
+    )
+      continue;
+    const dimension = resolveDimension(assignment);
+    const actual =
+      assignment.keyword === "TIMEVAL" ? assignment.timePeriodCount : assignment.values.length;
+    if (actual === undefined)
+      throw invalidPcAxis("A TIMEVAL assignment is missing its parsed period count.", {
+        language: assignment.language,
+        dimension: dimension.name,
+      });
+    if (actual !== dimension.values.length)
       throw invalidPcAxis(
-        `A ${assignment.keyword} assignment does not identify a declared default dimension.`,
-        {
-          keyword: assignment.keyword,
-          language: assignment.language,
-          dimension: dimensionName,
-        },
-      );
-    if (assignment.language !== undefined && assignment.values.length !== dimension.values.length)
-      throw invalidPcAxis(
-        `A language-qualified ${assignment.keyword} list does not match its default dimension cardinality.`,
+        `A ${assignment.keyword} list does not match its canonical dimension cardinality.`,
         {
           keyword: assignment.keyword,
           language: assignment.language,
           dimension: dimension.name,
           expected: dimension.values.length,
-          actual: assignment.values.length,
+          actual,
         },
       );
   }
