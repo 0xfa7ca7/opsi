@@ -21,7 +21,7 @@ import { validateData } from "./validate.js";
 import { convertData } from "./convert.js";
 import type { ConversionOptions } from "./types.js";
 import { previewXml } from "./xml.js";
-import { previewPcAxis } from "./pcaxis.js";
+import { DEFAULT_PCAXIS_LIMITS, previewPcAxis } from "./pcaxis.js";
 
 function supported(format: string): format is SupportedInputFormat {
   return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml", "pcaxis"].includes(format);
@@ -206,10 +206,11 @@ export class DataEngine {
 
   async inferSchema(input: DataInput, options: PreviewOptions = {}): Promise<InferredSchema> {
     let limit = options.limit ?? 500;
-    if (this.options.pcAxisLimits !== undefined) {
+    const pcAxisRecordLimit =
+      this.options.pcAxisLimits?.maxEmittedRecords ?? DEFAULT_PCAXIS_LIMITS.maxEmittedRecords;
+    if (limit > pcAxisRecordLimit) {
       const detection = await detectFormat(input);
-      if (detection.format === "pcaxis")
-        limit = Math.min(limit, this.options.pcAxisLimits.maxEmittedRecords);
+      if (detection.format === "pcaxis") limit = pcAxisRecordLimit;
     }
     const preview = await this.preview(input, { ...options, limit });
     const fields = preview.columns.map((name) => {
@@ -220,7 +221,10 @@ export class DataEngine {
         .map((value) => JSON.parse(value) as unknown);
       return {
         name,
-        type: mergeTypes(nonNull.map((value) => inferredType(value) as InferredFieldType)),
+        type:
+          preview.format === "pcaxis" && name.endsWith("__code")
+            ? "string"
+            : mergeTypes(nonNull.map((value) => inferredType(value) as InferredFieldType)),
         nullable: preview.truncated || nonNull.length !== values.length,
         evidence,
       };

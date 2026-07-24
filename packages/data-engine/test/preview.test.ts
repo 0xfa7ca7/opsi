@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { DataEngine } from "../src/index.js";
+import { DataEngine, DEFAULT_PCAXIS_LIMITS } from "../src/index.js";
 
 const engine = new DataEngine();
 const temporary: string[] = [];
@@ -83,12 +83,33 @@ DATA=1.5 ".";`,
       format: "pcaxis",
       sampledRows: 2,
       fields: expect.arrayContaining([
-        expect.objectContaining({ name: "Place__code", type: "integer", nullable: false }),
+        expect.objectContaining({
+          name: "Place__code",
+          type: "string",
+          nullable: false,
+          evidence: ["001"],
+        }),
         expect.objectContaining({ name: "value", type: "double", nullable: true }),
         expect.objectContaining({ name: "value__symbol", type: "string", nullable: true }),
       ]),
     });
     expect(adapters).toEqual(["pcaxis", "pcaxis"]);
+  });
+
+  it("clamps PC-Axis schema sampling to the effective default emission limit", async () => {
+    const path = await temporaryFile(
+      "default-limits.px",
+      `AXIS-VERSION="2024";CODEPAGE="utf-8";MATRIX="limits";STUB="Row";VALUES("Row")="A";DATA=1;`,
+    );
+    const oversized = DEFAULT_PCAXIS_LIMITS.maxEmittedRecords + 1;
+    await expect(engine.preview(path, { limit: oversized })).rejects.toMatchObject({
+      code: "PCAXIS_CELL_LIMIT",
+      context: { limit: DEFAULT_PCAXIS_LIMITS.maxEmittedRecords, requested: oversized },
+    });
+    await expect(engine.inferSchema(path, { limit: oversized })).resolves.toMatchObject({
+      format: "pcaxis",
+      sampledRows: 1,
+    });
   });
 
   it("previews UTF-16LE tab-separated data declared as CSV", async () => {

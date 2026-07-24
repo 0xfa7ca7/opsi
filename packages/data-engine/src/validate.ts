@@ -684,6 +684,7 @@ export async function validateData(
   try {
     schema = await engine.inferSchema(source, options);
   } catch (error) {
+    if (detection.format === "pcaxis" && error instanceof KlopsiError) throw error;
     if (
       error instanceof KlopsiError &&
       [

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { DataEngine } from "../src/index.js";
 import ExcelJS from "exceljs";
 import { DuckDBInstance } from "@duckdb/node-api";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 
 const engine = new DataEngine();
 const temporary: string[] = [];
@@ -72,6 +73,26 @@ DATA=1 ".";`,
       exitCode: 5,
       context: { limit: 1 },
     });
+  });
+
+  it("preserves typed PC-Axis errors raised during schema inference", async () => {
+    const path = await fixture(
+      `AXIS-VERSION="2024";CODEPAGE="utf-8";MATRIX="typed";STUB="Row";VALUES("Row")="A";DATA=1;`,
+      "typed.px",
+    );
+    const typed = new KlopsiError({
+      code: "PCAXIS_CELL_LIMIT",
+      message: "schema preview limit exceeded",
+      exitCode: EXIT_CODES.INTEGRITY_FAILURE,
+      context: { phase: "schema" },
+    });
+    const schemaFailingEngine = new DataEngine({
+      onAdapter: (name) => {
+        if (name === "pcaxis") throw typed;
+      },
+    });
+
+    await expect(schemaFailingEngine.validate(path)).rejects.toBe(typed);
   });
 
   it("reports malformed row widths with stable locations and does not mutate input", async () => {
