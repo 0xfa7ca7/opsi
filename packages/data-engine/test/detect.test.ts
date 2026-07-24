@@ -229,6 +229,16 @@ DATA=1,2;`,
     },
   );
 
+  it("does not trust an unterminated AXIS-VERSION-shaped CSV row", async () => {
+    const path = await fileNamed("versions.csv", "AXIS-VERSION=2010,value\nrow,other");
+
+    await expect(detectFormat(path)).resolves.toMatchObject({
+      format: "csv",
+      confidence: "content",
+      delimiter: ",",
+    });
+  });
+
   it("detects a Windows-1250 PC-Axis signature before comma-delimited content", async () => {
     const path = await fileNamed(
       "misleading.csv",

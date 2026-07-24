@@ -71,8 +71,6 @@ function pcAxisSignature(head: Buffer): { readonly encoding?: DetectedTextEncodi
     if (assignment === null) break;
     const keyword = assignment[1]?.toUpperCase();
     if (keyword === undefined) break;
-    keywords.add(keyword);
-    leadingKeywords.push(keyword);
     position += assignment[0].length;
     if (keyword === "DATA") break;
 
@@ -91,6 +89,8 @@ function pcAxisSignature(head: Buffer): { readonly encoding?: DetectedTextEncodi
       position += 1;
     }
     if (!terminated) break;
+    keywords.add(keyword);
+    leadingKeywords.push(keyword);
   }
   const hasEncoding = keywords.has("CODEPAGE") || keywords.has("CHARSET");
   const hasDimension = keywords.has("STUB") || keywords.has("HEADING");
