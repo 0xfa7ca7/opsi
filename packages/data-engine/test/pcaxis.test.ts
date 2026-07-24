@@ -344,6 +344,70 @@ DATA=1;`);
     },
   );
 
+  it("parses a Windows-1250 CRLF SURS-style qualified NOTE continuation", async () => {
+    const { path } = await fixture(
+      windows1250(
+        [
+          'CHARSET="ANSI";',
+          'CODEPAGE="windows-1250";',
+          'MATRIX="qualified-note";',
+          'STUB="REGIJA";',
+          'VALUES("REGIJA")="Slovenija";',
+          'NOTE[en]("REGIJA")="Prvi č "',
+          '  "drugi";',
+          "DATA=1;",
+        ].join("\r\n"),
+      ),
+    );
+
+    const metadata = await parsePcAxisMetadata(path);
+    const expected = {
+      keyword: "NOTE",
+      language: "en",
+      subkeys: ["REGIJA"],
+      values: ["Prvi č drugi"],
+    };
+    expect(metadata.encoding).toBe("windows-1250");
+    expect(metadata.notes).toContainEqual(expected);
+    expect(metadata.languageVariants).toContainEqual(expected);
+  });
+
+  it("preserves unquoted single-value grammar for long-text scalar keywords", async () => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="unquoted";
+SOURCE=SURS;
+DESCRIPTION[en]=brief;
+STUB="A";
+VALUES("A")="a";
+DATA=1;`);
+
+    const metadata = await parsePcAxisMetadata(path);
+    expect(metadata.source).toBe("SURS");
+    expect(metadata.languageVariants).toContainEqual({
+      keyword: "DESCRIPTION",
+      language: "en",
+      subkeys: [],
+      values: ["brief"],
+    });
+  });
+
+  it.each(["DATANOTE", "DATANOTECELL", "DATANOTESUM"])(
+    "rejects adjacent quoted segments for non-long-text keyword %s",
+    async (keyword) => {
+      const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="short note symbols";
+STUB="A";
+VALUES("A")="a";
+${keyword}="first " "second";
+DATA=1;`);
+
+      await expect(parsePcAxisMetadata(path)).rejects.toMatchObject({
+        code: "INVALID_PCAXIS_DATA",
+        exitCode: 6,
+      });
+    },
+  );
+
   it.each([
     { assignment: "TITLE[en]", keyword: "TITLE" },
     { assignment: "SOURCE[en]", keyword: "SOURCE" },
@@ -355,9 +419,6 @@ DATA=1;`);
     { assignment: "INFO[en]", keyword: "INFO" },
     { assignment: "CELLNOTE[en]", keyword: "CELLNOTE" },
     { assignment: "CELLNOTEX[en]", keyword: "CELLNOTEX" },
-    { assignment: "DATANOTE[en]", keyword: "DATANOTE" },
-    { assignment: "DATANOTECELL[en]", keyword: "DATANOTECELL" },
-    { assignment: "DATANOTESUM[en]", keyword: "DATANOTESUM" },
     { assignment: "NOTE[en]", keyword: "NOTE" },
     { assignment: "NOTEX[en]", keyword: "NOTEX" },
     { assignment: "VALUENOTE[en]", keyword: "VALUENOTE" },
@@ -1031,6 +1092,20 @@ DATA=1;`);
     await expect(parsePcAxisMetadata(path)).rejects.toMatchObject({
       code: "INVALID_PCAXIS_DATA",
       exitCode: 6,
+    });
+  });
+
+  it("uses long-text scalar wording for malformed continued metadata", async () => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="errors";
+DESCRIPTION="first " "second"junk;
+STUB="A";
+VALUES("A")="a";
+DATA=1;`);
+
+    await expect(parsePcAxisMetadata(path)).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      message: "Unexpected text follows a PC-Axis long-text scalar.",
     });
   });
 

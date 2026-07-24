@@ -130,15 +130,20 @@ const NOTE_KEYWORDS = new Set([
 ]);
 const LONG_TEXT_SCALAR_KEYWORDS = new Set([
   "BASEPERIOD",
+  "CELLNOTE",
+  "CELLNOTEX",
   "CONTACT",
   "DATABASE",
   "DESCRIPTION",
   "INFO",
   "INFOFILE",
+  "NOTE",
+  "NOTEX",
   "REFPERIOD",
   "SOURCE",
   "TITLE",
-  ...NOTE_KEYWORDS,
+  "VALUENOTE",
+  "VALUENOTEX",
 ]);
 const REPEATABLE_KEYWORDS = NOTE_KEYWORDS;
 const DATA_SYMBOLS = ["-", ".", "..", "...", "....", ".....", "......"] as const;
@@ -425,18 +430,26 @@ function parseList(
   return values;
 }
 
-function parseAdjacentQuotedScalar(
+function parseLongTextScalar(
   text: string,
   limits: PcAxisLimits,
   enforce: boolean,
 ): readonly [string] {
   let index = 0;
+  while (index < text.length && /\s/u.test(text[index] ?? "")) index += 1;
+  if (text[index] !== '"') {
+    const values = parseList(text, limits, enforce);
+    const value = values[0];
+    if (value === undefined || values.length !== 1)
+      throw invalidPcAxis("A PC-Axis long-text scalar must contain exactly one value.");
+    return [value];
+  }
+
   let value = "";
   let segments = 0;
-  while (index < text.length && /\s/u.test(text[index] ?? "")) index += 1;
   while (index < text.length) {
     if (text[index] !== '"')
-      throw invalidPcAxis("An extended PC-Axis note must contain only quoted text segments.");
+      throw invalidPcAxis("A PC-Axis long-text scalar must contain only quoted text segments.");
     index += 1;
     segments += 1;
     let closed = false;
@@ -458,7 +471,7 @@ function parseAdjacentQuotedScalar(
     if (!closed) throw invalidPcAxis("A quoted PC-Axis value is unterminated.");
     while (index < text.length && /\s/u.test(text[index] ?? "")) index += 1;
     if (index < text.length && text[index] !== '"')
-      throw invalidPcAxis("Unexpected text follows an extended PC-Axis note.");
+      throw invalidPcAxis("Unexpected text follows a PC-Axis long-text scalar.");
   }
   if (segments === 0) throw invalidPcAxis("A PC-Axis assignment has no value.");
   chargeString(value, limits, enforce);
@@ -588,7 +601,7 @@ function parseAssignment(statement: string, limits: PcAxisLimits, enforce: boole
     ...(timeval !== undefined
       ? timeval.values
       : LONG_TEXT_SCALAR_KEYWORDS.has(keyword)
-        ? parseAdjacentQuotedScalar(right, limits, enforce)
+        ? parseLongTextScalar(right, limits, enforce)
         : parseList(right, limits, enforce)),
   ];
   return {
