@@ -1,5 +1,11 @@
 export { KlopsiClient, ProviderRegistry } from "@klopsi/core";
-export type { KlopsiClientOptions } from "@klopsi/core";
+export type {
+  KlopsiClientOptions,
+  QueryCacheMetadata,
+  QueryCacheStatus,
+  QueryCacheWarning,
+  QueryDatabaseWarning,
+} from "@klopsi/core";
 export type {
   WfsCapabilities,
   WfsField,

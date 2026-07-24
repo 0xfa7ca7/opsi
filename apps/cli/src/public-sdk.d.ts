@@ -605,7 +605,7 @@ interface QueryServiceResult {
   readonly source: string;
   readonly durationMs: number;
   readonly cache: QueryCacheMetadata;
-  readonly warnings: readonly QueryCacheWarning[];
+  readonly warnings: readonly QueryDatabaseWarning[];
   readonly output?: string;
   readonly provenancePath?: string;
 }
@@ -618,6 +618,7 @@ export interface QueryCacheWarning {
   readonly code: "QUERY_CACHE_BYPASS";
   readonly message: string;
 }
+export type QueryDatabaseWarning = QueryCacheWarning | EngineValidationIssue;
 export interface DuckDbCachePolicy {
   readonly enabled: boolean;
   readonly maxBytes: number;

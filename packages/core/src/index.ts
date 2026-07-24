@@ -27,6 +27,7 @@ export type {
   QueryDatabaseMetadata,
   QueryDatabasePreparationOptions,
   QueryDatabaseResult,
+  QueryDatabaseWarning,
 } from "./query-database-cache.js";
 export { validateDatasetMetadata, validateResourceMetadata } from "./metadata-validation.js";
 export {

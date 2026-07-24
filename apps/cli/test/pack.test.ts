@@ -63,6 +63,7 @@ async function compileSdkConsumer(directory: string): Promise<void> {
   type QueryResult,
   type QueryCacheMetadata,
   type QueryCacheWarning,
+  type QueryDatabaseWarning,
   type ResourceId,
   type ResourceAccessDescriptor,
   type SearchQuery,
@@ -128,6 +129,13 @@ const queryCache: QueryCacheMetadata = { status: 'hit', kind: 'duckdb-stage' };
 const queryWarning: QueryCacheWarning = {
   code: 'QUERY_CACHE_BYPASS',
   message: 'temporary staging',
+};
+const queryDataWarning: QueryDatabaseWarning = {
+  code: 'PCAXIS_DATA_SYMBOL',
+  severity: 'warning',
+  message: 'A PC-Axis data symbol was preserved.',
+  recommendation: 'Review the source symbol.',
+  context: { symbol: '.', occurrences: 1 },
 };
 const duckdbCache: DuckDbCachePolicy = { enabled: true, maxBytes: 10_000, ttlMs: 86_400_000 };
 const pcAxisLimits: PcAxisLimits = {
@@ -213,7 +221,8 @@ const operations = [
 ];
 void [access.kind, dataset.providerMetadata?.raw.source, validation.schema?.fields[0]?.nullable,
   download.provenance.transformations[0]?.operation, queryResult.rows[0]?.count,
-  queryCache.status, queryWarning.code, pcAxisPreview.codeColumns?.[0], operations];
+  queryCache.status, queryWarning.code, queryDataWarning.code,
+  pcAxisPreview.codeColumns?.[0], operations];
 `,
   );
   await writeFile(

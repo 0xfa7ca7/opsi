@@ -29,6 +29,20 @@ function result(sql: string): QueryResult {
   };
 }
 
+async function symbolBearingPcAxis(name = "symbols.px"): Promise<string> {
+  const path = join(directory, name);
+  await writeFile(
+    path,
+    `AXIS-VERSION="2024";
+CODEPAGE="utf-8";
+MATRIX="query symbols";
+STUB="Place";
+VALUES("Place")="A","B";
+DATA=1 ".";`,
+  );
+  return path;
+}
+
 function setup(policy = { enabled: true, maxBytes: 100_000_000, ttlMs: 30 * 86_400_000 }) {
   const content = new ContentCache(join(directory, "cache"));
   const derived = new DerivedArtifactCache(content, policy);
@@ -139,7 +153,7 @@ DATA=1 2;`,
     });
 
     expect(stageCount()).toBe(1);
-    expect(QUERY_STAGE_VERSION).toBe("2");
+    expect(QUERY_STAGE_VERSION).toBe("3");
     await expect(derived.list()).resolves.toEqual([
       expect.objectContaining({
         format: "pcaxis",
@@ -148,6 +162,29 @@ DATA=1 2;`,
         ),
       }),
     ]);
+  });
+
+  it("returns PC-Axis staging warnings on every would-be cached execution", async () => {
+    input = await symbolBearingPcAxis();
+    const { coordinator, derived, stageCount } = setup();
+
+    const first = await coordinator.execute(input, { sql: "SELECT * FROM data" });
+    const second = await coordinator.execute(input, { sql: "SELECT * FROM data" });
+
+    for (const execution of [first, second]) {
+      expect(execution).toMatchObject({
+        cache: { status: "bypass" },
+        warnings: [
+          expect.objectContaining({
+            code: "PCAXIS_DATA_SYMBOL",
+            severity: "warning",
+            context: { symbol: ".", occurrences: 1 },
+          }),
+        ],
+      });
+    }
+    expect(stageCount()).toBe(2);
+    await expect(derived.list()).resolves.toEqual([]);
   });
 
   it("does not reuse a PC-Axis stage built under different parser limits", async () => {
@@ -274,6 +311,26 @@ DATA=1 2;`,
     expect(stageCount()).toBe(1);
   });
 
+  it("keeps cache and PC-Axis staging warnings together", async () => {
+    input = await symbolBearingPcAxis("cache-warning-symbols.px");
+    const derived = new DerivedArtifactCache(new ContentCache(join(directory, "warning-cache")), {
+      enabled: true,
+      maxBytes: 100_000_000,
+      ttlMs: 30 * 86_400_000,
+    });
+    const { cache } = coordinatorWith(derived, {
+      materialize: vi.fn(async () => Promise.reject(new Error("cache unavailable"))) as never,
+    });
+
+    await expect(cache.execute(input, { sql: "SELECT * FROM data" })).resolves.toMatchObject({
+      cache: { status: "bypass" },
+      warnings: expect.arrayContaining([
+        expect.objectContaining({ code: "QUERY_CACHE_BYPASS" }),
+        expect.objectContaining({ code: "PCAXIS_DATA_SYMBOL", severity: "warning" }),
+      ]),
+    });
+  });
+
   it("does not stage twice when publication fails", async () => {
     const derived = new DerivedArtifactCache(
       new ContentCache(join(directory, "publication-cache")),
@@ -347,6 +404,39 @@ DATA=1 2;`,
 });
 
 describe("QueryService staged database lease", () => {
+  it("returns PC-Axis staging warnings to the lease callback and result", async () => {
+    input = await symbolBearingPcAxis("lease-symbols.px");
+    const { coordinator, stageCount } = setup();
+    const withResolvedInput = vi.fn(
+      async (_input: string, _options: unknown, operation: (source: string) => Promise<unknown>) =>
+        operation(input),
+    );
+    const service = new QueryService({ withResolvedInput } as never, coordinator);
+    let callbackWarnings: readonly { readonly code: string }[] = [];
+
+    const leased = await service.withDatabase(input, {}, async (databasePath, metadata) => {
+      await expect(access(databasePath)).resolves.toBeUndefined();
+      callbackWarnings = metadata.warnings;
+      return "opened";
+    });
+
+    expect(callbackWarnings).toEqual([
+      expect.objectContaining({ code: "PCAXIS_DATA_SYMBOL", severity: "warning" }),
+    ]);
+    expect(leased).toMatchObject({
+      value: "opened",
+      source: input,
+      cache: { status: "bypass" },
+      warnings: [
+        expect.objectContaining({
+          code: "PCAXIS_DATA_SYMBOL",
+          severity: "warning",
+        }),
+      ],
+    });
+    expect(stageCount()).toBe(1);
+  });
+
   it("resolves selectors and returns source plus database metadata", async () => {
     const withResolvedInput = vi.fn(
       async (_input: string, _options: unknown, operation: (source: string) => Promise<unknown>) =>

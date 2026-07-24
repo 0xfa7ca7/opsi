@@ -9,8 +9,8 @@ import type { DataResolutionOptions, DataService } from "./data.js";
 import {
   QueryDatabaseCache,
   type QueryDatabaseMetadata,
+  type QueryDatabaseWarning,
   type QueryCacheMetadata,
-  type QueryCacheWarning,
 } from "./query-database-cache.js";
 
 export interface QueryServiceOptions extends DataResolutionOptions {
@@ -30,7 +30,7 @@ export interface QueryServiceResult extends QueryResult {
   readonly source: string;
   readonly durationMs: number;
   readonly cache: QueryCacheMetadata;
-  readonly warnings: readonly QueryCacheWarning[];
+  readonly warnings: readonly QueryDatabaseWarning[];
   readonly output?: string;
   readonly provenancePath?: string;
 }

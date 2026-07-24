@@ -15,11 +15,12 @@ import {
   type QueryResult,
   type SupportedInputFormat,
   type TabularStage,
+  type ValidationIssue,
 } from "@klopsi/data-engine";
 import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import type { DerivedArtifactCache, DerivedArtifactIdentity } from "@klopsi/storage";
 
-export const QUERY_STAGE_VERSION = "2";
+export const QUERY_STAGE_VERSION = "3";
 export const QUERY_STAGE_DUCKDB_VERSION = "1.5.4-r.1";
 
 export type QueryCacheStatus = "hit" | "miss" | "bypass";
@@ -33,6 +34,8 @@ export interface QueryCacheWarning {
   readonly code: "QUERY_CACHE_BYPASS";
   readonly message: string;
 }
+
+export type QueryDatabaseWarning = QueryCacheWarning | ValidationIssue;
 
 type PreparedRunner = Pick<DuckDbQueryRunner, "executePrepared">;
 type DerivedCache = Pick<
@@ -61,12 +64,12 @@ export interface QueryDatabaseCacheOptions {
 
 export interface QueryDatabaseResult extends QueryResult {
   readonly cache: QueryCacheMetadata;
-  readonly warnings: readonly QueryCacheWarning[];
+  readonly warnings: readonly QueryDatabaseWarning[];
 }
 
 export interface QueryDatabaseMetadata {
   readonly cache: QueryCacheMetadata;
-  readonly warnings: readonly QueryCacheWarning[];
+  readonly warnings: readonly QueryDatabaseWarning[];
 }
 
 export interface QueryDatabaseLeaseResult<T> extends QueryDatabaseMetadata {
@@ -125,10 +128,11 @@ export class QueryDatabaseCache {
     let operationCompleted = false;
     let status: QueryCacheStatus = "bypass";
     let operationError: unknown;
-    const warnings: QueryCacheWarning[] = [];
+    const cacheWarnings: QueryCacheWarning[] = [];
+    let stagingWarnings: readonly ValidationIssue[] = [];
     const warn = () => {
-      if (warnings.length === 0)
-        warnings.push({
+      if (!cacheWarnings.some((warning) => warning.code === "QUERY_CACHE_BYPASS"))
+        cacheWarnings.push({
           code: "QUERY_CACHE_BYPASS",
           message: "DuckDB stage caching was unavailable; the query used temporary staging.",
         });
@@ -162,9 +166,11 @@ export class QueryDatabaseCache {
             ? {}
             : { pcAxisLimits: this.options.pcAxisLimits }),
         });
+        const builtWarnings = stage.warnings;
         await stage.connection.run("CHECKPOINT");
         await stage.close();
         stage = undefined;
+        stagingWarnings = builtWarnings;
         await (this.options.verify ?? verifyStagedDatabase)(databasePath);
       };
 
@@ -234,6 +240,10 @@ export class QueryDatabaseCache {
                 stagingError = error;
                 throw error;
               }
+              if (stagingWarnings.length > 0) {
+                status = "bypass";
+                return;
+              }
               try {
                 const publication = await derived.publish(identity, databasePath);
                 status = publication.retained ? "miss" : "bypass";
@@ -259,6 +269,7 @@ export class QueryDatabaseCache {
         }
       }
 
+      const warnings: readonly QueryDatabaseWarning[] = [...cacheWarnings, ...stagingWarnings];
       result = await operation(databasePath, {
         cache: { status, kind: "duckdb-stage" },
         warnings,
@@ -292,7 +303,11 @@ export class QueryDatabaseCache {
         message: "The staged database operation completed without a result.",
         exitCode: EXIT_CODES.QUERY_FAILURE,
       });
-    return { value: result as T, cache: { status, kind: "duckdb-stage" }, warnings };
+    return {
+      value: result as T,
+      cache: { status, kind: "duckdb-stage" },
+      warnings: [...cacheWarnings, ...stagingWarnings],
+    };
   }
 
   async execute(
