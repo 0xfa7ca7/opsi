@@ -1,25 +1,30 @@
 ---
 name: klopsi-analysis
-description: "Use when querying or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports."
+description: "Use when profiling, querying, or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports."
 ---
 
 # klopsi-analysis
 
 > **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before executing these commands.
 
-Analyze tabular inputs with bounded read-only SQL or convert supported formats. Generated for `klopsi` 0.0.1.
+Profile tabular inputs, analyze them with bounded read-only SQL, or convert supported formats. Generated for `klopsi` 0.0.1.
 
 ## Workflow
 
-- Preview and validate input before running a bounded query.
+- Preview and validate input, then run a bounded profile before writing exploratory SQL.
 - Convert an input and then verify the generated provenance record.
 
 ## Capability guide
 
 ### Choose a supported input
 
-- Query or convert CSV, TSV, JSON, NDJSON, XLSX, Parquet, ZIP, or XML only after inspection identifies a usable tabular member.
+- Profile, query, or convert CSV, TSV, JSON, NDJSON, XLSX, Parquet, ZIP, or XML only after inspection identifies a usable tabular member.
 - Use a resolved `--entry`, `--record-path`, or `--sheet` whenever ZIP, XML, or XLSX input is ambiguous.
+
+### Profile a tabular input
+
+- Use `klopsi profile <input> --json` for an initial schema, row-count, completeness, exact distinct-count, numeric-range, and categorical-frequency summary before composing custom SQL.
+- Keep `--top` at its bounded default or lower it when compact agent context matters. Treat inferred DuckDB types and type-based categories as orientation signals, not domain semantics.
 
 ### Run bounded read-only SQL
 
@@ -37,6 +42,33 @@ Analyze tabular inputs with bounded read-only SQL or convert supported formats. 
 - Validate or inspect the converted result and use `provenance verify`; do not overwrite an existing destination without authorization.
 
 ## Commands
+
+### `profile`
+
+Profile bounded tabular data.
+
+```sh
+klopsi profile <input> [options]
+```
+
+#### Arguments
+
+| Argument | Values | Description |
+| --- | --- | --- |
+| `<input>` | — | local path or canonical resource reference |
+
+#### Options
+
+| Option | Required | Values | Conflicts | Description |
+| --- | --- | --- | --- | --- |
+| `--top <values>` | no | values | — | maximum top values per categorical field |
+| `--timeout-ms <milliseconds>` | no | milliseconds | — | hard profile deadline |
+| `--sheet <name>` | no | name | — | XLSX sheet name |
+| `--entry <path>` | no | path | — | ZIP data entry path |
+| `--record-path <path>` | no | path | — | XML record element path |
+| `--allow-insecure-http` | no | — | — | allow HTTP for this invocation |
+| `--allow-private-network` | no | — | — | allow private network addresses for this invocation |
+
 
 ### `query`
 
@@ -98,6 +130,7 @@ klopsi convert <input> --to <format> --output <path> [options]
 
 ## Safety
 
+- Keep profiles bounded with --top and the inherited query deadline.
 - Keep SQL read-only and bounded.
 - Confirm before replacing an existing output with --force.
 

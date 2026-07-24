@@ -103,11 +103,12 @@ Replace `DATASET_ID` with an ID returned by `search`, then download one of its r
 klopsi download opsi:resource:RESOURCE_ID --output ./downloads
 ```
 
-Replace `RESOURCE_ID` with an ID returned by `dataset resources`. Use the downloaded filename to preview, validate, and query the data:
+Replace `RESOURCE_ID` with an ID returned by `dataset resources`. Use the downloaded filename to preview, validate, profile, and query the data:
 
 ```sh
 klopsi resource preview ./downloads/data.csv --limit 10
 klopsi validate ./downloads/data.csv --json
+klopsi profile ./downloads/data.csv --top 5 --json
 klopsi query ./downloads/data.csv \
   --sql "select * from data limit 10" \
   --json
@@ -144,6 +145,7 @@ Run `klopsi --help` or read the [complete command reference](docs/commands.md) f
 | Inspect or preview a resource | `klopsi resource show <id>` / `klopsi resource preview <input>` |
 | Download data                 | `klopsi download <ids...>`                                      |
 | Validate data or metadata     | `klopsi validate <input>`                                       |
+| Profile tabular data          | `klopsi profile <input> --top 5`                                |
 | Query tabular data            | `klopsi query <input> --sql <statement>`                        |
 | Explore data in DuckDB UI     | `klopsi duckdb open <input>`                                    |
 | Convert formats               | `klopsi convert <input> --to <format> --output <path>`          |
@@ -159,12 +161,13 @@ Run `klopsi --help` or read the [complete command reference](docs/commands.md) f
 
 `klopsi` can inspect and validate resilient CSV/TSV-style data (UTF-8/UTF-16, comma/tab/semicolon/pipe), JSON, NDJSON, XLSX, Parquet, bounded XML records, and one safely selected data entry inside a ZIP. Use `--entry` for ambiguous archives and `--record-path` for ambiguous XML. Read-only WFS workflows expose layers, schemas, bounded previews, counts, and CSV exports without leaving KLOPSI.
 
-The first query or DuckDB UI session for a source imports it into a rebuildable DuckDB stage with one table named `data`; later operations over identical bytes and the same XLSX sheet reuse that stage. JSON metadata reports `cache.status` as `miss`, `hit`, or `bypass`. The derived cache defaults to a 10 GB budget and 30-day sliding lifetime, and its entries are visible through `klopsi cache info|list|verify|prune|clear`. Derived eviction never removes raw downloads or catalogue data merely to satisfy the DuckDB budget.
+The first profile, query, or DuckDB UI session for a source imports it into a rebuildable DuckDB stage with one table named `data`; later operations over identical bytes and the same XLSX sheet reuse that stage. JSON metadata reports `cache.status` as `miss`, `hit`, or `bypass`. The derived cache defaults to a 10 GB budget and 30-day sliding lifetime, and its entries are visible through `klopsi cache info|list|verify|prune|clear`. Derived eviction never removes raw downloads or catalogue data merely to satisfy the DuckDB budget.
 
 | Capability | Behavior                                                                        |
 | ---------- | ------------------------------------------------------------------------------- |
 | Preview    | Reads a bounded number of rows from local files or provider resources           |
 | Validate   | Reports typed issues and recommendations for data or metadata                   |
+| Profile    | Summarizes types, completeness, distinct values, ranges, and top categories     |
 | Query      | Accepts one bounded, read-only `SELECT`, `WITH … SELECT`, or `VALUES` statement |
 | Convert    | Writes CSV, TSV, JSON, NDJSON, XLSX, or Parquet atomically                      |
 | Provenance | Records and verifies the source, transformation, and SHA-256 digest             |

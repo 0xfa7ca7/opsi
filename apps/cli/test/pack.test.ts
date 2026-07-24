@@ -53,10 +53,12 @@ async function compileSdkConsumer(directory: string): Promise<void> {
   type DuckDbCachePolicy,
   type DownloadRecord,
   type Field,
+  type FieldProfile,
   type NextAction,
   type ParsedCanonicalReference,
   type ProviderId,
   type Provenance,
+  type ProfileServiceResult,
   type QueryResult,
   type QueryCacheMetadata,
   type QueryCacheWarning,
@@ -126,6 +128,19 @@ const queryWarning: QueryCacheWarning = {
   code: 'QUERY_CACHE_BYPASS',
   message: 'temporary staging',
 };
+const profileField: FieldProfile = {
+  name: 'city',
+  type: 'VARCHAR',
+  rowCount: 2,
+  nullCount: 0,
+  nullRate: 0,
+  distinctCount: 1,
+  min: 'Ljubljana',
+  max: 'Ljubljana',
+  mean: null,
+  topValues: [{ value: 'Ljubljana', count: 2, rate: 1 }],
+};
+const profileResult = {} as ProfileServiceResult;
 const duckdbCache: DuckDbCachePolicy = { enabled: true, maxBytes: 10_000, ttlMs: 86_400_000 };
 const dataset: Dataset = {
   id: datasetId,
@@ -173,10 +188,12 @@ const operations = [
   client.data.convert('/tmp/traffic.csv', { output: '/tmp/traffic.json', targetFormat: 'json' }).then((result) => result.warnings),
   client.conversions.convert('/tmp/traffic.csv', { output: '/tmp/traffic.tsv', targetFormat: 'tsv' }).then((result) => result.provenancePath),
   client.query.execute('/tmp/traffic.csv', { sql: 'select * from data', limit: 5 }).then((result) => [result.source, result.durationMs, result.cache.status, result.warnings]),
+  client.profile.execute('/tmp/traffic.csv', { top: 3 }).then((result) => [result.fields[0]?.distinctCount, result.cache.status]),
 ];
 void [access.kind, dataset.providerMetadata?.raw.source, validation.schema?.fields[0]?.nullable,
   download.provenance.transformations[0]?.operation, queryResult.rows[0]?.count,
-  queryCache.status, queryWarning.code, operations];
+  queryCache.status, queryWarning.code, profileField.topValues[0]?.rate,
+  profileResult.columnCount, operations];
 `,
   );
   await writeFile(
@@ -298,7 +315,7 @@ describe("canonical npm tarball", () => {
       "name: klopsi",
     );
     expect(await readFile(join(generatedSkills, "klopsi-analysis", "SKILL.md"), "utf8")).toContain(
-      "klopsi query",
+      "klopsi profile",
     );
     expect(
       await readFile(join(generatedSkills, "klopsi-dataset-workbench", "SKILL.md"), "utf8"),
