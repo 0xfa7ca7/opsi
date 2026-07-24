@@ -15,6 +15,11 @@ export type {
 export type {
   CanonicalReference,
   Configuration,
+  DataDiffResult,
+  DataDiffRowSample,
+  DataDiffSchemaChange,
+  DataDiffSchemaChangeKind,
+  DataDiffSummary,
   DataFile,
   DataFormat,
   DataProvider,

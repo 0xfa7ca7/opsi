@@ -71,6 +71,53 @@ export interface DownloadRecord {
 
 export type DataRow = Readonly<Record<string, unknown>>;
 
+export type DataDiffSchemaChangeKind = "added" | "removed" | "type-changed";
+
+export interface DataDiffSchemaChange {
+  readonly column: string;
+  readonly change: DataDiffSchemaChangeKind;
+  readonly beforeType?: string;
+  readonly afterType?: string;
+}
+
+export interface DataDiffRowSample {
+  readonly key: DataRow;
+  readonly before?: DataRow;
+  readonly after?: DataRow;
+  readonly changedColumns?: readonly string[];
+}
+
+export interface DataDiffSummary {
+  readonly beforeRows: number;
+  readonly afterRows: number;
+  readonly added: number;
+  readonly removed: number;
+  readonly changed: number;
+  readonly unchanged: number;
+  readonly schemaChanges: number;
+}
+
+export interface DataDiffResult {
+  readonly before: string;
+  readonly after: string;
+  readonly key: readonly string[];
+  readonly summary: DataDiffSummary;
+  readonly schema: readonly DataDiffSchemaChange[];
+  readonly samples: {
+    readonly added: readonly DataDiffRowSample[];
+    readonly removed: readonly DataDiffRowSample[];
+    readonly changed: readonly DataDiffRowSample[];
+  };
+  readonly sampleLimit: number;
+  readonly truncated: {
+    readonly added: boolean;
+    readonly removed: boolean;
+    readonly changed: boolean;
+  };
+  readonly durationMs: number;
+  readonly warnings: readonly ValidationIssue[];
+}
+
 export interface QueryResult {
   readonly sql: string;
   readonly columns: readonly string[];

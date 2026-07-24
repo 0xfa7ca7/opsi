@@ -37,6 +37,7 @@ import { renderOnboarding } from "./onboarding.js";
 import { createPresentation } from "./presentation.js";
 import { homedir } from "node:os";
 import { registerDuckDbCommand } from "./commands/duckdb.js";
+import { registerDiffCommand } from "./commands/diff.js";
 import { ProcessDuckDbUiRunner, type DuckDbUiRunner } from "./duckdb-ui-runner.js";
 
 function requestInterval(value: string | undefined): number | undefined {
@@ -162,6 +163,7 @@ export function createProgram(
   registerProvenanceCommand(program, context);
   registerValidateCommand(program, context, client);
   registerConvertCommand(program, context, client);
+  registerDiffCommand(program, context, client);
   registerQueryCommand(program, context, client);
   registerDuckDbCommand(
     program,

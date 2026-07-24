@@ -212,6 +212,48 @@ export interface QueryResult {
   readonly source?: CanonicalReference;
   readonly provenance?: Provenance;
 }
+export type DataDiffSchemaChangeKind = "added" | "removed" | "type-changed";
+export interface DataDiffSchemaChange {
+  readonly column: string;
+  readonly change: DataDiffSchemaChangeKind;
+  readonly beforeType?: string;
+  readonly afterType?: string;
+}
+export interface DataDiffRowSample {
+  readonly key: DataRow;
+  readonly before?: DataRow;
+  readonly after?: DataRow;
+  readonly changedColumns?: readonly string[];
+}
+export interface DataDiffSummary {
+  readonly beforeRows: number;
+  readonly afterRows: number;
+  readonly added: number;
+  readonly removed: number;
+  readonly changed: number;
+  readonly unchanged: number;
+  readonly schemaChanges: number;
+}
+export interface DataDiffResult {
+  readonly before: string;
+  readonly after: string;
+  readonly key: readonly string[];
+  readonly summary: DataDiffSummary;
+  readonly schema: readonly DataDiffSchemaChange[];
+  readonly samples: {
+    readonly added: readonly DataDiffRowSample[];
+    readonly removed: readonly DataDiffRowSample[];
+    readonly changed: readonly DataDiffRowSample[];
+  };
+  readonly sampleLimit: number;
+  readonly truncated: {
+    readonly added: boolean;
+    readonly removed: boolean;
+    readonly changed: boolean;
+  };
+  readonly durationMs: number;
+  readonly warnings: readonly ValidationIssue[];
+}
 export type Configuration = Readonly<Record<string, unknown>>;
 
 interface ParsedDatasetReference {
@@ -605,6 +647,25 @@ export interface DuckDbCachePolicy {
 declare class QueryService {
   execute(input: string, options: QueryServiceOptions): Promise<QueryServiceResult>;
 }
+export interface DiffServiceOptions {
+  readonly key: readonly string[];
+  readonly sampleLimit?: number;
+  readonly beforeSheet?: string;
+  readonly afterSheet?: string;
+  readonly beforeEntry?: string;
+  readonly afterEntry?: string;
+  readonly beforeRecordPath?: string;
+  readonly afterRecordPath?: string;
+  readonly allowInsecureHttp?: boolean;
+  readonly allowPrivateNetwork?: boolean;
+  readonly timeoutMs?: number;
+  readonly memoryLimit?: string;
+  readonly threads?: number;
+  readonly signal?: AbortSignal;
+}
+declare class DiffService {
+  compare(before: string, after: string, options: DiffServiceOptions): Promise<DataDiffResult>;
+}
 
 export type WfsVersion = "2.0.0" | "1.1.0" | "1.0.0";
 export interface WfsLayer {
@@ -711,6 +772,7 @@ export class KlopsiClient {
   readonly data: DataService;
   readonly conversions: ConversionService;
   readonly query: QueryService;
+  readonly diff: DiffService;
   readonly services: { readonly wfs: WfsService };
   readonly access: ResourceAccessService;
   search(query: SearchQuery): Promise<SearchPage>;

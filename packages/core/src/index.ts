@@ -7,6 +7,8 @@ export type { DownloadServiceOptions, ResourceDownloadOptions } from "./download
 export { CacheService } from "./cache.js";
 export { DataService } from "./data.js";
 export type { DataConversionOptions, DataOperationOptions, DataResolutionOptions } from "./data.js";
+export { DiffService } from "./diffs.js";
+export type { DiffServiceOptions } from "./diffs.js";
 export { ConversionService } from "./conversions.js";
 export type { ConversionServiceOptions } from "./conversions.js";
 export { QueryService } from "./queries.js";

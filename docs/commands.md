@@ -68,6 +68,14 @@ Syntax: `klopsi validate <input> [--metadata] [--sheet <name>] [--entry <path>] 
 
 Syntax: `klopsi convert <input> --to <csv|tsv|json|ndjson|xlsx|parquet> --output <path> [options]`. Options include `--sheet`, `--entry`, `--record-path`, `--force`, `--spreadsheet-safe`, and network overrides. Publication is atomic. Example: `klopsi convert stations.xml --record-path /root/station --to parquet --output stations.parquet`.
 
+### `diff`
+
+Syntax: `klopsi diff <before> <after> --key <columns...> [options]`. This experimental, read-only command compares two supported tabular inputs by one or more explicit key columns. It reports inferred schema additions, removals, and type changes; exact added, removed, changed, and unchanged row counts; and deterministic samples ordered by the composite key. `--limit <rows>` bounds examples independently for each change class (default 10, maximum 100).
+
+Key names must occur exactly in both inputs and have the same inferred type. Every key component must be non-null and the composite key must be unique on both sides; `DIFF_KEY_NOT_FOUND`, `DIFF_KEY_TYPE_MISMATCH`, `DIFF_NULL_KEY`, and `DIFF_DUPLICATE_KEY` fail before the row join instead of emitting inflated counts. Shared non-key columns are compared null-safely. Schema-only additions/removals do not mark every matched row changed.
+
+Use `--before-sheet`/`--after-sheet`, `--before-entry`/`--after-entry`, or `--before-record-path`/`--after-record-path` for side-specific XLSX, ZIP, or XML selection. Network overrides apply to both inputs for one invocation. JSON returns one versioned `DataDiffResult`; NDJSON, CSV, and TSV emit flat summary/schema/sample events. Examples: `klopsi diff old.csv new.parquet --key id --json` and `klopsi diff old.csv new.csv --key municipality year --limit 5`.
+
 ### `query`
 
 Syntax: `klopsi query <input> --sql <statement> [options]`. Only one read-only SELECT, WITH…SELECT, or VALUES statement is accepted. Options include `--limit`, `--timeout-ms`, `--sheet`, `--entry`, `--record-path`, `--output`, `--force`, and network overrides. User SQL runs against KLOPSI-owned table `data` with row/time/memory/thread/cell/output bounds and external access disabled. Example: `klopsi query archive.zip --entry rows.csv --sql "select * from data limit 2" --json`.

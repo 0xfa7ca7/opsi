@@ -113,6 +113,14 @@ klopsi query ./downloads/data.csv \
   --json
 ```
 
+Compare two refreshes by a unique, non-null key to see schema and row changes rather
+than only a changed file hash. This command is experimental:
+
+```sh
+klopsi diff ./downloads/data-2025.csv ./downloads/data-2026.parquet --key id
+klopsi diff old.csv new.csv --key municipality year --limit 5 --json
+```
+
 Open the same prepared table `data` in a DuckDB dataset workbench. The writable workbench is session-local, while KLOPSI attaches the staged source read-only. Install the external DuckDB CLI explicitly when it is not already available:
 
 ```sh
@@ -144,6 +152,7 @@ Run `klopsi --help` or read the [complete command reference](docs/commands.md) f
 | Inspect or preview a resource | `klopsi resource show <id>` / `klopsi resource preview <input>` |
 | Download data                 | `klopsi download <ids...>`                                      |
 | Validate data or metadata     | `klopsi validate <input>`                                       |
+| Compare tabular refreshes     | `klopsi diff <before> <after> --key <columns...>`               |
 | Query tabular data            | `klopsi query <input> --sql <statement>`                        |
 | Explore data in DuckDB UI     | `klopsi duckdb open <input>`                                    |
 | Convert formats               | `klopsi convert <input> --to <format> --output <path>`          |
@@ -159,12 +168,20 @@ Run `klopsi --help` or read the [complete command reference](docs/commands.md) f
 
 `klopsi` can inspect and validate resilient CSV/TSV-style data (UTF-8/UTF-16, comma/tab/semicolon/pipe), JSON, NDJSON, XLSX, Parquet, bounded XML records, and one safely selected data entry inside a ZIP. Use `--entry` for ambiguous archives and `--record-path` for ambiguous XML. Read-only WFS workflows expose layers, schemas, bounded previews, counts, and CSV exports without leaving KLOPSI.
 
+Experimental `klopsi diff` resolves any two of those supported tabular inputs, stages
+them together temporarily, and compares rows with an explicit composite key. It
+reports schema changes plus exact added, removed, changed, and unchanged counts.
+Examples are ordered by the key and bounded to 10 per class by default (100 maximum).
+Missing, differently typed, null, or duplicate keys fail explicitly because a
+many-to-many join would produce misleading counts.
+
 The first query or DuckDB UI session for a source imports it into a rebuildable DuckDB stage with one table named `data`; later operations over identical bytes and the same XLSX sheet reuse that stage. JSON metadata reports `cache.status` as `miss`, `hit`, or `bypass`. The derived cache defaults to a 10 GB budget and 30-day sliding lifetime, and its entries are visible through `klopsi cache info|list|verify|prune|clear`. Derived eviction never removes raw downloads or catalogue data merely to satisfy the DuckDB budget.
 
 | Capability | Behavior                                                                        |
 | ---------- | ------------------------------------------------------------------------------- |
 | Preview    | Reads a bounded number of rows from local files or provider resources           |
 | Validate   | Reports typed issues and recommendations for data or metadata                   |
+| Diff       | Reports exact keyed row/schema changes with deterministic bounded samples       |
 | Query      | Accepts one bounded, read-only `SELECT`, `WITH … SELECT`, or `VALUES` statement |
 | Convert    | Writes CSV, TSV, JSON, NDJSON, XLSX, or Parquet atomically                      |
 | Provenance | Records and verifies the source, transformation, and SHA-256 digest             |

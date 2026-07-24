@@ -47,6 +47,11 @@ export type {
 } from "./provider.js";
 export type {
   ConversionResult,
+  DataDiffResult,
+  DataDiffRowSample,
+  DataDiffSchemaChange,
+  DataDiffSchemaChangeKind,
+  DataDiffSummary,
   DataFormat,
   DataRow,
   DataSchema,

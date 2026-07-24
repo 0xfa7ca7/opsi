@@ -10,7 +10,19 @@ export { DataEngine, inferredType } from "./inspect.js";
 export { QueryPolicy } from "./query-policy.js";
 export { DuckDbQueryRunner } from "./query.js";
 export { stageTabularInput, verifyStagedDatabase } from "./tabular-stage.js";
-export type { TabularStage } from "./tabular-stage.js";
+export type { StagedColumn, StagedTableName, TabularStage } from "./tabular-stage.js";
+export { sqlIdentifier } from "./sql-identifier.js";
+export {
+  DatasetDiffEngine,
+  DEFAULT_DIFF_SAMPLE_LIMIT,
+  MAX_DIFF_COLUMNS,
+  MAX_DIFF_SAMPLE_LIMIT,
+} from "./diff.js";
+export type {
+  DatasetDiffEngineOptions,
+  DatasetDiffEngineResult,
+  DatasetDiffOptions,
+} from "./diff.js";
 export { executeQueryWorker, startQueryWorker } from "./query-worker.js";
 export type {
   DataEngineOptions,

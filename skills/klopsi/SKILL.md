@@ -20,7 +20,7 @@ Use this skill as the main entry point for Slovenian public-data work with the `
 | Inspect a resource safely without committing to a full data workflow. | [klopsi-resources](../klopsi-resources/SKILL.md) |
 | Download selected provider resources through the CLI's bounded secure downloader. | [klopsi-download](../klopsi-download/SKILL.md) |
 | Validate data content or normalized metadata and explain actionable issues. | [klopsi-validation](../klopsi-validation/SKILL.md) |
-| Analyze tabular inputs with bounded read-only SQL or convert supported formats. | [klopsi-analysis](../klopsi-analysis/SKILL.md) |
+| Compare tabular refreshes, analyze inputs with bounded read-only SQL, or convert supported formats. | [klopsi-analysis](../klopsi-analysis/SKILL.md) |
 | Represent a resolved tabular dataset as the read-only `data` relation in a writable local database workbench. | [klopsi-dataset-workbench](../klopsi-dataset-workbench/SKILL.md) |
 | Access WFS feature services through bounded, schema-validated KLOPSI workflows. | [klopsi-services](../klopsi-services/SKILL.md) |
 | Inspect recorded lineage and verify an artifact against its digest. | [klopsi-provenance](../klopsi-provenance/SKILL.md) |

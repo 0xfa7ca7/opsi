@@ -50,6 +50,7 @@ async function compileSdkConsumer(directory: string): Promise<void> {
   type CanonicalReference,
   type Dataset,
   type DatasetId,
+  type DataDiffResult,
   type DuckDbCachePolicy,
   type DownloadRecord,
   type Field,
@@ -121,6 +122,18 @@ const queryResult: QueryResult = {
   source: reference,
   provenance,
 };
+const diffResult: DataDiffResult = {
+  before: '/tmp/before.csv',
+  after: '/tmp/after.csv',
+  key: ['id'],
+  summary: { beforeRows: 1, afterRows: 1, added: 0, removed: 0, changed: 0, unchanged: 1, schemaChanges: 0 },
+  schema: [],
+  samples: { added: [], removed: [], changed: [] },
+  sampleLimit: 10,
+  truncated: { added: false, removed: false, changed: false },
+  durationMs: 1,
+  warnings: [],
+};
 const queryCache: QueryCacheMetadata = { status: 'hit', kind: 'duckdb-stage' };
 const queryWarning: QueryCacheWarning = {
   code: 'QUERY_CACHE_BYPASS',
@@ -173,10 +186,11 @@ const operations = [
   client.data.convert('/tmp/traffic.csv', { output: '/tmp/traffic.json', targetFormat: 'json' }).then((result) => result.warnings),
   client.conversions.convert('/tmp/traffic.csv', { output: '/tmp/traffic.tsv', targetFormat: 'tsv' }).then((result) => result.provenancePath),
   client.query.execute('/tmp/traffic.csv', { sql: 'select * from data', limit: 5 }).then((result) => [result.source, result.durationMs, result.cache.status, result.warnings]),
+  client.diff.compare('/tmp/before.csv', '/tmp/after.csv', { key: ['id'], sampleLimit: 5 }).then((result) => result.summary.changed),
 ];
 void [access.kind, dataset.providerMetadata?.raw.source, validation.schema?.fields[0]?.nullable,
   download.provenance.transformations[0]?.operation, queryResult.rows[0]?.count,
-  queryCache.status, queryWarning.code, operations];
+  queryCache.status, queryWarning.code, diffResult.summary.unchanged, operations];
 `,
   );
   await writeFile(
