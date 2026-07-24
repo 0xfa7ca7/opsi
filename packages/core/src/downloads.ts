@@ -1,7 +1,7 @@
 import { basename, join } from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { rm, stat } from "node:fs/promises";
+import { lstat, rm, stat } from "node:fs/promises";
 import { EXIT_CODES, KlopsiError, type ResourceId } from "@klopsi/domain";
 import {
   Downloader,
@@ -10,6 +10,7 @@ import {
   safeFilename,
   redactUrl,
   publishArtifactPair,
+  type CacheObject,
   type ContentCache,
   type DownloadLimits,
   type DownloadResult,
@@ -54,6 +55,69 @@ async function destinationPath(requested: string | undefined, fallback: string):
     return (await stat(requested)).isDirectory() ? join(requested, basename(fallback)) : requested;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return requested;
+    throw error;
+  }
+}
+function downloadTooLarge(): KlopsiError {
+  return new KlopsiError({
+    code: "DOWNLOAD_TOO_LARGE",
+    message: "The download exceeds the byte limit.",
+    exitCode: EXIT_CODES.INVALID_INPUT,
+  });
+}
+function cacheCorrupt(message: string, cause?: unknown): KlopsiError {
+  return new KlopsiError({
+    code: "CACHE_CORRUPT",
+    message,
+    exitCode: EXIT_CODES.INTEGRITY_FAILURE,
+    ...(cause === undefined ? {} : { cause }),
+  });
+}
+async function validateMaterializedCacheObject(
+  path: string,
+  expected: CacheObject,
+  maxBytes: number,
+): Promise<void> {
+  let details;
+  try {
+    details = await lstat(path);
+  } catch (error) {
+    throw cacheCorrupt("The materialized cache object is missing.", error);
+  }
+  if (!details.isFile() || details.isSymbolicLink())
+    throw cacheCorrupt("The materialized cache object is not a regular file.");
+  const hash = createHash("sha256");
+  let bytes = 0;
+  try {
+    for await (const raw of createReadStream(path)) {
+      const chunk = Buffer.from(raw);
+      bytes += chunk.length;
+      if (bytes > maxBytes) throw downloadTooLarge();
+      hash.update(chunk);
+    }
+  } catch (error) {
+    if (error instanceof KlopsiError) throw error;
+    throw cacheCorrupt("The materialized cache object could not be read.", error);
+  }
+  if (bytes !== details.size || bytes !== expected.bytes || hash.digest("hex") !== expected.sha256)
+    throw cacheCorrupt("The materialized cache object failed integrity verification.");
+}
+async function materializeCachedObject(
+  cache: ContentCache,
+  sha256: string,
+  destination: string,
+  maxBytes: number,
+): Promise<CacheObject> {
+  const expected = await cache.getObject(sha256);
+  if (expected.sha256 !== sha256)
+    throw cacheCorrupt("The cached object digest does not match the requested object.");
+  if (expected.bytes > maxBytes) throw downloadTooLarge();
+  try {
+    await cache.materialize(sha256, destination, false, maxBytes);
+    await validateMaterializedCacheObject(destination, expected, maxBytes);
+    return { ...expected, path: destination };
+  } catch (error) {
+    await rm(destination, { force: true });
     throw error;
   }
 }
@@ -108,16 +172,16 @@ export class DownloadService {
           exitCode: EXIT_CODES.NOT_FOUND,
           context: { resourceId: id },
         });
-      const materialized = await this.options.cache.materialize(
+      const materialized = await materializeCachedObject(
+        this.options.cache,
         cached.sha256,
         stagedDestination,
-        false,
         this.options.limits.maxBytes,
       );
       result = {
         path: materialized.path,
-        sha256: cached.sha256,
-        bytes: cached.bytes,
+        sha256: materialized.sha256,
+        bytes: materialized.bytes,
         finalUrl: cached.finalUrl,
         redirectChain: cached.redirectChain,
         ...(cached.mediaType === undefined ? {} : { mediaType: cached.mediaType }),
@@ -154,16 +218,16 @@ export class DownloadService {
         this.options.cache !== undefined &&
         cachedRecord !== undefined
       ) {
-        const materialized = await this.options.cache.materialize(
+        const materialized = await materializeCachedObject(
+          this.options.cache,
           cachedRecord.value.sha256,
           stagedDestination,
-          false,
           this.options.limits.maxBytes,
         );
         result = {
           path: materialized.path,
-          sha256: cachedRecord.value.sha256,
-          bytes: cachedRecord.value.bytes,
+          sha256: materialized.sha256,
+          bytes: materialized.bytes,
           finalUrl: cachedRecord.value.finalUrl,
           redirectChain: cachedRecord.value.redirectChain,
           ...(cachedRecord.value.mediaType === undefined

@@ -459,7 +459,12 @@ interface ContentCache {
   layout(): Promise<CacheLayout>;
   putObject(input: ReadableLike | AsyncIterable<Uint8Array | string>): Promise<CacheObject>;
   getObject(sha256: string): Promise<CacheObject>;
-  materialize(sha256: string, requestedDestination: string, force?: boolean): Promise<CacheObject>;
+  materialize(
+    sha256: string,
+    requestedDestination: string,
+    force?: boolean,
+    maxBytes?: number,
+  ): Promise<CacheObject>;
   putObjectWithMetadata<T>(
     key: string,
     schemaVersion: string,

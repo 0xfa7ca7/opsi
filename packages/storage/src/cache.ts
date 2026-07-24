@@ -296,14 +296,36 @@ export class ContentCache implements MetadataCache {
       `${destination}.part-${process.pid}-${randomUUID()}`;
     let tempHandle;
     let ownsTemp = false;
+    const hash = createHash("sha256");
+    let bytes = 0;
     try {
       tempHandle = await open(temp, "wx", 0o600);
       ownsTemp = true;
-      for await (const raw of createReadStream(object.path))
-        await tempHandle.write(Buffer.from(raw));
+      for await (const raw of createReadStream(object.path)) {
+        const chunk = Buffer.from(raw);
+        const nextBytes = bytes + chunk.length;
+        if (nextBytes > maxBytes)
+          throw new KlopsiError({
+            code: "DOWNLOAD_TOO_LARGE",
+            message: "The download exceeds the byte limit.",
+            exitCode: EXIT_CODES.INVALID_INPUT,
+          });
+        hash.update(chunk);
+        await tempHandle.write(chunk);
+        bytes = nextBytes;
+      }
       await tempHandle.sync();
       await tempHandle.close();
       tempHandle = undefined;
+      const completed = await lstat(temp);
+      if (
+        !completed.isFile() ||
+        completed.isSymbolicLink() ||
+        completed.size !== bytes ||
+        bytes !== object.bytes ||
+        hash.digest("hex") !== object.sha256
+      )
+        throw corrupt("Cached object changed during materialization.");
       if (force) {
         try {
           const current = await lstat(destination);

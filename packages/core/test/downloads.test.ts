@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Readable } from "node:stream";
-import { lstat, readFile } from "node:fs/promises";
+import { lstat, readFile, readdir } from "node:fs/promises";
 import { ContentCache } from "@klopsi/storage";
 import {
   datasetId,
@@ -67,10 +67,10 @@ async function service(filename: string, offline = false) {
   };
 }
 
-async function cachedService(offline: boolean) {
+async function cachedService(offline: boolean, content = "cached", maxBytes = 5) {
   const downloadDir = await mkdtemp(join(tmpdir(), "klopsi-cached-download-limit-"));
   const cache = new ContentCache(join(downloadDir, "cache"));
-  const object = await cache.putObject(Readable.from(["cached"]));
+  const object = await cache.putObject(Readable.from([content]));
   await cache.putMetadata(
     "download:p:r",
     "download-v1",
@@ -119,10 +119,14 @@ async function cachedService(offline: boolean) {
       provenance: provenance as never,
       cache,
       downloadDir,
-      limits: { maxBytes: 5, timeoutMs: 100 },
+      limits: { maxBytes, timeoutMs: 100 },
       offline,
     }),
     destination: join(downloadDir, "result.txt"),
+    cache,
+    object,
+    provenance,
+    downloadDir,
     download,
     probe,
   };
@@ -244,6 +248,52 @@ it("rejects an oversized cached object reused offline", async () => {
   await expect(lstat(fixture.destination)).rejects.toMatchObject({ code: "ENOENT" });
   expect(fixture.probe).not.toHaveBeenCalled();
   expect(fixture.download).not.toHaveBeenCalled();
+});
+
+it("rejects an oversized cached object before a custom materializer can ignore the bound", async () => {
+  const fixture = await cachedService(true);
+  const materialize = vi
+    .spyOn(fixture.cache, "materialize")
+    .mockImplementation(async (_digest, destination) => {
+      await writeFile(destination, "cached");
+      return { ...fixture.object, path: destination };
+    });
+
+  await expect(
+    fixture.service.resource(resource.id, { destination: fixture.destination }),
+  ).rejects.toMatchObject({
+    code: "DOWNLOAD_TOO_LARGE",
+    exitCode: 2,
+  });
+  expect(materialize).not.toHaveBeenCalled();
+  await expect(lstat(fixture.destination)).rejects.toMatchObject({ code: "ENOENT" });
+  expect((await readdir(fixture.downloadDir)).filter((name) => name.includes(".part-"))).toEqual(
+    [],
+  );
+});
+
+it("validates a custom materializer's staged digest before provenance or forced publication", async () => {
+  const fixture = await cachedService(true, "safe", 4);
+  const sidecar = `${fixture.destination}.provenance.json`;
+  await writeFile(fixture.destination, "original");
+  await writeFile(sidecar, "original provenance");
+  vi.spyOn(fixture.cache, "materialize").mockImplementation(async (_digest, destination) => {
+    await writeFile(destination, "evil");
+    return { ...fixture.object, path: destination };
+  });
+
+  await expect(
+    fixture.service.resource(resource.id, { destination: fixture.destination, force: true }),
+  ).rejects.toMatchObject({
+    code: "CACHE_CORRUPT",
+    exitCode: 6,
+  });
+  expect(fixture.provenance.write).not.toHaveBeenCalled();
+  expect(await readFile(fixture.destination, "utf8")).toBe("original");
+  expect(await readFile(sidecar, "utf8")).toBe("original provenance");
+  expect((await readdir(fixture.downloadDir)).filter((name) => name.includes(".part-"))).toEqual(
+    [],
+  );
 });
 
 it("returns typed pre-tabular guidance for archive resources without downloading", async () => {

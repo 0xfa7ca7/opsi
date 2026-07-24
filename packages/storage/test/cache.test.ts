@@ -125,6 +125,57 @@ describe("ContentCache", () => {
     await expect(lstat(destination)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
+  it("stops a mutated object at the invocation limit without replacing a forced destination", async () => {
+    const output = await root();
+    const destination = join(output, "winner");
+    const temp = `${destination}.fixed`;
+    class MutatingCache extends ContentCache {
+      override async getObject(digest: string) {
+        const object = await super.getObject(digest);
+        await writeFile(object.path, "unsafe");
+        return object;
+      }
+    }
+    const cache = new MutatingCache(await root(), {
+      materializeTempPath: () => temp,
+    });
+    const object = await cache.putObject(Readable.from(["safe"]));
+    await writeFile(destination, "original");
+
+    await expect(cache.materialize(object.sha256, destination, true, 4)).rejects.toMatchObject({
+      code: "DOWNLOAD_TOO_LARGE",
+      exitCode: 2,
+    });
+    expect(await readFile(destination, "utf8")).toBe("original");
+    await expect(lstat(temp)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readdir(output)).toEqual(["winner"]);
+  });
+
+  it("rejects same-size object mutation before publication and cleans temp and lock state", async () => {
+    const output = await root();
+    const destination = join(output, "materialized");
+    const temp = `${destination}.fixed`;
+    class MutatingCache extends ContentCache {
+      override async getObject(digest: string) {
+        const object = await super.getObject(digest);
+        await writeFile(object.path, "evil");
+        return object;
+      }
+    }
+    const cache = new MutatingCache(await root(), {
+      materializeTempPath: () => temp,
+    });
+    const object = await cache.putObject(Readable.from(["safe"]));
+
+    await expect(cache.materialize(object.sha256, destination, false, 4)).rejects.toMatchObject({
+      code: "CACHE_CORRUPT",
+      exitCode: 6,
+    });
+    await expect(lstat(destination)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(lstat(temp)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readdir(output)).toEqual([]);
+  });
+
   it("cleans a partial copy and releases locks when link materialization fails", async () => {
     const cache = new ContentCache(await root(), {
       linkObject: async () => {
