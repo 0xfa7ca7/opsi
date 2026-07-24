@@ -55,7 +55,7 @@ afterEach(async () => {
 });
 
 describe("DuckDB UI process runner", () => {
-  it("discovers DuckDB and launches the leased database read-only without a shell", async () => {
+  it("discovers DuckDB and launches a writable workbench over the read-only staged database without a shell", async () => {
     const spawnProcess = vi.fn<SpawnDuckDbProcess>((_command, arguments_) =>
       arguments_[0] === "-version"
         ? fakeChild({ stdout: "v1.5.4 (Variegata) 08e34c447b\n" })
@@ -73,11 +73,17 @@ describe("DuckDB UI process runner", () => {
       version: "v1.5.4 (Variegata) 08e34c447b",
     });
     if (info === undefined) throw new Error("DuckDB should be available");
-    await expect(runner.open(info, "/tmp/data with spaces.duckdb")).resolves.toEqual(info);
+    await expect(runner.open(info, "/tmp/data's stage/data.duckdb")).resolves.toEqual(info);
 
     expect(spawnProcess).toHaveBeenLastCalledWith(
       "duckdb",
-      ["-readonly", "/tmp/data with spaces.duckdb", "-ui"],
+      [
+        "/tmp/data's stage/workbench.duckdb",
+        "-cmd",
+        "ATTACH '/tmp/data''s stage/data.duckdb' AS dataset (READ_ONLY); " +
+          "CREATE VIEW main.data AS SELECT * FROM dataset.main.data;",
+        "-ui",
+      ],
       {
         env: { PATH: "/usr/bin" },
         shell: false,

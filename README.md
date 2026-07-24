@@ -113,7 +113,7 @@ klopsi query ./downloads/data.csv \
   --json
 ```
 
-Open the same prepared table `data` in DuckDB UI. Install the external DuckDB CLI explicitly when it is not already available:
+Open the same prepared table `data` in a DuckDB dataset workbench. The writable workbench is session-local, while KLOPSI attaches the staged source read-only. Install the external DuckDB CLI explicitly when it is not already available:
 
 ```sh
 klopsi duckdb open ./downloads/data.csv
@@ -207,9 +207,11 @@ Or install only a focused skill and its `klopsi-shared` prerequisite:
 
 ```sh
 npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-analysis
-npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-duckdb-ui
+npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-dataset-workbench
 npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-shared
 ```
+
+The dataset workbench skill represents prepared data as a database for SQL, profiles, tables, and charts. It can also offer to create a DuckDB UI notebook named `Example queries` through supported UI controls.
 
 Prepared local data can be presented through two agent-authored and contract-verified workflow skills. Both create one self-contained offline HTML artifact: choose the static skill for a concise printable board or the interactive skill for bounded exploration across linked views. Install either focused workflow together with its shared contract and verifier:
 
@@ -261,7 +263,7 @@ Offline commands never make network requests. Operations that require uncached m
 
 ## Security
 
-Remote content is subject to HTTPS, DNS, redirect, timeout, and download-size controls. Bounded `klopsi query` operations run with DuckDB external access and extension loading disabled. DuckDB UI is an explicitly launched local exploratory environment and is outside that query sandbox; KLOPSI opens only an invocation-local staged database read-only. Downloads, conversions, and query exports publish atomically and record provenance.
+Remote content is subject to HTTPS, DNS, redirect, timeout, and download-size controls. Bounded `klopsi query` operations run with DuckDB external access and extension loading disabled. DuckDB UI is an explicitly launched local exploratory environment and is outside that query sandbox; KLOPSI opens a writable invocation-local workbench with the staged dataset attached read-only. Downloads, conversions, and query exports publish atomically and record provenance.
 
 Read the [security model](docs/security.md) and [security policy](SECURITY.md) before enabling network overrides or reporting a vulnerability.
 

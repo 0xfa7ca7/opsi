@@ -11,7 +11,7 @@ Installable Agent Skills for using the KLOPSI CLI from compatible AI agents. Run
 | [klopsi-download](../skills/klopsi-download/SKILL.md) | Use when securely downloading an OPSI dataset or resource and choosing a destination or overwrite handling. |
 | [klopsi-validation](../skills/klopsi-validation/SKILL.md) | Use when checking local or provider data, or OPSI metadata, for integrity issues and remediation. |
 | [klopsi-analysis](../skills/klopsi-analysis/SKILL.md) | Use when querying or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports. |
-| [klopsi-duckdb-ui](../skills/klopsi-duckdb-ui/SKILL.md) | Use when acquired or computed Slovenian public data should be explored interactively in DuckDB UI with SQL, tables, summaries, or temporary charts. |
+| [klopsi-dataset-workbench](../skills/klopsi-dataset-workbench/SKILL.md) | Use when acquired or computed Slovenian public data should be represented as an explorable database with SQL, profiles, tables, charts, or an Example queries notebook. |
 | [klopsi-services](../skills/klopsi-services/SKILL.md) | Use when Slovenian public data is exposed through WFS and the request needs capabilities, layers, schemas, bounded feature previews, counts, or CSV exports. |
 | [klopsi-provenance](../skills/klopsi-provenance/SKILL.md) | Use when inspecting or verifying KLOPSI artifact provenance, transformations, or integrity mismatches. |
 | [klopsi-static-dashboard](../skills/klopsi-static-dashboard/SKILL.md) | Use when prepared Slovenian public data needs a concise static HTML dashboard, presentation board, printable visual summary, chart panel, heatmap, ranked list, or offline map. |

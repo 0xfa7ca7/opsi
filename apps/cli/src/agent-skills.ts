@@ -47,7 +47,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     workflows: [
       "Acquire and analyze data",
       "Inspect and export WFS data",
-      "Explore prepared data in DuckDB UI",
+      "Represent and explore a dataset in a database workbench",
       "Analyze and present data",
       "Refresh an agent installation",
     ],
@@ -59,7 +59,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       "klopsi-download",
       "klopsi-validation",
       "klopsi-analysis",
-      "klopsi-duckdb-ui",
+      "klopsi-dataset-workbench",
       "klopsi-services",
       "klopsi-provenance",
       "klopsi-static-dashboard",
@@ -312,33 +312,43 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
   },
   {
     kind: "command",
-    name: "klopsi-duckdb-ui",
+    name: "klopsi-dataset-workbench",
     description:
-      "Use when acquired or computed Slovenian public data should be explored interactively in DuckDB UI with SQL, tables, summaries, or temporary charts.",
+      "Use when acquired or computed Slovenian public data should be represented as an explorable database with SQL, profiles, tables, charts, or an Example queries notebook.",
     commands: ["duckdb open", "duckdb install"],
     purpose:
-      "Open a resolved tabular input as the read-only `data` table in DuckDB UI for local exploratory visual analysis.",
+      "Represent a resolved tabular dataset as the read-only `data` relation in a writable local database workbench.",
     workflows: [
-      "Inspect or validate the selected input, verify important artifact provenance, then open it in DuckDB UI for an attached exploratory session.",
+      "Inspect or validate the selected input, verify important artifact provenance, then represent it as the `data` relation in a database workbench.",
+      "Offer a dataset-specific `Example queries` notebook for guided exploration when supported UI control is available.",
       "Use an existing DuckDB CLI when available and install it only after explicit authorization.",
       "Move reproducible results back through bounded KLOPSI query exports or a durable HTML dashboard workflow.",
     ],
     capabilities: [
       {
-        id: "exploration-fit",
-        title: "Choose exploratory DuckDB UI",
+        id: "representation-fit",
+        title: "Choose a database workbench",
         instructions: [
-          "Use DuckDB UI for a local exploratory session that needs iterative SQL, profiling, tables, summaries, or temporary charts over acquired or computed data.",
+          "Use this skill when acquired or computed data should be represented as an explorable database for iterative SQL, profiling, tables, summaries, charts, or guided example queries.",
           "Do not treat a UI session as the final artifact when the user needs a reproducible export, a self-contained presentation, or a result that another person can open without DuckDB.",
         ],
       },
       {
-        id: "open-prepared-data",
-        title: "Open prepared data",
+        id: "open-workbench",
+        title: "Open the dataset workbench",
         instructions: [
           "Prefer a verified downloaded, converted, WFS-exported, or query-exported local artifact; use `--entry`, `--record-path`, or `--sheet` when the selected ZIP, XML, or XLSX input requires it.",
-          "Run `klopsi duckdb open <input>` and query the staged table `data`. KLOPSI opens the leased database read-only and removes it after DuckDB UI exits.",
+          "Run `klopsi duckdb open <input>` and query the workbench table `data`. KLOPSI opens a writable session-local workbench with the staged dataset attached read-only, then removes both invocation-local databases after DuckDB UI exits.",
           "DuckDB UI is an attached local SQL environment, not the bounded read-only SQL sandbox provided by `klopsi query`; keep untrusted SQL and extensions out of the session.",
+        ],
+      },
+      {
+        id: "example-queries",
+        title: "Offer an Example queries notebook",
+        instructions: [
+          "Offer to create a notebook named `Example queries`. If the user accepts and supported UI control is available, create it through DuckDB UI controls with a small dataset-specific set of titled, read-only SQL cells.",
+          "Choose only useful cells: preview and schema orientation, coverage or completeness, latest values or top categories, trends or period-over-period changes, and missing-period, duplicate, or null checks.",
+          "Do not write private DuckDB UI storage tables, and never claim the notebook was created unless the supported UI action succeeded. If UI control is unavailable, present the proposed numbered queries for the user to paste.",
         ],
       },
       {
@@ -351,6 +361,15 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       },
       {
         id: "handoff",
+        title: "Present the open workbench",
+        instructions: [
+          "Use this final-response section order: `DuckDB dataset workbench`, `Open workbench`, `Dataset`, `Checks`, `Example queries`, `Sources`.",
+          "Place the local URL immediately under `Open workbench`. Show compact dataset facts such as title, relation, rows, coverage, measures, and columns; then report validation, provenance, and attached read-only status.",
+          "Report the `Example queries` notebook as created, offered, or unavailable and list its numbered query topics. End with source and transformation files plus a note that the writable workbench is session-local.",
+        ],
+      },
+      {
+        id: "preserve-results",
         title: "Preserve reproducible results",
         instructions: [
           "For a reproducible computed artifact, rerun the final bounded SQL through `klopsi query --output <path>` and verify its provenance rather than relying on UI-only state.",
@@ -361,6 +380,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     safety: [
       "Install the external DuckDB CLI only after explicit authorization.",
       "Do not describe DuckDB UI SQL as KLOPSI's bounded query sandbox.",
+      "Create notebooks only through supported UI controls and report their status accurately.",
       "Do not claim durable provenance for temporary UI state or charts.",
     ],
     related: ["klopsi-analysis", "klopsi-static-dashboard", "klopsi-interactive-dashboard"],
@@ -934,9 +954,10 @@ Do not pass \`/klopsi\`, \`@klopsi\`, or \`$klopsi\` to the shell. Those are hos
 ### ${definition.workflows[2]}
 
 1. Inspect or validate the selected acquired or computed artifact and verify available provenance.
-2. Use \`klopsi-duckdb-ui\` for a local exploratory session over the staged \`data\` table.
-3. Install the optional external DuckDB CLI only after explicit authorization; DuckDB UI is not the bounded \`klopsi query\` sandbox.
-4. Persist reproducible results with a bounded query export, or continue to a durable HTML presentation workflow.
+2. Use \`klopsi-dataset-workbench\` to represent the prepared dataset as the \`data\` relation in a writable local workbench with the staged source attached read-only.
+3. Offer a dataset-specific \`Example queries\` notebook through supported UI control, and report accurately whether it was created.
+4. Install the optional external DuckDB CLI only after explicit authorization; DuckDB UI is not the bounded \`klopsi query\` sandbox.
+5. Persist reproducible results with a bounded query export, or continue to a durable HTML presentation workflow.
 
 ### ${definition.workflows[3]}
 
