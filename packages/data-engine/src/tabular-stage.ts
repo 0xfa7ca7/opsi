@@ -3,6 +3,7 @@ import { rm } from "node:fs/promises";
 import type { DuckDBInstance, DuckDBTypeId, DuckDBConnection } from "@duckdb/node-api";
 import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { detectFormat } from "./detect.js";
+import { sqlIdentifier } from "./sql-identifier.js";
 import { sqlString } from "./sql-path.js";
 import type { DataInput, FormatDetection, SupportedInputFormat, ValidationIssue } from "./types.js";
 import { scanXlsx } from "./xlsx.js";
@@ -11,7 +12,10 @@ import { writeXmlRowsAsNdjson } from "./xml.js";
 export interface StagedColumn {
   readonly name: string;
   readonly typeId: DuckDBTypeId;
+  readonly type: string;
 }
+
+export type StagedTableName = "data" | "before_data" | "after_data";
 
 export interface TabularStage {
   readonly connection: DuckDBConnection;
@@ -109,6 +113,7 @@ export async function stageTabularInput(options: {
   readonly preserveDatabaseOnClose?: boolean;
   readonly xmlLimits?: import("./xml.js").XmlLimits;
   readonly signal?: AbortSignal;
+  readonly tableName?: StagedTableName;
 }): Promise<TabularStage> {
   options.signal?.throwIfAborted();
   const detection = options.detection ?? (await detectFormat(options.input));
@@ -205,13 +210,16 @@ export async function stageTabularInput(options: {
     options.signal?.throwIfAborted();
     // This is a KLOPSI-owned statement. Only the path literal is variable and is
     // quoted by sqlString; no user SQL reaches the staging connection.
+    const tableName = options.tableName ?? "data";
+    const table = sqlIdentifier(tableName);
     await connection.run(
-      `CREATE TABLE data AS SELECT * FROM ${sourceExpression(stagedFormat, stagedSource, detection)}`,
+      `CREATE TABLE ${table} AS SELECT * FROM ${sourceExpression(stagedFormat, stagedSource, detection)}`,
     );
-    const result = await connection.runAndReadAll("SELECT * FROM data LIMIT 0");
+    const result = await connection.runAndReadAll(`SELECT * FROM ${table} LIMIT 0`);
     const columns = Array.from({ length: result.columnCount }, (_, index) => ({
       name: result.columnName(index),
       typeId: result.columnTypeId(index),
+      type: result.columnType(index).toString(),
     }));
     if (columns.length === 0)
       throw new KlopsiError({

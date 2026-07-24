@@ -7,11 +7,12 @@ description: "Use when querying or converting bounded data, including ZIP, XML, 
 
 > **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before executing these commands.
 
-Analyze tabular inputs with bounded read-only SQL or convert supported formats. Generated for `klopsi` 0.0.1.
+Compare tabular refreshes, analyze inputs with bounded read-only SQL, or convert supported formats. Generated for `klopsi` 0.0.1.
 
 ## Workflow
 
 - Preview and validate input before running a bounded query.
+- Compare two refreshes by explicit unique keys before interpreting downstream changes.
 - Convert an input and then verify the generated provenance record.
 
 ## Capability guide
@@ -20,6 +21,7 @@ Analyze tabular inputs with bounded read-only SQL or convert supported formats. 
 
 - Query or convert CSV, TSV, JSON, NDJSON, XLSX, Parquet, ZIP, or XML only after inspection identifies a usable tabular member.
 - Use a resolved `--entry`, `--record-path`, or `--sheet` whenever ZIP, XML, or XLSX input is ambiguous.
+- Use `diff` with explicit non-null unique key columns; correct missing, type-mismatched, null, or duplicate key diagnostics instead of accepting misleading row counts.
 
 ### Run bounded read-only SQL
 
@@ -37,6 +39,37 @@ Analyze tabular inputs with bounded read-only SQL or convert supported formats. 
 - Validate or inspect the converted result and use `provenance verify`; do not overwrite an existing destination without authorization.
 
 ## Commands
+
+### `diff`
+
+Compare two tabular datasets by explicit keys (experimental).
+
+```sh
+klopsi diff <before> <after> --key <columns...> [options]
+```
+
+#### Arguments
+
+| Argument | Values | Description |
+| --- | --- | --- |
+| `<before>` | — | earlier local path or canonical resource reference |
+| `<after>` | — | later local path or canonical resource reference |
+
+#### Options
+
+| Option | Required | Values | Conflicts | Description |
+| --- | --- | --- | --- | --- |
+| `--key <columns...>` | yes | columns... | — | key columns that uniquely identify a row |
+| `--limit <rows>` | no | rows | — | maximum samples per change class (1-100) |
+| `--before-sheet <name>` | no | name | — | XLSX sheet for the earlier input |
+| `--after-sheet <name>` | no | name | — | XLSX sheet for the later input |
+| `--before-entry <path>` | no | path | — | ZIP data entry for the earlier input |
+| `--after-entry <path>` | no | path | — | ZIP data entry for the later input |
+| `--before-record-path <path>` | no | path | — | XML record path for the earlier input |
+| `--after-record-path <path>` | no | path | — | XML record path for the later input |
+| `--allow-insecure-http` | no | — | — | allow HTTP for this invocation |
+| `--allow-private-network` | no | — | — | allow private network addresses for this invocation |
+
 
 ### `query`
 
@@ -98,6 +131,7 @@ klopsi convert <input> --to <format> --output <path> [options]
 
 ## Safety
 
+- Require explicit non-null unique keys for semantic dataset comparison.
 - Keep SQL read-only and bounded.
 - Confirm before replacing an existing output with --force.
 

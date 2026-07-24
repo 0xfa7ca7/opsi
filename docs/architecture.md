@@ -10,6 +10,16 @@ The domain package has no infrastructure dependency. Core depends on domain port
 
 A catalogue request flows CLI → `KlopsiClient` → `ProviderRegistry` → selected `DataProvider`; the provider validates upstream envelopes before mapping entities. A data request first resolves a local/canonical input, applies network policy where needed, stages content, invokes the selected handler, and returns domain-neutral rows/issues. Query hashes resolved content (or reuses a verified download digest), detects its format, and keys an immutable DuckDB stage by content, sheet, staging contract, and DuckDB compatibility version. A hit is linked or copied into a fresh invocation directory and opened read-only by the isolated worker; a miss stages once under a per-key build lock and publishes through the content-addressed cache. Output rendering is last so domain/core never knows terminal formats.
 
+Experimental semantic diff resolves two inputs under nested leases, co-locates them as
+`before_data` and `after_data` in a fresh invocation-local DuckDB database, closes
+writable staging, and executes trusted generated SQL in the same isolated read-only
+worker used by query. A key-quality aggregate rejects missing, differently typed,
+null, or duplicate composite keys. A full outer join and window aggregates then
+produce exact row categories while only deterministic per-category samples cross
+into JavaScript memory. Identifier interpolation always uses doubled-quote SQL
+escaping. Diff stages are not retained: allowing the sandbox to attach two cached
+databases would broaden its external-access boundary and is deferred.
+
 Storage owns the DuckDB-agnostic derived-artifact policy: 30-day sliding expiry, once-daily touch throttling, expired-first/LRU pruning, and a default 10 GB derived-only budget. Data-engine owns writable staging, structural verification, and prepared read-only execution. Core coordinates lookup, single-builder publication, fallback, and `hit|miss|bypass` metadata. Cache objects are rebuildable performance artifacts, not a user database or an offline-content guarantee.
 
 Normal `dataset list` is the exception to the direct provider flow. A scheduled GitHub Actions

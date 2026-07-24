@@ -224,6 +224,29 @@ export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
     ],
   ),
   leaf(
+    "diff",
+    "Compare two tabular datasets by explicit keys (experimental)",
+    [
+      argument("<before>", "earlier local path or canonical resource reference"),
+      argument("<after>", "later local path or canonical resource reference"),
+    ],
+    [
+      option("--key <columns...>", "key columns that uniquely identify a row", {
+        mandatory: true,
+      }),
+      option("--limit <rows>", "maximum samples per change class (1-100)", {
+        parser: "positive",
+      }),
+      option("--before-sheet <name>", "XLSX sheet for the earlier input"),
+      option("--after-sheet <name>", "XLSX sheet for the later input"),
+      option("--before-entry <path>", "ZIP data entry for the earlier input"),
+      option("--after-entry <path>", "ZIP data entry for the later input"),
+      option("--before-record-path <path>", "XML record path for the earlier input"),
+      option("--after-record-path <path>", "XML record path for the later input"),
+      ...NETWORK_OPTIONS,
+    ],
+  ),
+  leaf(
     "query",
     "Run one sandboxed read-only query over tabular data",
     [argument("<input>", "local path or canonical resource reference")],

@@ -10,6 +10,7 @@ import {
 } from "@klopsi/storage";
 import {
   DataEngine,
+  DatasetDiffEngine,
   type ArchiveLimits,
   type DataEngineOptions,
   type XmlLimits,
@@ -23,6 +24,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { WfsService } from "./wfs/service.js";
 import { ResourceAccessService } from "./access.js";
+import { DiffService } from "./diffs.js";
 
 export interface KlopsiClientOptions {
   readonly registry: ProviderRegistry;
@@ -52,6 +54,7 @@ export class KlopsiClient {
   readonly data: DataService;
   readonly conversions: ConversionService;
   readonly query: QueryService;
+  readonly diff: DiffService;
   readonly services: { readonly wfs: WfsService };
   readonly access: ResourceAccessService;
   private readonly registry: ProviderRegistry;
@@ -73,6 +76,7 @@ export class KlopsiClient {
     this.conversions = new ConversionService(this.data);
     const queryWorkerPath = options.queryWorkerPath ?? defaultQueryWorkerPath();
     const runner = new DuckDbQueryRunner({ workerPath: queryWorkerPath });
+    this.diff = new DiffService(this.data, new DatasetDiffEngine({ runner }));
     const derived =
       options.cache === undefined || options.duckdbCache === undefined
         ? undefined

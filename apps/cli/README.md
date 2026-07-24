@@ -56,6 +56,14 @@ klopsi query ./downloads/data.csv \
   --json
 ```
 
+Compare two refreshes by one or more unique, non-null key columns. The semantic diff
+surface is experimental:
+
+```sh
+klopsi diff ./downloads/data-2025.csv ./downloads/data-2026.parquet --key id
+klopsi diff old.csv new.csv --key municipality year --limit 5 --json
+```
+
 Open the prepared table `data` in a DuckDB dataset workbench, optionally authorizing installation of the external CLI. The writable workbench is session-local, while KLOPSI attaches the staged source read-only:
 
 ```sh
@@ -86,6 +94,7 @@ Run `klopsi --help` or read the [complete command reference](https://github.com/
 | Inspect or preview a resource | `klopsi resource show <id>` / `klopsi resource preview <input>` |
 | Download data                 | `klopsi download <ids...>`                                      |
 | Validate data or metadata     | `klopsi validate <input>`                                       |
+| Compare tabular refreshes     | `klopsi diff <before> <after> --key <columns...>`               |
 | Query tabular data            | `klopsi query <input> --sql <statement>`                        |
 | Explore data in DuckDB UI     | `klopsi duckdb open <input>`                                    |
 | Convert formats               | `klopsi convert <input> --to <format> --output <path>`          |

@@ -253,10 +253,12 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     name: "klopsi-analysis",
     description:
       "Use when querying or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports.",
-    commands: ["query", "convert"],
-    purpose: "Analyze tabular inputs with bounded read-only SQL or convert supported formats.",
+    commands: ["diff", "query", "convert"],
+    purpose:
+      "Compare tabular refreshes, analyze inputs with bounded read-only SQL, or convert supported formats.",
     workflows: [
       "Preview and validate input before running a bounded query.",
+      "Compare two refreshes by explicit unique keys before interpreting downstream changes.",
       "Convert an input and then verify the generated provenance record.",
     ],
     capabilities: [
@@ -266,6 +268,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         instructions: [
           "Query or convert CSV, TSV, JSON, NDJSON, XLSX, Parquet, ZIP, or XML only after inspection identifies a usable tabular member.",
           "Use a resolved `--entry`, `--record-path`, or `--sheet` whenever ZIP, XML, or XLSX input is ambiguous.",
+          "Use `diff` with explicit non-null unique key columns; correct missing, type-mismatched, null, or duplicate key diagnostics instead of accepting misleading row counts.",
         ],
       },
       {
@@ -294,6 +297,7 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
       },
     ],
     safety: [
+      "Require explicit non-null unique keys for semantic dataset comparison.",
       "Keep SQL read-only and bounded.",
       "Confirm before replacing an existing output with --force.",
     ],
