@@ -68,6 +68,89 @@ beforeEach(async () => {
 afterEach(async () => rm(root, { recursive: true, force: true }));
 
 describe("tabular conversion", () => {
+  it("converts PC-Axis input to CSV and JSON while preserving long-form rows and warnings", async () => {
+    const input = path("tourism.px");
+    await writeFile(
+      input,
+      `AXIS-VERSION="2024";
+CODEPAGE="utf-8";
+MATRIX="tourism";
+STUB="Place";
+HEADING="Year";
+VALUES("Place")="Ljubljana";
+CODES("Place")="001";
+VALUES("Year")="2023","2024";
+DATA=1 ".";`,
+    );
+    const engine = new DataEngine();
+    const csv = path("tourism.csv");
+    const json = path("tourism.json");
+
+    const csvResult = await engine.convert({
+      input,
+      output: csv,
+      targetFormat: "csv",
+      force: false,
+    });
+    const jsonResult = await engine.convert({
+      input,
+      output: json,
+      targetFormat: "json",
+      force: false,
+    });
+
+    expect(csvResult.warnings).toContainEqual(
+      expect.objectContaining({ code: "PCAXIS_DATA_SYMBOL" }),
+    );
+    expect(jsonResult.warnings).toContainEqual(
+      expect.objectContaining({ code: "PCAXIS_DATA_SYMBOL" }),
+    );
+    await expect(engine.preview(csv)).resolves.toMatchObject({
+      rows: [
+        { Place: "Ljubljana", Place__code: "001", Year: "2023", value: "1", value__symbol: "" },
+        {
+          Place: "Ljubljana",
+          Place__code: "001",
+          Year: "2024",
+          value: "",
+          value__symbol: ".",
+        },
+      ],
+    });
+    await expect(engine.preview(json)).resolves.toMatchObject({
+      rows: [
+        { Place: "Ljubljana", Place__code: "001", Year: "2023", value: 1, value__symbol: null },
+        {
+          Place: "Ljubljana",
+          Place__code: "001",
+          Year: "2024",
+          value: null,
+          value__symbol: ".",
+        },
+      ],
+    });
+  });
+
+  it("cleans PC-Axis staging files when conversion fails after staging", async () => {
+    const input = path("cleanup.px");
+    const output = path("cleanup.json");
+    await writeFile(
+      input,
+      `AXIS-VERSION="2024";CODEPAGE="utf-8";MATRIX="cleanup";STUB="Row";VALUES("Row")="A","B";DATA=1 2;`,
+    );
+    const engine = new DataEngine({
+      onAdapter: (name) => {
+        if (name === "convert-json") throw new Error("injected PC-Axis export failure");
+      },
+    });
+
+    await expect(
+      engine.convert({ input, output, targetFormat: "json", force: false }),
+    ).rejects.toThrow("injected PC-Axis export failure");
+    expect((await readdir(root)).filter((name) => name.startsWith("cleanup.json."))).toEqual([]);
+    await expect(readFile(output)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("converts UTF-16LE tab-separated input declared as CSV", async () => {
     const input = path("budget.csv");
     const output = path("budget.json");

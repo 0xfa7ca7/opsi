@@ -21,9 +21,10 @@ import { validateData } from "./validate.js";
 import { convertData } from "./convert.js";
 import type { ConversionOptions } from "./types.js";
 import { previewXml } from "./xml.js";
+import { previewPcAxis } from "./pcaxis.js";
 
-function supported(format: string): format is Exclude<SupportedInputFormat, "pcaxis"> {
-  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"].includes(format);
+function supported(format: string): format is SupportedInputFormat {
+  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml", "pcaxis"].includes(format);
 }
 
 function unsupported(format: string): never {
@@ -36,7 +37,7 @@ function unsupported(format: string): never {
     exitCode: EXIT_CODES.UNSUPPORTED,
     suggestion: archive
       ? "Download the archive, extract a supported tabular file, then preview that file."
-      : "Download or convert the resource to CSV, TSV, JSON, NDJSON, XLSX, or Parquet.",
+      : "Download or convert the resource to CSV, TSV, JSON, NDJSON, XLSX, Parquet, XML, or PC-Axis.",
     context: { format },
   });
 }
@@ -116,6 +117,10 @@ export class DataEngine {
       });
     const detection = await detectFormat(input);
     if (!supported(detection.format)) unsupported(detection.format);
+    if (detection.format === "pcaxis") {
+      this.options.onAdapter?.("pcaxis");
+      return previewPcAxis(detection.path, { limit }, this.options.pcAxisLimits);
+    }
     if (detection.format === "csv" || detection.format === "tsv") {
       this.options.onAdapter?.(detection.format);
       let parsed;
@@ -200,7 +205,13 @@ export class DataEngine {
   }
 
   async inferSchema(input: DataInput, options: PreviewOptions = {}): Promise<InferredSchema> {
-    const preview = await this.preview(input, { ...options, limit: options.limit ?? 500 });
+    let limit = options.limit ?? 500;
+    if (this.options.pcAxisLimits !== undefined) {
+      const detection = await detectFormat(input);
+      if (detection.format === "pcaxis")
+        limit = Math.min(limit, this.options.pcAxisLimits.maxEmittedRecords);
+    }
+    const preview = await this.preview(input, { ...options, limit });
     const fields = preview.columns.map((name) => {
       const values = preview.rows.map((row) => row[name]);
       const nonNull = values.filter((value) => inferredType(value) !== "null");
@@ -232,6 +243,9 @@ export class DataEngine {
       maxIssueGroups: this.options.validationMaxIssueGroups ?? 10_000,
       xlsxSharedStringsByteLimit: this.xlsxSharedStringsByteLimit,
       ...(this.options.xmlLimits === undefined ? {} : { xmlLimits: this.options.xmlLimits }),
+      ...(this.options.pcAxisLimits === undefined
+        ? {}
+        : { pcAxisLimits: this.options.pcAxisLimits }),
     });
   }
 

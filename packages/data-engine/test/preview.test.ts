@@ -28,6 +28,69 @@ afterEach(async () => {
 });
 
 describe("bounded previews and schema inference", () => {
+  it("previews PC-Axis rows and infers their long-form schema with configured limits", async () => {
+    const path = await temporaryFile(
+      "tourism.px",
+      `AXIS-VERSION="2024";
+CODEPAGE="utf-8";
+MATRIX="tourism";
+STUB="Place";
+HEADING="Year";
+VALUES("Place")="Ljubljana";
+CODES("Place")="001";
+VALUES("Year")="2023","2024";
+DATA=1.5 ".";`,
+    );
+    const adapters: string[] = [];
+    const pcAxisEngine = new DataEngine({
+      onAdapter: (name) => adapters.push(name),
+      pcAxisLimits: {
+        maxSourceBytes: 4_096,
+        maxMetadataBytes: 2_048,
+        maxMetadataStatements: 20,
+        maxStatementBytes: 512,
+        maxDimensions: 4,
+        maxValuesPerDimension: 10,
+        maxCells: 10,
+        maxDecodedStringBytes: 128,
+        maxNotes: 10,
+        maxLanguageVariants: 10,
+        maxCellTokenBytes: 32,
+        maxEmittedRecords: 10,
+        maxStagingBytes: 4_096,
+      },
+    });
+
+    await expect(pcAxisEngine.preview(path, { limit: 2 })).resolves.toMatchObject({
+      format: "pcaxis",
+      encoding: "utf-8",
+      columns: ["Place", "Place__code", "Year", "value", "value__symbol"],
+      rows: [
+        { Place: "Ljubljana", Place__code: "001", Year: "2023", value: 1.5 },
+        {
+          Place: "Ljubljana",
+          Place__code: "001",
+          Year: "2024",
+          value: null,
+          value__symbol: ".",
+        },
+      ],
+      returnedCount: 2,
+      truncated: false,
+      warnings: [expect.objectContaining({ code: "PCAXIS_DATA_SYMBOL" })],
+    });
+    await expect(pcAxisEngine.inferSchema(path)).resolves.toMatchObject({
+      format: "pcaxis",
+      sampledRows: 2,
+      fields: expect.arrayContaining([
+        expect.objectContaining({ name: "Place__code", type: "integer", nullable: false }),
+        expect.objectContaining({ name: "value", type: "double", nullable: true }),
+        expect.objectContaining({ name: "value__symbol", type: "string", nullable: true }),
+      ]),
+    });
+    expect(adapters).toEqual(["pcaxis", "pcaxis"]);
+  });
+
   it("previews UTF-16LE tab-separated data declared as CSV", async () => {
     const path = await temporaryBytes(
       "budget.csv",

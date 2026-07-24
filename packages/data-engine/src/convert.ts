@@ -477,6 +477,9 @@ export async function convertData(
       xlsxRowsPath,
       xlsxSharedStringsByteLimit,
       ...(engineOptions.xmlLimits === undefined ? {} : { xmlLimits: engineOptions.xmlLimits }),
+      ...(engineOptions.pcAxisLimits === undefined
+        ? {}
+        : { pcAxisLimits: engineOptions.pcAxisLimits }),
     });
     if (resolve(stage.inputPath) === output)
       throw new KlopsiError({
