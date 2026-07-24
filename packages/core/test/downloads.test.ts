@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Readable } from "node:stream";
-import { readFile } from "node:fs/promises";
+import { lstat, readFile, readdir } from "node:fs/promises";
 import { ContentCache } from "@klopsi/storage";
 import {
   datasetId,
@@ -66,6 +66,72 @@ async function service(filename: string, offline = false) {
     downloadDir,
   };
 }
+
+async function cachedService(offline: boolean, content = "cached", maxBytes = 5) {
+  const downloadDir = await mkdtemp(join(tmpdir(), "klopsi-cached-download-limit-"));
+  const cache = new ContentCache(join(downloadDir, "cache"));
+  const object = await cache.putObject(Readable.from([content]));
+  await cache.putMetadata(
+    "download:p:r",
+    "download-v1",
+    {
+      sha256: object.sha256,
+      bytes: object.bytes,
+      finalUrl: resource.url,
+      redirectChain: [resource.url],
+      mediaType: "text/plain",
+      etag: '"cached"',
+      lastModified: "Sat, 11 Jul 2026 10:00:00 GMT",
+      retrievalSource: resource.url,
+    },
+    object.sha256,
+    undefined,
+    { etag: '"cached"', lastModified: "Sat, 11 Jul 2026 10:00:00 GMT", source: resource.url },
+  );
+  const provider: DataProvider = {
+    descriptor: { id: providerId("p"), name: "p", capabilities: [] },
+    search: vi.fn(),
+    getDataset: vi.fn(async () => {
+      throw new Error("not needed");
+    }),
+    getResource: vi.fn(async () => resource),
+    listDatasetResources: vi.fn(),
+    resolveResource: vi.fn(async () => ({ resource, kind: "file", url: resource.url })),
+  };
+  const probe = vi.fn(async () => ({
+    finalUrl: resource.url,
+    redirectChain: [resource.url],
+    status: 304,
+    headers: {},
+  }));
+  const download = vi.fn();
+  const provenance = {
+    write: vi.fn(async (_artifact, _input, options: { sidecarPath: string }) => {
+      await writeFile(options.sidecarPath, "{}\n");
+      return options.sidecarPath;
+    }),
+  };
+  return {
+    service: new DownloadService({
+      registry: new ProviderRegistry([provider]),
+      providerId: "p",
+      downloader: { probe, download } as never,
+      provenance: provenance as never,
+      cache,
+      downloadDir,
+      limits: { maxBytes, timeoutMs: 100 },
+      offline,
+    }),
+    destination: join(downloadDir, "result.txt"),
+    cache,
+    object,
+    provenance,
+    downloadDir,
+    download,
+    probe,
+  };
+}
+
 describe("DownloadService containment", () => {
   it.each(["../../escape", "/absolute/escape", "..\\..\\escape", "", "CON"])(
     "sanitizes provider filename %j and fallback",
@@ -154,6 +220,80 @@ it("uses cached validators for a conditional request and reuses a 304 object", a
     }),
   );
   expect(download).not.toHaveBeenCalled();
+});
+
+it("rejects an oversized cached object reused after a 304 response", async () => {
+  const fixture = await cachedService(false);
+
+  await expect(
+    fixture.service.resource(resource.id, { destination: fixture.destination }),
+  ).rejects.toMatchObject({
+    code: "DOWNLOAD_TOO_LARGE",
+    exitCode: 2,
+  });
+  await expect(lstat(fixture.destination)).rejects.toMatchObject({ code: "ENOENT" });
+  expect(fixture.probe).toHaveBeenCalled();
+  expect(fixture.download).not.toHaveBeenCalled();
+});
+
+it("rejects an oversized cached object reused offline", async () => {
+  const fixture = await cachedService(true);
+
+  await expect(
+    fixture.service.resource(resource.id, { destination: fixture.destination }),
+  ).rejects.toMatchObject({
+    code: "DOWNLOAD_TOO_LARGE",
+    exitCode: 2,
+  });
+  await expect(lstat(fixture.destination)).rejects.toMatchObject({ code: "ENOENT" });
+  expect(fixture.probe).not.toHaveBeenCalled();
+  expect(fixture.download).not.toHaveBeenCalled();
+});
+
+it("rejects an oversized cached object before a custom materializer can ignore the bound", async () => {
+  const fixture = await cachedService(true);
+  const materialize = vi
+    .spyOn(fixture.cache, "materialize")
+    .mockImplementation(async (_digest, destination) => {
+      await writeFile(destination, "cached");
+      return { ...fixture.object, path: destination };
+    });
+
+  await expect(
+    fixture.service.resource(resource.id, { destination: fixture.destination }),
+  ).rejects.toMatchObject({
+    code: "DOWNLOAD_TOO_LARGE",
+    exitCode: 2,
+  });
+  expect(materialize).not.toHaveBeenCalled();
+  await expect(lstat(fixture.destination)).rejects.toMatchObject({ code: "ENOENT" });
+  expect((await readdir(fixture.downloadDir)).filter((name) => name.includes(".part-"))).toEqual(
+    [],
+  );
+});
+
+it("validates a custom materializer's staged digest before provenance or forced publication", async () => {
+  const fixture = await cachedService(true, "safe", 4);
+  const sidecar = `${fixture.destination}.provenance.json`;
+  await writeFile(fixture.destination, "original");
+  await writeFile(sidecar, "original provenance");
+  vi.spyOn(fixture.cache, "materialize").mockImplementation(async (_digest, destination) => {
+    await writeFile(destination, "evil");
+    return { ...fixture.object, path: destination };
+  });
+
+  await expect(
+    fixture.service.resource(resource.id, { destination: fixture.destination, force: true }),
+  ).rejects.toMatchObject({
+    code: "CACHE_CORRUPT",
+    exitCode: 6,
+  });
+  expect(fixture.provenance.write).not.toHaveBeenCalled();
+  expect(await readFile(fixture.destination, "utf8")).toBe("original");
+  expect(await readFile(sidecar, "utf8")).toBe("original provenance");
+  expect((await readdir(fixture.downloadDir)).filter((name) => name.includes(".part-"))).toEqual(
+    [],
+  );
 });
 
 it("returns typed pre-tabular guidance for archive resources without downloading", async () => {

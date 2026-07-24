@@ -1,10 +1,10 @@
 # Format development
 
-The registered handlers are resilient delimited text, JSON, NDJSON, XLSX, Parquet, generic XML records, and one supported entry from a ZIP archive. Detection combines signatures, media type, bounded content evidence, declarations, and extension. Handlers stream or enforce explicit bounds, normalize rows without executing formulas, clean temporary files, and preserve conversion provenance.
+The registered input handlers are resilient delimited text, JSON, NDJSON, XLSX, Parquet, generic XML records, dense PC-Axis, and one supported entry from a ZIP archive. Detection combines signatures, media type, bounded content evidence, declarations, and extension. Handlers stream or enforce explicit bounds, normalize rows without executing formulas, clean temporary files, and preserve conversion provenance. Writable targets remain CSV, TSV, JSON, NDJSON, XLSX, and Parquet; PC-Axis is input-only.
 
 ## Detection and common contract
 
-Signature evidence wins, then trusted media type, bounded decoded content, declared format, and finally extension. Delimited text detects UTF-8/UTF-16LE/UTF-16BE and comma, tab, semicolon, or pipe dialects. ZIP inspection rejects traversal, links, encryption, nested archives, excessive expansion, and ambiguous selection; pass `--entry`. XML uses bounded SAX parsing, rejects DTD/entities, infers one repeated record path, and accepts `--record-path` when discovery is ambiguous. A preview returns bounded rows, columns, returned count, truncation, selection metadata, and warnings.
+Signature evidence wins, then trusted media type, bounded decoded content, declared format, and finally extension. PC-Axis assignment signatures are tested before generic delimiter sniffing so comma-heavy PX metadata is not mistaken for CSV. Delimited text detects UTF-8/UTF-16LE/UTF-16BE and comma, tab, semicolon, or pipe dialects. ZIP inspection rejects traversal, links, encryption, nested archives, excessive expansion, and ambiguous selection; pass `--entry`. XML uses bounded SAX parsing, rejects DTD/entities, infers one repeated record path, and accepts `--record-path` when discovery is ambiguous. A preview returns bounded rows, columns, returned count, truncation, selection metadata, and warnings.
 
 ## Handler notes
 
@@ -12,6 +12,16 @@ Delimited text uses strict streaming parsing, headers, detected encoding/dialect
 
 Type inference distinguishes null, boolean, integer, number, date/datetime, and string conservatively; mixed/unsafe values fall back to string. Columns and cell/output bytes are bounded. Empty/malformed inputs return stable invalid/validation errors. Query and conversion staging creates a KLOPSI-owned `data` table using quoted paths; no user SQL participates in import statements.
 
+## Dense PC-Axis input
+
+KLOPSI recognizes `.px`, declared `PCAXIS`, `PC-Axis`, and `PX`, `text/x-pcaxis`, and bounded assignment signatures. The v1 parser accepts `CODEPAGE="windows-1250"` and `CODEPAGE="utf-8"`, any number of STUB and HEADING dimensions within configured limits, unqualified VALUES with optional CODES, language-qualified metadata variants, and a dense DATA cube. Metadata such as DECIMALS, UNITS, notes, source/title/database fields, and DATASYMBOL assignments is retained or used for validation where applicable.
+
+Every dense cell becomes one deterministic long-form row. Each dimension contributes a collision-safe label column. When source CODES exist, a sibling `<dimension>__code` string column preserves identifiers exactly, including zero-padded codes. `value` is a finite number or null. A quoted source data symbol such as `"-"` or `"."` produces `value: null`, retains the original token in `value__symbol`, and emits a structured `PCAXIS_DATA_SYMBOL` warning; numeric zero remains `value: 0` and has no source symbol.
+
+Preview stops at its row bound without expanding the full Cartesian product. Schema inference exposes label, code, `value`, and sampled `value__symbol` columns. Validation checks metadata syntax, dimension/cardinality consistency, overflow-safe cell counts, DATA grammar, and dense cube length. Query and conversion stream the same long form into an invocation-local stage, and derived artifacts retain normal provenance behavior.
+
+PC-Axis is not an export target. `KEYS` sparse/keyed files are outside v1 and fail early with `PCAXIS_KEYS_UNSUPPORTED`; unsupported code pages fail with `PCAXIS_ENCODING_UNSUPPORTED`. Other malformed or over-limit inputs use stable `INVALID_PCAXIS_DATA`, `PCAXIS_DIMENSION_LIMIT`, `PCAXIS_CELL_LIMIT`, or `PCAXIS_CELL_COUNT_MISMATCH` errors instead of partial output. Default hard bounds are documented in [configuration](configuration.md).
+
 ## Adding a format
 
-Add it to `SUPPORTED_DATA_FORMATS`, extension/media/signature detection, preview and validation dispatch, conversion source/destination rules if supported, doctor fixture creation and real preview, CLI choices, completion, command docs, and security analysis. Tests need valid, malformed, oversized/boundary, cancellation/cleanup, schema, and round-trip fixtures. If a native package is necessary, keep catalogue startup safe, define supported platform lanes, make failure typed/remediable, and compile omitted-optional SDK consumers.
+Add an input format to the input registry and detection/preview/validation/staging dispatch. Add it to `SUPPORTED_DATA_FORMATS`, conversion destinations, and CLI output choices only when KLOPSI can write that format. Every format needs doctor fixture creation and a real preview, command docs, security analysis, and valid, malformed, oversized/boundary, cancellation/cleanup, schema, and round-trip tests where writing is supported. If a native package is necessary, keep catalogue startup safe, define supported platform lanes, make failure typed/remediable, and compile omitted-optional SDK consumers.

@@ -51,15 +51,19 @@ async function compileSdkConsumer(directory: string): Promise<void> {
   type Dataset,
   type DatasetId,
   type DuckDbCachePolicy,
+  type DataPreview,
   type DownloadRecord,
   type Field,
+  type KlopsiClientOptions,
   type NextAction,
   type ParsedCanonicalReference,
+  type PcAxisLimits,
   type ProviderId,
   type Provenance,
   type QueryResult,
   type QueryCacheMetadata,
   type QueryCacheWarning,
+  type QueryDatabaseWarning,
   type ResourceId,
   type ResourceAccessDescriptor,
   type SearchQuery,
@@ -126,7 +130,40 @@ const queryWarning: QueryCacheWarning = {
   code: 'QUERY_CACHE_BYPASS',
   message: 'temporary staging',
 };
+const queryDataWarning: QueryDatabaseWarning = {
+  code: 'PCAXIS_DATA_SYMBOL',
+  severity: 'warning',
+  message: 'A PC-Axis data symbol was preserved.',
+  recommendation: 'Review the source symbol.',
+  context: { symbol: '.', occurrences: 1 },
+};
 const duckdbCache: DuckDbCachePolicy = { enabled: true, maxBytes: 10_000, ttlMs: 86_400_000 };
+const pcAxisLimits: PcAxisLimits = {
+  maxSourceBytes: 512_000_000,
+  maxMetadataBytes: 16_000_000,
+  maxMetadataStatements: 100_000,
+  maxStatementBytes: 4_000_000,
+  maxDimensions: 64,
+  maxValuesPerDimension: 1_000_000,
+  maxCells: 100_000_000,
+  maxDecodedStringBytes: 1_000_000,
+  maxNotes: 10_000,
+  maxLanguageVariants: 10_000,
+  maxCellTokenBytes: 64_000,
+  maxEmittedRecords: 1_000_000,
+  maxStagingBytes: 1_000_000_000,
+};
+const pcAxisPreview: DataPreview = {
+  format: 'pcaxis',
+  columns: ['Municipality', 'Municipality__code', 'value'],
+  codeColumns: ['Municipality__code'],
+  rows: [{ Municipality: 'Ljubljana', Municipality__code: '061', value: 42 }],
+  returnedCount: 1,
+  truncated: false,
+  warnings: [],
+  encoding: 'utf-8',
+  delimiter: ',',
+};
 const dataset: Dataset = {
   id: datasetId,
   providerId,
@@ -145,11 +182,15 @@ const parsed: ParsedCanonicalReference = { providerId, kind: 'resource', id: res
 if (parsed.kind === 'resource') parsed.id.toUpperCase();
 
 const registry = new ProviderRegistry([]);
-const client: KlopsiClient = new KlopsiClient({
+const clientOptions: KlopsiClientOptions = {
   registry,
   providerId,
   duckdbCache,
+  pcAxisLimits,
   downloads: { downloadDir: '/tmp', limits: { maxBytes: 1_000, timeoutMs: 1_000 } },
+};
+const client: KlopsiClient = new KlopsiClient({
+  ...clientOptions,
 });
 const search: SearchQuery = { text: 'promet', filters: { formats: ['csv'] } };
 const operations = [
@@ -162,6 +203,10 @@ const operations = [
   client.downloads?.headers(resourceId, { allowPrivateNetwork: false }).then((probe) => probe.headers),
   client.cache?.info().then((info) => info.root),
   client.cache?.list().then((items) => items[0]?.bytes),
+  client.cache?.list().then((items) => {
+    const format = items.find((item) => item.kind === 'duckdb-stage')?.format;
+    return format === 'pcaxis' ? format : undefined;
+  }),
   client.cache?.clear(),
   client.cache?.prune().then((result) => result.removed),
   client.cache?.verify().then((result) => result.errors[0]),
@@ -176,7 +221,8 @@ const operations = [
 ];
 void [access.kind, dataset.providerMetadata?.raw.source, validation.schema?.fields[0]?.nullable,
   download.provenance.transformations[0]?.operation, queryResult.rows[0]?.count,
-  queryCache.status, queryWarning.code, operations];
+  queryCache.status, queryWarning.code, queryDataWarning.code,
+  pcAxisPreview.codeColumns?.[0], operations];
 `,
   );
   await writeFile(
@@ -267,6 +313,12 @@ describe("canonical npm tarball", () => {
     );
     expect(sdkDeclaration).toContain("readonly downloads?: DownloadService");
     expect(sdkDeclaration).toContain("readonly cache?: CacheService");
+    expect(sdkDeclaration).toContain("export interface PcAxisLimits");
+    expect(sdkDeclaration).toContain("export interface DataPreview");
+    expect(sdkDeclaration).toContain("readonly codeColumns?: readonly string[]");
+    expect(sdkDeclaration).toContain("readonly delimiter?: DelimitedDialect");
+    expect(sdkDeclaration).toContain('readonly format?: Exclude<SupportedInputFormat, "xml">');
+    expect(sdkDeclaration).toContain("readonly pcAxisLimits?: PcAxisLimits");
   });
 
   it("installs the exact tarball cleanly and smokes CLI, native formats, and SDK", async () => {
@@ -389,7 +441,7 @@ describe("canonical npm tarball", () => {
     );
     expect(sdk.stderr).toBe("");
     await compileSdkConsumer(root);
-  });
+  }, 120_000);
 
   it("reports a typed failure when optional DuckDB dependencies are omitted", async () => {
     const omitted = await mkdtemp(join(tmpdir(), "klopsi-pack-omitted-"));
@@ -439,5 +491,5 @@ describe("canonical npm tarball", () => {
       stdout: expect.stringContaining("DUCKDB_UNAVAILABLE"),
     });
     await compileSdkConsumer(omitted);
-  });
+  }, 120_000);
 });

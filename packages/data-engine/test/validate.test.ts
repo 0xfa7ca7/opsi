@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { DataEngine } from "../src/index.js";
 import ExcelJS from "exceljs";
 import { DuckDBInstance } from "@duckdb/node-api";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 
 const engine = new DataEngine();
 const temporary: string[] = [];
@@ -22,6 +23,90 @@ afterEach(async () => {
 });
 
 describe("data validation", () => {
+  it("fully validates PC-Axis DATA and preserves source symbol warnings", async () => {
+    const valid = await fixture(
+      `AXIS-VERSION="2024";
+CODEPAGE="utf-8";
+MATRIX="valid";
+STUB="Place";
+VALUES("Place")="A","B";
+DATA=1 ".";`,
+      "valid.px",
+    );
+
+    await expect(engine.validate(valid)).resolves.toMatchObject({
+      valid: true,
+      format: "pcaxis",
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          code: "PCAXIS_DATA_SYMBOL",
+          severity: "warning",
+          context: { symbol: ".", occurrences: 1 },
+        }),
+      ]),
+      schema: expect.objectContaining({ format: "pcaxis", sampledRows: 2 }),
+    });
+
+    const values = Array.from({ length: 501 }, (_, index) => `"v${index}"`).join(",");
+    const short = await fixture(
+      `AXIS-VERSION="2024";CODEPAGE="utf-8";MATRIX="short";STUB="Row";VALUES("Row")=${values};DATA=${Array.from(
+        { length: 500 },
+        (_, index) => index,
+      ).join(" ")};`,
+      "short.px",
+    );
+    await expect(engine.validate(short)).rejects.toMatchObject({
+      code: "PCAXIS_CELL_COUNT_MISMATCH",
+      exitCode: 6,
+      context: { expected: 501, actual: 500 },
+    });
+  });
+
+  it("rejects PC-Axis DATA without a final semicolon during full validation", async () => {
+    const path = await fixture(
+      `CODEPAGE="utf-8";MATRIX="unterminated";STUB="Row";VALUES("Row")="A","B";DATA=1 2`,
+      "unterminated.px",
+    );
+
+    await expect(engine.validate(path)).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      exitCode: 6,
+    });
+  });
+
+  it("applies shared validation bounds to PC-Axis rows", async () => {
+    const path = await fixture(
+      `AXIS-VERSION="2024";CODEPAGE="utf-8";MATRIX="bounded";STUB="Row";VALUES("Row")="A","B";DATA=1 2;`,
+      "bounded.px",
+    );
+
+    await expect(new DataEngine({ validationMaxRecords: 1 }).validate(path)).rejects.toMatchObject({
+      code: "VALIDATION_RECORD_LIMIT",
+      exitCode: 5,
+      context: { limit: 1 },
+    });
+  });
+
+  it("preserves typed PC-Axis errors raised during schema inference", async () => {
+    const path = await fixture(
+      `AXIS-VERSION="2024";CODEPAGE="utf-8";MATRIX="typed";STUB="Row";VALUES("Row")="A";DATA=1;`,
+      "typed.px",
+    );
+    const typed = new KlopsiError({
+      code: "PCAXIS_CELL_LIMIT",
+      message: "schema preview limit exceeded",
+      exitCode: EXIT_CODES.INTEGRITY_FAILURE,
+      context: { phase: "schema" },
+    });
+    const schemaFailingEngine = new DataEngine({
+      onAdapter: (name) => {
+        if (name === "pcaxis") throw typed;
+      },
+    });
+
+    await expect(schemaFailingEngine.validate(path)).rejects.toBe(typed);
+  });
+
   it("reports malformed row widths with stable locations and does not mutate input", async () => {
     const path = resolve("packages/testing/fixtures/data/malformed.csv");
     const before = await readFile(path);
@@ -330,6 +415,31 @@ describe("data validation", () => {
     await expect(
       new DataEngine({ validationMaxIssueGroups: 1 }).validate(repeated),
     ).rejects.toMatchObject({ code: "VALIDATION_ISSUE_LIMIT", exitCode: 5 });
+  });
+
+  it("treats absent trailing XLSX cells as nulls within the header width", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "klopsi-xlsx-trailing-nulls-"));
+    temporary.push(directory);
+    const path = join(directory, "trailing-nulls.xlsx");
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Rows");
+    sheet.addRow(["id", "note"]);
+    sheet.addRow([1, null]);
+    sheet.addRow([2, "present"]);
+    await workbook.xlsx.writeFile(path);
+
+    const result = await engine.validate(path, { sheet: "Rows" });
+
+    expect(result).toMatchObject({
+      valid: true,
+      errors: [],
+      schema: {
+        fields: expect.arrayContaining([expect.objectContaining({ name: "note", nullable: true })]),
+      },
+    });
+    expect(result.issues).not.toContainEqual(
+      expect.objectContaining({ code: "INCONSISTENT_COLUMN_COUNT" }),
+    );
   });
 
   it("validates XLSX headers and preserves extra-cell width errors", async () => {

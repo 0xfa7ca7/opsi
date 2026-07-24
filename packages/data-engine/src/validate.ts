@@ -1,15 +1,24 @@
 import { createReadStream } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { createHash } from "node:crypto";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { parse } from "csv-parse";
 import { extname } from "node:path";
-import { KlopsiError } from "@klopsi/domain";
+import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import { detectFormat } from "./detect.js";
 import { scanWithDuckDb } from "./duckdb-import.js";
 import { inferredType, type DataEngine } from "./inspect.js";
 import { scanNdjson } from "./json.js";
 import { scanXlsx } from "./xlsx.js";
 import { previewXml } from "./xml.js";
+import {
+  DEFAULT_PCAXIS_LIMITS,
+  parsePcAxisMetadata,
+  writePcAxisRowsAsNdjson,
+  type PcAxisLimits,
+} from "./pcaxis.js";
 import type { DelimitedDialect, TextEncoding } from "./text-decoding.js";
 import type {
   DataSource,
@@ -467,6 +476,51 @@ class StreamingDiagnostics {
   }
 }
 
+function validationRecordLimit(limit: number): KlopsiError {
+  return new KlopsiError({
+    code: "VALIDATION_RECORD_LIMIT",
+    message: "Validation record limit exceeded.",
+    exitCode: 5,
+    suggestion: "Split the input into smaller files.",
+    context: { limit },
+  });
+}
+
+async function validatePcAxisStream(
+  path: string,
+  limits: ConstructorParameters<typeof StreamingDiagnostics>[0] & {
+    readonly pcAxisLimits?: PcAxisLimits;
+  },
+): Promise<readonly ValidationIssue[]> {
+  const pcAxisLimits = limits.pcAxisLimits ?? DEFAULT_PCAXIS_LIMITS;
+  const metadata = await parsePcAxisMetadata(path, pcAxisLimits);
+  if (metadata.expectedCellCount > limits.maxRecords)
+    throw validationRecordLimit(limits.maxRecords);
+
+  const directory = await mkdtemp(join(tmpdir(), "klopsi-pcaxis-validation-"));
+  const rowsPath = join(directory, "rows.ndjson");
+  try {
+    const normalized = await writePcAxisRowsAsNdjson(
+      path,
+      rowsPath,
+      {},
+      {
+        ...pcAxisLimits,
+        maxEmittedRecords: Math.min(pcAxisLimits.maxEmittedRecords, limits.maxRecords),
+      },
+    );
+    const diagnostics = new StreamingDiagnostics(limits);
+    await scanNdjson(
+      rowsPath,
+      { maxRecords: limits.maxRecords, maxRecordBytes: limits.maxRecordBytes },
+      (row) => diagnostics.add(row),
+    );
+    return [...normalized.warnings, ...diagnostics.finish()];
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
 export async function validateData(
   engine: DataEngine,
   source: DataSource,
@@ -480,6 +534,7 @@ export async function validateData(
     readonly maxStateBytes: number;
     readonly maxIssueGroups: number;
     readonly xmlLimits?: import("./xml.js").XmlLimits;
+    readonly pcAxisLimits?: PcAxisLimits;
   },
 ): Promise<DataValidationResult> {
   const detection = await detectFormat(source);
@@ -521,14 +576,16 @@ export async function validateData(
 
   if (detection.format === "csv" || detection.format === "tsv") {
     const delimiter = detection.delimiter ?? (detection.format === "csv" ? "," : "\t");
+    const encoding = detection.encoding;
+    if (encoding === "windows-1250")
+      throw new KlopsiError({
+        code: "UNSUPPORTED_FORMAT",
+        message: "Windows-1250 text requires a PC-Axis reader.",
+        exitCode: EXIT_CODES.UNSUPPORTED,
+      });
     try {
       issues.push(
-        ...(await validateDelimitedStream(
-          detection.path,
-          delimiter,
-          detection.encoding ?? "utf-8",
-          limits,
-        )),
+        ...(await validateDelimitedStream(detection.path, delimiter, encoding ?? "utf-8", limits)),
       );
     } catch (error) {
       if (error instanceof KlopsiError) throw error;
@@ -545,12 +602,14 @@ export async function validateData(
   }
 
   if (
-    ["json", "ndjson", "xlsx", "parquet", "xml"].includes(detection.format) &&
+    ["json", "ndjson", "xlsx", "parquet", "xml", "pcaxis"].includes(detection.format) &&
     !issues.some((candidate) => candidate.severity === "error")
   ) {
     try {
       const diagnostics = new StreamingDiagnostics(limits);
-      if (detection.format === "ndjson")
+      if (detection.format === "pcaxis")
+        issues.push(...(await validatePcAxisStream(detection.path, limits)));
+      else if (detection.format === "ndjson")
         await scanNdjson(
           detection.path,
           { maxRecords: limits.maxRecords, maxRecordBytes: limits.maxRecordBytes },
@@ -592,6 +651,7 @@ export async function validateData(
         );
       issues.push(...diagnostics.finish());
     } catch (error) {
+      if (detection.format === "pcaxis" && error instanceof KlopsiError) throw error;
       if (
         error instanceof KlopsiError &&
         [
@@ -624,6 +684,7 @@ export async function validateData(
   try {
     schema = await engine.inferSchema(source, options);
   } catch (error) {
+    if (detection.format === "pcaxis" && error instanceof KlopsiError) throw error;
     if (
       error instanceof KlopsiError &&
       [

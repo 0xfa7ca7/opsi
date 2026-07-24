@@ -68,6 +68,156 @@ beforeEach(async () => {
 afterEach(async () => rm(root, { recursive: true, force: true }));
 
 describe("tabular conversion", () => {
+  it("converts PC-Axis input to CSV and JSON while preserving long-form rows and warnings", async () => {
+    const input = path("tourism.px");
+    await writeFile(
+      input,
+      `AXIS-VERSION="2024";
+CODEPAGE="utf-8";
+MATRIX="tourism";
+STUB="Place";
+HEADING="Year";
+VALUES("Place")="Ljubljana";
+CODES("Place")="001";
+VALUES("Year")="2023","2024";
+DATA=1 ".";`,
+    );
+    const engine = new DataEngine();
+    const csv = path("tourism.csv");
+    const json = path("tourism.json");
+
+    const csvResult = await engine.convert({
+      input,
+      output: csv,
+      targetFormat: "csv",
+      force: false,
+    });
+    const jsonResult = await engine.convert({
+      input,
+      output: json,
+      targetFormat: "json",
+      force: false,
+    });
+
+    expect(csvResult.warnings).toContainEqual(
+      expect.objectContaining({ code: "PCAXIS_DATA_SYMBOL" }),
+    );
+    expect(jsonResult.warnings).toContainEqual(
+      expect.objectContaining({ code: "PCAXIS_DATA_SYMBOL" }),
+    );
+    await expect(engine.preview(csv)).resolves.toMatchObject({
+      rows: [
+        { Place: "Ljubljana", Place__code: "001", Year: "2023", value: "1", value__symbol: "" },
+        {
+          Place: "Ljubljana",
+          Place__code: "001",
+          Year: "2024",
+          value: "",
+          value__symbol: ".",
+        },
+      ],
+    });
+    await expect(engine.preview(json)).resolves.toMatchObject({
+      rows: [
+        { Place: "Ljubljana", Place__code: "001", Year: "2023", value: 1, value__symbol: null },
+        {
+          Place: "Ljubljana",
+          Place__code: "001",
+          Year: "2024",
+          value: null,
+          value__symbol: ".",
+        },
+      ],
+    });
+  });
+
+  it("preserves case-collision-safe PC-Axis columns through conversion", async () => {
+    const input = path("case-collisions.px");
+    const output = path("case-collisions.json");
+    await writeFile(
+      input,
+      `CODEPAGE="utf-8";
+MATRIX="case collisions";
+STUB="Region","region","VALUE","VALUE__SYMBOL","Region__CODE";
+VALUES("Region")="North";
+CODES("Region")="R1";
+VALUES("region")="South";
+CODES("region")="r1";
+VALUES("VALUE")="Measure";
+VALUES("VALUE__SYMBOL")="Status";
+VALUES("Region__CODE")="Generated collision";
+CODES("Region__CODE")="RC";
+DATA=7;`,
+    );
+    const engine = new DataEngine();
+
+    await engine.convert({ input, output, targetFormat: "json" });
+
+    await expect(engine.preview(output)).resolves.toMatchObject({
+      columns: [
+        "Region",
+        "Region__code",
+        "region__2",
+        "region__2__code",
+        "VALUE__2",
+        "VALUE__SYMBOL__2",
+        "Region__CODE__2",
+        "Region__CODE__2__code",
+        "value",
+      ],
+      rows: [
+        {
+          Region: "North",
+          Region__code: "R1",
+          region__2: "South",
+          region__2__code: "r1",
+          VALUE__2: "Measure",
+          VALUE__SYMBOL__2: "Status",
+          Region__CODE__2: "Generated collision",
+          Region__CODE__2__code: "RC",
+          value: 7,
+        },
+      ],
+    });
+  });
+
+  it("rejects PC-Axis conversion when DATA has no final semicolon", async () => {
+    const input = path("unterminated.px");
+    const output = path("unterminated.json");
+    await writeFile(
+      input,
+      `CODEPAGE="utf-8";MATRIX="unterminated";STUB="Row";VALUES("Row")="A","B";DATA=1 2`,
+    );
+
+    await expect(
+      new DataEngine().convert({ input, output, targetFormat: "json" }),
+    ).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      exitCode: 6,
+    });
+    await expect(readFile(output)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("cleans PC-Axis staging files when conversion fails after staging", async () => {
+    const input = path("cleanup.px");
+    const output = path("cleanup.json");
+    await writeFile(
+      input,
+      `AXIS-VERSION="2024";CODEPAGE="utf-8";MATRIX="cleanup";STUB="Row";VALUES("Row")="A","B";DATA=1 2;`,
+    );
+    const engine = new DataEngine({
+      onAdapter: (name) => {
+        if (name === "convert-json") throw new Error("injected PC-Axis export failure");
+      },
+    });
+
+    await expect(
+      engine.convert({ input, output, targetFormat: "json", force: false }),
+    ).rejects.toThrow("injected PC-Axis export failure");
+    expect((await readdir(root)).filter((name) => name.startsWith("cleanup.json."))).toEqual([]);
+    await expect(readFile(output)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("converts UTF-16LE tab-separated input declared as CSV", async () => {
     const input = path("budget.csv");
     const output = path("budget.json");

@@ -233,7 +233,9 @@ export type ParsedCanonicalReference =
   ParsedDatasetReference | ParsedResourceReference | ParsedLocalFileReference;
 
 type SupportedDataFormat = DataFormat;
-type SupportedInputFormat = SupportedDataFormat | "xml";
+export type SupportedInputFormat = SupportedDataFormat | "xml" | "pcaxis";
+export type DetectedTextEncoding = "utf-8" | "utf-16le" | "utf-16be" | "windows-1250";
+type DelimitedDialect = "," | "\t" | ";" | "|";
 export interface ArchiveLimits {
   readonly maxEntries: number;
   readonly maxPathBytes: number;
@@ -249,6 +251,21 @@ export interface XmlLimits {
   readonly maxColumns: number;
   readonly maxRecords: number;
   readonly maxStateBytes: number;
+}
+export interface PcAxisLimits {
+  readonly maxSourceBytes: number;
+  readonly maxMetadataBytes: number;
+  readonly maxMetadataStatements: number;
+  readonly maxStatementBytes: number;
+  readonly maxDimensions: number;
+  readonly maxValuesPerDimension: number;
+  readonly maxCells: number;
+  readonly maxDecodedStringBytes: number;
+  readonly maxNotes: number;
+  readonly maxLanguageVariants: number;
+  readonly maxCellTokenBytes: number;
+  readonly maxEmittedRecords: number;
+  readonly maxStagingBytes: number;
 }
 type DetectedInputFormat = SupportedInputFormat | "zip" | "unknown";
 type DetectionConfidence =
@@ -276,6 +293,7 @@ interface FormatDetection {
   readonly confidence: DetectionConfidence;
   readonly mediaType?: string;
   readonly extension?: string;
+  readonly encoding?: DetectedTextEncoding;
 }
 interface DataInspection extends FormatDetection {
   readonly sizeBytes: number;
@@ -291,14 +309,17 @@ interface EngineValidationIssue {
   readonly field?: string;
   readonly context?: Readonly<Record<string, unknown>>;
 }
-interface DataPreview {
+export interface DataPreview {
   readonly format: SupportedInputFormat;
   readonly columns: readonly string[];
+  readonly codeColumns?: readonly string[];
   readonly rows: readonly DataRow[];
   readonly returnedCount: number;
   readonly truncated: boolean;
   readonly sheet?: string;
   readonly warnings: readonly EngineValidationIssue[];
+  readonly encoding?: DetectedTextEncoding;
+  readonly delimiter?: DelimitedDialect;
 }
 type InferredFieldType = "boolean" | "integer" | "double" | "date" | "timestamp" | "string";
 interface InferredField {
@@ -438,7 +459,12 @@ interface ContentCache {
   layout(): Promise<CacheLayout>;
   putObject(input: ReadableLike | AsyncIterable<Uint8Array | string>): Promise<CacheObject>;
   getObject(sha256: string): Promise<CacheObject>;
-  materialize(sha256: string, requestedDestination: string, force?: boolean): Promise<CacheObject>;
+  materialize(
+    sha256: string,
+    requestedDestination: string,
+    force?: boolean,
+    maxBytes?: number,
+  ): Promise<CacheObject>;
   putObjectWithMetadata<T>(
     key: string,
     schemaVersion: string,
@@ -526,7 +552,7 @@ declare class CacheService {
       readonly bytes: number;
       readonly kind: "raw" | "duckdb-stage";
       readonly key?: string;
-      readonly format?: DataFormat;
+      readonly format?: Exclude<SupportedInputFormat, "xml">;
       readonly sheet?: string;
       readonly createdAt?: string;
       readonly lastUsedAt?: string;
@@ -584,7 +610,7 @@ interface QueryServiceResult {
   readonly source: string;
   readonly durationMs: number;
   readonly cache: QueryCacheMetadata;
-  readonly warnings: readonly QueryCacheWarning[];
+  readonly warnings: readonly QueryDatabaseWarning[];
   readonly output?: string;
   readonly provenancePath?: string;
 }
@@ -597,6 +623,7 @@ export interface QueryCacheWarning {
   readonly code: "QUERY_CACHE_BYPASS";
   readonly message: string;
 }
+export type QueryDatabaseWarning = QueryCacheWarning | EngineValidationIssue;
 export interface DuckDbCachePolicy {
   readonly enabled: boolean;
   readonly maxBytes: number;
@@ -700,6 +727,7 @@ export interface KlopsiClientOptions {
   readonly queryWorkerPath?: string | URL;
   readonly archiveLimits?: ArchiveLimits;
   readonly xmlLimits?: XmlLimits;
+  readonly pcAxisLimits?: PcAxisLimits;
 }
 export class KlopsiClient {
   constructor(options: KlopsiClientOptions);

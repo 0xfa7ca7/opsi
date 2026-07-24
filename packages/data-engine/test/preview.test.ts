@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { DataEngine } from "../src/index.js";
+import { DataEngine, DEFAULT_PCAXIS_LIMITS } from "../src/index.js";
 
 const engine = new DataEngine();
 const temporary: string[] = [];
@@ -28,6 +28,153 @@ afterEach(async () => {
 });
 
 describe("bounded previews and schema inference", () => {
+  it("previews PC-Axis rows and infers their long-form schema with configured limits", async () => {
+    const path = await temporaryFile(
+      "tourism.px",
+      `AXIS-VERSION="2024";
+CODEPAGE="utf-8";
+MATRIX="tourism";
+STUB="Place";
+HEADING="Year";
+VALUES("Place")="Ljubljana";
+CODES("Place")="001";
+VALUES("Year")="2023","2024";
+DATA=1.5 ".";`,
+    );
+    const adapters: string[] = [];
+    const pcAxisEngine = new DataEngine({
+      onAdapter: (name) => adapters.push(name),
+      pcAxisLimits: {
+        maxSourceBytes: 4_096,
+        maxMetadataBytes: 2_048,
+        maxMetadataStatements: 20,
+        maxStatementBytes: 512,
+        maxDimensions: 4,
+        maxValuesPerDimension: 10,
+        maxCells: 10,
+        maxDecodedStringBytes: 128,
+        maxNotes: 10,
+        maxLanguageVariants: 10,
+        maxCellTokenBytes: 32,
+        maxEmittedRecords: 10,
+        maxStagingBytes: 4_096,
+      },
+    });
+
+    await expect(pcAxisEngine.preview(path, { limit: 2 })).resolves.toMatchObject({
+      format: "pcaxis",
+      encoding: "utf-8",
+      columns: ["Place", "Place__code", "Year", "value", "value__symbol"],
+      codeColumns: ["Place__code"],
+      rows: [
+        { Place: "Ljubljana", Place__code: "001", Year: "2023", value: 1.5 },
+        {
+          Place: "Ljubljana",
+          Place__code: "001",
+          Year: "2024",
+          value: null,
+          value__symbol: ".",
+        },
+      ],
+      returnedCount: 2,
+      truncated: false,
+      warnings: [expect.objectContaining({ code: "PCAXIS_DATA_SYMBOL" })],
+    });
+    await expect(pcAxisEngine.inferSchema(path)).resolves.toMatchObject({
+      format: "pcaxis",
+      sampledRows: 2,
+      fields: expect.arrayContaining([
+        expect.objectContaining({
+          name: "Place__code",
+          type: "string",
+          nullable: false,
+          evidence: ["001"],
+        }),
+        expect.objectContaining({ name: "value", type: "double", nullable: true }),
+        expect.objectContaining({ name: "value__symbol", type: "string", nullable: true }),
+      ]),
+    });
+    expect(adapters).toEqual(["pcaxis", "pcaxis"]);
+  });
+
+  it("uses explicit PC-Axis code-column identity after collision-safe allocation", async () => {
+    const path = await temporaryFile(
+      "code-collision.px",
+      `AXIS-VERSION="2024";
+CODEPAGE="utf-8";
+MATRIX="code collision";
+STUB="A__code";
+HEADING="A";
+VALUES("A__code")="123";
+VALUES("A")="label";
+CODES("A")="001";
+DATA=1;`,
+    );
+
+    await expect(engine.inferSchema(path)).resolves.toMatchObject({
+      fields: expect.arrayContaining([
+        expect.objectContaining({
+          name: "A__code",
+          type: "integer",
+          evidence: ["123"],
+        }),
+        expect.objectContaining({
+          name: "A__code__2",
+          type: "string",
+          evidence: ["001"],
+        }),
+      ]),
+    });
+  });
+
+  it("keeps case-collision-safe PC-Axis schema names and exact code-column types", async () => {
+    const path = await temporaryFile(
+      "case-collisions.px",
+      `CODEPAGE="utf-8";
+MATRIX="case collisions";
+STUB="Region","region","VALUE","VALUE__SYMBOL","Region__CODE";
+VALUES("Region")="1";
+CODES("Region")="R1";
+VALUES("region")="2";
+CODES("region")="r1";
+VALUES("VALUE")="3";
+VALUES("VALUE__SYMBOL")="4";
+VALUES("Region__CODE")="5";
+CODES("Region__CODE")="RC";
+DATA=7;`,
+    );
+
+    await expect(engine.inferSchema(path)).resolves.toMatchObject({
+      fields: [
+        expect.objectContaining({ name: "Region", type: "integer" }),
+        expect.objectContaining({ name: "Region__code", type: "string" }),
+        expect.objectContaining({ name: "region__2", type: "integer" }),
+        expect.objectContaining({ name: "region__2__code", type: "string" }),
+        expect.objectContaining({ name: "VALUE__2", type: "integer" }),
+        expect.objectContaining({ name: "VALUE__SYMBOL__2", type: "integer" }),
+        expect.objectContaining({ name: "Region__CODE__2", type: "integer" }),
+        expect.objectContaining({ name: "Region__CODE__2__code", type: "string" }),
+        expect.objectContaining({ name: "value", type: "integer" }),
+      ],
+    });
+  });
+
+  it("clamps PC-Axis schema sampling to the effective default emission limit", async () => {
+    const path = await temporaryFile(
+      "default-limits.px",
+      `AXIS-VERSION="2024";CODEPAGE="utf-8";MATRIX="limits";STUB="Row";VALUES("Row")="A";DATA=1;`,
+    );
+    const oversized = DEFAULT_PCAXIS_LIMITS.maxEmittedRecords + 1;
+    await expect(engine.preview(path, { limit: oversized })).rejects.toMatchObject({
+      code: "PCAXIS_CELL_LIMIT",
+      context: { limit: DEFAULT_PCAXIS_LIMITS.maxEmittedRecords, requested: oversized },
+    });
+    await expect(engine.inferSchema(path, { limit: oversized })).resolves.toMatchObject({
+      format: "pcaxis",
+      sampledRows: 1,
+    });
+  });
+
   it("previews UTF-16LE tab-separated data declared as CSV", async () => {
     const path = await temporaryBytes(
       "budget.csv",

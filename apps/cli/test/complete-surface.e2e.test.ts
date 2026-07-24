@@ -266,6 +266,16 @@ describe("complete command surface", () => {
         ...["csv", "tsv", "json", "ndjson", "xlsx", "parquet"].map((format) =>
           expect.objectContaining({ name: `format:${format}`, status: "pass" }),
         ),
+        expect.objectContaining({
+          name: "format:pcaxis",
+          status: "pass",
+          detail: expect.objectContaining({
+            format: "pcaxis",
+            inputOnly: true,
+            codeColumns: ["Municipality__code", "Year__code"],
+            sourceSymbol: "-",
+          }),
+        }),
       ]),
     );
   });
@@ -331,11 +341,13 @@ describe("complete command surface", () => {
     expect(output).toContain("native adapter unavailable");
   });
 
-  it("reads back doctor filesystem probes and uses a real multi-column TSV fixture", async () => {
+  it("reads back doctor filesystem probes and uses real TSV and input-only PC-Axis fixtures", async () => {
     const source = await readFile(join(process.cwd(), "apps/cli/src/commands/doctor.ts"), "utf8");
     expect(source).toContain("readFile(probe");
     expect(source).not.toContain("access(probe)");
     expect(source).toContain('"answer\\tlabel\\n42\\tok\\n"');
+    expect(source).toContain("createPcAxisFixture");
+    expect(source).toContain('capture(checks, "format:pcaxis"');
   });
 
   it("opens only the derived public provider page through the injected adapter", async () => {

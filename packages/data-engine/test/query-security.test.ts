@@ -118,6 +118,56 @@ describe("DuckDbQueryRunner security", () => {
     });
   });
 
+  it("queries PC-Axis columns after deterministic case-insensitive allocation", async () => {
+    input = join(directory, "case-collisions.px");
+    await writeFile(
+      input,
+      `CODEPAGE="utf-8";
+MATRIX="case collisions";
+STUB="Region","region","VALUE","VALUE__SYMBOL","Region__CODE";
+VALUES("Region")="North";
+CODES("Region")="R1";
+VALUES("region")="South";
+CODES("region")="r1";
+VALUES("VALUE")="Measure";
+VALUES("VALUE__SYMBOL")="Status";
+VALUES("Region__CODE")="Generated collision";
+CODES("Region__CODE")="RC";
+DATA=7;`,
+    );
+    const runner = new DuckDbQueryRunner({
+      workerPath: new URL("./fixtures/query-worker-source-entry.ts", import.meta.url),
+    });
+
+    await expect(
+      runner.execute({
+        input,
+        sql: 'SELECT "Region", "region__2", "VALUE__2", "VALUE__SYMBOL__2", "Region__CODE__2", "Region__CODE__2__code", value FROM data',
+      }),
+    ).resolves.toMatchObject({
+      columns: [
+        "Region",
+        "region__2",
+        "VALUE__2",
+        "VALUE__SYMBOL__2",
+        "Region__CODE__2",
+        "Region__CODE__2__code",
+        "value",
+      ],
+      rows: [
+        {
+          Region: "North",
+          region__2: "South",
+          VALUE__2: "Measure",
+          VALUE__SYMBOL__2: "Status",
+          Region__CODE__2: "Generated collision",
+          Region__CODE__2__code: "RC",
+          value: "7",
+        },
+      ],
+    });
+  });
+
   it("locks security and resource settings before parsing user SQL", async () => {
     const runner = new DuckDbQueryRunner({
       workerPath: new URL("./fixtures/query-worker-source-entry.ts", import.meta.url),

@@ -1,9 +1,10 @@
 import { extname, resolve } from "node:path";
 import { boundedFileSample, normalizeInput } from "./sample.js";
 import { decodeTextSample, sniffDelimitedDialect } from "./text-decoding.js";
-import type { DelimitedDialect, TextEncoding } from "./text-decoding.js";
+import type { DelimitedDialect } from "./text-decoding.js";
 import type {
   DataInput,
+  DetectedTextEncoding,
   DetectionConfidence,
   DetectedInputFormat,
   FormatDetection,
@@ -21,6 +22,7 @@ const EXTENSIONS: Readonly<Record<string, DetectedInputFormat>> = {
   ".parquet": "parquet",
   ".zip": "zip",
   ".xml": "xml",
+  ".px": "pcaxis",
 };
 
 const MEDIA_TYPES: Readonly<Record<string, SupportedInputFormat>> = {
@@ -34,6 +36,7 @@ const MEDIA_TYPES: Readonly<Record<string, SupportedInputFormat>> = {
   "application/parquet": "parquet",
   "application/xml": "xml",
   "text/xml": "xml",
+  "text/x-pcaxis": "pcaxis",
 };
 
 function result(
@@ -42,7 +45,7 @@ function result(
   confidence: DetectionConfidence,
   mediaType: string | undefined,
   extension: string,
-  text?: { readonly encoding: TextEncoding; readonly delimiter?: DelimitedDialect },
+  text?: { readonly encoding?: DetectedTextEncoding; readonly delimiter?: DelimitedDialect },
 ): FormatDetection {
   return {
     path,
@@ -53,6 +56,61 @@ function result(
     ...(text?.encoding === undefined ? {} : { encoding: text.encoding }),
     ...(text?.delimiter === undefined ? {} : { delimiter: text.delimiter }),
   };
+}
+
+function pcAxisSignature(head: Buffer): { readonly encoding?: DetectedTextEncoding } | undefined {
+  const text = head.toString("latin1").replace(/^\u00ef\u00bb\u00bf/u, "");
+  const keywords = new Set<string>();
+  const leadingKeywords: string[] = [];
+  let position = 0;
+  for (let statements = 0; statements < 64; statements += 1) {
+    while (position < text.length && /\s/u.test(text[position] ?? "")) position += 1;
+    const assignment = /^([A-Za-z][A-Za-z0-9_-]*)(?:\[[^\]\r\n]+\])?(?:\([\s\S]*?\))?\s*=/u.exec(
+      text.slice(position),
+    );
+    if (assignment === null) break;
+    const keyword = assignment[1]?.toUpperCase();
+    if (keyword === undefined) break;
+    position += assignment[0].length;
+    if (keyword === "DATA") break;
+
+    let inQuotes = false;
+    let terminated = false;
+    while (position < text.length) {
+      const character = text[position];
+      if (character === '"') {
+        if (inQuotes && text[position + 1] === '"') position += 1;
+        else inQuotes = !inQuotes;
+      } else if (character === ";" && !inQuotes) {
+        position += 1;
+        terminated = true;
+        break;
+      }
+      position += 1;
+    }
+    if (!terminated) break;
+    keywords.add(keyword);
+    leadingKeywords.push(keyword);
+  }
+  const hasEncoding = keywords.has("CODEPAGE") || keywords.has("CHARSET");
+  const hasDimension = keywords.has("STUB") || keywords.has("HEADING");
+  const robustDenseSignature =
+    hasEncoding && keywords.has("MATRIX") && hasDimension && keywords.has("VALUES");
+  const legacyVersionSignature =
+    leadingKeywords[0] === "AXIS-VERSION" ||
+    (leadingKeywords[0] === "CHARSET" && leadingKeywords[1] === "AXIS-VERSION");
+  if (!robustDenseSignature && !legacyVersionSignature) return undefined;
+  const codepage = /\bCODEPAGE\s*=\s*"([^"]*)"\s*;/iu.exec(text)?.[1]?.trim().toLowerCase();
+  const encoding =
+    codepage === "windows-1250" ||
+    codepage === "windows1250" ||
+    codepage === "cp1250" ||
+    codepage === "1250"
+      ? "windows-1250"
+      : codepage === "utf-8" || codepage === "utf8"
+        ? "utf-8"
+        : undefined;
+  return encoding === undefined ? {} : { encoding };
 }
 
 function signature(head: Buffer, tail: Buffer): DetectedInputFormat | undefined {
@@ -123,6 +181,18 @@ export async function detectFormat(input: DataInput): Promise<FormatDetection> {
   if (bySignature !== undefined)
     return result(path, bySignature, "signature", source.mediaType, extension);
 
+  const pcAxis = pcAxisSignature(head);
+  const mediaType = source.mediaType?.split(";", 1)[0]?.trim().toLowerCase();
+  const declared = source.declaredFormat?.trim().toLowerCase().replace(/^\./u, "");
+  if (MEDIA_TYPES[mediaType ?? ""] === "pcaxis")
+    return result(path, "pcaxis", "media-type", source.mediaType, extension, pcAxis);
+  if (declared === "pcaxis" || declared === "pc-axis" || declared === "px")
+    return result(path, "pcaxis", "declared-format", source.mediaType, extension, pcAxis);
+  if (EXTENSIONS[extension] === "pcaxis")
+    return result(path, "pcaxis", "extension", source.mediaType, extension, pcAxis);
+  if (pcAxis !== undefined)
+    return result(path, "pcaxis", "content", source.mediaType, extension, pcAxis);
+
   const decoded = decodeTextSample(head);
   const text = decoded?.text;
   const extensionFormat = EXTENSIONS[extension];
@@ -133,7 +203,6 @@ export async function detectFormat(input: DataInput): Promise<FormatDetection> {
   const dialect =
     structuredData === undefined && text !== undefined ? sniffDelimitedDialect(text) : undefined;
   const dialectFormat = dialect === undefined ? undefined : dialect === "\t" ? "tsv" : "csv";
-  const mediaType = source.mediaType?.split(";", 1)[0]?.trim().toLowerCase();
   const byMediaType = mediaType === undefined ? undefined : MEDIA_TYPES[mediaType];
   if (byMediaType !== undefined) {
     const correctedDelimited =
@@ -158,7 +227,6 @@ export async function detectFormat(input: DataInput): Promise<FormatDetection> {
       ...(dialect === undefined ? {} : { delimiter: dialect }),
     });
 
-  const declared = source.declaredFormat?.trim().toLowerCase().replace(/^\./u, "");
   const byDeclared =
     declared === "jsonl"
       ? "ndjson"

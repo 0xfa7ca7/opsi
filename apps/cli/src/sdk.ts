@@ -1,5 +1,11 @@
 export { KlopsiClient, ProviderRegistry } from "@klopsi/core";
-export type { KlopsiClientOptions } from "@klopsi/core";
+export type {
+  KlopsiClientOptions,
+  QueryCacheMetadata,
+  QueryCacheStatus,
+  QueryCacheWarning,
+  QueryDatabaseWarning,
+} from "@klopsi/core";
 export type {
   WfsCapabilities,
   WfsField,
@@ -10,8 +16,10 @@ export type {
   WfsSelectionOptions,
   WfsVersion,
   ArchiveLimits,
+  PcAxisLimits,
   XmlLimits,
 } from "@klopsi/core";
+export type { DataPreview, SupportedInputFormat } from "@klopsi/data-engine";
 export type {
   CanonicalReference,
   Configuration,
