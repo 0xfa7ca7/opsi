@@ -10,7 +10,7 @@ const KEY_PREFIX = "derived:duckdb-stage:";
 const TOUCH_INTERVAL_MS = 24 * 60 * 60 * 1_000;
 const SHA256 = /^[a-f\d]{64}$/u;
 
-const formatSchema = z.enum(["csv", "tsv", "json", "ndjson", "xlsx", "parquet"]);
+const formatSchema = z.enum(["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "pcaxis"]);
 const valueSchema = z.strictObject({
   kind: z.literal("duckdb-stage"),
   sourceSha256: z.string().regex(SHA256),

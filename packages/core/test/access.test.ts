@@ -40,6 +40,38 @@ describe("resource access guidance", () => {
     expect(JSON.stringify(descriptor)).not.toMatch(/curl|https?:\/\//u);
   });
 
+  it("advertises all direct operations for local PC-Axis input", async () => {
+    const path = await fixture(
+      "rows.px",
+      `AXIS-VERSION="2024";
+CODEPAGE="utf-8";
+MATRIX="access";
+STUB="Place";
+VALUES("Place")="Ljubljana";
+DATA=1;`,
+    );
+    const client = new KlopsiClient({ registry: new ProviderRegistry(), providerId: "opsi" });
+
+    await expect(client.access.inspect(path)).resolves.toMatchObject({
+      kind: "local",
+      detectedFormat: "pcaxis",
+      operations: ["inspect", "preview", "schema", "validate", "query", "convert"],
+      nextActions: [{ action: "resource.preview", argv: expect.any(Array) }],
+    });
+  });
+
+  it("does not advertise data operations or preview guidance for an unknown local file", async () => {
+    const path = await fixture("unknown.bin", "\0\u0001\u0002\u0003");
+    const client = new KlopsiClient({ registry: new ProviderRegistry(), providerId: "opsi" });
+
+    await expect(client.access.inspect(path)).resolves.toMatchObject({
+      kind: "local",
+      detectedFormat: "unknown",
+      operations: ["inspect"],
+      nextActions: [],
+    });
+  });
+
   it("returns explicit record-path choices for ambiguous XML", async () => {
     const path = await fixture(
       "rows.xml",
@@ -90,9 +122,56 @@ describe("resource access guidance", () => {
     await expect(client.access.inspect("fixture:resource:archive")).resolves.toMatchObject({
       kind: "archive",
       detectedFormat: "zip",
+      operations: ["inspect", "download"],
       limitations: expect.arrayContaining([
         "The selected entry must still pass format parsing or validation.",
       ]),
+      nextActions: [],
+    });
+  });
+
+  it("offers entry-specific actions without claiming unresolved archive operations", async () => {
+    const resource: Resource = {
+      id: resourceId("archive"),
+      datasetId: datasetId("dataset"),
+      providerId: providerId("fixture"),
+      title: "Archive",
+      url: "https://example.test/archive.zip",
+      format: "ZIP",
+      reference: "fixture:resource:archive",
+    };
+    const provider: DataProvider = {
+      descriptor: { id: providerId("fixture"), name: "fixture", capabilities: [] },
+      search: async () => ({ items: [], total: 0, limit: 0, offset: 0 }),
+      getDataset: async () => {
+        throw new Error("unused");
+      },
+      getResource: async () => resource,
+      listDatasetResources: async () => [],
+      resolveResource: async () => ({ resource, kind: "archive", url: resource.url }),
+    };
+    const client = new KlopsiClient({
+      registry: new ProviderRegistry([provider]),
+      providerId: "fixture",
+    });
+    client.data.preview = async () => {
+      throw new KlopsiError({
+        code: "ARCHIVE_ENTRY_REQUIRED",
+        message: "select an entry",
+        exitCode: 2,
+        context: { choices: ["a.csv", "b.csv"] },
+      });
+    };
+
+    await expect(client.access.inspect("fixture:resource:archive")).resolves.toMatchObject({
+      kind: "archive",
+      detectedFormat: "zip",
+      operations: ["inspect", "download"],
+      selections: { entries: ["a.csv", "b.csv"] },
+      nextActions: [
+        { action: "resource.preview", argv: expect.arrayContaining(["--entry", "a.csv"]) },
+        { action: "resource.preview", argv: expect.arrayContaining(["--entry", "b.csv"]) },
+      ],
     });
   });
 });

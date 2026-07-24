@@ -2,10 +2,10 @@ import { createHash } from "node:crypto";
 import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { stageTabularInput, type QueryResult } from "@klopsi/data-engine";
+import { DEFAULT_PCAXIS_LIMITS, stageTabularInput, type QueryResult } from "@klopsi/data-engine";
 import { ContentCache, DerivedArtifactCache } from "@klopsi/storage";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { QueryDatabaseCache } from "../src/query-database-cache.js";
+import { QUERY_STAGE_VERSION, QueryDatabaseCache } from "../src/query-database-cache.js";
 import { QueryService } from "../src/queries.js";
 
 let directory: string;
@@ -42,7 +42,7 @@ function setup(policy = { enabled: true, maxBytes: 100_000_000, ttlMs: 30 * 86_4
       return await stageTabularInput(options);
     },
   });
-  return { coordinator, executePrepared, stageCount: () => stages };
+  return { coordinator, derived, executePrepared, stageCount: () => stages };
 }
 
 function coordinatorWith(derived: DerivedArtifactCache, overrides: Partial<DerivedArtifactCache>) {
@@ -114,6 +114,62 @@ describe("QueryDatabaseCache", () => {
     expect(second).toMatchObject({ cache: { status: "hit", kind: "duckdb-stage" } });
     expect(second.rows).toEqual(first.rows);
     expect(stageCount()).toBe(1);
+  });
+
+  it("stages PC-Axis once under the current cache identity contract", async () => {
+    input = join(directory, "source.px");
+    await writeFile(
+      input,
+      `AXIS-VERSION="2024";
+CODEPAGE="utf-8";
+MATRIX="query cache";
+STUB="Place";
+HEADING="Year";
+VALUES("Place")="Ljubljana";
+VALUES("Year")="2023","2024";
+DATA=1 2;`,
+    );
+    const { coordinator, derived, stageCount } = setup();
+
+    await expect(coordinator.execute(input, { sql: "SELECT * FROM data" })).resolves.toMatchObject({
+      cache: { status: "miss" },
+    });
+    await expect(coordinator.execute(input, { sql: "SELECT * FROM data" })).resolves.toMatchObject({
+      cache: { status: "hit" },
+    });
+
+    expect(stageCount()).toBe(1);
+    expect(QUERY_STAGE_VERSION).toBe("2");
+    await expect(derived.list()).resolves.toEqual([
+      expect.objectContaining({
+        format: "pcaxis",
+        stagingVersion: QUERY_STAGE_VERSION,
+      }),
+    ]);
+  });
+
+  it("propagates configured PC-Axis limits into query staging", async () => {
+    input = join(directory, "bounded.px");
+    await writeFile(
+      input,
+      `AXIS-VERSION="2024";
+CODEPAGE="utf-8";
+MATRIX="bounded query";
+STUB="Place";
+VALUES("Place")="A","B";
+DATA=1 2;`,
+    );
+    const coordinator = new QueryDatabaseCache({
+      runner: {
+        executePrepared: async (options: { readonly sql: string }) => result(options.sql),
+      } as never,
+      pcAxisLimits: { ...DEFAULT_PCAXIS_LIMITS, maxCells: 1 },
+    });
+
+    await expect(coordinator.execute(input, { sql: "SELECT * FROM data" })).rejects.toMatchObject({
+      code: "PCAXIS_CELL_LIMIT",
+      context: { limit: 1 },
+    });
   });
 
   it("shares identical bytes across paths and invalidates changed content", async () => {

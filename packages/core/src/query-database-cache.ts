@@ -10,6 +10,7 @@ import {
   type DataInput,
   type DuckDbQueryRunner,
   type PreparedQueryExecutionOptions,
+  type PcAxisLimits,
   type QueryResult,
   type SupportedInputFormat,
   type TabularStage,
@@ -17,7 +18,7 @@ import {
 import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import type { DerivedArtifactCache, DerivedArtifactIdentity } from "@klopsi/storage";
 
-export const QUERY_STAGE_VERSION = "1";
+export const QUERY_STAGE_VERSION = "2";
 export const QUERY_STAGE_DUCKDB_VERSION = "1.5.4-r.1";
 
 export type QueryCacheStatus = "hit" | "miss" | "bypass";
@@ -54,6 +55,7 @@ export interface QueryDatabaseCacheOptions {
   readonly makeTemporaryDirectory?: () => Promise<string>;
   readonly removeTemporaryDirectory?: (path: string) => Promise<void>;
   readonly xmlLimits?: import("@klopsi/data-engine").XmlLimits;
+  readonly pcAxisLimits?: PcAxisLimits;
 }
 
 export interface QueryDatabaseResult extends QueryResult {
@@ -83,7 +85,7 @@ async function sourceDigest(input: DataInput, path: string): Promise<string> {
 }
 
 function supported(format: string): format is SupportedInputFormat {
-  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"].includes(format);
+  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml", "pcaxis"].includes(format);
 }
 
 function cleanupFailure(failures: readonly unknown[], operationError: unknown): KlopsiError {
@@ -131,7 +133,7 @@ export class QueryDatabaseCache {
           code: "UNSUPPORTED_CONVERSION_FORMAT",
           message: `The detected format '${detection.format}' cannot be converted.`,
           exitCode: EXIT_CODES.UNSUPPORTED,
-          suggestion: "Use CSV, TSV, JSON, NDJSON, XLSX, Parquet, or XML input.",
+          suggestion: "Use CSV, TSV, JSON, NDJSON, XLSX, Parquet, XML, or PC-Axis input.",
           context: { format: detection.format },
         });
       const build = async (): Promise<void> => {
@@ -146,6 +148,9 @@ export class QueryDatabaseCache {
           ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
           ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
           ...(this.options.xmlLimits === undefined ? {} : { xmlLimits: this.options.xmlLimits }),
+          ...(this.options.pcAxisLimits === undefined
+            ? {}
+            : { pcAxisLimits: this.options.pcAxisLimits }),
         });
         await stage.connection.run("CHECKPOINT");
         await stage.close();
