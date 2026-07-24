@@ -417,6 +417,31 @@ DATA=1 ".";`,
     ).rejects.toMatchObject({ code: "VALIDATION_ISSUE_LIMIT", exitCode: 5 });
   });
 
+  it("treats absent trailing XLSX cells as nulls within the header width", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "klopsi-xlsx-trailing-nulls-"));
+    temporary.push(directory);
+    const path = join(directory, "trailing-nulls.xlsx");
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Rows");
+    sheet.addRow(["id", "note"]);
+    sheet.addRow([1, null]);
+    sheet.addRow([2, "present"]);
+    await workbook.xlsx.writeFile(path);
+
+    const result = await engine.validate(path, { sheet: "Rows" });
+
+    expect(result).toMatchObject({
+      valid: true,
+      errors: [],
+      schema: {
+        fields: expect.arrayContaining([expect.objectContaining({ name: "note", nullable: true })]),
+      },
+    });
+    expect(result.issues).not.toContainEqual(
+      expect.objectContaining({ code: "INCONSISTENT_COLUMN_COUNT" }),
+    );
+  });
+
   it("validates XLSX headers and preserves extra-cell width errors", async () => {
     const directory = await mkdtemp(join(tmpdir(), "klopsi-xlsx-headers-"));
     temporary.push(directory);
