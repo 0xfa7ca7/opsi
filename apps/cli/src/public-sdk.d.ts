@@ -235,6 +235,7 @@ export type ParsedCanonicalReference =
 type SupportedDataFormat = DataFormat;
 export type SupportedInputFormat = SupportedDataFormat | "xml" | "pcaxis";
 export type DetectedTextEncoding = "utf-8" | "utf-16le" | "utf-16be" | "windows-1250";
+type DelimitedDialect = "," | "\t" | ";" | "|";
 export interface ArchiveLimits {
   readonly maxEntries: number;
   readonly maxPathBytes: number;
@@ -318,6 +319,7 @@ export interface DataPreview {
   readonly sheet?: string;
   readonly warnings: readonly EngineValidationIssue[];
   readonly encoding?: DetectedTextEncoding;
+  readonly delimiter?: DelimitedDialect;
 }
 type InferredFieldType = "boolean" | "integer" | "double" | "date" | "timestamp" | "string";
 interface InferredField {
@@ -545,7 +547,7 @@ declare class CacheService {
       readonly bytes: number;
       readonly kind: "raw" | "duckdb-stage";
       readonly key?: string;
-      readonly format?: DataFormat;
+      readonly format?: Exclude<SupportedInputFormat, "xml">;
       readonly sheet?: string;
       readonly createdAt?: string;
       readonly lastUsedAt?: string;

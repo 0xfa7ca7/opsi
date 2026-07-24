@@ -154,6 +154,7 @@ const pcAxisPreview: DataPreview = {
   truncated: false,
   warnings: [],
   encoding: 'utf-8',
+  delimiter: ',',
 };
 const dataset: Dataset = {
   id: datasetId,
@@ -194,6 +195,10 @@ const operations = [
   client.downloads?.headers(resourceId, { allowPrivateNetwork: false }).then((probe) => probe.headers),
   client.cache?.info().then((info) => info.root),
   client.cache?.list().then((items) => items[0]?.bytes),
+  client.cache?.list().then((items) => {
+    const format = items.find((item) => item.kind === 'duckdb-stage')?.format;
+    return format === 'pcaxis' ? format : undefined;
+  }),
   client.cache?.clear(),
   client.cache?.prune().then((result) => result.removed),
   client.cache?.verify().then((result) => result.errors[0]),
@@ -302,6 +307,8 @@ describe("canonical npm tarball", () => {
     expect(sdkDeclaration).toContain("export interface PcAxisLimits");
     expect(sdkDeclaration).toContain("export interface DataPreview");
     expect(sdkDeclaration).toContain("readonly codeColumns?: readonly string[]");
+    expect(sdkDeclaration).toContain("readonly delimiter?: DelimitedDialect");
+    expect(sdkDeclaration).toContain('readonly format?: Exclude<SupportedInputFormat, "xml">');
     expect(sdkDeclaration).toContain("readonly pcAxisLimits?: PcAxisLimits");
   });
 
