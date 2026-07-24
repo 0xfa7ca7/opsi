@@ -23,6 +23,7 @@ export interface QueryServiceOptions extends DataResolutionOptions {
   readonly recordPath?: string;
   readonly output?: string;
   readonly force?: boolean;
+  readonly includeSourceDigest?: boolean;
   readonly signal?: AbortSignal;
 }
 
@@ -31,6 +32,7 @@ export interface QueryServiceResult extends QueryResult {
   readonly durationMs: number;
   readonly cache: QueryCacheMetadata;
   readonly warnings: readonly QueryCacheWarning[];
+  readonly sourceSha256?: string;
   readonly output?: string;
   readonly provenancePath?: string;
 }
@@ -182,6 +184,9 @@ export class QueryService {
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       });
       const sourceName = resolve(sourcePath(source));
+      const sourceSha256 = options.includeSourceDigest
+        ? (await digest(sourceName)).sha256
+        : undefined;
       const publication =
         options.output === undefined
           ? {}
@@ -197,6 +202,7 @@ export class QueryService {
       return {
         ...result,
         source: sourceName,
+        ...(sourceSha256 === undefined ? {} : { sourceSha256 }),
         durationMs: performance.now() - started,
         ...publication,
       };

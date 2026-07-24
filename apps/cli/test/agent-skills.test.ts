@@ -44,7 +44,13 @@ const EXPECTED_DATA_CAPABILITY_IDS = {
   "klopsi-resources": ["input-resolution", "access-selection", "structured-selectors"],
   "klopsi-download": ["target-resolution", "destination-strategy", "partial-results"],
   "klopsi-validation": ["validation-mode", "structured-selectors", "failure-recovery"],
-  "klopsi-analysis": ["supported-inputs", "bounded-query", "query-export", "safe-conversion"],
+  "klopsi-analysis": [
+    "supported-inputs",
+    "bounded-query",
+    "query-export",
+    "static-chart",
+    "safe-conversion",
+  ],
   "klopsi-provenance": ["record-inspection", "integrity-verification"],
 } as const;
 
@@ -146,6 +152,11 @@ const REQUIRED_GUIDANCE = {
     "WITH",
     "VALUES",
     "--output",
+    "chart",
+    "offline HTML",
+    "source order",
+    "--limit",
+    "--force",
     "--spreadsheet-safe",
     "provenance verify",
   ],

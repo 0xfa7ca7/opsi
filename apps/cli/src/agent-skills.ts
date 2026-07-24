@@ -252,11 +252,13 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
     kind: "command",
     name: "klopsi-analysis",
     description:
-      "Use when querying or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports.",
-    commands: ["query", "convert"],
-    purpose: "Analyze tabular inputs with bounded read-only SQL or convert supported formats.",
+      "Use when querying, charting, or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports.",
+    commands: ["query", "chart", "convert"],
+    purpose:
+      "Analyze tabular inputs with bounded read-only SQL, render a small deterministic chart, or convert supported formats.",
     workflows: [
       "Preview and validate input before running a bounded query.",
+      "Render a bounded bar or line chart when one explicit x/y view is sufficient.",
       "Convert an input and then verify the generated provenance record.",
     ],
     capabilities: [
@@ -282,6 +284,16 @@ export const AGENT_SKILLS: readonly AgentSkillDefinition[] = [
         instructions: [
           "Use `--output` for a bounded query export and choose a new path unless the user explicitly authorizes `--force`.",
           "Run `provenance verify` on an important query export before reporting it as a final artifact.",
+        ],
+      },
+      {
+        id: "static-chart",
+        title: "Render a bounded static chart",
+        instructions: [
+          "Use `chart` only when one explicit bar or line view is sufficient; pass exact `--x`, numeric `--y`, `--type`, `--output`, and an appropriate `--limit` no larger than 500.",
+          "The artifact preserves source order and is self-contained offline HTML/SVG with no JavaScript. Aggregate or filter first when the source prefix would be misleading, and disclose the transformation.",
+          "Choose a new `.html` path unless the user explicitly authorizes `--force`, then run `provenance verify` before handing off an important chart artifact.",
+          "Use `klopsi-static-dashboard` instead when the request needs multiple views, KPI cards, narrative composition, a map, or presentation-specific language and color decisions.",
         ],
       },
       {

@@ -83,7 +83,7 @@ The command accepts the same tabular input forms as `klopsi query`: local paths,
 CLI manifest/options
   → construct one KLOPSI-owned SELECT with quoted identifiers
   → QueryService resolves/stages local or provider input
-  → SELECT x,y FROM data ORDER BY rowid, bounded by QueryService
+  → assign an internal ordinal while scanning data, then order by it, bounded by QueryService
   → normalize rows into {label, value} points
   → deterministic HTML/SVG renderer
   → write and fsync staged HTML + derived provenance
@@ -97,7 +97,7 @@ The renderer is a pure function over normalized points and options. Publication 
 
 ## Determinism
 
-- Point order is explicit: staged DuckDB `rowid` ascending, which reflects the staged source sequence.
+- Point order is explicit: an internal `row_number() OVER ()` captures the staged scan sequence, and the outer query orders by that private ordinal. User columns, including a column named `rowid`, cannot change the policy.
 - The query row limit returns the first N points and reports `truncated: true` when more exist.
 - Layout dimensions, colors, tick count, number formatting, whitespace, attribute order, CSS, and final newline are fixed.
 - Numeric coordinates are serialized with a fixed decimal helper that removes negative zero and trailing zeroes.

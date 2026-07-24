@@ -172,7 +172,7 @@ const operations = [
   client.data.validate('/tmp/traffic.csv').then((result) => result.schema?.fields[0]?.nullable),
   client.data.convert('/tmp/traffic.csv', { output: '/tmp/traffic.json', targetFormat: 'json' }).then((result) => result.warnings),
   client.conversions.convert('/tmp/traffic.csv', { output: '/tmp/traffic.tsv', targetFormat: 'tsv' }).then((result) => result.provenancePath),
-  client.query.execute('/tmp/traffic.csv', { sql: 'select * from data', limit: 5 }).then((result) => [result.source, result.durationMs, result.cache.status, result.warnings]),
+  client.query.execute('/tmp/traffic.csv', { sql: 'select * from data', limit: 5, includeSourceDigest: true }).then((result) => [result.source, result.sourceSha256, result.durationMs, result.cache.status, result.warnings]),
 ];
 void [access.kind, dataset.providerMetadata?.raw.source, validation.schema?.fields[0]?.nullable,
   download.provenance.transformations[0]?.operation, queryResult.rows[0]?.count,

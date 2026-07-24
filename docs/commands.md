@@ -72,6 +72,30 @@ Syntax: `klopsi convert <input> --to <csv|tsv|json|ndjson|xlsx|parquet> --output
 
 Syntax: `klopsi query <input> --sql <statement> [options]`. Only one read-only SELECT, WITH…SELECT, or VALUES statement is accepted. Options include `--limit`, `--timeout-ms`, `--sheet`, `--entry`, `--record-path`, `--output`, `--force`, and network overrides. User SQL runs against KLOPSI-owned table `data` with row/time/memory/thread/cell/output bounds and external access disabled. Example: `klopsi query archive.zip --entry rows.csv --sql "select * from data limit 2" --json`.
 
+### `chart`
+
+Syntax: `klopsi chart <input> --x <column> --y <column> --type <bar|line> --output <file.html> [options]`. This experimental command resolves the same local paths, `local:file:` references, provider resources, and tabular formats as `query`. It renders one self-contained offline HTML file with inline CSS and SVG, a semantic data table, and no JavaScript or runtime network dependency. `--title` sets a visible and accessible title. `--sheet`, `--entry`, and `--record-path` disambiguate compound inputs.
+
+The point limit defaults to 100 and has a hard maximum of 500. The renderer preserves staged source order and does not aggregate, sample, or sort by value. When more rows exist, it renders the first bounded prefix and discloses truncation in both the artifact and structured result. Y values must be finite numbers; empty data, missing columns, and non-numeric values fail without publishing.
+
+Output and its provenance sidecar are published transactionally. Existing regular output or sidecar files are refused unless `--force` explicitly authorizes replacing the pair. The HTML contains no timestamp or output path, so identical normalized data and options produce identical artifact bytes; provenance timestamps remain in the sidecar. Verify an artifact with `klopsi provenance verify <file.html> --json`.
+
+Example:
+
+```sh
+klopsi chart ./downloads/traffic.csv \
+  --x municipality \
+  --y count \
+  --type bar \
+  --title "Traffic by municipality" \
+  --limit 50 \
+  --output ./traffic-chart.html
+
+klopsi provenance verify ./traffic-chart.html --json
+```
+
+This is a narrow first CLI-backed experiment related to [issue #28](https://github.com/0xfa7ca7/klopsi/issues/28); it does not implement the static-board, interactive-dashboard, declarative-specification, or multi-view backlog.
+
 ### `duckdb open`
 
 Syntax: `klopsi duckdb open <input> [options]`. Resolves any tabular input accepted by `query`, including provider resources and local CSV, TSV, JSON, NDJSON, XLSX, Parquet, XML, or ZIP selections, then opens its KLOPSI-owned relation `data` in DuckDB UI. Use `--sheet`, `--entry`, or `--record-path` to disambiguate compound inputs. DuckDB UI opens a writable invocation-local workbench; KLOPSI attaches the staged dataset to that workbench read-only and exposes `data` as a view. The lease remains live until DuckDB UI exits. Closing DuckDB UI releases and removes the invocation-local stage and workbench. The canonical derived cache remains immutable and reusable; the selected source and any adjacent provenance sidecar are not modified.
@@ -110,7 +134,7 @@ Syntax: `klopsi service export <resource> --layer <name> --output <path> [option
 
 ### `provenance show`
 
-Syntax: `klopsi provenance show <path>`. Reads the adjacent versioned provenance record for a downloaded/converted/query-exported artifact. Missing or malformed provenance exits 3 or 6. Example: `klopsi provenance show traffic.parquet --json`.
+Syntax: `klopsi provenance show <path>`. Reads the adjacent versioned provenance record for a downloaded, converted, query-exported, or chart artifact. Missing or malformed provenance exits 3 or 6. Example: `klopsi provenance show traffic.parquet --json`.
 
 ### `provenance verify`
 

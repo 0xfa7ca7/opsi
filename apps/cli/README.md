@@ -54,6 +54,14 @@ klopsi validate ./downloads/data.csv --json
 klopsi query ./downloads/data.csv \
   --sql "select * from data limit 10" \
   --json
+
+klopsi chart ./downloads/data.csv \
+  --x category \
+  --y value \
+  --type line \
+  --output ./downloads/data-chart.html
+
+klopsi provenance verify ./downloads/data-chart.html --json
 ```
 
 Open the prepared table `data` in a DuckDB dataset workbench, optionally authorizing installation of the external CLI. The writable workbench is session-local, while KLOPSI attaches the staged source read-only:
@@ -87,6 +95,7 @@ Run `klopsi --help` or read the [complete command reference](https://github.com/
 | Download data                 | `klopsi download <ids...>`                                      |
 | Validate data or metadata     | `klopsi validate <input>`                                       |
 | Query tabular data            | `klopsi query <input> --sql <statement>`                        |
+| Render an offline chart       | `klopsi chart <input> --x <column> --y <column> ...`            |
 | Explore data in DuckDB UI     | `klopsi duckdb open <input>`                                    |
 | Convert formats               | `klopsi convert <input> --to <format> --output <path>`          |
 | Verify provenance             | `klopsi provenance verify <path>`                               |
@@ -120,7 +129,7 @@ For broad database representation and exploration, install the dataset workbench
 npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-dataset-workbench
 ```
 
-This first version is agent-authored and contract-verified, not deterministically rendered by a CLI command. [Issue #28](https://github.com/0xfa7ca7/klopsi/issues/28) tracks the future deterministic CLI-backed renderer.
+The experimental `klopsi chart` command is a narrower deterministic CLI step: it renders one bounded bar or line chart in source order as self-contained offline HTML/SVG with no JavaScript. It does not replace the richer agent-authored workflows or complete [issue #28](https://github.com/0xfa7ca7/klopsi/issues/28). Existing output requires explicit `--force`, and `klopsi provenance verify` checks the published artifact.
 
 Agents use the same CLI as people and scripts. Prefer structured output and bounded results:
 

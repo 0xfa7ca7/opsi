@@ -573,6 +573,7 @@ interface QueryServiceOptions extends DataResolutionOptions {
   readonly sheet?: string;
   readonly output?: string;
   readonly force?: boolean;
+  readonly includeSourceDigest?: boolean;
   readonly signal?: AbortSignal;
 }
 interface QueryServiceResult {
@@ -585,6 +586,7 @@ interface QueryServiceResult {
   readonly durationMs: number;
   readonly cache: QueryCacheMetadata;
   readonly warnings: readonly QueryCacheWarning[];
+  readonly sourceSha256?: string;
   readonly output?: string;
   readonly provenancePath?: string;
 }

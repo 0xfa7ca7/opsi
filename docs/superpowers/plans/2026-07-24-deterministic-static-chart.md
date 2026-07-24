@@ -260,8 +260,11 @@ Execute:
 
 ```ts
 const sql =
-  `SELECT ${sqlIdentifier(x)} AS "__klopsi_x", ` +
-  `${sqlIdentifier(y)} AS "__klopsi_y" FROM data ORDER BY rowid`;
+  `WITH "__klopsi_chart_source" AS (` +
+  `SELECT row_number() OVER () AS "__klopsi_order", ` +
+  `${sqlIdentifier(x)} AS "__klopsi_x", ${sqlIdentifier(y)} AS "__klopsi_y" FROM data) ` +
+  `SELECT "__klopsi_x", "__klopsi_y" FROM "__klopsi_chart_source" ` +
+  `ORDER BY "__klopsi_order"`;
 const result = await client.query.execute(input, { sql, limit, ...resolutionOptions });
 ```
 
