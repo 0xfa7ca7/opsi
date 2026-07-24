@@ -1,9 +1,8 @@
 # Catalogue snapshot service
 
 The catalogue snapshot service publishes the compact, versioned catalogue used by normal
-`klopsi dataset list` calls. Its architecture and trust boundaries are defined in the
-[catalogue snapshot design](superpowers/specs/2026-07-13-catalogue-snapshot-design.md) and
-[public hosting design](superpowers/specs/2026-07-14-public-catalogue-hosting-design.md).
+`klopsi dataset list` calls. This guide documents its architecture, trust boundaries,
+publication workflow, and incident procedures.
 
 ## Public endpoints and freshness
 
