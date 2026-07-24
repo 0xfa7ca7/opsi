@@ -1,17 +1,18 @@
 ---
 name: klopsi-analysis
-description: "Use when querying or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports."
+description: "Use when querying, charting, or converting bounded data, including ZIP, XML, JSON, XLSX, Parquet, or query exports."
 ---
 
 # klopsi-analysis
 
 > **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before executing these commands.
 
-Analyze tabular inputs with bounded read-only SQL or convert supported formats. Generated for `klopsi` 0.0.1.
+Analyze tabular inputs with bounded read-only SQL, render a small deterministic chart, or convert supported formats. Generated for `klopsi` 0.0.1.
 
 ## Workflow
 
 - Preview and validate input before running a bounded query.
+- Render a bounded bar or line chart when one explicit x/y view is sufficient.
 - Convert an input and then verify the generated provenance record.
 
 ## Capability guide
@@ -30,6 +31,13 @@ Analyze tabular inputs with bounded read-only SQL or convert supported formats. 
 
 - Use `--output` for a bounded query export and choose a new path unless the user explicitly authorizes `--force`.
 - Run `provenance verify` on an important query export before reporting it as a final artifact.
+
+### Render a bounded static chart
+
+- Use `chart` only when one explicit bar or line view is sufficient; pass exact `--x`, numeric `--y`, `--type`, `--output`, and an appropriate `--limit` no larger than 500.
+- The artifact preserves source order and is self-contained offline HTML/SVG with no JavaScript. Aggregate or filter first when the source prefix would be misleading, and disclose the transformation.
+- Choose a new `.html` path unless the user explicitly authorizes `--force`, then run `provenance verify` before handing off an important chart artifact.
+- Use `klopsi-static-dashboard` instead when the request needs multiple views, KPI cards, narrative composition, a map, or presentation-specific language and color decisions.
 
 ### Convert safely
 
@@ -64,6 +72,38 @@ klopsi query <input> --sql <query> [options]
 | `--record-path <path>` | no | path | — | XML record element path |
 | `--output <path>` | no | path | — | export bounded results (.csv, .tsv, .json, .ndjson) |
 | `--force` | no | — | — | replace an existing output |
+| `--allow-insecure-http` | no | — | — | allow HTTP for this invocation |
+| `--allow-private-network` | no | — | — | allow private network addresses for this invocation |
+
+
+### `chart`
+
+Render a bounded offline HTML/SVG chart.
+
+```sh
+klopsi chart <input> --x <column> --y <column> --type <type> --output <path> [options]
+```
+
+#### Arguments
+
+| Argument | Values | Description |
+| --- | --- | --- |
+| `<input>` | — | local path or canonical resource reference |
+
+#### Options
+
+| Option | Required | Values | Conflicts | Description |
+| --- | --- | --- | --- | --- |
+| `--x <column>` | yes | column | — | x-axis column |
+| `--y <column>` | yes | column | — | numeric y-axis column |
+| `--type <type>` | yes | `bar`, `line` | — | chart type |
+| `--output <path>` | yes | path | — | destination HTML file |
+| `--title <text>` | no | text | — | chart title |
+| `--limit <points>` | no | points | — | maximum rendered points (up to 500) |
+| `--force` | no | — | — | replace an existing regular artifact pair |
+| `--sheet <name>` | no | name | — | XLSX sheet name |
+| `--entry <path>` | no | path | — | ZIP data entry path |
+| `--record-path <path>` | no | path | — | XML record element path |
 | `--allow-insecure-http` | no | — | — | allow HTTP for this invocation |
 | `--allow-private-network` | no | — | — | allow private network addresses for this invocation |
 

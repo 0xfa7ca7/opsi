@@ -321,4 +321,27 @@ describe("QueryService staged database lease", () => {
       expect.any(Function),
     );
   });
+
+  it("returns a source digest on request while resolved provider input still exists", async () => {
+    const withResolvedInput = vi.fn(
+      async (_input: string, _options: unknown, operation: (source: string) => Promise<unknown>) =>
+        operation(input),
+    );
+    const execute = vi.fn(async (_source: string, options: { readonly sql: string }) => ({
+      ...result(options.sql),
+      cache: { status: "hit" as const, kind: "duckdb-stage" as const },
+      warnings: [] as const,
+    }));
+    const service = new QueryService({ withResolvedInput } as never, { execute } as never);
+
+    await expect(
+      service.execute("opsi:resource:example", {
+        sql: "SELECT * FROM data",
+        includeSourceDigest: true,
+      }),
+    ).resolves.toMatchObject({
+      source: input,
+      sourceSha256: createHash("sha256").update("name,value\na,1\nb,2\n").digest("hex"),
+    });
+  });
 });

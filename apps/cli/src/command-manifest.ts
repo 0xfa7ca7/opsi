@@ -242,6 +242,30 @@ export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
     ],
   ),
   leaf(
+    "chart",
+    "Render a bounded offline HTML/SVG chart",
+    [argument("<input>", "local path or canonical resource reference")],
+    [
+      option("--x <column>", "x-axis column", { mandatory: true }),
+      option("--y <column>", "numeric y-axis column", { mandatory: true }),
+      option("--type <type>", "chart type", {
+        choices: ["bar", "line"],
+        mandatory: true,
+      }),
+      option("--output <path>", "destination HTML file", { mandatory: true }),
+      option("--title <text>", "chart title"),
+      option("--limit <points>", "maximum rendered points (up to 500)", {
+        parser: "positive",
+        defaultValue: 100,
+      }),
+      option("--force", "replace an existing regular artifact pair"),
+      option("--sheet <name>", "XLSX sheet name"),
+      option("--entry <path>", "ZIP data entry path"),
+      option("--record-path <path>", "XML record element path"),
+      ...NETWORK_OPTIONS,
+    ],
+  ),
+  leaf(
     "duckdb open",
     "Open tabular data in DuckDB UI",
     [argument("<input>", "local path or canonical resource reference")],

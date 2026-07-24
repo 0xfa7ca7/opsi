@@ -111,6 +111,14 @@ klopsi validate ./downloads/data.csv --json
 klopsi query ./downloads/data.csv \
   --sql "select * from data limit 10" \
   --json
+
+klopsi chart ./downloads/data.csv \
+  --x category \
+  --y value \
+  --type bar \
+  --output ./downloads/data-chart.html
+
+klopsi provenance verify ./downloads/data-chart.html --json
 ```
 
 Open the same prepared table `data` in a DuckDB dataset workbench. The writable workbench is session-local, while KLOPSI attaches the staged source read-only. Install the external DuckDB CLI explicitly when it is not already available:
@@ -145,6 +153,7 @@ Run `klopsi --help` or read the [complete command reference](docs/commands.md) f
 | Download data                 | `klopsi download <ids...>`                                      |
 | Validate data or metadata     | `klopsi validate <input>`                                       |
 | Query tabular data            | `klopsi query <input> --sql <statement>`                        |
+| Render an offline chart       | `klopsi chart <input> --x <column> --y <column> ...`            |
 | Explore data in DuckDB UI     | `klopsi duckdb open <input>`                                    |
 | Convert formats               | `klopsi convert <input> --to <format> --output <path>`          |
 | Verify provenance             | `klopsi provenance verify <path>`                               |
@@ -166,6 +175,7 @@ The first query or DuckDB UI session for a source imports it into a rebuildable 
 | Preview    | Reads a bounded number of rows from local files or provider resources           |
 | Validate   | Reports typed issues and recommendations for data or metadata                   |
 | Query      | Accepts one bounded, read-only `SELECT`, `WITH … SELECT`, or `VALUES` statement |
+| Chart      | Writes a bounded, deterministic bar or line chart in source order               |
 | Convert    | Writes CSV, TSV, JSON, NDJSON, XLSX, or Parquet atomically                      |
 | Provenance | Records and verifies the source, transformation, and SHA-256 digest             |
 
@@ -221,7 +231,7 @@ npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-intera
 npx skills add https://github.com/0xfa7ca7/klopsi/tree/main/skills/klopsi-shared
 ```
 
-This first version is agent-authored and contract-verified; it does not claim deterministic HTML rendering by the CLI. [Issue #28](https://github.com/0xfa7ca7/klopsi/issues/28) tracks a future deterministic CLI-backed renderer.
+The experimental `klopsi chart` command now covers a narrower deterministic CLI path: one bounded bar or line chart as self-contained offline HTML/SVG with no JavaScript. It does not replace the richer agent-authored presentation workflows or complete [issue #28](https://github.com/0xfa7ca7/klopsi/issues/28). Chart output preserves source order, refuses replacement without `--force`, and can be checked with `klopsi provenance verify`.
 
 Compatible agent hosts select `klopsi` automatically from your request. Depending on the host, you may also invoke the main orchestrator as `/klopsi`, `@klopsi`, or `$klopsi`; these are agent-host forms, not shell commands. The skills use the installed CLI and do not add a model runtime or provider dependency to `klopsi`.
 

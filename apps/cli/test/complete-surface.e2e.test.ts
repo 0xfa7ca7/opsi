@@ -121,6 +121,7 @@ describe("complete command surface", () => {
         "resource headers",
         "download",
         "query",
+        "chart",
         "duckdb open",
         "duckdb install",
         "convert",
@@ -176,6 +177,7 @@ describe("complete command surface", () => {
     const adapters = [
       "agent",
       "cache",
+      "chart",
       "completion",
       "config",
       "convert",
