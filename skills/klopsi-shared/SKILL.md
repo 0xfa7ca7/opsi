@@ -41,7 +41,8 @@ Use the installed CLI as the source of truth when its help differs from generate
 
 ## Formats and outputs
 
-- Supported tabular workflow formats include JSON, NDJSON, CSV, TSV, XLSX, Parquet, ZIP, and XML when their selected content is supported.
+- Supported tabular workflow formats include JSON, NDJSON, CSV, TSV, XLSX, Parquet, ZIP, XML, and dense PC-Axis when their selected content is supported.
+- PC-Axis is input-only and becomes deterministic long-form rows. Preserve sibling `__code` strings and distinguish a source-symbol null (`value: null` plus `value__symbol`) from numeric zero.
 - Choose `--json` for one bounded envelope, `--ndjson` for records, and command-specific `--output` for a persisted artifact; use spreadsheet-safe output when needed.
 
 ## Presentation artifacts

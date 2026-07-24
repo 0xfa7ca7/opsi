@@ -4,10 +4,11 @@ import type { FileHandle } from "node:fs/promises";
 
 export type SupportedDataFormat = "csv" | "tsv" | "json" | "ndjson" | "xlsx" | "parquet";
 export const SUPPORTED_DATA_FORMATS = ["csv", "tsv", "json", "ndjson", "xlsx", "parquet"] as const;
-export type SupportedInputFormat = SupportedDataFormat | "xml";
+export type SupportedInputFormat = SupportedDataFormat | "xml" | "pcaxis";
 export type DetectedInputFormat = SupportedInputFormat | "zip" | "unknown";
 export type DetectionConfidence =
   "signature" | "media-type" | "content" | "declared-format" | "extension" | "unknown";
+export type DetectedTextEncoding = import("./text-decoding.js").TextEncoding | "windows-1250";
 
 export interface DataSource {
   readonly path: string;
@@ -24,7 +25,7 @@ export interface FormatDetection {
   readonly confidence: DetectionConfidence;
   readonly mediaType?: string;
   readonly extension?: string;
-  readonly encoding?: import("./text-decoding.js").TextEncoding;
+  readonly encoding?: DetectedTextEncoding;
   readonly delimiter?: import("./text-decoding.js").DelimitedDialect;
 }
 
@@ -39,12 +40,13 @@ export interface PreviewOptions {
 export interface DataPreview {
   readonly format: SupportedInputFormat;
   readonly columns: readonly string[];
+  readonly codeColumns?: readonly string[];
   readonly rows: readonly DataRow[];
   readonly returnedCount: number;
   readonly truncated: boolean;
   readonly sheet?: string;
   readonly warnings: readonly ValidationIssue[];
-  readonly encoding?: import("./text-decoding.js").TextEncoding;
+  readonly encoding?: DetectedTextEncoding;
   readonly delimiter?: import("./text-decoding.js").DelimitedDialect;
 }
 
@@ -106,6 +108,7 @@ export interface DataEngineOptions {
   readonly conversionFileSystem?: Partial<ConversionFileSystem>;
   readonly conversionStageClose?: (close: () => Promise<void>) => Promise<void>;
   readonly xmlLimits?: import("./xml.js").XmlLimits;
+  readonly pcAxisLimits?: import("./pcaxis.js").PcAxisLimits;
 }
 
 export interface ConversionFileSystem {

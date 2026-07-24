@@ -42,6 +42,33 @@ describe("safe ZIP data access", () => {
     expect(await readFile(output, "utf8")).toBe("id\n1\n");
   });
 
+  it("selects and extracts the only PC-Axis data entry", async () => {
+    const contents =
+      'CODEPAGE="utf-8";MATRIX="archive";STUB="Place";VALUES("Place")="Ljubljana";DATA=1;';
+    const path = await archive({ "README.txt": "notes", "data/table.px": contents });
+    const inspection = await inspectArchive(path, DEFAULT_ARCHIVE_LIMITS);
+    expect(inspection).toMatchObject({
+      selectedEntry: "data/table.px",
+      candidates: ["data/table.px"],
+    });
+
+    const output = join(path, "..", "table.px");
+    await extractArchiveEntry(path, "data/table.px", output, DEFAULT_ARCHIVE_LIMITS);
+    expect(await readFile(output, "utf8")).toBe(contents);
+  });
+
+  it("selects an explicit PC-Axis entry from an otherwise ambiguous archive", async () => {
+    const path = await archive({
+      "a.csv": "id\n1\n",
+      "table.px":
+        'CODEPAGE="utf-8";MATRIX="archive";STUB="Place";VALUES("Place")="Ljubljana";DATA=1;',
+    });
+    await expect(inspectArchive(path, DEFAULT_ARCHIVE_LIMITS, "table.px")).resolves.toMatchObject({
+      selectedEntry: "table.px",
+      candidates: ["a.csv", "table.px"],
+    });
+  });
+
   it("requires selection when multiple data entries exist", async () => {
     const path = await archive({ "a.csv": "id\n1\n", "b.json": '[{"id":2}]' });
     await expect(inspectArchive(path, DEFAULT_ARCHIVE_LIMITS)).rejects.toMatchObject({

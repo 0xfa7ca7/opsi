@@ -110,6 +110,25 @@ async function createParquetFixture(path: string): Promise<void> {
   }
 }
 
+async function createPcAxisFixture(path: string): Promise<void> {
+  await writeFile(
+    path,
+    `CHARSET="ANSI";
+AXIS-VERSION="2010";
+CODEPAGE="utf-8";
+MATRIX="doctor";
+STUB="Municipality";
+HEADING="Year";
+VALUES("Municipality")="Ljubljana";
+CODES("Municipality")="061";
+VALUES("Year")="2024","2025";
+CODES("Year")="24","25";
+DATASYMBOLNIL="Missing";
+DATA=
+42 "-";`,
+  );
+}
+
 async function capture(
   checks: DoctorCheck[],
   name: string,
@@ -188,6 +207,24 @@ export async function runDoctorChecks(
       const preview = await engine.preview(path, { limit: 1 });
       if (preview.rows.length !== 1) throw new Error("parquet handler returned no rows.");
       return { format: "parquet", rows: preview.rows.length };
+    });
+    await capture(checks, "format:pcaxis", async () => {
+      const path = join(directory, "data.px");
+      await createPcAxisFixture(path);
+      const preview = await engine.preview(path, { limit: 2 });
+      if (preview.rows.length !== 2) throw new Error("pcaxis handler returned incomplete rows.");
+      const code = preview.rows[0]?.Municipality__code;
+      const sourceSymbol = preview.rows[1]?.value__symbol;
+      if (code !== "061" || sourceSymbol !== "-")
+        throw new Error("pcaxis handler did not preserve codes and source symbols.");
+      return {
+        format: "pcaxis",
+        inputOnly: true,
+        rows: preview.rows.length,
+        columns: preview.columns.length,
+        codeColumns: preview.codeColumns ?? [],
+        sourceSymbol,
+      };
     });
   } finally {
     await rm(directory, { recursive: true, force: true });

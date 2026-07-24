@@ -165,13 +165,15 @@ describe("data CLI", () => {
     expect(result.stdout).not.toMatch(/curl|https?:\/\//u);
   });
 
-  it("previews an explicitly selected entry from a local ZIP archive", async () => {
+  it("previews an explicitly selected PC-Axis entry from a local ZIP archive", async () => {
     const archive = join(home, "multiple.zip");
     await writeFile(
       archive,
       zipSync({
         "a.csv": strToU8("id,name\n1,Ljubljana\n"),
-        "b.csv": strToU8("id,name\n2,Maribor\n"),
+        "table.px": strToU8(
+          'CODEPAGE="utf-8";MATRIX="archive";STUB="Place";VALUES("Place")="Maribor";DATA=2;',
+        ),
       }),
     );
     await expect(cli(["resource", "preview", archive, "--json"])).resolves.toMatchObject({
@@ -179,10 +181,28 @@ describe("data CLI", () => {
       json: { error: { code: "ARCHIVE_ENTRY_REQUIRED", nextActions: expect.any(Array) } },
     });
     await expect(
-      cli(["resource", "preview", archive, "--entry", "b.csv", "--json"]),
+      cli(["resource", "preview", archive, "--entry", "table.px", "--json"]),
     ).resolves.toMatchObject({
       exitCode: 0,
-      json: { data: [{ id: "2", name: "Maribor" }] },
+      json: { data: [{ Place: "Maribor", value: 2 }] },
+    });
+  });
+
+  it("previews an automatically selected PC-Axis entry from a local ZIP archive", async () => {
+    const archive = join(home, "pcaxis.zip");
+    await writeFile(
+      archive,
+      zipSync({
+        "README.txt": strToU8("notes"),
+        "table.px": strToU8(
+          'CODEPAGE="utf-8";MATRIX="archive";STUB="Place";VALUES("Place")="Ljubljana";DATA=1;',
+        ),
+      }),
+    );
+
+    await expect(cli(["resource", "preview", archive, "--json"])).resolves.toMatchObject({
+      exitCode: 0,
+      json: { data: [{ Place: "Ljubljana", value: 1 }] },
     });
   });
 

@@ -27,6 +27,7 @@ export type {
   QueryDatabaseMetadata,
   QueryDatabasePreparationOptions,
   QueryDatabaseResult,
+  QueryDatabaseWarning,
 } from "./query-database-cache.js";
 export { validateDatasetMetadata, validateResourceMetadata } from "./metadata-validation.js";
 export {
@@ -51,4 +52,4 @@ export type {
   WfsVersion,
 } from "./wfs/index.js";
 export { ResourceAccessService } from "./access.js";
-export type { ArchiveLimits, XmlLimits } from "@klopsi/data-engine";
+export type { ArchiveLimits, PcAxisLimits, XmlLimits } from "@klopsi/data-engine";

@@ -40,6 +40,7 @@ const SUPPORTED = new Set([
   ".ndjson",
   ".xlsx",
   ".parquet",
+  ".px",
   ".xml",
 ]);
 const ARCHIVES = new Set([".zip", ".7z", ".rar", ".tar", ".gz", ".gzip"]);

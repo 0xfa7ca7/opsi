@@ -41,7 +41,12 @@ const EXPECTED_SKILLS = [
 
 const EXPECTED_DATA_CAPABILITY_IDS = {
   "klopsi-catalogue": ["catalogue-mode", "search-refinement", "dataset-followup"],
-  "klopsi-resources": ["input-resolution", "access-selection", "structured-selectors"],
+  "klopsi-resources": [
+    "input-resolution",
+    "access-selection",
+    "structured-selectors",
+    "pcaxis-preview",
+  ],
   "klopsi-download": ["target-resolution", "destination-strategy", "partial-results"],
   "klopsi-validation": ["validation-mode", "structured-selectors", "failure-recovery"],
   "klopsi-analysis": ["supported-inputs", "bounded-query", "query-export", "safe-conversion"],
@@ -903,6 +908,21 @@ describe("agent skill rendering", () => {
           expect(content.indexOf(bullet), `${name}: ${bullet}`).toBeLessThan(commands);
         }
       }
+    }
+  });
+
+  it("teaches the dense PC-Axis input contract in every affected generated skill", () => {
+    const files = renderAgentSkillFiles("1.2.3");
+    const required: Readonly<Record<string, readonly string[]>> = {
+      "klopsi-shared": ["PC-Axis", "input-only", "long-form"],
+      "klopsi-resources": ["__code", "zero-padded", "value__symbol"],
+      "klopsi-validation": ["PCAXIS_KEYS_UNSUPPORTED", "PCAXIS_ENCODING_UNSUPPORTED"],
+      "klopsi-analysis": ["source-symbol null", "CSV, TSV, JSON, NDJSON, XLSX, or Parquet"],
+    };
+
+    for (const [name, tokens] of Object.entries(required)) {
+      const content = files.get(name) ?? "";
+      for (const token of tokens) expect(content, `${name}: ${token}`).toContain(token);
     }
   });
 

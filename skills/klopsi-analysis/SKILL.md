@@ -18,8 +18,10 @@ Analyze tabular inputs with bounded read-only SQL or convert supported formats. 
 
 ### Choose a supported input
 
-- Query or convert CSV, TSV, JSON, NDJSON, XLSX, Parquet, ZIP, or XML only after inspection identifies a usable tabular member.
+- Query or convert CSV, TSV, JSON, NDJSON, XLSX, Parquet, ZIP, XML, or dense PC-Axis only after inspection identifies usable tabular content.
 - Use a resolved `--entry`, `--record-path`, or `--sheet` whenever ZIP, XML, or XLSX input is ambiguous.
+- PC-Axis is input-only: convert it to CSV, TSV, JSON, NDJSON, XLSX, or Parquet, never to PC-Axis.
+- In staged PC-Axis rows, keep `__code` fields as strings and interpret a source-symbol null as `value IS NULL` with the original token in `value__symbol`; do not confuse it with numeric zero.
 
 ### Run bounded read-only SQL
 

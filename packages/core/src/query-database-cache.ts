@@ -4,20 +4,23 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
+  DEFAULT_PCAXIS_LIMITS,
   detectFormat,
   stageTabularInput,
   verifyStagedDatabase,
   type DataInput,
   type DuckDbQueryRunner,
   type PreparedQueryExecutionOptions,
+  type PcAxisLimits,
   type QueryResult,
   type SupportedInputFormat,
   type TabularStage,
+  type ValidationIssue,
 } from "@klopsi/data-engine";
 import { EXIT_CODES, KlopsiError } from "@klopsi/domain";
 import type { DerivedArtifactCache, DerivedArtifactIdentity } from "@klopsi/storage";
 
-export const QUERY_STAGE_VERSION = "1";
+export const QUERY_STAGE_VERSION = "3";
 export const QUERY_STAGE_DUCKDB_VERSION = "1.5.4-r.1";
 
 export type QueryCacheStatus = "hit" | "miss" | "bypass";
@@ -31,6 +34,8 @@ export interface QueryCacheWarning {
   readonly code: "QUERY_CACHE_BYPASS";
   readonly message: string;
 }
+
+export type QueryDatabaseWarning = QueryCacheWarning | ValidationIssue;
 
 type PreparedRunner = Pick<DuckDbQueryRunner, "executePrepared">;
 type DerivedCache = Pick<
@@ -54,16 +59,17 @@ export interface QueryDatabaseCacheOptions {
   readonly makeTemporaryDirectory?: () => Promise<string>;
   readonly removeTemporaryDirectory?: (path: string) => Promise<void>;
   readonly xmlLimits?: import("@klopsi/data-engine").XmlLimits;
+  readonly pcAxisLimits?: PcAxisLimits;
 }
 
 export interface QueryDatabaseResult extends QueryResult {
   readonly cache: QueryCacheMetadata;
-  readonly warnings: readonly QueryCacheWarning[];
+  readonly warnings: readonly QueryDatabaseWarning[];
 }
 
 export interface QueryDatabaseMetadata {
   readonly cache: QueryCacheMetadata;
-  readonly warnings: readonly QueryCacheWarning[];
+  readonly warnings: readonly QueryDatabaseWarning[];
 }
 
 export interface QueryDatabaseLeaseResult<T> extends QueryDatabaseMetadata {
@@ -83,7 +89,16 @@ async function sourceDigest(input: DataInput, path: string): Promise<string> {
 }
 
 function supported(format: string): format is SupportedInputFormat {
-  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"].includes(format);
+  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml", "pcaxis"].includes(format);
+}
+
+function pcAxisStageVersion(limits: PcAxisLimits | undefined): string {
+  const effective = { ...DEFAULT_PCAXIS_LIMITS, ...limits };
+  const canonical = JSON.stringify(
+    Object.entries(effective).sort(([left], [right]) => left.localeCompare(right)),
+  );
+  const digest = createHash("sha256").update(canonical, "utf8").digest("hex");
+  return `${QUERY_STAGE_VERSION}:pcaxis:${digest}`;
 }
 
 function cleanupFailure(failures: readonly unknown[], operationError: unknown): KlopsiError {
@@ -113,10 +128,11 @@ export class QueryDatabaseCache {
     let operationCompleted = false;
     let status: QueryCacheStatus = "bypass";
     let operationError: unknown;
-    const warnings: QueryCacheWarning[] = [];
+    const cacheWarnings: QueryCacheWarning[] = [];
+    let stagingWarnings: readonly ValidationIssue[] = [];
     const warn = () => {
-      if (warnings.length === 0)
-        warnings.push({
+      if (!cacheWarnings.some((warning) => warning.code === "QUERY_CACHE_BYPASS"))
+        cacheWarnings.push({
           code: "QUERY_CACHE_BYPASS",
           message: "DuckDB stage caching was unavailable; the query used temporary staging.",
         });
@@ -131,7 +147,7 @@ export class QueryDatabaseCache {
           code: "UNSUPPORTED_CONVERSION_FORMAT",
           message: `The detected format '${detection.format}' cannot be converted.`,
           exitCode: EXIT_CODES.UNSUPPORTED,
-          suggestion: "Use CSV, TSV, JSON, NDJSON, XLSX, Parquet, or XML input.",
+          suggestion: "Use CSV, TSV, JSON, NDJSON, XLSX, Parquet, XML, or PC-Axis input.",
           context: { format: detection.format },
         });
       const build = async (): Promise<void> => {
@@ -146,10 +162,15 @@ export class QueryDatabaseCache {
           ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
           ...(options.recordPath === undefined ? {} : { recordPath: options.recordPath }),
           ...(this.options.xmlLimits === undefined ? {} : { xmlLimits: this.options.xmlLimits }),
+          ...(this.options.pcAxisLimits === undefined
+            ? {}
+            : { pcAxisLimits: this.options.pcAxisLimits }),
         });
+        const builtWarnings = stage.warnings;
         await stage.connection.run("CHECKPOINT");
         await stage.close();
         stage = undefined;
+        stagingWarnings = builtWarnings;
         await (this.options.verify ?? verifyStagedDatabase)(databasePath);
       };
 
@@ -167,7 +188,10 @@ export class QueryDatabaseCache {
           sourceSha256: await sourceDigest(source, detection.path),
           format: detection.format as Exclude<SupportedInputFormat, "xml">,
           ...(options.sheet === undefined ? {} : { sheet: options.sheet }),
-          stagingVersion: QUERY_STAGE_VERSION,
+          stagingVersion:
+            detection.format === "pcaxis"
+              ? pcAxisStageVersion(this.options.pcAxisLimits)
+              : QUERY_STAGE_VERSION,
           duckdbVersion: QUERY_STAGE_DUCKDB_VERSION,
         };
         let lookupFailed = false;
@@ -216,6 +240,10 @@ export class QueryDatabaseCache {
                 stagingError = error;
                 throw error;
               }
+              if (stagingWarnings.length > 0) {
+                status = "bypass";
+                return;
+              }
               try {
                 const publication = await derived.publish(identity, databasePath);
                 status = publication.retained ? "miss" : "bypass";
@@ -241,6 +269,7 @@ export class QueryDatabaseCache {
         }
       }
 
+      const warnings: readonly QueryDatabaseWarning[] = [...cacheWarnings, ...stagingWarnings];
       result = await operation(databasePath, {
         cache: { status, kind: "duckdb-stage" },
         warnings,
@@ -274,7 +303,11 @@ export class QueryDatabaseCache {
         message: "The staged database operation completed without a result.",
         exitCode: EXIT_CODES.QUERY_FAILURE,
       });
-    return { value: result as T, cache: { status, kind: "duckdb-stage" }, warnings };
+    return {
+      value: result as T,
+      cache: { status, kind: "duckdb-stage" },
+      warnings: [...cacheWarnings, ...stagingWarnings],
+    };
   }
 
   async execute(

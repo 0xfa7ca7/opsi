@@ -5,6 +5,7 @@ import {
   parseCanonicalReference,
   resourceId,
   type ResourceAccessDescriptor,
+  type ResourceAccessOperation,
   type ResourceId,
 } from "@klopsi/domain";
 import { LocalProvider } from "@klopsi/provider-local";
@@ -16,23 +17,65 @@ function action(name: string, argv: readonly string[], reason?: string) {
   return { action: name, argv, ...(reason === undefined ? {} : { reason }) };
 }
 
+function supportsDirectDataOperations(format: DetectedInputFormat): boolean {
+  return format !== "zip" && format !== "unknown";
+}
+
+type ArchiveFailure =
+  | { readonly kind: "selection"; readonly entries: readonly string[] }
+  | { readonly kind: "selected-content" }
+  | { readonly kind: "archive-content" };
+
+const SELECTED_ARCHIVE_CONTENT_ERRORS = new Set([
+  "INVALID_JSON",
+  "INVALID_NDJSON",
+  "INVALID_PCAXIS_DATA",
+  "INVALID_TABULAR_DATA",
+  "INVALID_XML_DATA",
+  "PARSE_ERROR",
+]);
+
+function classifyArchiveFailure(error: unknown): ArchiveFailure | undefined {
+  if (!(error instanceof KlopsiError)) return undefined;
+  if (error.code === "ARCHIVE_ENTRY_REQUIRED")
+    return {
+      kind: "selection",
+      entries: (error.context?.choices as readonly string[] | undefined) ?? [],
+    };
+  if (["INVALID_ARCHIVE_DATA", "ARCHIVE_NO_SUPPORTED_ENTRY"].includes(error.code))
+    return { kind: "archive-content" };
+  if (SELECTED_ARCHIVE_CONTENT_ERRORS.has(error.code) || error.code.startsWith("PCAXIS_"))
+    return { kind: "selected-content" };
+  return undefined;
+}
+
 function dataDescriptor(
   input: string,
   kind: "local" | "file" | "archive",
   format: DetectedInputFormat,
-  selections: Readonly<Record<string, readonly string[]>> = {},
+  options: {
+    readonly selections?: Readonly<Record<string, readonly string[]>>;
+    readonly direct?: boolean;
+    readonly downloadable?: boolean;
+  } = {},
 ): ResourceAccessDescriptor {
   const archive = kind === "archive" || format === "zip";
-  const operations = archive
-    ? (["inspect", "preview", "schema", "validate", "query", "convert", "download"] as const)
-    : (["inspect", "preview", "schema", "validate", "query", "convert"] as const);
-  const nextActions = selections.entries?.map((entry) =>
-    action(
-      "resource.preview",
-      ["resource", "preview", input, "--entry", entry, "--json"],
-      "Select one ZIP data entry",
-    ),
-  ) ?? [action("resource.preview", ["resource", "preview", input, "--limit", "20", "--json"])];
+  const direct = options.direct ?? supportsDirectDataOperations(format);
+  const operations: ResourceAccessOperation[] = ["inspect"];
+  if (direct) operations.push("preview", "schema", "validate", "query", "convert");
+  if (options.downloadable ?? kind === "file") operations.push("download");
+  const selections = options.selections ?? {};
+  const nextActions =
+    selections.entries?.map((entry) =>
+      action(
+        "resource.preview",
+        ["resource", "preview", input, "--entry", entry, "--json"],
+        "Select one ZIP data entry",
+      ),
+    ) ??
+    (direct
+      ? [action("resource.preview", ["resource", "preview", input, "--limit", "20", "--json"])]
+      : []);
   return {
     input,
     kind,
@@ -43,6 +86,28 @@ function dataDescriptor(
       ? ["Only one non-nested supported ZIP entry is extracted per operation."]
       : [],
     nextActions,
+  };
+}
+
+function archiveFailureDescriptor(
+  input: string,
+  failure: ArchiveFailure,
+  downloadable: boolean,
+): ResourceAccessDescriptor {
+  const descriptor = dataDescriptor(input, "archive", "zip", {
+    ...(failure.kind === "selection" ? { selections: { entries: failure.entries } } : {}),
+    direct: false,
+    downloadable,
+  });
+  if (failure.kind === "selection") return descriptor;
+  return {
+    ...descriptor,
+    limitations: [
+      ...descriptor.limitations,
+      failure.kind === "archive-content"
+        ? "The ZIP archive is malformed or contains no supported data entry."
+        : "The selected entry must still pass format parsing or validation.",
+    ],
   };
 }
 
@@ -68,12 +133,13 @@ export class ResourceAccessService {
         if (detection.format === "zip") {
           try {
             const archive = await inspectArchive(detection.path);
-            return dataDescriptor(input, "archive", "zip", { entries: archive.candidates });
+            return dataDescriptor(input, "archive", "zip", {
+              selections: { entries: archive.candidates },
+              direct: true,
+            });
           } catch (error) {
-            if (error instanceof KlopsiError && error.code === "ARCHIVE_ENTRY_REQUIRED")
-              return dataDescriptor(input, "archive", "zip", {
-                entries: (error.context?.choices as readonly string[]) ?? [],
-              });
+            const failure = classifyArchiveFailure(error);
+            if (failure !== undefined) return archiveFailureDescriptor(input, failure, false);
             throw error;
           }
         }
@@ -85,7 +151,9 @@ export class ResourceAccessService {
             if (error instanceof KlopsiError && error.code === "XML_RECORD_PATH_REQUIRED")
               return {
                 ...dataDescriptor(input, "local", "xml", {
-                  recordPaths: (error.context?.choices as readonly string[]) ?? [],
+                  selections: {
+                    recordPaths: (error.context?.choices as readonly string[]) ?? [],
+                  },
                 }),
                 nextActions: ((error.context?.choices as readonly string[]) ?? []).map((path) =>
                   action("resource.preview", [
@@ -161,23 +229,13 @@ export class ResourceAccessService {
     if (resolved.kind === "archive") {
       try {
         await this.client.data.preview(canonical, { ...options, limit: 1 });
-        return dataDescriptor(canonical, "archive", "zip");
+        return dataDescriptor(canonical, "archive", "zip", {
+          direct: true,
+          downloadable: true,
+        });
       } catch (error) {
-        if (error instanceof KlopsiError && error.code === "ARCHIVE_ENTRY_REQUIRED")
-          return dataDescriptor(canonical, "archive", "zip", {
-            entries: (error.context?.choices as readonly string[]) ?? [],
-          });
-        if (
-          error instanceof KlopsiError &&
-          ["INVALID_TABULAR_DATA", "INVALID_XML_DATA", "PARSE_ERROR"].includes(error.code)
-        )
-          return {
-            ...dataDescriptor(canonical, "archive", "zip"),
-            limitations: [
-              "Only one non-nested supported ZIP entry is extracted per operation.",
-              "The selected entry must still pass format parsing or validation.",
-            ],
-          };
+        const failure = classifyArchiveFailure(error);
+        if (failure !== undefined) return archiveFailureDescriptor(canonical, failure, true);
         throw error;
       }
     }

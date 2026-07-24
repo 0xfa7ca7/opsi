@@ -31,6 +31,11 @@ Inspect a resource safely without committing to a full data workflow. Generated 
 - Use one `--entry` or `--record-path` reported by resource inspect or the relevant operation's structured error/output; resource inspect can surface ZIP entries and XML record paths.
 - Without `--sheet`, XLSX resource preview, validate, or query emits `SHEET_REQUIRED` with `context.sheets` and a suggestion; use one listed sheet.
 
+### Interpret PC-Axis previews
+
+- Dense PC-Axis preview emits deterministic long-form rows: each STUB or HEADING dimension becomes a label column, and a sibling `<dimension>__code` column appears when source CODES exist.
+- Treat `__code` values as strings so zero-padded identifiers survive. A source data symbol produces `value: null` plus `value__symbol`; numeric zero remains `value: 0` without a symbol.
+
 ## Commands
 
 ### `resource show`

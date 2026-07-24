@@ -259,7 +259,7 @@ export async function scanXlsx(
         });
         onHeader(columns, warnings);
       } else {
-        if (values.length !== columns.length)
+        if (values.length > columns.length)
           onIssue({
             code: "INCONSISTENT_COLUMN_COUNT",
             severity: "error",

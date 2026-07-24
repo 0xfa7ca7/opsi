@@ -7,6 +7,7 @@ import { sqlString } from "./sql-path.js";
 import type { DataInput, FormatDetection, SupportedInputFormat, ValidationIssue } from "./types.js";
 import { scanXlsx } from "./xlsx.js";
 import { writeXmlRowsAsNdjson } from "./xml.js";
+import { writePcAxisRowsAsNdjson, type PcAxisLimits } from "./pcaxis.js";
 
 export interface StagedColumn {
   readonly name: string;
@@ -23,11 +24,11 @@ export interface TabularStage {
 }
 
 function supported(format: string): format is SupportedInputFormat {
-  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml"].includes(format);
+  return ["csv", "tsv", "json", "ndjson", "xlsx", "parquet", "xml", "pcaxis"].includes(format);
 }
 
 function sourceExpression(
-  format: Exclude<SupportedInputFormat, "xlsx" | "xml">,
+  format: Exclude<SupportedInputFormat, "xlsx" | "xml" | "pcaxis">,
   path: string,
   detection: FormatDetection,
 ): string {
@@ -108,6 +109,7 @@ export async function stageTabularInput(options: {
   readonly xlsxSharedStringsByteLimit: number;
   readonly preserveDatabaseOnClose?: boolean;
   readonly xmlLimits?: import("./xml.js").XmlLimits;
+  readonly pcAxisLimits?: PcAxisLimits;
   readonly signal?: AbortSignal;
 }): Promise<TabularStage> {
   options.signal?.throwIfAborted();
@@ -118,16 +120,14 @@ export async function stageTabularInput(options: {
       code: "UNSUPPORTED_CONVERSION_FORMAT",
       message: `The detected format '${detection.format}' cannot be converted.`,
       exitCode: EXIT_CODES.UNSUPPORTED,
-      suggestion: "Use CSV, TSV, JSON, NDJSON, XLSX, Parquet, or XML input.",
+      suggestion: "Use CSV, TSV, JSON, NDJSON, XLSX, Parquet, XML, or PC-Axis input.",
       context: { format: detection.format },
     });
 
   let warnings: readonly ValidationIssue[] = [];
   let stagedSource = detection.path;
-  let stagedFormat: Exclude<SupportedInputFormat, "xlsx" | "xml"> = detection.format as Exclude<
-    SupportedInputFormat,
-    "xlsx" | "xml"
-  >;
+  let stagedFormat: Exclude<SupportedInputFormat, "xlsx" | "xml" | "pcaxis"> =
+    detection.format as Exclude<SupportedInputFormat, "xlsx" | "xml" | "pcaxis">;
   if (detection.format === "xlsx") {
     warnings = await xlsxAsNdjson(
       detection.path,
@@ -147,6 +147,16 @@ export async function stageTabularInput(options: {
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       },
       options.xmlLimits,
+    );
+    warnings = normalized.warnings;
+    stagedSource = options.xlsxRowsPath;
+    stagedFormat = "ndjson";
+  } else if (detection.format === "pcaxis") {
+    const normalized = await writePcAxisRowsAsNdjson(
+      detection.path,
+      options.xlsxRowsPath,
+      options.signal === undefined ? {} : { signal: options.signal },
+      options.pcAxisLimits,
     );
     warnings = normalized.warnings;
     stagedSource = options.xlsxRowsPath;
