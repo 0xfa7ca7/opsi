@@ -7,7 +7,7 @@ description: "Use when acquired or computed Slovenian public data should be repr
 
 > **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before executing these commands.
 
-Represent a resolved tabular dataset as the read-only `data` relation in a writable local database workbench. Generated for `klopsi` 0.0.1.
+Represent a resolved tabular dataset as the read-only `data` relation in a writable local database workbench. Generated for `klopsi` 0.0.2.
 
 ## Workflow
 

@@ -7,7 +7,7 @@ description: "Use when diagnosing KLOPSI, generating shell completion or Agent S
 
 > **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before executing these commands.
 
-Generate installable Agent Skills, diagnose the CLI environment, and expose providers and shell integration. Generated for `klopsi` 0.0.1.
+Generate installable Agent Skills, diagnose the CLI environment, and expose providers and shell integration. Generated for `klopsi` 0.0.2.
 
 ## Workflow
 

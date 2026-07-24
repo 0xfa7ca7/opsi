@@ -7,7 +7,7 @@ description: "Use when inspecting or changing the KLOPSI cache or non-secret con
 
 > **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before executing these commands.
 
-Manage local cache and validated non-secret CLI configuration. Generated for `klopsi` 0.0.1.
+Manage local cache and validated non-secret CLI configuration. Generated for `klopsi` 0.0.2.
 
 ## Workflow
 

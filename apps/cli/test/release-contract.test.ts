@@ -54,8 +54,12 @@ describe("clean CI and release contract", () => {
     expect(readme).toContain('from "klopsi/sdk"');
     expect(readme).toContain("Search Slovenia's [OPSI](https://podatki.gov.si/) catalogue");
 
-    const { stdout } = await execFileAsync("git", ["ls-files", "-z"], { encoding: "utf8" });
-    const paths = stdout.split("\0").filter(Boolean);
+    const [{ stdout }, { stdout: deletedStdout }] = await Promise.all([
+      execFileAsync("git", ["ls-files", "-z"], { encoding: "utf8" }),
+      execFileAsync("git", ["ls-files", "-z", "--deleted"], { encoding: "utf8" }),
+    ]);
+    const deletedPaths = new Set(deletedStdout.split("\0").filter(Boolean));
+    const paths = stdout.split("\0").filter((path) => path.length > 0 && !deletedPaths.has(path));
     const productLower = ["klop", "si"].join("");
     const productTitle = ["Klop", "si"].join("");
     const productUpper = productLower.toUpperCase();
@@ -359,13 +363,13 @@ describe("documentation contract", () => {
     expect(packagedReadme).toContain("tree/main/skills/klopsi-dataset-workbench");
     expect(packagedReadme).toContain("issues/28");
 
+    const cliPackage = JSON.parse(await text("apps/cli/package.json")) as { version: string };
     const changelog = await text("apps/cli/CHANGELOG.md");
-    expect(changelog).toMatch(/^# klopsi\n\n## 0\.0\.1\n/u);
-    expect(changelog).not.toMatch(/^## 0\.[12]\.0$/mu);
+    expect(changelog.startsWith(`# klopsi\n\n## ${cliPackage.version}\n`)).toBe(true);
 
     for (const skill of AGENT_SKILLS) {
       const generated = await text(`skills/${skill.name}/SKILL.md`);
-      expect(generated, skill.name).toContain("Generated for `klopsi` 0.0.1.");
+      expect(generated, skill.name).toContain(`Generated for \`klopsi\` ${cliPackage.version}.`);
     }
 
     const pcAxisSkillTokens: Readonly<Record<string, readonly string[]>> = {

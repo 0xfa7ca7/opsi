@@ -7,7 +7,7 @@ description: "Use when querying or converting bounded data, including ZIP, XML, 
 
 > **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before executing these commands.
 
-Analyze tabular inputs with bounded read-only SQL or convert supported formats. Generated for `klopsi` 0.0.1.
+Analyze tabular inputs with bounded read-only SQL or convert supported formats. Generated for `klopsi` 0.0.2.
 
 ## Workflow
 

@@ -7,7 +7,7 @@ description: "Use when prepared Slovenian public data needs a concise static HTM
 
 > **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before creating an artifact.
 
-Turn a prepared local artifact into a self-contained semantic HTML and inline-SVG board that remains useful offline and without JavaScript. Generated for `klopsi` 0.0.1.
+Turn a prepared local artifact into a self-contained semantic HTML and inline-SVG board that remains useful offline and without JavaScript. Generated for `klopsi` 0.0.2.
 
 ## Workflow
 

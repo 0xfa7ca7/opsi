@@ -7,7 +7,7 @@ description: "Use when securely downloading an OPSI dataset or resource and choo
 
 > **Prerequisite:** Read [klopsi-shared](../klopsi-shared/SKILL.md) before executing these commands.
 
-Download selected provider resources through the CLI's bounded secure downloader. Generated for `klopsi` 0.0.1.
+Download selected provider resources through the CLI's bounded secure downloader. Generated for `klopsi` 0.0.2.
 
 ## Workflow
 
