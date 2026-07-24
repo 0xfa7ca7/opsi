@@ -186,6 +186,84 @@ DATA=
     });
   });
 
+  it("concatenates adjacent quoted NOTEX scalar segments into one logical note value", async () => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="notes";
+STUB="Place";
+VALUES("Place")="A";
+NOTEX="First ""quoted"" line "
+  "continues here";
+DATA=1;`);
+
+    await expect(parsePcAxisMetadata(path)).resolves.toMatchObject({
+      notes: [
+        {
+          keyword: "NOTEX",
+          subkeys: [],
+          values: ['First "quoted" line continues here'],
+        },
+      ],
+    });
+  });
+
+  it("concatenates adjacent quoted language-qualified NOTEX scalar segments", async () => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="notes";
+STUB="Place";
+VALUES("Place")="A";
+NOTEX[en]="First line "
+  "continues here";
+DATA=1;`);
+
+    const metadata = await parsePcAxisMetadata(path);
+    expect(metadata.notes).toContainEqual({
+      keyword: "NOTEX",
+      language: "en",
+      subkeys: [],
+      values: ["First line continues here"],
+    });
+    expect(metadata.languageVariants).toContainEqual({
+      keyword: "NOTEX",
+      language: "en",
+      subkeys: [],
+      values: ["First line continues here"],
+    });
+  });
+
+  it.each([
+    {
+      keyword: "CELLNOTEX",
+      assignment: 'CELLNOTEX("Place","A")',
+      subkeys: ["Place", "A"],
+    },
+    {
+      keyword: "VALUENOTEX",
+      assignment: 'VALUENOTEX("Place","A")',
+      subkeys: ["Place", "A"],
+    },
+  ])(
+    "concatenates adjacent quoted $keyword scalar segments",
+    async ({ assignment, keyword, subkeys }) => {
+      const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="notes";
+STUB="Place";
+VALUES("Place")="A";
+${assignment}="First "
+  "second";
+DATA=1;`);
+
+      await expect(parsePcAxisMetadata(path)).resolves.toMatchObject({
+        notes: [
+          {
+            keyword,
+            subkeys,
+            values: ["First second"],
+          },
+        ],
+      });
+    },
+  );
+
   it("uses unqualified SURS-style 4D values and codes instead of language variants", async () => {
     const { path } = await fixture(`CODEPAGE="utf-8";
 MATRIX="tourism";
@@ -602,6 +680,57 @@ VALUES("B")="b";
 DATA=1;`);
     await expect(parsePcAxisMetadata(path)).rejects.toMatchObject({
       code: "INVALID_PCAXIS_DATA",
+    });
+  });
+
+  it.each([
+    {
+      name: "an adjacent quoted VALUES list without a comma",
+      statement: 'VALUES("A")="a" "b";',
+    },
+    {
+      name: "junk after a quoted NOTEX scalar",
+      statement: 'VALUES("A")="a";NOTEX="note"junk;',
+    },
+    {
+      name: "junk after a continued NOTEX scalar",
+      statement: 'VALUES("A")="a";NOTEX="first " "second"junk;',
+    },
+    {
+      name: "an unterminated NOTEX continuation",
+      statement: 'VALUES("A")="a";NOTEX="first " "second;',
+    },
+    {
+      name: "a mixed quoted and unquoted VALUES list",
+      statement: 'VALUES("A")="a",b;',
+    },
+  ])("rejects $name", async ({ statement }) => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="controls";
+STUB="A";
+${statement}
+DATA=1;`);
+
+    await expect(parsePcAxisMetadata(path)).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      exitCode: 6,
+    });
+  });
+
+  it("applies the decoded-string bound to the concatenated NOTEX scalar", async () => {
+    const { path } = await fixture(`CODEPAGE="utf-8";
+MATRIX="notes";
+STUB="A";
+VALUES("A")="a";
+NOTEX="12345678"
+  "90123456";
+DATA=1;`);
+
+    await expect(
+      parsePcAxisMetadata(path, limits({ maxDecodedStringBytes: 12 })),
+    ).rejects.toMatchObject({
+      code: "INVALID_PCAXIS_DATA",
+      exitCode: 6,
     });
   });
 

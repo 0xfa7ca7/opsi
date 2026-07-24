@@ -122,6 +122,7 @@ const NOTE_KEYWORDS = new Set([
   "VALUENOTE",
   "VALUENOTEX",
 ]);
+const ADJACENT_QUOTED_SCALAR_KEYWORDS = new Set(["CELLNOTEX", "NOTEX", "VALUENOTEX"]);
 const REPEATABLE_KEYWORDS = NOTE_KEYWORDS;
 const DATA_SYMBOLS = ["-", ".", "..", "...", "....", ".....", "......"] as const;
 const NUMBER_TOKEN = /^[+-]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:[Ee][+-]?\d+)?$/u;
@@ -397,6 +398,46 @@ function parseList(text: string, limits: PcAxisLimits, enforce: boolean): readon
   return values;
 }
 
+function parseAdjacentQuotedScalar(
+  text: string,
+  limits: PcAxisLimits,
+  enforce: boolean,
+): readonly [string] {
+  let index = 0;
+  let value = "";
+  let segments = 0;
+  while (index < text.length && /\s/u.test(text[index] ?? "")) index += 1;
+  while (index < text.length) {
+    if (text[index] !== '"')
+      throw invalidPcAxis("An extended PC-Axis note must contain only quoted text segments.");
+    index += 1;
+    segments += 1;
+    let closed = false;
+    while (index < text.length) {
+      const character = text[index];
+      if (character === '"') {
+        if (text[index + 1] === '"') {
+          value += '"';
+          index += 2;
+          continue;
+        }
+        index += 1;
+        closed = true;
+        break;
+      }
+      value += character;
+      index += 1;
+    }
+    if (!closed) throw invalidPcAxis("A quoted PC-Axis value is unterminated.");
+    while (index < text.length && /\s/u.test(text[index] ?? "")) index += 1;
+    if (index < text.length && text[index] !== '"')
+      throw invalidPcAxis("Unexpected text follows an extended PC-Axis note.");
+  }
+  if (segments === 0) throw invalidPcAxis("A PC-Axis assignment has no value.");
+  chargeString(value, limits, enforce);
+  return [value];
+}
+
 function parseTimevalValues(
   text: string,
   limits: PcAxisLimits,
@@ -441,7 +482,9 @@ function parseAssignment(statement: string, limits: PcAxisLimits, enforce: boole
   const values = [
     ...(keyword === "TIMEVAL"
       ? parseTimevalValues(right, limits, enforce)
-      : parseList(right, limits, enforce)),
+      : ADJACENT_QUOTED_SCALAR_KEYWORDS.has(keyword)
+        ? parseAdjacentQuotedScalar(right, limits, enforce)
+        : parseList(right, limits, enforce)),
   ];
   return {
     keyword,
