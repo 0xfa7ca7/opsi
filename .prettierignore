@@ -1,8 +1,6 @@
-.superpowers/
 docs/
 **/dist/
 coverage/
 node_modules/
 pnpm-lock.yaml
-init.txt
 skills/
